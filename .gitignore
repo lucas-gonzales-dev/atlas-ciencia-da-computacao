@@ -1,0 +1,19 @@
+# Pasta do projeto Atlas (ferramentas de auditoria) — o que NAO vai para o historico.
+#
+# source/ eh o CLONE do repositorio curricular oficial
+# (Universidade-Livre/ciencia-da-computacao). Nao eh nosso e nao deve ser
+# versionado aqui: commita-lo criaria um gitlink sem .gitmodules, que clona
+# VAZIO em outra maquina. Ele e 100% reproduzivel — veja HANDOFF.md no kit de
+# planejamento, secao "Recriar a fonte auditada", com o SHA exato.
+source/
+
+# Artefatos de bytecode do Python.
+__pycache__/
+*.py[cod]
+
+# Editores / SO.
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+.DS_Store
