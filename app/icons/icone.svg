@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Atlas">
+  <rect width="512" height="512" rx="96" fill="#0b1020"/>
+  <!-- Trilha: tres nos ligados, o ultimo ainda trancado (cinza). E o produto inteiro num icone. -->
+  <g stroke="#26304d" stroke-width="18" stroke-linecap="round">
+    <line x1="150" y1="380" x2="256" y2="256"/>
+    <line x1="256" y1="256" x2="362" y2="132"/>
+  </g>
+  <circle cx="150" cy="380" r="46" fill="#6aa9ff"/>
+  <circle cx="256" cy="256" r="46" fill="#38d39f"/>
+  <circle cx="362" cy="132" r="46" fill="none" stroke="#5a6482" stroke-width="16"/>
+  <text x="256" y="474" text-anchor="middle" font-family="system-ui, sans-serif" font-size="52" font-weight="700" fill="#e8ecf7">ATLAS</text>
+</svg>

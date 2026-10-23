@@ -6,6 +6,9 @@
 <meta name="theme-color" content="#0b1020">
 <meta name="description" content="Trilha de Ciência da Computação da Universidade Livre Brasileira, com pré-requisitos e progresso.">
 <title>Projeto Atlas — Ciência da Computação</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icone.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icone.svg">
 <style>
   /* Mobile-first de verdade: o padrao E o celular. Tela grande so ganha
      largura e colunas, nunca outra estrutura. */
@@ -112,6 +115,23 @@ const { courses, origem } = await loadCatalog();
 state = { ...state, courses, origem };
 paint();
 bind(root, state, toggle);
+
+// Service worker DEPOIS da primeira pintura: registrar antes atrasaria o que
+// o aluno veio ver. Falha aqui nao pode derrubar a tela — em file:// e em
+// navegadores sem suporte, `navigator.serviceWorker` simplesmente nao existe.
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  try {
+    const reg = await navigator.serviceWorker.register('sw.js', { scope: '/' });
+    reg.addEventListener('updatefound', () => {
+      const novo = reg.installing;
+      novo?.addEventListener('statechange', () => {
+        if (novo.state === 'activated') aviso('Nova versão instalada. Ela vale na próxima abertura.');
+      });
+    });
+  } catch (e) {
+    console.warn('service worker nao registrou:', e.message);
+  }
+}
 </script>
 </body>
 </html>
