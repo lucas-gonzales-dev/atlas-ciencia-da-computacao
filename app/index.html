@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b1020">
+<meta name="description" content="Trilha de Ciência da Computação da Universidade Livre Brasileira, com pré-requisitos e progresso.">
+<title>Projeto Atlas — Ciência da Computação</title>
+<style>
+  /* Mobile-first de verdade: o padrao E o celular. Tela grande so ganha
+     largura e colunas, nunca outra estrutura. */
+  :root {
+    --fundo: #0b1020; --cartao: #151b30; --borda: #26304d;
+    --texto: #e8ecf7; --fosco: #93a0c2;
+    --aberto: #38d39f; --feito: #6aa9ff; --trancado: #5a6482; --alerta: #ffb454;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--fundo); color: var(--texto);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-text-size-adjust: 100%;
+  }
+  .app { max-width: 720px; margin: 0 auto; padding: 16px 14px 48px; }
+  h1 { font-size: 1.5rem; margin: 4px 0 2px; letter-spacing: -.02em; }
+  .sub, .fonte { margin: 2px 0; color: var(--fosco); font-size: .84rem; }
+  .fonte { font-size: .76rem; opacity: .85; word-break: break-word; }
+  .alerta {
+    margin: 12px 0; padding: 10px 12px; border-radius: 10px; font-size: .86rem;
+    background: #3a2a12; border: 1px solid #6b4a1c; color: var(--alerta);
+  }
+  .carregando { color: var(--fosco); }
+  .trilha { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: 10px; }
+  .item {
+    display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center;
+    background: var(--cartao); border: 1px solid var(--borda); border-left: 4px solid var(--trancado);
+    border-radius: 12px; padding: 12px 14px;
+  }
+  .item .titulo { grid-column: 1; font-weight: 600; }
+  .item .status { grid-column: 2; grid-row: 1; font-size: .74rem; color: var(--fosco); text-align: right; }
+  .item .marca { grid-column: 1 / -1; grid-row: 2; justify-self: start; }
+  .item.disponivel { border-left-color: var(--aberto); }
+  .item.disponivel .status { color: var(--aberto); }
+  .item.concluida { border-left-color: var(--feito); opacity: .82; }
+  .item.concluida .status { color: var(--feito); }
+  .item.concluida .titulo { text-decoration: line-through; text-decoration-color: #4a5a80; }
+  .item.trancada, .item.ciclo { opacity: .62; }
+  .item.ciclo .status { color: var(--alerta); }
+  button.marca {
+    margin-top: 8px; min-height: 40px; padding: 8px 16px; border-radius: 9px;
+    border: 1px solid var(--borda); background: #1d2740; color: var(--texto);
+    font: inherit; font-size: .88rem; font-weight: 600; cursor: pointer;
+  }
+  button.marca:active { transform: translateY(1px); }
+  button.marca:disabled { cursor: not-allowed; opacity: .45; }
+  .item.disponivel button.marca { background: #12352a; border-color: #1f6b52; color: var(--aberto); }
+  .item.concluida button.marca { background: #16233d; border-color: #2c4c7d; color: var(--feito); }
+  @media (min-width: 620px) {
+    .app { padding: 28px 20px 64px; }
+    h1 { font-size: 1.9rem; }
+    .item { grid-template-columns: 1fr auto auto; }
+    .item .status { grid-row: 1; }
+    .item .marca { grid-column: 3; grid-row: 1; justify-self: end; margin-top: 0; }
+  }
+</style>
+</head>
+<body>
+<main id="app" class="app" aria-live="polite">
+  <p class="carregando">Carregando a trilha…</p>
+</main>
+
+<script type="module">
+import { loadCatalog, loadCompleted, saveCompleted, render, bind } from './web/main.js';
+
+const root = document.getElementById('app');
+
+let state = { courses: [], completed: loadCompleted(), origem: 'carregando…' };
+
+function paint() {
+  render(root, state);
+}
+
+// Unico lugar que muda `completed`. Regra de negocio fica em core/progress.js.
+function toggle(id) {
+  const tem = state.completed.includes(id);
+  state.completed = tem
+    ? state.completed.filter((x) => x !== id)
+    : [...state.completed, id];
+
+  if (!saveCompleted(state.completed)) aviso('Não consegui salvar neste navegador: o progresso vale só enquanto esta aba estiver aberta.');
+  paint();
+}
+
+function aviso(texto) {
+  root.querySelector('p.aviso-save')?.remove();
+  const p = document.createElement('p');
+  p.className = 'alerta aviso-save';
+  p.textContent = texto;
+  root.prepend(p);
+}
+
+const { courses, origem } = await loadCatalog();
+state = { ...state, courses, origem };
+paint();
+bind(root, state, toggle);
+</script>
+</body>
+</html>

@@ -1,0 +1,483 @@
+{
+  "geradoPor": "tools/build-catalog.mjs",
+  "geradoDe": "app/data/ubl-core-seed.json",
+  "origem": "35 disciplinas da grade obrigatoria — Universidade Livre Brasileira (https://github.com/Universidade-Livre/ciencia-da-computacao) @ commit NAO FIXADO: a fonte pode ter mudado desde a auditoria",
+  "courses": [
+    {
+      "id": "ubl-core-circuitos-digitais",
+      "slug": "circuitos-digitais",
+      "title": "Circuitos Digitais",
+      "stage": 1,
+      "trackId": "ubl-core",
+      "status": "active_core",
+      "resourceUrl": "https://www.youtube.com/playlist?list=PLXyWBo_coJnMYO9Na3t-oYsc2X4kPJBWf",
+      "resourceType": "external_course_or_playlist",
+      "prerequisites": [],
+      "bibliography": "extras/bibliography/01_digital_circuits.md"
+    },
+    {
+      "id": "ubl-core-matematica-discreta",
+      "slug": "matematica-discreta",
+      "title": "Matemática Discreta",
+      "stage": 1,
+      "trackId": "ubl-core",
+      "status": "active_core",
+      "resourceUrl": "https://www.youtube.com/watch?v=KGoSTh1sgyM&list=PL6mfjjCaO1WrEJ0JKRyXO3QjaPkJaSvAS",
+      "resourceType": "external_course_or_playlist",
+      "prerequisites": [],
+      "bibliography": "extras/bibliography/02_discrete_mathematics.md"
+    },
+    {
+      "id": "ubl-core-linguagens-de-programacao",
+      "slug": "linguagens-de-programacao",
+      "title": "Linguagens de Programação",
+      "stage": 1,
+      "trackId": "ubl-core",
+      "status": "active_core",
+      "resourceUrl": "https://www.youtube.com/watch?v=xfDdxqbkiSQ&list=PLnzT8EWpmbka4KukGR184tifzqcuq_ZDv",
+      "resourceType": "external_course_or_playlist",
+      "prerequisites": [],
+      "bibliography": "extras/bibliography/03_programming_languages.md"
+    },
+    {
+      "id": "ubl-core-introducao-cc-python-i",
+      "slug": "introducao-cc-python-i",
+      "title": "Introdução à Ciência da Computação com Python I",
+      "stage": 1,
+      "trackId": "ubl-core",
+      "status": "active_core",
+      "resourceUrl": "https://youtube.com/playlist?list=PLcoJJSvnDgcKpOi_UeneTNTIVOigRQwcn&si=RT7FxhHXAYGUuYJD",
+      "resourceType": "external_course_or_playlist",
+      "prerequisites": [],
+      "bibliography": "extras/bibliography/04_intro_python.md"
+    },
+    {
+      "id": "ubl-core-geometria-analitica",
+      "slug": "geometria-analitica",
+      "title": "Geometria Analítica",
+      "stage": 1,
+      "trackId": "ubl-core",
+      "status": "active_core",
+      "resourceUrl": "https://www.youtube.com/watch?v=ijkDjQT7UPM&list=PL82Svt6JAgOH3M6TCELx8oegTVCriUg3L",
+      "resourceType": "external_course_or_playlist",
+      "prerequisites": [],
+      "bibliography": "extras/bibliography/05_analytic_geometry.md"
+    },
+    {
+      "id": "ubl-core-calculo-i",
+      "slug": "calculo-i",
+      "title": "Cálculo I",
+      "stage": 2,
+      "trackId": "ubl-core",
+      "status": "active_core",
+      "resourceUrl": "https://www.youtube.com/watch?v=WgHUHPlJETs&list=PLAudUnJeNg4tr-aiNyYCXE46L3qEZ2Nzx",
+      "resourceType": "external_course_or_playlist",
+      "prerequisites": [
+        "ubl-core-geometria-analitica"
+      ],
+      "bibliography": "extras/bibliography/06_intro_calculus.md"
+    },
+    {
+      "id": "ubl-core-algebra-linear-i",
+      "slug": "algebra-linear-i",
+      "title": "Álgebra Linear I",
+      "stage": 2,
+      "trackId": "ubl-core",
+      "status": "active_core",
+      "resourceUrl": "https://www.youtube.com/playlist?list=PLIEzh1OveCVczEZAjhVIVd7Qs-X8ILgnI",
+      "resourceType": "external_course_or_playlist",
+      "prerequisites": [
+        "ubl-core-geometria-analitica"
+      ],
+      "bibliography": "extras/bibliography/07_intro_linear_algebra.md"
+    },
+    {
+      "id": "ubl-core-estruturas-de-dados",
+      "slug": "estruturas-de-dados",
+      "title": "Estruturas de Dados",
+      "stage": 2,
+      "trackId": "ubl-core",
+      "status": "active_core",
+      "resourceUrl": "https://www.youtube.com/watch?v=0hT3EKGhbpI&list=PLndfcZyvAqbofQl2kLLdeWWjCcPlOPnrW",
+      "resourceType": "external_course_or_playlist",
+      "prerequisites": [
+        "ubl-core-matematica-discreta",
+        "ubl-core-introducao-cc-python-i"
+      ],
+      "bibliography": "extras/bibliography/08_data_structure.md"
+    },
+    {
+      "id": "ubl-core-introducao-cc-python-ii",
+      "slug": "introducao-cc-python-ii",
+      "title": "Introdução à Ciência da Computação com Python II",
+      "stage": 2,
+      "trackId": "ubl-core",
+      "status": "active_core",
+      "resourceUrl": "https://youtube.com/playlist?list=PLcoJJSvnDgcKpOi_UeneTNTIVOigRQwcn&si=RT7FxhHXAYGUuYJD",
+      "resourceType": "external_course_or_playlist",
+      "prerequisites": [
+        "ubl-core-introducao-cc-python-i"
+      ],
+      "bibliography": "extras/bibliography/09_python.md"
+    },
+    {
+      "id": "ubl-core-laboratorio-poo-i",
+      "slug": "laboratorio-poo-i",
+      "title": "Laboratório de Programação Orientada a Objetos I",
+      "stage": 2,
+      "trackId": "ubl-core",
+      "status": "active_core",
+      "resourceUrl": "https://www.youtube.com/playlist?list=PLTeQ2u81sjqfsFNWrUCIoqJZBSJrai8M7",
+      "resourceType": "external_course_or_playlist",
+      "prerequisites": [
+        "ubl-core-introducao-cc-python-i"
+      ],
+      "bibliography": "extras/bibliography/10_object_orientation.md"
+    },
+    {
+      "id": "ubl-core-algoritmos-em-grafos",
+      "slug": "algoritmos-em-grafos",
+      "title": "Algoritmos em Grafos",
+      "stage": 3,
+      "trackId": "ubl-core",
+      "status": "active_core",
+      "resourceUrl": "https://www.youtube.com/watch?v=fjOiu6CD5pc&list=PLrPn-zKAOzUzKdPqFNF52g-i9p1f-vmsk",
+      "resourceType": "external_course_or_playlist",
+      "prerequisites": [
+        "ubl-core-estruturas-de-dados"
+      ],
+      "bibliography": "extras/bibliography/11_graph_algorithms.md"
+    },
+    {
+      "id": "ubl-core-arquitetura-computadores-i",
+      "slug": "arquitetura-computadores-i",
+      "title": "Arquitetura de Computadores I",
+      "stage": 3,
+      "trackId": "ubl-core",
+      "status": "active_core",
+      "resourceUrl": "https://www.youtube.com/playlist?list=PLEUHFTHcrJmswfeq7QEHskgkT6HER3gK6",
+      "resourceType": "external_course_or_playlist",
+      "prerequisites": [
+        "ubl-core-circuitos-digitais"
+      ],
+      "bibliography": "extras/bibliography/12_computer_architecture.md"
+    },
+    {
+      "id": "ubl-core-probabilidade-estatistica",
+      "slug": "probabilidade-estatistica",
+      "title": "Probabilidade e Estatística",
+      "stage": 3,
+      "trackId": "ubl-core",
+      "status": "active_core",
+      "resourceUrl": "https://www.youtube.com/watch?v=snXf8YT7L3U&list=PLrOyM49ctTx8HWnxWRBtKrfcuf7ew_3nm",
+      "resourceType": "external_course_or_playlist",
+      "prerequisites": [
+        "ubl-core-calculo-i"
+      ],
+      "bibliography": "extras/bibliography/13_statistics_probability.md"
+    },
+    {
+      "id": "ubl-core-calculo-ii",
+      "slug": "calculo-ii",
+      "title": "Cálculo II",
+      "stage": 3,
+      "trackId": "ubl-core",
+      "status": "active_core",
+      "resourceUrl": "https://www.youtube.com/watch?v=lQdzRBRL9Tw&list=PLAudUnJeNg4sd0TEJ9EG6hr-3d3jqrddN",
+      "resourceType": "external_course_or_playlist",
+      "prerequisites": [
+        "ubl-core-calculo-i"
+      ],
+      "bibliography": "extras/bibliography/14_advanced_calculus.md"
+    },
+    {
+      "id": "ubl-core-programacao-funcional-haskell",
+      "slug": "programacao-funcional-haskell",
+      "title": "Programação Funcional em Haskell",
+      "stage": 3,
+      "trackId": "ubl-core",
+      "status": "active_core",
+      "resourceUrl": "https://www.youtube.com/watch?v=eTisiy5FB7k&list=PLYItvall0TqJ25sVTLcMhxsE0Hci58mpQ&index=1",
+      "resourceType": "external_course_or_playlist",
+      "prerequisites": [],
+      "bibliography": "extras/bibliography/15_haskell.md"
+    },
+    {
+      "id": "ubl-core-analise-algoritmos",
+      "slug": "analise-algoritmos",
+      "title": "Análise de Algoritmos",
+      "stage": 4,
+      "trackId": "ubl-core",
+      "status": "active_core",
+      "resourceUrl": "https://www.youtube.com/watch?v=_HBTCUNPxOg&list=PLncEdvQ20-mgGanwuFczm-4IwIdIcIiha",
+      "resourceType": "external_course_or_playlist",
+      "prerequisites": [
+        "ubl-core-algoritmos-em-grafos"
+      ],
+      "bibliography": "extras/bibliography/16_analysis_of_algorithms.md"
+    },
+    {
+      "id": "ubl-core-metodos-numericos-i",
+      "slug": "metodos-numericos-i",
+      "title": "Métodos Numéricos I",
+      "stage": 4,
+      "trackId": "ubl-core",
+      "status": "active_core",
+      "resourceUrl": "https://www.youtube.com/watch?v=a6nNQ6qKgiY&list=PLI9WiBCz67cPTTRER4CrsN0wpRN-NmjGA",
+      "resourceType": "external_course_or_playlist",
+      "prerequisites": [
+        "ubl-core-introducao-cc-python-i",
+        "ubl-core-calculo-i"
+      ],
+      "bibliography": "extras/bibliography/17_numeric_methods.md"
+    },
+    {
+      "id": "ubl-core-banco-de-dados",
+      "slug": "banco-de-dados",
+      "title": "Banco de Dados",
+      "stage": 4,
+      "trackId": "ubl-core",
+      "status": "active_core",
+      "resourceUrl": "https://www.youtube.com/watch?v=pmAxIs5U1KI&list=PLxI8Can9yAHeHQr2McJ01e-ANyh3K0Lfq",
+      "resourceType": "external_course_or_playlist",
+      "prerequisites": [],
+      "bibliography": "extras/bibliography/18_database.md"
+    },
+    {
+      "id": "ubl-core-arquitetura-computadores-ii",
+      "slug": "arquitetura-computadores-ii",
+      "title": "Arquitetura de Computadores II",
+      "stage": 4,
+      "trackId": "ubl-core",
+      "status": "active_core",
+      "resourceUrl": "https://www.youtube.com/playlist?list=PLEUHFTHcrJmsqKX-GDD-hBvkF8h2_BfKJ",
+      "resourceType": "external_course_or_playlist",
+      "prerequisites": [
+        "ubl-core-introducao-cc-python-ii",
+        "ubl-core-arquitetura-computadores-i"
+      ],
+      "bibliography": "extras/bibliography/19_computer_architecture_II.md"
+    },
+    {
+      "id": "ubl-core-programacao-logica",
+      "slug": "programacao-logica",
+      "title": "Programação Lógica",
+      "stage": 4,
+      "trackId": "ubl-core",
+      "status": "active_core",
+      "resourceUrl": "https://youtube.com/playlist?list=PLZ-Bk6jzsb-OScKa7vhpcQXoU2uxYGaFx&si=Y52_w6CQPYEE2fLN",
+      "resourceType": "external_course_or_playlist",
+      "prerequisites": [],
+      "bibliography": "extras/bibliography/20_logical_programming.md"
+    },
+    {
+      "id": "ubl-core-redes-computadores",
+      "slug": "redes-computadores",
+      "title": "Redes de Computadores",
+      "stage": 5,
+      "trackId": "ubl-core",
+      "status": "active_core",
+      "resourceUrl": "https://www.youtube.com/playlist?list=PLvHXLbw-JSPfKp65psX5C9tyNLHHC4uoR",
+      "resourceType": "external_course_or_playlist",
+      "prerequisites": [],
+      "bibliography": "extras/bibliography/21_computer_network.md"
+    },
+    {
+      "id": "ubl-core-engenharia-software",
+      "slug": "engenharia-software",
+      "title": "Introdução à Engenharia de Software",
+      "stage": 5,
+      "trackId": "ubl-core",
+      "status": "active_core",
+      "resourceUrl": "https://www.youtube.com/watch?v=h_hEI1Kfm2U&list=PLhBaeEzs3d7lsn_Mq2n3R4_api16Wkp1Q",
+      "resourceType": "external_course_or_playlist",
+      "prerequisites": [
+        "ubl-core-introducao-cc-python-ii"
+      ],
+      "bibliography": "extras/bibliography/22_software_engineering.md"
+    },
+    {
+      "id": "ubl-core-sistemas-operacionais",
+      "slug": "sistemas-operacionais",
+      "title": "Sistemas Operacionais",
+      "stage": 5,
+      "trackId": "ubl-core",
+      "status": "active_core",
+      "resourceUrl": "https://www.youtube.com/watch?v=EGn8fOf7zE0&list=PLSmh8AKk_aUn9HxFs5FnjQupdQnV56MXV",
+      "resourceType": "external_course_or_playlist",
+      "prerequisites": [
+        "ubl-core-arquitetura-computadores-ii"
+      ],
+      "bibliography": "extras/bibliography/23_operating_system.md"
+    },
+    {
+      "id": "ubl-core-programacao-matematica",
+      "slug": "programacao-matematica",
+      "title": "Programação Matemática",
+      "stage": 5,
+      "trackId": "ubl-core",
+      "status": "active_core",
+      "resourceUrl": "https://www.youtube.com/watch?v=8rrgnFCL9LM&list=PL2peXovwG2kuqXC6sECjFSiG-MT1yXMQ-",
+      "resourceType": "external_course_or_playlist",
+      "prerequisites": [
+        "ubl-core-algebra-linear-i"
+      ],
+      "bibliography": "extras/bibliography/24_math_optimization.md"
+    },
+    {
+      "id": "ubl-core-fundamentos-computacao-grafica",
+      "slug": "fundamentos-computacao-grafica",
+      "title": "Fundamentos de Computação Gráfica",
+      "stage": 5,
+      "trackId": "ubl-core",
+      "status": "active_core",
+      "resourceUrl": "https://www.youtube.com/watch?v=AVSAesOiKYY&list=PLE51fUFkeIwLXwe4rvG4EMgw7zgjP-tDx",
+      "resourceType": "external_course_or_playlist",
+      "prerequisites": [
+        "ubl-core-geometria-analitica"
+      ],
+      "bibliography": "extras/bibliography/25_fundamentals_computer_graphics.md"
+    },
+    {
+      "id": "ubl-core-linguagens-formais-automatos",
+      "slug": "linguagens-formais-automatos",
+      "title": "Linguagens Formais e Autômatos",
+      "stage": 6,
+      "trackId": "ubl-core",
+      "status": "active_core",
+      "resourceUrl": "https://www.youtube.com/watch?v=4zMwOozUt9U&list=PLncEdvQ20-mhD_qMeLHtLnA3XDT1Fr_k4&pp=iAQB",
+      "resourceType": "external_course_or_playlist",
+      "prerequisites": [
+        "ubl-core-matematica-discreta"
+      ],
+      "bibliography": "extras/bibliography/26_automata_theory.md"
+    },
+    {
+      "id": "ubl-core-inteligencia-artificial",
+      "slug": "inteligencia-artificial",
+      "title": "Inteligência Artificial",
+      "stage": 6,
+      "trackId": "ubl-core",
+      "status": "active_core",
+      "resourceUrl": "https://www.youtube.com/watch?v=-T3zDFxngf4&list=PLeejGOroKw_txh7j7S3etF5eudI2WvMx0",
+      "resourceType": "external_course_or_playlist",
+      "prerequisites": [
+        "ubl-core-estruturas-de-dados",
+        "ubl-core-probabilidade-estatistica"
+      ],
+      "bibliography": "extras/bibliography/27_artificial_intelligence.md"
+    },
+    {
+      "id": "ubl-core-sistemas-distribuidos",
+      "slug": "sistemas-distribuidos",
+      "title": "Sistemas Distribuídos",
+      "stage": 6,
+      "trackId": "ubl-core",
+      "status": "active_core",
+      "resourceUrl": "https://www.youtube.com/watch?v=TEEy5f46h_Q&list=PLP0bYj2MTFcuXa4-EbBKhvehr-rkxpeR8&index=1",
+      "resourceType": "external_course_or_playlist",
+      "prerequisites": [
+        "ubl-core-redes-computadores"
+      ],
+      "bibliography": "extras/bibliography/28_distributed_computing.md"
+    },
+    {
+      "id": "ubl-core-teoria-grafos",
+      "slug": "teoria-grafos",
+      "title": "Teoria dos Grafos",
+      "stage": 6,
+      "trackId": "ubl-core",
+      "status": "active_core",
+      "resourceUrl": "https://www.youtube.com/watch?v=kfHqZLYHfHU&list=PLndfcZyvAqbr2MLCOLEvBNX6FgD8UNWfX",
+      "resourceType": "external_course_or_playlist",
+      "prerequisites": [
+        "ubl-core-matematica-discreta"
+      ],
+      "bibliography": "extras/bibliography/29_graphs.md"
+    },
+    {
+      "id": "ubl-core-calculo-iii",
+      "slug": "calculo-iii",
+      "title": "Cálculo III",
+      "stage": 6,
+      "trackId": "ubl-core",
+      "status": "active_core",
+      "resourceUrl": "https://www.youtube.com/watch?v=8mBTfk7s63s&list=PLAudUnJeNg4ugGUJo52dtgFZ_tCm1Ds5W",
+      "resourceType": "external_course_or_playlist",
+      "prerequisites": [
+        "ubl-core-calculo-ii"
+      ],
+      "bibliography": "extras/bibliography/30_multivariable_calculus.md"
+    },
+    {
+      "id": "ubl-core-teoria-computacao",
+      "slug": "teoria-computacao",
+      "title": "Teoria da Computação",
+      "stage": 7,
+      "trackId": "ubl-core",
+      "status": "active_core",
+      "resourceUrl": "https://www.youtube.com/watch?v=dWRxL30aoes&list=PLYLYA7XrlskNgCeSpJf9PQHHb8Z4WpRm4",
+      "resourceType": "external_course_or_playlist",
+      "prerequisites": [
+        "ubl-core-linguagens-formais-automatos"
+      ],
+      "bibliography": "extras/bibliography/31_theory_of_computation.md"
+    },
+    {
+      "id": "ubl-core-deep-learning",
+      "slug": "deep-learning",
+      "title": "Deep Learning",
+      "stage": 7,
+      "trackId": "ubl-core",
+      "status": "active_core",
+      "resourceUrl": "https://www.youtube.com/watch?v=0VD_2t6EdS4&list=PL9At2PVRU0ZqVArhU9QMyI3jSe113_m2-",
+      "resourceType": "external_course_or_playlist",
+      "prerequisites": [
+        "ubl-core-inteligencia-artificial"
+      ],
+      "bibliography": "extras/bibliography/32_deep_learning.md"
+    },
+    {
+      "id": "ubl-core-compiladores",
+      "slug": "compiladores",
+      "title": "Compiladores",
+      "stage": 7,
+      "trackId": "ubl-core",
+      "status": "active_core",
+      "resourceUrl": "https://youtube.com/playlist?list=PLX6Nyaq0ebfhI396WlWN6WlBm-tp7vDtV&si=LoaU9lzLMuSVikgi",
+      "resourceType": "external_course_or_playlist",
+      "prerequisites": [
+        "ubl-core-estruturas-de-dados",
+        "ubl-core-teoria-grafos"
+      ],
+      "bibliography": "extras/bibliography/33_compilers.md"
+    },
+    {
+      "id": "ubl-core-computacao-quantica",
+      "slug": "computacao-quantica",
+      "title": "Computação Quântica",
+      "stage": 7,
+      "trackId": "ubl-core",
+      "status": "active_core",
+      "resourceUrl": "https://youtube.com/playlist?list=PLUFcRbu9t-v4peHdmDy4rtG3EnbZNS86R&si=hLYHhS2BTKRgNwMJ",
+      "resourceType": "external_course_or_playlist",
+      "prerequisites": [
+        "ubl-core-calculo-iii",
+        "ubl-core-arquitetura-computadores-ii"
+      ],
+      "bibliography": "extras/bibliography/34_quantum_computing.md"
+    },
+    {
+      "id": "ubl-core-metodologia-pesquisa",
+      "slug": "metodologia-pesquisa",
+      "title": "Metodologia da Pesquisa",
+      "stage": 7,
+      "trackId": "ubl-core",
+      "status": "active_core",
+      "resourceUrl": "https://youtube.com/playlist?list=PLclUQno6PMpQO0-XrDwWsPzRzEvjwp1__&si=0dXojlZV5EisMB6s",
+      "resourceType": "external_course_or_playlist",
+      "prerequisites": [],
+      "bibliography": "extras/bibliography/35_methodology.md"
+    }
+  ]
+}

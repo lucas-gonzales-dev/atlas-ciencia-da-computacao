@@ -1,0 +1,10 @@
+{
+  "name": "atlas-app",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Nucleo compartilhado do Projeto Atlas. Roda no Node (testes) e no navegador (web/PWA) sem build.",
+  "scripts": {
+    "test": "node --test tests/"
+  }
+}
