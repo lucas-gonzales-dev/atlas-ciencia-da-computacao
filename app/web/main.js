@@ -116,11 +116,29 @@ export function render(root, { courses, completed, origem }) {
     // tinha visto porque index.html ainda nao existia. Agora o li e montado
     // antes de entrar na lista, sem remendo posterior.
     const li = el('li', { class: `item ${estado}`, 'data-id': c.id });
-    li.append(
+    const pedacos = [
       el('span', { class: 'titulo' }, `${c.title}${prereq}`),
-      el('span', { class: 'status' }, rotulo),
-      btn
-    );
+      el('span', { class: 'status' }, rotulo)
+    ];
+
+    // O recurso e o motivo de a trilha existir: sem ele o aluno ve "Python I"
+    // e nao tem onde estudar. Aparece tambem na disciplina TRANCADA — a trava
+    // e sobre marcar conclusao, nao sobre curiosidade (decisao 23/10/2026).
+    // href vazio ou "#" seria pior que link nenhum, por isso o teste explicito.
+    const recurso = typeof c.resourceUrl === 'string' ? c.resourceUrl.trim() : '';
+    if (recurso !== '') {
+      pedacos.push(
+        el('a', {
+          class: 'recurso',
+          href: recurso,
+          target: '_blank',
+          rel: 'noopener noreferrer'
+        }, 'Abrir recurso')
+      );
+    }
+
+    pedacos.push(btn);
+    li.append(...pedacos);
     lista.append(li);
   }
 

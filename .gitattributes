@@ -1,0 +1,16 @@
+# Projeto Atlas — normalizacao de fim de linha.
+#
+# Por que existe: no repo irmao (atlas-planning-kit) o KIT_MANIFEST gravou
+# sha256 medido em LF e um clone fresco com core.autocrlf=true devolveu CRLF
+# (14349 vs 14599 bytes) — hash nao bateu e a integridade "quebrou" sem ninguem
+# ter editado nada. Fixar aqui evita repetir o mesmo falso alarme.
+#
+# LF no indice em TODA maquina; o working copy do Windows pode ser CRLF.
+* text=auto eol=lf
+
+# Binarios: nunca tocar.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.woff2 binary

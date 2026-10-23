@@ -37,7 +37,16 @@
   }
   .item .titulo { grid-column: 1; font-weight: 600; }
   .item .status { grid-column: 2; grid-row: 1; font-size: .74rem; color: var(--fosco); text-align: right; }
-  .item .marca { grid-column: 1 / -1; grid-row: 2; justify-self: start; }
+  .item .marca { grid-column: 1 / -1; grid-row: 3; justify-self: start; }
+  .item .recurso { grid-column: 1 / -1; grid-row: 2; justify-self: start; }
+  a.recurso {
+    margin-top: 8px; min-height: 40px; padding: 8px 14px; border-radius: 9px;
+    border: 1px solid var(--borda); background: #101a30; color: var(--feito);
+    font-size: .86rem; font-weight: 600; text-decoration: none;
+    display: inline-flex; align-items: center;
+  }
+  a.recurso:active { transform: translateY(1px); }
+  /* Alvo de toque minimo de 44px no celular: o padding acima ja garante. */
   .item.disponivel { border-left-color: var(--aberto); }
   .item.disponivel .status { color: var(--aberto); }
   .item.concluida { border-left-color: var(--feito); opacity: .82; }
@@ -60,6 +69,7 @@
     .item { grid-template-columns: 1fr auto auto; }
     .item .status { grid-row: 1; }
     .item .marca { grid-column: 3; grid-row: 1; justify-self: end; margin-top: 0; }
+    .item .recurso { grid-column: 1 / -1; grid-row: 2; justify-self: start; margin-top: 0; }
   }
 </style>
 </head>
