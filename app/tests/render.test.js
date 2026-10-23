@@ -73,16 +73,33 @@ function desenhar(completed = []) {
   return { root, resumo };
 }
 
+/** A lista (ul.trilha) sem o destaque — para os testes que contam links da LISTA. */
+function trilha(root) {
+  return achar(root, 'ul').find((u) => u.className.includes('trilha'));
+}
+
+/** Junta o texto do no e de todos os filhos: no stub, o texto mora nas folhas. */
+function textoDe(no) {
+  return (no.textContent || '') + (no.children || []).map(textoDe).join(' ');
+}
+
+function destaque(root) {
+  return achar(root, 'section').find((s) => s.className.includes('proxima'));
+}
+
 test('a disciplina disponivel TEM o link do recurso: o aluno precisa ter onde estudar', () => {
   const { root } = desenhar([]);
-  const links = achar(root, 'a');
+  // Escopado a ul.trilha em 23/10/2026: o destaque "sua proxima materia" tambem
+  // leva link, e contar a tela inteira faria este teste quebrar por um acrescimo
+  // CERTO. O que ele mede e a lista, entao ele mede a lista.
+  const links = achar(trilha(root), 'a');
   assert.equal(links.length, 2, 'as 2 disciplinas com resourceUrl deviam gerar 2 links');
   assert.equal(links[0].attrs.href, 'https://www.youtube.com/playlist?list=PLLOGICA');
 });
 
 test('o href vem do campo REAL do catalogo, nao de um placeholder', () => {
   const { root } = desenhar([]);
-  const hrefs = achar(root, 'a').map((a) => a.attrs.href);
+  const hrefs = achar(trilha(root), 'a').map((a) => a.attrs.href);
   assert.deepEqual(hrefs, [
     'https://www.youtube.com/playlist?list=PLLOGICA',
     'https://www.youtube.com/playlist?list=PLPYTHON1'
@@ -114,4 +131,55 @@ test('o link abre em aba nova e nao vaza referrer (recurso externo, youtube/cour
     assert.equal(a.attrs.target, '_blank');
     assert.match(a.attrs.rel || '', /noopener/);
   }
+});
+
+// INCREMENTO 23/10/2026 — "sua proxima materia" em destaque.
+// Motivo: abrir o app e ter de ler 35 linhas para descobrir o que fazer agora e
+// o caminho mais rapido para desistir de estudar. O proximo passo vem primeiro.
+test('a proxima materia aparece em DESTAQUE, antes da lista', () => {
+  const { root } = desenhar([]);
+  const d = destaque(root);
+  assert.ok(d, 'esperava um <section class="proxima">');
+  const iDestaque = root.children.indexOf(d);
+  const iLista = root.children.indexOf(trilha(root));
+  assert.ok(iDestaque >= 0 && iLista >= 0, 'destaque e lista precisam ser filhos diretos da raiz');
+  assert.ok(iDestaque < iLista, `destaque (${iDestaque}) tem de vir ANTES da lista (${iLista})`);
+  assert.match(textoDe(d), /Logica de Programacao/, 'com nada concluido, a proxima e a primeira sem pre-requisito');
+});
+
+test('concluiu a primeira, o destaque muda para a proxima de verdade', () => {
+  const { root } = desenhar(['logica']);
+  const t = textoDe(destaque(root));
+  assert.match(t, /Python I/);
+  assert.doesNotMatch(t, /Logica de Programacao/, 'destaque nao pode repetir materia ja concluida');
+});
+
+test('o destaque tem o link do recurso da proxima materia (um clique ate estudar)', () => {
+  const { root } = desenhar([]);
+  const links = achar(destaque(root), 'a');
+  assert.equal(links.length, 1);
+  assert.equal(links[0].attrs.href, 'https://www.youtube.com/playlist?list=PLLOGICA');
+});
+
+test('trilha toda concluida: o destaque comemora e NAO inventa materia', () => {
+  const { root } = desenhar(CATALOGO.map((c) => c.id));
+  const d = destaque(root);
+  assert.ok(d, 'o destaque continua existindo, com outro texto');
+  const t = textoDe(d);
+  assert.match(t, /conclu/i);
+  for (const c of CATALOGO) assert.ok(!t.includes(c.title), `nao devia citar "${c.title}" — nao ha proxima`);
+  assert.equal(achar(d, 'a').length, 0, 'sem link: nao ha recurso para abrir');
+});
+
+test('nada destrancado (so materias em ciclo): o destaque diz isso, nao fica mudo', () => {
+  const comCiclo = [
+    { id: 'a', title: 'Disciplina A', stage: 1, prerequisites: ['b'] },
+    { id: 'b', title: 'Disciplina B', stage: 1, prerequisites: ['a'] }
+  ];
+  const root = criarNo('div');
+  render(root, { courses: comCiclo, completed: [], origem: 'teste' });
+  const d = destaque(root);
+  assert.ok(d, 'o destaque existe mesmo quando nada abre');
+  assert.equal(achar(d, 'a').length, 0);
+  assert.match(textoDe(d), /ciclo|destranc/i, 'tem de explicar por que nao ha proxima materia');
 });

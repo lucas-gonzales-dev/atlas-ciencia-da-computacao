@@ -91,3 +91,47 @@ export function unlockedCourses(courses, completed = []) {
   }
   return out;
 }
+
+/**
+ * Qual e a PROXIMA materia — a unica decisao que a tela nao pode tomar sozinha.
+ *
+ * Devolve um dos tres estados, e nunca inventa o que nao existe:
+ *   'open'    ha o que fazer agora; `course` e a primeira disponivel na ordem
+ *             do catalogo (um proximo passo, nao cinco)
+ *   'done'    o catalogo inteiro esta concluido
+ *   'blocked' ha materias restantes mas nenhuma abriu (pre-requisito pendente
+ *             ou ciclo na fonte) — quem chama decide como explicar
+ *
+ * Por que 'blocked' e nao 'done' quando o catalogo e vazio ou so tem ciclo:
+ * 'done' seria uma mentira agradavel. Melhor dizer que nao ha nada destrancado.
+ *
+ * @param {Array<{id: string, prerequisites?: string[]}>} courses
+ * @param {string[]} completed ids ja concluidos
+ * @returns {{state: 'open'|'done'|'blocked', course: object|null, abertas: string[]}}
+ */
+export function nextUp(courses, completed = []) {
+  const lista = Array.isArray(courses) ? courses : [];
+  const abertas = unlockedCourses(lista, completed);
+
+  const byId = new Map();
+  for (const c of lista) if (c && typeof c.id === 'string') byId.set(c.id, c);
+  const done = new Set(Array.isArray(completed) ? completed : []);
+
+  // unlockedCourses ja devolve na ordem do catalogo e ja exclui concluidas; o
+  // filtro aqui e cinto-e-suspensório contra id que nao pertence ao catalogo.
+  const proximoId = abertas.find((id) => byId.has(id) && !done.has(id)) ?? null;
+  const course = proximoId === null ? null : byId.get(proximoId);
+
+  // So conta como concluida quem EXISTE no catalogo: progresso corrompido no
+  // localStorage (id antigo, id de outra trilha) nao pode fingir que a trilha
+  // acabou.
+  const concluidas = [...done].filter((id) => byId.has(id)).length;
+  const conhecidas = byId.size;
+
+  let state;
+  if (course !== null) state = 'open';
+  else if (conhecidas > 0 && concluidas >= conhecidas) state = 'done';
+  else state = 'blocked';
+
+  return { state, course, abertas };
+}

@@ -5,7 +5,7 @@
 // so desenha e captura clique. Se aparecer um `if` de pre-requisito aqui, esta errado.
 //
 // Funciona em file:// E em http:// por causa do loadCatalog() abaixo.
-import { unlockedCourses, detectCycles } from '../core/progress.js';
+import { unlockedCourses, detectCycles, nextUp } from '../core/progress.js';
 import { prereqLabel } from '../core/catalog.js';
 
 const STORAGE_KEY = 'atlas.progresso.v1';
@@ -72,6 +72,45 @@ function el(tag, attrs = {}, text) {
 }
 
 /**
+ * Bloco "sua proxima materia" — incremento de 23/10/2026.
+ * Abrir o app e ter de ler 35 linhas para descobrir o que fazer agora e o
+ * caminho mais rapido para desistir de estudar: o proximo passo vem primeiro.
+ *
+ * NAO decide nada aqui: quem escolhe a proxima e nextUp() (core/progress.js,
+ * com teste). Esta funcao so traduz a decisao em DOM, nos tres estados.
+ */
+function proximaMateria(courses, completed, cyclic) {
+  const s = el('section', { class: 'proxima' });
+  const { state, course, abertas } = nextUp(courses, completed);
+
+  if (state === 'open' && course) {
+    s.append(el('h2', {}, 'Sua proxima materia'));
+    s.append(el('p', { class: 'proxima-nome' }, course.title));
+    const rec = typeof course.resourceUrl === 'string' ? course.resourceUrl.trim() : '';
+    // Mesmo criterio da lista: sem URL de verdade, link nenhum. href "#" seria
+    // pior do que nao ter botao.
+    if (rec !== '') {
+      s.append(el('a', { class: 'recurso proxima-ir', href: rec, target: '_blank', rel: 'noopener noreferrer' }, 'Comecar a estudar'));
+    }
+    if (abertas.length > 1) {
+      s.append(el('p', { class: 'proxima-mais' }, `Ha mais ${abertas.length - 1} disponivel(is) agora, na lista abaixo.`));
+    }
+  } else if (state === 'done') {
+    s.append(el('h2', {}, 'Trilha concluida'));
+    s.append(el('p', {}, `Voce concluiu todas as ${courses.length} disciplinas deste catalogo.`));
+  } else {
+    // blocked: nao ha o que abrir. Dizer isso em voz alta e melhor que um
+    // destaque vazio — e, se a causa for ciclo na fonte, o aluno merece saber
+    // que o problema e o dado, nao ele.
+    s.append(el('h2', {}, 'Nada destrancado agora'));
+    s.append(el('p', {}, cyclic.size > 0
+      ? `Nenhuma materia destrancada: ${cyclic.size} disciplina(s) estao em ciclo de pre-requisitos na fonte.`
+      : 'Nenhuma materia destrancada: conclua um pre-requisito para abrir a proxima.'));
+  }
+  return s;
+}
+
+/**
  * Desenha a lista. Puro: recebe estado, devolve DOM. Sem regra de negocio.
  */
 export function render(root, { courses, completed, origem }) {
@@ -94,6 +133,11 @@ export function render(root, { courses, completed, origem }) {
       el('p', { class: 'alerta' }, `Aviso: ${cyclic.size} disciplina(s) em ciclo de pre-requisitos — ${[...cyclic].join(', ')}`)
     );
   }
+
+  // O proximo passo ANTES da lista (23/10/2026): quem abre o app quer saber o
+  // que fazer agora, nao percorrer 35 linhas para descobrir.
+  const destaque = proximaMateria(courses, completed, cyclic);
+  root.append(destaque);
 
   const lista = el('ul', { class: 'trilha' });
   for (const c of courses) {
