@@ -177,6 +177,131 @@ function descreverOrigemEletivas(seed) {
 }
 
 /**
+ * Converte os seeds de ESPECIALIZACOES no que a tela mostra.
+ *
+ * Tres fontes, um unico criterio (o overlay documenta a decisao editorial):
+ *   - specializations-seed.json       -> as anunciadas no indice do README;
+ *   - specialization-resources-seed   -> os recursos transcritos de cada pagina;
+ *   - specializations-unindexed-overlay -> as que existem na arvore da fonte mas
+ *     NAO estao linkadas no indice: "include_as_under_construction_not_reachable".
+ *
+ * A regra que nao pode ser violada, e esta no overlay: reachableFromIndex=false
+ * deve impedir o produto de PROMETER uma trilha de estudo vazia. Por isso quem
+ * nao tem recurso vira `aguardandoConteudo`, e a tela avisa em vez de desenhar
+ * uma secao bonita com zero coisas dentro.
+ *
+ * @param {object} seedEspecializacoes specializations-seed.json
+ * @param {object} seedRecursos specialization-resources-seed.json
+ * @param {object} overlay specializations-unindexed-overlay.json
+ * @returns {{specializations: Array, origem: string, aguardando: number}}
+ */
+export function toSpecializations(seedEspecializacoes, seedRecursos, overlay) {
+  if (!seedEspecializacoes || !Array.isArray(seedEspecializacoes.specializations)) {
+    throw new TypeError('seed de especializacoes sem a lista "specializations"');
+  }
+
+  // Recursos por slug. Tolero faltar o arquivo inteiro: especializacao sem
+  // recurso e caso REAL nesta fonte (algorithm-design), nao erro de leitura.
+  // O nome do array raiz do seed de recursos e `resources`; aceito os
+  // alternativos por seguranca, mas o teste com o seed REAL e o que garante que
+  // escolhi o certo (se errar, ele devolve 0 recursos e falha).
+  const linhas = seedRecursos && typeof seedRecursos === 'object'
+    ? (Array.isArray(seedRecursos.resources) ? seedRecursos.resources
+      : Array.isArray(seedRecursos.resourceRows) ? seedRecursos.resourceRows
+      : Array.isArray(seedRecursos.items) ? seedRecursos.items
+      : [])
+    : [];
+  const porSlug = new Map();
+  for (const r of linhas) {
+    if (!r || typeof r.specializationSlug !== 'string') continue;
+    if (!porSlug.has(r.specializationSlug)) porSlug.set(r.specializationSlug, []);
+    porSlug.get(r.specializationSlug).push({
+      id: typeof r.id === 'string' ? r.id : null,
+      title: typeof r.titleRaw === 'string' ? r.titleRaw : null,
+      // urlRaw e o campo da fonte; sem ele nao ha link (nunca href "#").
+      url: typeof r.urlRaw === 'string' && r.urlRaw.length ? r.urlRaw : null,
+      type: typeof r.resourceTypeInferred === 'string' ? r.resourceTypeInferred : null,
+      duration: typeof r.durationRaw === 'string' && r.durationRaw.length ? r.durationRaw : null,
+      dedication: typeof r.dedicationRaw === 'string' && r.dedicationRaw.length ? r.dedicationRaw : null,
+      topics: typeof r.topicsRaw === 'string' && r.topicsRaw.length ? r.topicsRaw : null,
+      // Notas da fonte (ex.: "audio em ingles", "disponivel apoiando o canal a
+      // partir de R$ 2,99/mes") sao dado do aluno: ele decide com elas na mao.
+      notes: Array.isArray(r.sourceNotes) ? r.sourceNotes.filter((n) => typeof n === 'string') : [],
+      // O overlay declara que disponibilidade de link externo NAO foi verificada.
+      // Esconder isso faria um link morto parecer culpa do aluno.
+      availability: typeof r.availabilityStatus === 'string' ? r.availabilityStatus : null
+    });
+  }
+
+  const saida = [];
+
+  for (const s of seedEspecializacoes.specializations) {
+    if (!s || typeof s.id !== 'string' || s.id.length === 0) continue;
+    const slug = typeof s.slug === 'string' ? s.slug : s.id;
+    const recursos = porSlug.get(slug) || [];
+    saida.push({
+      id: s.id,
+      slug,
+      title: typeof s.title === 'string' ? s.title : s.id,
+      status: typeof s.status === 'string' ? s.status : null,
+      sourcePath: typeof s.sourcePath === 'string' && s.sourcePath.length ? s.sourcePath : null,
+      sourceUrl: null, // preenchido abaixo, quando os recursos conhecem a pagina
+      reachableFromIndex: true, // vieram do indice do README
+      // Sem recurso = nada para estudar. A tela avisa; nunca finge trilha.
+      aguardandoConteudo: recursos.length === 0,
+      motivoAguardando: recursos.length === 0
+        ? 'A fonte anuncia esta especializacao, mas ainda nao tem pagina de recursos indexada.'
+        : null,
+      resources: recursos
+    });
+  }
+
+  // URL da pagina na fonte: vem do proprio seed de recursos, nao de template meu.
+  const paginas = seedRecursos && typeof seedRecursos.specializationPages === 'object' && seedRecursos.specializationPages
+    ? seedRecursos.specializationPages
+    : {};
+  for (const sp of saida) {
+    const pg = paginas[sp.slug];
+    if (pg && typeof pg.sourceUrl === 'string' && pg.sourceUrl.length) sp.sourceUrl = pg.sourceUrl;
+    if (pg && Array.isArray(pg.pageNotes) && pg.pageNotes.length) {
+      sp.pageNotes = pg.pageNotes.filter((n) => typeof n === 'string');
+    } else {
+      sp.pageNotes = [];
+    }
+  }
+
+  // Overlay: as que existem na arvore e nao estao no indice. Entram como
+  // aguardando conteudo, com o link da FONTE (a pagina existe, so nao tem trilha).
+  const naoIndexadas = overlay && Array.isArray(overlay.unindexedSpecializations)
+    ? overlay.unindexedSpecializations
+    : [];
+  for (const u of naoIndexadas) {
+    if (!u || typeof u.id !== 'string' || u.id.length === 0) continue;
+    if (saida.some((sp) => sp.id === u.id)) continue; // ja veio do indice: nao duplica
+    saida.push({
+      id: u.id,
+      slug: typeof u.slug === 'string' ? u.slug : u.id,
+      title: typeof u.title === 'string' ? u.title : u.id,
+      status: typeof u.status === 'string' ? u.status : null,
+      sourcePath: typeof u.sourcePath === 'string' && u.sourcePath.length ? u.sourcePath : null,
+      sourceUrl: null,
+      reachableFromIndex: false,
+      aguardandoConteudo: true,
+      motivoAguardando: 'A pagina existe na fonte mas esta "em construcao" e nao e alcancavel pelo indice do README: nao ha recursos para estudar ainda.',
+      pageNotes: [],
+      resources: []
+    });
+  }
+
+  const aguardando = saida.filter((sp) => sp.aguardandoConteudo).length;
+  return {
+    specializations: saida,
+    origem: `${saida.length} especializacoes — ${saida.length - aguardando} com recursos indexados, ${aguardando} aguardando conteudo na fonte`,
+    aguardando
+  };
+}
+
+/**
  * Rotulo legivel dos pre-requisitos de uma disciplina.
  *
  * Por que nao mostrar o id cru: "precisa de: ubl-core-introducao-cc-python-i"

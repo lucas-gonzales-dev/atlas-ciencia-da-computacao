@@ -534,5 +534,999 @@
       "sourceLineHint": 204,
       "note": "Linha dentro de bloco HTML comentado do README."
     }
+  ],
+  "geradoDeEspecializacoes": [
+    "app/data/specializations-seed.json",
+    "app/data/specialization-resources-seed.json",
+    "app/data/specializations-unindexed-overlay.json"
+  ],
+  "origemEspecializacoes": "9 especializacoes — 6 com recursos indexados, 3 aguardando conteudo na fonte",
+  "specializations": [
+    {
+      "id": "ubl-specialization-computer-graphics",
+      "slug": "computer-graphics",
+      "title": "Computação Gráfica",
+      "status": "detailed_page_present",
+      "sourcePath": "specializations/computer_graphics.md",
+      "sourceUrl": "https://raw.githubusercontent.com/Universidade-Livre/ciencia-da-computacao/main/specializations/computer_graphics.md",
+      "reachableFromIndex": true,
+      "aguardandoConteudo": false,
+      "motivoAguardando": null,
+      "resources": [
+        {
+          "id": "ubl-specialization-computer-graphics-01",
+          "title": "Pixar in a Box",
+          "url": "https://pt.khanacademy.org/partner-content/pixar-latam",
+          "type": "external_course_or_learning_platform",
+          "duration": "2 Semanas",
+          "dedication": "3 horas/semana",
+          "topics": "Renderização; Animação; Curvas; 3D.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-computer-graphics-02",
+          "title": "Essence of Linear Algebra",
+          "url": "https://www.youtube.com/playlist?list=PLZHQObOWTQDPD3MizzM2xVFitgF8hE_ab",
+          "type": "youtube_playlist",
+          "duration": "2 semanas",
+          "dedication": "4 horas/semana",
+          "topics": "Vetores; Matrizes; Tensores; Espaços; Bases; Transformações.",
+          "notes": [
+            "Source footnote marker ¹: audio in English with Brazilian Portuguese subtitles, per page note."
+          ],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-computer-graphics-03",
+          "title": "Programação em Julia",
+          "url": "https://www.youtube.com/playlist?list=PL5TJqBvpXQv4TO4Y_JZExBCBzNXDLYUCj",
+          "type": "youtube_playlist",
+          "duration": "? Semanas",
+          "dedication": "? horas/semana",
+          "topics": "Algoritmos; Julia; Algebra Linear.",
+          "notes": [
+            "Source footnote marker ²: source says support from R$ 2.99/month; verify current condition before displaying."
+          ],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-computer-graphics-04",
+          "title": "Tópicos de Computação Gráfica",
+          "url": "https://www.youtube.com/playlist?list=PL5TJqBvpXQv5zNlgvgH2HGuhZHpnkT3oo",
+          "type": "youtube_playlist",
+          "duration": "? Semanas",
+          "dedication": "? horas/semana",
+          "topics": "Ray Tracing; Reflexos; Imagens; Reconstrução de Imagens.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-computer-graphics-05",
+          "title": "Conceitos Básicos de Computação Gráfica",
+          "url": "https://www.youtube.com/playlist?list=PLo4jXE-LdDTRGoEarRQXBIalJkjSP-aGA",
+          "type": "youtube_playlist",
+          "duration": "4 Semanas",
+          "dedication": "8 horas/semana",
+          "topics": "Objetos gráficos; Modelagem geométrica; Fundamentos de sistemas gráficos.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-computer-graphics-06",
+          "title": "Processamento de Imagens",
+          "url": "https://www.youtube.com/playlist?list=PLo4jXE-LdDTRaFa39TdNN3FgPAKkcuHvj",
+          "type": "youtube_playlist",
+          "duration": "4 Semanas",
+          "dedication": "8 horas/semana",
+          "topics": "Imagem digital; Quantização; Operações com imagens; Dithering; warping de imagens; Aplicações",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-computer-graphics-07",
+          "title": "Processamento de Imagens em Python",
+          "url": "https://www.youtube.com/playlist?list=PL5TJqBvpXQv54i_HWjd7s70vbP4Is7sK_",
+          "type": "youtube_playlist",
+          "duration": "? Semanas",
+          "dedication": "? horas/semana",
+          "topics": "Redimensionamento; Efeitos; Animação; Detecção.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-computer-graphics-08",
+          "title": "Programação em C++",
+          "url": "https://www.youtube.com/playlist?list=PLIUc9-A-aPpqrzY3YuWDUOyQLOBCb5lck",
+          "type": "youtube_playlist",
+          "duration": "3 Semanas",
+          "dedication": "4 horas/semana",
+          "topics": "OOP; Smart Pointers; Biblioteca padrão.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-computer-graphics-09",
+          "title": "OpenGL C++ - Gráficos 3D",
+          "url": "https://www.youtube.com/playlist?list=PLVRDPs83ZhmcXYuktF3r2hfyoabg_EVPO",
+          "type": "youtube_playlist",
+          "duration": "3 Semanas",
+          "dedication": "3 horas/semana",
+          "topics": "OpenGL; C++; Iluminação; Câmera; Modelagem de figuras geométricas; Prática",
+          "notes": [],
+          "availability": "not_checked"
+        }
+      ],
+      "pageNotes": [
+        "O recurso Programação em Julia tem duração/esforço desconhecidos na fonte.",
+        "A fonte indica que Programação em Julia está disponível apoiando o canal a partir de R$ 2,99/mês; valor e condição devem ser revalidados.",
+        "Essence of Linear Algebra: áudio em inglês, legendas em Português do Brasil."
+      ]
+    },
+    {
+      "id": "ubl-specialization-embedded-systems",
+      "slug": "embedded-systems",
+      "title": "Embarcados",
+      "status": "detailed_page_present",
+      "sourcePath": "specializations/embedded_systems.md",
+      "sourceUrl": "https://raw.githubusercontent.com/Universidade-Livre/ciencia-da-computacao/main/specializations/embedded_systems.md",
+      "reachableFromIndex": true,
+      "aguardandoConteudo": false,
+      "motivoAguardando": null,
+      "resources": [
+        {
+          "id": "ubl-specialization-embedded-systems-01",
+          "title": "Microeletrônica",
+          "url": "https://integra.univesp.br/courses/2344",
+          "type": "external_course_or_learning_platform",
+          "duration": "7 Semanas",
+          "dedication": "4 horas/semana",
+          "topics": "Física; Fotolitografia; Oxidação; Deposição; Epitaxia; CMOS.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-embedded-systems-02",
+          "title": "Curso de C moderno",
+          "url": "https://www.youtube.com/playlist?list=PLIfZMtpPYFP5qaS2RFQxcNVkmJLGQwyKE",
+          "type": "youtube_playlist",
+          "duration": "4 Semanas",
+          "dedication": "3 horas/semana",
+          "topics": "C; GDB; Tooling; Unix.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-embedded-systems-03",
+          "title": "Curso de Makefile",
+          "url": "https://www.youtube.com/playlist?list=PLLCFxfe9wkl-tCZvSCbzQGcNv9nSN5ZAP",
+          "type": "youtube_playlist",
+          "duration": "4 Semanas",
+          "dedication": "3 horas/semana",
+          "topics": "Make; Makefile.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-embedded-systems-04",
+          "title": "Conceitos de Eletrônica",
+          "url": "https://www.youtube.com/playlist?list=PLfdR3_dt2rbcv2CmrbeT8wu50Yga0fjE8",
+          "type": "youtube_playlist",
+          "duration": "4 Semanas",
+          "dedication": "3 horas/semana",
+          "topics": "Sinais; Circuitos; Energia; Polaridade.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-embedded-systems-05",
+          "title": "Eletrônica Embarcada",
+          "url": "https://integra.univesp.br/courses/2710",
+          "type": "external_course_or_learning_platform",
+          "duration": "7 Semanas",
+          "dedication": "4 horas/semana",
+          "topics": "Embarcados em Veículos; GNSS; Instrumentação; Implementação.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-embedded-systems-06",
+          "title": "Eletrônica para Iniciantes",
+          "url": "https://www.youtube.com/playlist?list=PLZ8dBTV2_5HQpKzBt3nJex3Mbk7hmhFHl",
+          "type": "youtube_playlist",
+          "duration": "5 Semanas",
+          "dedication": "8 horas/semana",
+          "topics": "Esquemáticos; Portas Lógicas; Circuitos; Carga.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-embedded-systems-07",
+          "title": "Curso de AVR-C",
+          "url": "https://www.youtube.com/playlist?list=PLMdNWywlSE5QPsEeT_cXisUT366NS3U8R",
+          "type": "youtube_playlist",
+          "duration": "2 Semanas",
+          "dedication": "4 horas/semana",
+          "topics": "C para Microcontroladores; Operações bit-a-bit; Datasheets.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-embedded-systems-08",
+          "title": "Curso de AVR Periféricos",
+          "url": "https://www.youtube.com/playlist?list=PLMdNWywlSE5TtOxRm6frvH_om1NOyj33H",
+          "type": "youtube_playlist",
+          "duration": "2 Semanas",
+          "dedication": "3 horas/semana",
+          "topics": "Displays; Timers; Conversores; Comunicação.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-embedded-systems-09",
+          "title": "Curso de Assembly para ATMega328",
+          "url": "https://www.youtube.com/watch?v=JEE9RvwEDuo&list=PLw-GnG0Kv5F7UM9y-FUmw7sI5sjdbaSpe",
+          "type": "youtube_playlist",
+          "duration": "2 Semanas",
+          "dedication": "2 horas/semana",
+          "topics": "ASM; IO; Portas; Endereços.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-embedded-systems-10",
+          "title": "Curso de C++",
+          "url": "https://www.youtube.com/playlist?list=PLIUc9-A-aPpqrzY3YuWDUOyQLOBCb5lck",
+          "type": "youtube_playlist",
+          "duration": "3 Semanas",
+          "dedication": "4 horas/semana",
+          "topics": "OOP; Smart Pointers; Biblioteca padrão.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-embedded-systems-11",
+          "title": "Curso de FreeRTOS",
+          "url": "https://www.youtube.com/playlist?list=PLU15eSNTfwrnlzgvMmb1NK7l0qNo8UMKr",
+          "type": "youtube_playlist",
+          "duration": "2 Semanas",
+          "dedication": "2 horas/semana",
+          "topics": "Filas; Tasks; Timers; Async.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-embedded-systems-12",
+          "title": "Curso de MQTT",
+          "url": "https://www.youtube.com/watch?v=WqHIFSYMHy0",
+          "type": "youtube_video_or_channel",
+          "duration": "2 Semanas",
+          "dedication": "2 horas/semana",
+          "topics": "Broker; Publisher; QoS; Mensagens.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-embedded-systems-13",
+          "title": "Curso de LoRaWan",
+          "url": "https://www.youtube.com/watch?v=iPGXyeHv5JQ&list=PLU15eSNTfwrnd1I835eFA124rd4CVGq3e",
+          "type": "youtube_playlist",
+          "duration": "1 Semana",
+          "dedication": "3 horas/semana",
+          "topics": "Protocolo; Camadas; ADR; AU915.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-embedded-systems-14",
+          "title": "Curso de FPGA",
+          "url": "https://www.youtube.com/playlist?list=PLZ8dBTV2_5HS79fVexGTtCMDUp7kjnumS",
+          "type": "youtube_playlist",
+          "duration": "4 Semanas",
+          "dedication": "4 horas/semana",
+          "topics": "VHDL; Verilog; ASIC.",
+          "notes": [],
+          "availability": "not_checked"
+        }
+      ],
+      "pageNotes": []
+    },
+    {
+      "id": "ubl-specialization-web-development",
+      "slug": "web-development",
+      "title": "Desenvolvimento Web",
+      "status": "detailed_page_present",
+      "sourcePath": "specializations/web_development.md",
+      "sourceUrl": "https://raw.githubusercontent.com/Universidade-Livre/ciencia-da-computacao/main/specializations/web_development.md",
+      "reachableFromIndex": true,
+      "aguardandoConteudo": false,
+      "motivoAguardando": null,
+      "resources": [
+        {
+          "id": "ubl-specialization-web-development-01",
+          "title": "HTML e CSS, Parte I",
+          "url": "https://www.cursoemvideo.com/curso/html5-css3-modulo1/",
+          "type": "external_course_or_learning_platform",
+          "duration": "5 Semanas",
+          "dedication": "8 horas/semana",
+          "topics": "Tags; Hierarquias; Semântica.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-web-development-02",
+          "title": "HTML e CSS, Parte II",
+          "url": "https://www.cursoemvideo.com/curso/curso-html5-e-css3-modulo-2-de-5-40-horas/",
+          "type": "external_course_or_learning_platform",
+          "duration": "5 Semanas",
+          "dedication": "8 horas/semana",
+          "topics": "Elementos; IDs; Variáveis.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-web-development-03",
+          "title": "JavaScript Básico",
+          "url": "https://www.cursoemvideo.com/curso/javascript/",
+          "type": "external_course_or_learning_platform",
+          "duration": "5 Semanas",
+          "dedication": "8 horas/semana",
+          "topics": "Sintaxe; DOM; Funções.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-web-development-04",
+          "title": "Curso de JavaScript ES6",
+          "url": "https://www.youtube.com/playlist?list=PLWhiA_CuQkbCX9nHuk4rolDYxlLUwXpNI",
+          "type": "youtube_playlist",
+          "duration": "4 Semanas",
+          "dedication": "2 horas/semana",
+          "topics": "Módulos; Async/Await; Promises; Estrutura de Dados.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-web-development-05",
+          "title": "Debuggando JavaScript",
+          "url": "https://www.youtube.com/playlist?list=PLg2lQYZDBwORqALpRkVPXEdgOloQz8sux",
+          "type": "youtube_playlist",
+          "duration": "-",
+          "dedication": "30 minutos",
+          "topics": "Logs; DEV Tools.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-web-development-06",
+          "title": "Curso de SASS",
+          "url": "https://www.youtube.com/watch?v=XwPSWKnZIg4&list=PL97KElaimHeGRtfkksKwxg6IGVZi_cR7J",
+          "type": "youtube_playlist",
+          "duration": "2 Semanas",
+          "dedication": "2 horas/semana",
+          "topics": "Preprocessamento CSS; Mixin; Output.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-web-development-07",
+          "title": "Node.js (Express)",
+          "url": "https://www.youtube.com/playlist?list=PLJ_KhUnlXUPtbtLwaxxUxHqvcNQndmI4B",
+          "type": "youtube_playlist",
+          "duration": "4 Semanas",
+          "dedication": "4 horas/semana",
+          "topics": "Handlebars; Middlewares; Sequelize; MVC.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-web-development-08",
+          "title": "ESLint + Prettier + editorconfig",
+          "url": "https://www.youtube.com/watch?v=9UJYaAt7v2o",
+          "type": "youtube_video_or_channel",
+          "duration": "-",
+          "dedication": "30 minutos",
+          "topics": "Formatação de Código; Padronização de Código; Linters.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-web-development-09",
+          "title": "Curso Básico REST APIs",
+          "url": "https://www.youtube.com/playlist?list=PL3B-OV5dZTqbaLi1f2UmXEWbcx9WyYaTX",
+          "type": "youtube_playlist",
+          "duration": "4 Semanas",
+          "dedication": "4 horas/semana",
+          "topics": "Modelos de Maturidade; Verbos e Status; Recursos; Modelagem.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-web-development-10",
+          "title": "Curso de React",
+          "url": "https://www.youtube.com/playlist?list=PLx4x_zx8csUh752BVDGZkxYpY9lS40fyC",
+          "type": "youtube_playlist",
+          "duration": "4 Semanas",
+          "dedication": "4 horas/semana",
+          "topics": "Componentes; Estado; Hooks; API; Navegação.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-web-development-11",
+          "title": "Mini-curso de TypeScript",
+          "url": "https://www.youtube.com/playlist?list=PLlAbYrWSYTiPanrzauGa7vMuve7_vnXG_",
+          "type": "youtube_playlist",
+          "duration": "2 Semanas",
+          "dedication": "2 horas/semana",
+          "topics": "Tipos; Compilador; Classes; Generics.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-web-development-12",
+          "title": "Node (Express) com TypeScript",
+          "url": "https://www.youtube.com/playlist?list=PLn3kOoc0oI2cQDdUEQxj75sxgRH53DmSc",
+          "type": "youtube_playlist",
+          "duration": "2 Semanas",
+          "dedication": "2 horas/semana",
+          "topics": "Rotas; JWT; Tipos; Optionals.",
+          "notes": [],
+          "availability": "not_checked"
+        }
+      ],
+      "pageNotes": []
+    },
+    {
+      "id": "ubl-specialization-data-science",
+      "slug": "data-science",
+      "title": "Ciência de Dados",
+      "status": "detailed_page_present_with_notes",
+      "sourcePath": "specializations/data_science.md",
+      "sourceUrl": "https://raw.githubusercontent.com/Universidade-Livre/ciencia-da-computacao/main/specializations/data_science.md",
+      "reachableFromIndex": true,
+      "aguardandoConteudo": false,
+      "motivoAguardando": null,
+      "resources": [
+        {
+          "id": "ubl-specialization-data-science-01",
+          "title": "The Data Scientist’s Toolbox",
+          "url": "https://www.coursera.org/learn/data-scientists-tools?specialization=data-science-foundations-r",
+          "type": "external_course_or_learning_platform",
+          "duration": "4 semanas",
+          "dedication": "4 horas/semana",
+          "topics": "Git; RMarkdown; Básico de R; Básico de Análise de Dados.",
+          "notes": [
+            "Source footnote marker ¹: audio in English with Brazilian Portuguese subtitles, per page note."
+          ],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-data-science-02",
+          "title": "Análise de Dados em Linguagem R",
+          "url": "https://www.escolavirtual.gov.br/curso/325",
+          "type": "external_course_or_learning_platform",
+          "duration": "5 semanas",
+          "dedication": "4 horas/semana",
+          "topics": "R; RStudio; ML; Análise de Dados.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-data-science-03",
+          "title": "Estatística Descritiva Básica",
+          "url": "https://www.youtube.com/playlist?list=PLw9ZE443YE45QSRr576gk6ZfhbWVjiIbr",
+          "type": "youtube_playlist",
+          "duration": "2 horas",
+          "dedication": "1 semana",
+          "topics": "Associações; Tipos de Variáveis; Variância e Desvio; Tipos de Gráficos.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-data-science-04",
+          "title": "Essence of Linear Algebra",
+          "url": "https://www.youtube.com/playlist?list=PLZHQObOWTQDPD3MizzM2xVFitgF8hE_ab",
+          "type": "youtube_playlist",
+          "duration": "2 semanas",
+          "dedication": "4 horas/semana",
+          "topics": "Vetores; Matrizes; Tensores; Espaços; Bases; Transformações.",
+          "notes": [
+            "Source footnote marker ¹: audio in English with Brazilian Portuguese subtitles, per page note."
+          ],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-data-science-05",
+          "title": "Getting and Cleaning Data",
+          "url": "https://www.coursera.org/learn/data-cleaning?specialization=data-science-foundations-r",
+          "type": "external_course_or_learning_platform",
+          "duration": "4 semanas",
+          "dedication": "8 horas/semana",
+          "topics": "Manipulação de Dados; Limpeza de Dados; Expressões Regulares; APIs.",
+          "notes": [
+            "Source footnote marker ¹: audio in English with Brazilian Portuguese subtitles, per page note."
+          ],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-data-science-06",
+          "title": "Exploratory Data Analysis",
+          "url": "https://www.coursera.org/learn/exploratory-data-analysis?specialization=data-science-foundations-r",
+          "type": "external_course_or_learning_platform",
+          "duration": "4 semanas",
+          "dedication": "15 horas/semana",
+          "topics": "Plotagem de Dados; Sistemas avançados; Padrões de Dados.",
+          "notes": [
+            "Source footnote marker ¹: audio in English with Brazilian Portuguese subtitles, per page note."
+          ],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-data-science-07",
+          "title": "Reproducible Research",
+          "url": "https://www.coursera.org/learn/reproducible-research?specialization=data-science-foundations-r",
+          "type": "external_course_or_learning_platform",
+          "duration": "4 semanas",
+          "dedication": "2 horas/semana",
+          "topics": "Organização de Dados; Pesquisa.",
+          "notes": [
+            "Source footnote marker ¹: audio in English with Brazilian Portuguese subtitles, per page note."
+          ],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-data-science-08",
+          "title": "Estatística computacional",
+          "url": "https://www.youtube.com/playlist?list=PLUUx2DlFul6LjL3K9AZT2nTlyZ4o38tE7",
+          "type": "youtube_playlist",
+          "duration": "5 semanas",
+          "dedication": "4 horas/semana",
+          "topics": "Razão e Distribuição; Geração de Variáveis; Monte Carlo; Jacknife; AIC e BIC; DIC.",
+          "notes": [],
+          "availability": "not_checked"
+        }
+      ],
+      "pageNotes": [
+        "Página marcada “Em construção”.",
+        "A fonte indica áudio em inglês com legendas em Português do Brasil para itens marcados com ¹."
+      ]
+    },
+    {
+      "id": "ubl-specialization-cybersecurity",
+      "slug": "cybersecurity",
+      "title": "CyberSecurity",
+      "status": "detailed_page_present_check_incomplete_flags",
+      "sourcePath": "specializations/cybersecurity.md",
+      "sourceUrl": "https://raw.githubusercontent.com/Universidade-Livre/ciencia-da-computacao/main/specializations/cybersecurity.md",
+      "reachableFromIndex": true,
+      "aguardandoConteudo": false,
+      "motivoAguardando": null,
+      "resources": [
+        {
+          "id": "ubl-specialization-cybersecurity-01",
+          "title": "Introdução a CiberSegurança",
+          "url": "https://www.edx.org/learn/cybersecurity/harvard-university-cs50-s-introduction-to-cybersecurity",
+          "type": "external_course_or_learning_platform",
+          "duration": "6 semanas",
+          "dedication": "3 horas/semana",
+          "topics": "Segurança; Introdução.",
+          "notes": [
+            "Source footnote marker *: source says material in English; verify item-level attribution."
+          ],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-cybersecurity-02",
+          "title": "Fundamentos CiberSegurança",
+          "url": "https://www.udemy.com/course/certified-secure-netizen/",
+          "type": "external_course_or_learning_platform",
+          "duration": "2 semanas",
+          "dedication": "2 horas/semana",
+          "topics": "Nomenclaturas; Encriptação; Fundamentos.",
+          "notes": [
+            "Source footnote marker *: source says material in English; verify item-level attribution."
+          ],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-cybersecurity-03",
+          "title": "Cybersecurity",
+          "url": "https://www.eucapacito.com.br/curso-ec/cybersecurity",
+          "type": "external_course_or_learning_platform",
+          "duration": "6 semanas",
+          "dedication": "3 horas/semana",
+          "topics": "Segurança; Introdução.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-cybersecurity-04",
+          "title": "OWASP do início",
+          "url": "https://www.udemy.com/course/owasp-zap-from-scratch/",
+          "type": "external_course_or_learning_platform",
+          "duration": "2 semanas",
+          "dedication": "2 horas/semana",
+          "topics": "OWASP; Força bruta.",
+          "notes": [
+            "Source footnote marker *: source says material in English; verify item-level attribution."
+          ],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-cybersecurity-05",
+          "title": "Introdução ao Hacking e Pentest",
+          "url": "https://solyd.com.br/treinamentos/introducao-ao-hacking-e-pentest-2/",
+          "type": "external_course_or_learning_platform",
+          "duration": "4 semanas",
+          "dedication": "2 horas/semana",
+          "topics": "Pentest; Vulnerabilidades.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-cybersecurity-06",
+          "title": "Forense Digital",
+          "url": "https://acaditi.com.br/essentials-series/#dfe",
+          "type": "external_article_or_course",
+          "duration": "8 semanas",
+          "dedication": "5 horas/semana",
+          "topics": "Essencial de Forense Digital.",
+          "notes": [
+            "Source footnote marker *: source says material in English; verify item-level attribution."
+          ],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-cybersecurity-07",
+          "title": "Sistema de SIEM",
+          "url": "https://www.elastic.co/training/elastic-security-fundamentals-siem",
+          "type": "external_article_or_course",
+          "duration": "1 dia",
+          "dedication": "4 horas/dia",
+          "topics": "Exemplo e Introdução à SIEM.",
+          "notes": [
+            "Source footnote marker *: source says material in English; verify item-level attribution."
+          ],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-cybersecurity-08",
+          "title": "O que é SAST?",
+          "url": "https://www.microfocus.com/pt-br/what-is/sast",
+          "type": "external_article_or_course",
+          "duration": "1 semana",
+          "dedication": "2 horas/semana",
+          "topics": "Estático; Análise.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-cybersecurity-09",
+          "title": "O que é DAST?",
+          "url": "https://www.microfocus.com/pt-br/what-is/dast",
+          "type": "external_article_or_course",
+          "duration": "1 semana",
+          "dedication": "2 horas/semana",
+          "topics": "Dinâmico; Análise.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-cybersecurity-10",
+          "title": "O que é IAST?",
+          "url": "https://www.nova8.com.br/2020/01/17/o-que-e-iast/",
+          "type": "external_article_or_course",
+          "duration": "1 semana",
+          "dedication": "2 horas/semana",
+          "topics": "SAST; DAST; IAST.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-cybersecurity-11",
+          "title": "O que é RASP?",
+          "url": "https://blog.convisoappsec.com/rasp-no-cenario-de-appsec/",
+          "type": "external_article_or_course",
+          "duration": "1 semana",
+          "dedication": "2 horas/semana",
+          "topics": "RASP.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-cybersecurity-12",
+          "title": "Introdução a LGPD",
+          "url": "https://www.escolavirtual.gov.br/curso/603",
+          "type": "external_course_or_learning_platform",
+          "duration": "2 semanas",
+          "dedication": "7 horas/semana",
+          "topics": "Fundamentos da Lei Geral de Proteção de Dados.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-cybersecurity-13",
+          "title": "Criptografia Parte 1",
+          "url": "https://www.youtube.com/watch?v=CcU5Kc_FN_4",
+          "type": "youtube_video_or_channel",
+          "duration": "1 semana",
+          "dedication": "2 horas/semana",
+          "topics": "Criptografia.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-cybersecurity-14",
+          "title": "Criptografia Parte 2",
+          "url": "https://www.youtube.com/watch?v=HCHqtpipwu4",
+          "type": "youtube_video_or_channel",
+          "duration": "1 semana",
+          "dedication": "2 horas/semana",
+          "topics": "Criptografia.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-cybersecurity-15",
+          "title": "Configurar chaves públicas e privadas",
+          "url": "https://www.youtube.com/watch?v=7BEsfupYngE",
+          "type": "youtube_video_or_channel",
+          "duration": "1 semana",
+          "dedication": "2 horas/semana",
+          "topics": "Chaves de autenticação.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-cybersecurity-16",
+          "title": "Curso de Engenharia Reversa Online",
+          "url": "https://hackaflag.com.br/academy.html",
+          "type": "external_article_or_course",
+          "duration": "6 semanas",
+          "dedication": "2 horas/semana",
+          "topics": "Introdução Engenharia Reversa.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-cybersecurity-17",
+          "title": "Teoria e Ferramentas de Comando e Controle",
+          "url": "https://www.youtube.com/watch?v=bUqu8fh7xUg",
+          "type": "youtube_video_or_channel",
+          "duration": "4 dias",
+          "dedication": "2 horas/dia",
+          "topics": "Hacking - Ferramentas de Comando e Controle.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-cybersecurity-18",
+          "title": "Curso Python para Pentesters",
+          "url": "https://www.youtube.com/watch?v=KsUTiurSGJM&list=PLY-Tw02f5SDIP3CRtcaenRQc8Yz52m6XZ",
+          "type": "youtube_playlist",
+          "duration": "12 semanas",
+          "dedication": "3 horas/semana",
+          "topics": "Python; Programação paralela e concorrente; Redes de computadores; Segurança ofensiva.",
+          "notes": [],
+          "availability": "not_checked"
+        }
+      ],
+      "pageNotes": [
+        "A página contém nota “Especialização em construção.”",
+        "Os itens marcados com asterisco são descritos pela fonte como material em inglês.",
+        "A existência de itens sobre segurança ofensiva não autoriza usar os exercícios fora de ambientes próprios e autorizados."
+      ]
+    },
+    {
+      "id": "ubl-specialization-devops",
+      "slug": "devops",
+      "title": "DevOps",
+      "status": "detailed_page_present_check_incomplete_flags",
+      "sourcePath": "specializations/devops.md",
+      "sourceUrl": "https://raw.githubusercontent.com/Universidade-Livre/ciencia-da-computacao/main/specializations/devops.md",
+      "reachableFromIndex": true,
+      "aguardandoConteudo": false,
+      "motivoAguardando": null,
+      "resources": [
+        {
+          "id": "ubl-specialization-devops-01",
+          "title": "Curso de Linux",
+          "url": "https://www.youtube.com/playlist?list=PLucm8g_ezqNp92MmkF9p_cj4yhT-fCTl7",
+          "type": "youtube_playlist",
+          "duration": "6 semanas",
+          "dedication": "2 horas/semana",
+          "topics": "Curso Completo para LPIC-1 Linux, dando base para entendimento do sistema.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-devops-02",
+          "title": "Linux Essentials",
+          "url": "https://4linux.com.br/cursos/treinamento/linux-essentials/",
+          "type": "external_course_or_learning_platform",
+          "duration": "12 semanas",
+          "dedication": "2 horas/semana",
+          "topics": "GNU/Linux; Conhecimentos para a Linux Essentials.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-devops-03",
+          "title": "Curso Básico de Bash",
+          "url": "https://www.youtube.com/playlist?list=PLXoSGejyuQGpf4X-NdGjvSlEFZhn2f2H7",
+          "type": "youtube_playlist",
+          "duration": "4 semanas",
+          "dedication": "2 horas/semana",
+          "topics": "Básico de Bash.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-devops-04",
+          "title": "Curso de Shell Scripting",
+          "url": "https://www.youtube.com/playlist?list=PLucm8g_ezqNrYgjXC8_CgbvHbvI7dDfhs",
+          "type": "youtube_playlist",
+          "duration": "2 semanas",
+          "dedication": "2 horas/semana",
+          "topics": "Shell Scripting.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-devops-05",
+          "title": "DevOps Essentials",
+          "url": "https://4linux.com.br/cursos/treinamento/devops-essentials/",
+          "type": "external_course_or_learning_platform",
+          "duration": "12 semanas",
+          "dedication": "2 horas/semana",
+          "topics": "Entender a cultura DevOps; Ferramentas; Pipeline.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-devops-06",
+          "title": "Cloud Essentials",
+          "url": "https://4linux.com.br/cursos/treinamento/cloud-fundamentals/",
+          "type": "external_course_or_learning_platform",
+          "duration": "12 semanas",
+          "dedication": "2 horas/semana",
+          "topics": "IaaS, PaaS e SaaS; GCP/AWS/Azure; SSH.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-devops-07",
+          "title": "Curso de Introdução ao Vagrant",
+          "url": "https://www.youtube.com/playlist?list=PLmSWX0ePcw4j6xaMvvTuYI0BgKadati5L",
+          "type": "youtube_playlist",
+          "duration": "1 semana",
+          "dedication": "2 horas/semana",
+          "topics": "Introdução ao Vagrant e seus conceitos.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-devops-08",
+          "title": "Curso Docker Completo",
+          "url": "https://www.youtube.com/playlist?list=PLg7nVxv7fa6dxsV1ftKI8FAm4YD6iZuI4",
+          "type": "youtube_playlist",
+          "duration": "1 semana",
+          "dedication": "2 horas/semana",
+          "topics": "Docker Básico e CLI Docker.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-devops-09",
+          "title": "Descomplicando o Docker",
+          "url": "https://www.youtube.com/playlist?list=PLf-O3X2-mxDn1VpyU2q3fuI6YYeIWp5rR",
+          "type": "youtube_playlist",
+          "duration": "4 semanas",
+          "dedication": "2 horas/semana",
+          "topics": "Docker; Containers; Docker Swarm; Docker Hub.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-devops-10",
+          "title": "Docker e Docker Compose do zero ao Deploy",
+          "url": "https://www.youtube.com/watch?v=yb2udL9GG2U",
+          "type": "youtube_video_or_channel",
+          "duration": "1 semana",
+          "dedication": "2 horas/semana",
+          "topics": "Docker em produção; Docker Compose; Conceitos de Deploy.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-devops-11",
+          "title": "Curso de Introdução ao Kubernetes",
+          "url": "https://www.youtube.com/playlist?list=PLXzx948cNtr8XI5JBemHT9OWuYSPNUtXs",
+          "type": "youtube_playlist",
+          "duration": "2 semanas",
+          "dedication": "2 horas/semana",
+          "topics": "Introdução ao Kubernetes e seus conceitos.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-devops-12",
+          "title": "Intensivo Kubernetes: O mínimo que um dev precisa saber",
+          "url": "https://www.youtube.com/watch?v=5unI7VPnASM",
+          "type": "youtube_video_or_channel",
+          "duration": "1 semana",
+          "dedication": "2 horas/semana",
+          "topics": "Kubernetes essencial para desenvolvimento.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-devops-13",
+          "title": "Intensivo Gitflow",
+          "url": "https://www.youtube.com/watch?v=dJjVr6Ya7B8",
+          "type": "youtube_video_or_channel",
+          "duration": "1 semana",
+          "dedication": "2 horas/semana",
+          "topics": "Gitflow e seus conceitos.",
+          "notes": [],
+          "availability": "not_checked"
+        },
+        {
+          "id": "ubl-specialization-devops-14",
+          "title": "Desbravando CI/CD",
+          "url": "https://www.youtube.com/playlist?list=PL7ScB28KYHhGTTHA2PFe0DmHmt3qU4YgM",
+          "type": "youtube_playlist",
+          "duration": "2 semanas",
+          "dedication": "2 horas/semana",
+          "topics": "Conceitos práticos de CI/CD.",
+          "notes": [],
+          "availability": "not_checked"
+        }
+      ],
+      "pageNotes": [
+        "A página contém nota “Especialização em construção.”",
+        "Descrição introdutória menciona texto retirado da Red Hat; preservar atribuição no inventário."
+      ]
+    },
+    {
+      "id": "ubl-specialization-algorithm-design",
+      "slug": "algorithm-design",
+      "title": "Design de Algoritmos",
+      "status": "announced_no_detailed_page",
+      "sourcePath": null,
+      "sourceUrl": null,
+      "reachableFromIndex": true,
+      "aguardandoConteudo": true,
+      "motivoAguardando": "A fonte anuncia esta especializacao, mas ainda nao tem pagina de recursos indexada.",
+      "resources": [],
+      "pageNotes": []
+    },
+    {
+      "id": "ubl-specialization-database-administration",
+      "slug": "database-administration",
+      "title": "Database Administrator (DBA)",
+      "status": "under_construction",
+      "sourcePath": "specializations/database_administration.md",
+      "sourceUrl": null,
+      "reachableFromIndex": false,
+      "aguardandoConteudo": true,
+      "motivoAguardando": "A pagina existe na fonte mas esta \"em construcao\" e nao e alcancavel pelo indice do README: nao ha recursos para estudar ainda.",
+      "pageNotes": [],
+      "resources": []
+    },
+    {
+      "id": "ubl-specialization-mobile-development",
+      "slug": "mobile-development",
+      "title": "Desenvolvimento Mobile",
+      "status": "under_construction",
+      "sourcePath": "specializations/mobile_development.md",
+      "sourceUrl": null,
+      "reachableFromIndex": false,
+      "aguardandoConteudo": true,
+      "motivoAguardando": "A pagina existe na fonte mas esta \"em construcao\" e nao e alcancavel pelo indice do README: nao ha recursos para estudar ainda.",
+      "pageNotes": [],
+      "resources": []
+    }
   ]
 }

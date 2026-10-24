@@ -1,0 +1,126 @@
+{
+  "schemaVersion": "0.1.0",
+  "source": {
+    "repository": "https://github.com/Universidade-Livre/ciencia-da-computacao",
+    "branch": "main",
+    "commitSha": null,
+    "observedAt": "2026-10-22"
+  },
+  "specializations": [
+    {
+      "id": "ubl-specialization-computer-graphics",
+      "slug": "computer-graphics",
+      "title": "Computação Gráfica",
+      "sourcePath": "specializations/computer_graphics.md",
+      "status": "detailed_page_present",
+      "atlasTagsDraft": [
+        "softwares gráficos",
+        "aplicações 3D",
+        "games",
+        "fotorrealismo",
+        "sistemas gráficos",
+        "simuladores"
+      ],
+      "atlasTagsOrigin": "atlas_editorial_draft_not_verbatim_ubl_content",
+      "editorialStatus": "draft_needs_review"
+    },
+    {
+      "id": "ubl-specialization-embedded-systems",
+      "slug": "embedded-systems",
+      "title": "Embarcados",
+      "sourcePath": "specializations/embedded_systems.md",
+      "status": "detailed_page_present",
+      "atlasTagsDraft": [
+        "internet das coisas",
+        "controles industriais",
+        "coisas inteligentes",
+        "wearables",
+        "cidades inteligentes",
+        "automobilismo"
+      ],
+      "atlasTagsOrigin": "atlas_editorial_draft_not_verbatim_ubl_content",
+      "editorialStatus": "draft_needs_review"
+    },
+    {
+      "id": "ubl-specialization-web-development",
+      "slug": "web-development",
+      "title": "Desenvolvimento Web",
+      "sourcePath": "specializations/web_development.md",
+      "status": "detailed_page_present",
+      "atlasTagsDraft": [
+        "aplicações em servidor",
+        "layout de páginas web",
+        "sistemas on-line",
+        "APIs",
+        "computação em nuvem",
+        "streaming"
+      ],
+      "atlasTagsOrigin": "atlas_editorial_draft_not_verbatim_ubl_content",
+      "editorialStatus": "draft_needs_review"
+    },
+    {
+      "id": "ubl-specialization-data-science",
+      "slug": "data-science",
+      "title": "Ciência de Dados",
+      "sourcePath": "specializations/data_science.md",
+      "status": "detailed_page_present_with_notes",
+      "atlasTagsDraft": [
+        "análise de dados",
+        "visualização de dados",
+        "machine learning",
+        "deep learning",
+        "sistemas especialistas",
+        "estatística"
+      ],
+      "atlasTagsOrigin": "atlas_editorial_draft_not_verbatim_ubl_content",
+      "editorialStatus": "draft_needs_review"
+    },
+    {
+      "id": "ubl-specialization-cybersecurity",
+      "slug": "cybersecurity",
+      "title": "CyberSecurity",
+      "sourcePath": "specializations/cybersecurity.md",
+      "status": "detailed_page_present_check_incomplete_flags",
+      "atlasTagsDraft": [
+        "segurança",
+        "pentest",
+        "criptografia",
+        "autenticação",
+        "análise",
+        "estatística"
+      ],
+      "atlasTagsOrigin": "atlas_editorial_draft_not_verbatim_ubl_content",
+      "editorialStatus": "draft_needs_review"
+    },
+    {
+      "id": "ubl-specialization-devops",
+      "slug": "devops",
+      "title": "DevOps",
+      "sourcePath": "specializations/devops.md",
+      "status": "detailed_page_present_check_incomplete_flags",
+      "atlasTagsDraft": [
+        "devops",
+        "infraestrutura",
+        "containers",
+        "Docker",
+        "Kubernetes",
+        "CI/CD"
+      ],
+      "atlasTagsOrigin": "atlas_editorial_draft_not_verbatim_ubl_content",
+      "editorialStatus": "draft_needs_review"
+    },
+    {
+      "id": "ubl-specialization-algorithm-design",
+      "slug": "algorithm-design",
+      "title": "Design de Algoritmos",
+      "sourcePath": null,
+      "status": "announced_no_detailed_page",
+      "note": "Não inventar a trilha base. Conteúdo adicional futuro deve ser rotulado como conteúdo autoral/curadoria extra.",
+      "atlasTagsDraft": [
+        "em breve"
+      ],
+      "atlasTagsOrigin": "atlas_editorial_draft_not_verbatim_ubl_content",
+      "editorialStatus": "draft_needs_review"
+    }
+  ]
+}

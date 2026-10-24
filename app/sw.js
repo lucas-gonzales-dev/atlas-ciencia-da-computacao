@@ -17,7 +17,7 @@
 // a estrategia e cache-first, entao quem ja instalou o app com atlas-v1 jamais
 // re-buscaria o catalogo novo — veria a trilha antiga para sempre e acharia que
 // o Atlas nao tem eletivas. Versao nova = cache novo = install roda de novo.
-const VERSAO = 'atlas-v2';
+const VERSAO = 'atlas-v3';
 
 const PRECACHE = [
   // Nao listar a raiz aqui de proposito: o teste de sincronia compara caminho
@@ -33,6 +33,9 @@ const PRECACHE = [
   '/data/catalog.json',
   '/data/ubl-core-seed.json',
   '/data/commented-electives-seed.json',
+  '/data/specializations-seed.json',
+  '/data/specialization-resources-seed.json',
+  '/data/specializations-unindexed-overlay.json',
   // Os dois abaixo NAO sao assets de navegador (package.json e metadado,
   // serve.js e o servidor node). Estao aqui so porque o teste de sincronia
   // deriva a lista de TODOS os .js/.json fora de tests/. Mantidos no cache:

@@ -85,6 +85,28 @@
   .item.eletiva .prereq-texto { grid-column: 1; color: var(--fosco); font-size: .8rem; }
   .item.eletiva .topicos { grid-column: 1; color: var(--fosco); font-size: .8rem; margin-top: 4px; }
   .item.eletiva .recurso { grid-column: 1; }
+  /* ESPECIALIZACOES (24/10/2026): sao conteudo de aprofundamento, nao a grade.
+     Ficam entre a trilha e as eletivas, com recursos em lista aninhada — no
+     celular cada linha de recurso precisa de area de toque inteira (min-height),
+     porque link pequeno em lista longa e link que o dedo erra. */
+  section.especializacoes { margin-top: 34px; }
+  section.especializacoes h2 { font-size: 1.15rem; margin: 0 0 4px; letter-spacing: -.01em; }
+  .esp-lista { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 12px; }
+  .item.esp { grid-template-columns: 1fr; align-items: start; }
+  .item.esp .titulo { grid-column: 1; font-weight: 600; }
+  .item.esp .status { grid-column: 1; color: var(--fosco); font-size: .78rem; }
+  .item.esp.aguardando { border-left-color: #8a6a1f; background: #1d1a12; }
+  .aviso-esp {
+    grid-column: 1; margin: 6px 0 0; padding: 9px 11px; border-radius: 9px;
+    font-size: .82rem; line-height: 1.45; color: #e9d9a8;
+    background: #2a2313; border: 1px solid #55461f;
+  }
+  .esp-recursos { list-style: none; grid-column: 1; margin: 8px 0 0; padding: 0; display: grid; gap: 2px; }
+  .esp-recursos li { padding: 7px 0; border-bottom: 1px solid var(--borda); font-size: .9rem; line-height: 1.4; }
+  .esp-recursos li:last-child { border-bottom: 0; }
+  .esp-recursos a { min-height: 44px; display: inline-flex; align-items: center; }
+  .esp-meta { color: var(--fosco); font-size: .8rem; }
+  .esp-nota { color: #c9b98a; font-size: .78rem; }
   @media (min-width: 620px) {
     .app { padding: 28px 20px 64px; }
     h1 { font-size: 1.9rem; }
@@ -130,8 +152,8 @@ function aviso(texto) {
   root.prepend(p);
 }
 
-const { courses, origem, electives, origemEletivas } = await loadCatalog();
-state = { ...state, courses, origem, electives, origemEletivas };
+const { courses, origem, electives, origemEletivas, specializations, origemEspecializacoes } = await loadCatalog();
+state = { ...state, courses, origem, electives, origemEletivas, specializations, origemEspecializacoes };
 paint();
 bind(root, state, toggle);
 

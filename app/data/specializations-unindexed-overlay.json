@@ -1,0 +1,134 @@
+{
+  "schemaVersion": "0.1.0",
+  "decisionRef": "decisions/decision-atlas-p1p2-closeout.md#decisao-3",
+  "decision": "include_as_under_construction_not_reachable",
+  "policy": [
+    "specializations-seed.json stays at 7 rows: it counts INDEX-ANNOUNCED specializations, and validate_seed.py asserts exactly 7.",
+    "Tree-present-but-unindexed pages live in this overlay instead, never merged into the indexed seed.",
+    "reachableFromIndex=false must prevent the product from ever promising an empty learning path.",
+    "resourceRowCount is measured from the source file, not assumed."
+  ],
+  "source": {
+    "repositoryUrl": "https://github.com/Universidade-Livre/ciencia-da-computacao",
+    "branch": "main",
+    "commitSha": "b995c118fdb3929412004ee041a25c77cb0aa997",
+    "commitShort": "b995c11",
+    "commitDate": "2026-05-20T20:56:38-03:00",
+    "commitAuthor": "Felipe",
+    "commitSubject": "fix: correct typos across multiple files (#155)",
+    "observedAt": "2026-10-22",
+    "pinnedAt": "2026-10-22",
+    "shaPinningStatus": "pinned",
+    "status": "snapshot-audited-core-and-bibliography-reconciled",
+    "worktreeClean": true,
+    "submodules": false,
+    "gitLfs": false,
+    "clonePath": "C:/Users/Pichau/Documents/Aurora/atlas-kit/source/ciencia-da-computacao",
+    "auditOutput": "audit-output/ubl-b995c11/",
+    "evidence": {
+      "files": 54,
+      "markdownFiles": 51,
+      "localImageFiles": 0,
+      "linkOccurrences": 472,
+      "activeLinks": 461,
+      "commentedLinks": 11,
+      "uniqueNormalizedHttpUrls": 344,
+      "duplicateUrlGroups": 35,
+      "markdownTableLines": 55,
+      "headings": 270,
+      "coreSubjectsInSource": 35,
+      "coreSubjectsReconciled": 35,
+      "coreFieldDivergences": 0,
+      "bibliographyFiles": 35,
+      "bibliographyReferencedAndResolved": 35,
+      "unresolvedRelativeLinks": 0,
+      "specializationIndexRows": 7,
+      "specializationFilesInTree": 8,
+      "specializationResourceRows": 75,
+      "specializationUrlDivergences": 0,
+      "identicalContentFileGroups": 1,
+      "prerequisiteGraphIssues": 3,
+      "validateSeed": "PASS with source-verification warnings (exit 0)",
+      "unitTests": "2 tests passed (exit 0)",
+      "report": "docs/source-reconciliation-b995c11.md"
+    },
+    "gate": {
+      "sourceAuditComplete": true,
+      "acceptedBy": "user",
+      "acceptedAt": "2026-10-22",
+      "blockingPending": [],
+      "closedPending": [
+        "P-1 closed: the archived '## Eletivas' block is a pipe table; 4 rows found at README l.241/242/244/245 with titles, URLs and prerequisites identical to the seed. Residual divergence is metadata only (stale sourceLineHint on all 4, topicsRaw on 2) and is reported, not applied.",
+        "P-2 closed: extras/books.md is a bullet list, not a table; 15 = 15. No divergence ever existed - it was a parser defect in reconcile_snapshot.py."
+      ],
+      "notVerified": [
+        "external URL availability (link health)",
+        "third-party licenses and redistribution rights",
+        "child resources of playlists and courses"
+      ],
+      "notVerifiedStatus": "Declared out of scope for Task 001 and recorded as such; the gate was accepted by the user with these caveats on record, they were not forgotten."
+    },
+    "notes": [
+      "The public main README was viewed during the current planning session.",
+      "Exact commit SHA captured on 2026-10-22 by local clone; the DNS block reported by the packaging environment no longer applies.",
+      "Core grid (35 subjects) and specialization resource URLs reconcile exactly against this SHA.",
+      "Seeds were NOT modified by this audit; divergences are reported for human review only.",
+      "Source anomalies preserved verbatim: Python I/II share one playlist URL; 3 prerequisite rows point Python I/II at Coursera while the subject rows point at YouTube; 12_ and 19_ computer_architecture bibliographies are byte-identical; extras/softskills.md is empty (2 bytes); mobile_development.md and database_administration.md exist, are 'Em construcao' and are not linked from the README index.",
+      "The planning kit IS a Git repository since 2026-10-22 (baseline 884a9d6, then 7e666c1 P-1/P-2 fix, then b5bcdef .gitignore), so kit edits are traceable and revertible.",
+      "External link availability and third-party licenses are not verified by this manifest."
+    ]
+  },
+  "summary": {
+    "specializationFilesInTree": 8,
+    "indexedInReadme": 6,
+    "unindexedOverlayEntries": 2
+  },
+  "unindexedSpecializations": [
+    {
+      "id": "ubl-specialization-database-administration",
+      "slug": "database-administration",
+      "title": "Database Administrator (DBA)",
+      "titleProvenance": "first_heading_h3_of_source_file",
+      "headingLevel": 3,
+      "sourcePath": "specializations/database_administration.md",
+      "status": "under_construction",
+      "reachableFromIndex": false,
+      "referencedInReadmeIndex": false,
+      "resourceRowCount": 0,
+      "presentInSpecializationsSeed": false,
+      "evidence": {
+        "bytes": 263,
+        "sha256": "b50152fba8cb8d647262ce9e5e02393408f3c52058c97cf42ba783c841ac1bf9",
+        "lines": 13,
+        "headings": 1,
+        "httpLinks": 0,
+        "resourceRows": 0,
+        "linkLinesOutsideTables": []
+      },
+      "note": "Page exists in the pinned source tree but is not linked from the README index, so a student following the published curriculum cannot reach it. Kept in the catalog as under_construction to avoid irreversibly dropping verified source data; excluded from the navigation graph because it offers no traversable resources."
+    },
+    {
+      "id": "ubl-specialization-mobile-development",
+      "slug": "mobile-development",
+      "title": "Desenvolvimento Mobile",
+      "titleProvenance": "first_heading_h3_of_source_file",
+      "headingLevel": 3,
+      "sourcePath": "specializations/mobile_development.md",
+      "status": "under_construction",
+      "reachableFromIndex": false,
+      "referencedInReadmeIndex": false,
+      "resourceRowCount": 0,
+      "presentInSpecializationsSeed": false,
+      "evidence": {
+        "bytes": 229,
+        "sha256": "3bd4e05dd054e97427ddc7b2c5e946ee0ff610986c8928a40a9f0be3a49a11d9",
+        "lines": 12,
+        "headings": 1,
+        "httpLinks": 0,
+        "resourceRows": 0,
+        "linkLinesOutsideTables": []
+      },
+      "note": "Page exists in the pinned source tree but is not linked from the README index, so a student following the published curriculum cannot reach it. Kept in the catalog as under_construction to avoid irreversibly dropping verified source data; excluded from the navigation graph because it offers no traversable resources."
+    }
+  ]
+}

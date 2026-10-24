@@ -61,7 +61,9 @@ export async function loadCatalog() {
       courses,
       origem: json.origem || 'data/catalog.json',
       electives: Array.isArray(json.electives) ? json.electives : [],
-      origemEletivas: typeof json.origemEletivas === 'string' ? json.origemEletivas : ''
+      origemEletivas: typeof json.origemEletivas === 'string' ? json.origemEletivas : '',
+      specializations: Array.isArray(json.specializations) ? json.specializations : [],
+      origemEspecializacoes: typeof json.origemEspecializacoes === 'string' ? json.origemEspecializacoes : ''
     };
   } catch {
     return minimo; // file:// bloqueia fetch: cai no minimo em vez de quebrar a tela
@@ -174,9 +176,83 @@ function secaoEletivas(electives, origemEletivas) {
 }
 
 /**
+ * Bloco de ESPECIALIZACOES — incremento de 24/10/2026.
+ *
+ * Aqui mora a decisao de honestidade do Atlas: a fonte anuncia 7 no indice,
+ * 6 delas com pagina de recursos (75 linhas transcritas), 1 sem pagina
+ * (Design de Algoritmos) e 2 existem na arvore mas nao estao linkadas no indice
+ * (DBA e Mobile). Quem nao tem recurso aparece como "aguardando conteudo" com o
+ * link da fonte — nunca como uma trilha bonita e vazia.
+ */
+function secaoEspecializacoes(specializations, origem) {
+  if (!Array.isArray(specializations) || specializations.length === 0) return null;
+
+  const s = el('section', { class: 'especializacoes' });
+  s.append(el('h2', {}, 'Especializacoes'));
+  if (typeof origem === 'string' && origem.length) {
+    s.append(el('p', { class: 'fonte' }, `Dados: ${origem}`));
+  }
+
+  const lista = el('ul', { class: 'esp-lista' });
+  for (const sp of specializations) {
+    const li = el('li', { class: `item esp${sp.aguardandoConteudo ? ' aguardando' : ''}`, 'data-id': sp.id });
+    li.append(
+      el('span', { class: 'titulo' }, sp.title),
+      el('span', { class: 'status' }, sp.aguardandoConteudo ? 'Aguardando conteudo' : `${sp.resources.length} recurso(s)`)
+    );
+
+    if (sp.aguardandoConteudo && typeof sp.motivoAguardando === 'string') {
+      li.append(el('p', { class: 'aviso-esp' }, sp.motivoAguardando));
+    }
+
+    // Link da FONTE, quando o seed a conhece: e para la que o aluno olha se
+    // quiser conferir a transcricao. Sem URL real, link nenhum.
+    if (typeof sp.sourceUrl === 'string' && sp.sourceUrl.length) {
+      li.append(el('a', {
+        class: 'recurso esp-fonte',
+        href: sp.sourceUrl,
+        target: '_blank',
+        rel: 'noopener noreferrer'
+      }, 'Ver pagina na fonte'));
+    }
+
+    const recursos = Array.isArray(sp.resources) ? sp.resources : [];
+    if (recursos.length > 0) {
+      const ul = el('ul', { class: 'esp-recursos' });
+      for (const r of recursos) {
+        const liR = el('li', {});
+        if (typeof r.url === 'string' && r.url.length) {
+          liR.append(el('a', {
+            href: r.url,
+            target: '_blank',
+            rel: 'noopener noreferrer'
+          }, r.title || r.url));
+        } else {
+          // Recurso sem URL na transcricao: mostro o titulo e digo que falta o
+          // link. Inventar um seria pior que nao ter.
+          liR.append(el('span', {}, `${r.title || '(sem titulo na fonte)'} — sem URL na fonte`));
+        }
+        const meta = [r.duration, r.dedication].filter((x) => typeof x === 'string' && x.length).join(' · ');
+        if (meta) liR.append(el('span', { class: 'esp-meta' }, ` (${meta})`));
+        if (Array.isArray(r.notes) && r.notes.length > 0) {
+          liR.append(el('span', { class: 'esp-nota' }, ` — ${r.notes.join(' ')}`));
+        }
+        ul.append(liR);
+      }
+      li.append(ul);
+    }
+
+    lista.append(li);
+  }
+
+  s.append(lista);
+  return s;
+}
+
+/**
  * Desenha a lista. Puro: recebe estado, devolve DOM. Sem regra de negocio.
  */
-export function render(root, { courses, completed, origem, electives, origemEletivas }) {
+export function render(root, { courses, completed, origem, electives, origemEletivas, specializations, origemEspecializacoes }) {
   root.textContent = '';
 
   const done = new Set(completed);
@@ -254,6 +330,9 @@ export function render(root, { courses, completed, origem, electives, origemElet
   // Eletivas DEPOIS da grade, e fora dela: sao conteudo arquivado, nao caminho.
   // `total` e `feitos` continuam sendo os da grade obrigatoria — se um dia
   // alguem somar eletiva aqui, o progresso do aluno passa a mentir.
+  const especializacoes = secaoEspecializacoes(specializations, origemEspecializacoes);
+  if (especializacoes) root.append(especializacoes);
+
   const eletivas = secaoEletivas(electives, origemEletivas);
   if (eletivas) root.append(eletivas);
 
