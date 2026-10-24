@@ -4,8 +4,8 @@
   "description": "Trilha de Ciência da Computação da Universidade Livre Brasileira, com pré-requisitos, progresso e acesso offline.",
   "lang": "pt-BR",
   "dir": "ltr",
-  "start_url": "/",
-  "scope": "/",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0b1020",
@@ -13,7 +13,7 @@
   "categories": ["education", "productivity"],
   "icons": [
     {
-      "src": "/icons/icone.svg",
+      "src": "./icons/icone.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"

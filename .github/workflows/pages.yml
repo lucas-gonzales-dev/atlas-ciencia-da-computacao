@@ -1,0 +1,54 @@
+# Projeto Atlas — coloca a pasta app/ no ar pelo GitHub Pages.
+#
+# NAO RODA SOZINHO AINDA: o Pages do repositorio esta desligado, e liga-lo e
+# decisao do Lucas. Quando ele ligar (Settings > Pages > Source: GitHub
+# Actions), este workflow passa a servir em
+#   https://<usuario>.github.io/atlas-kit-tools/
+# O configure-pages descobre a URL base sozinho, entao nada aqui precisa saber
+# o subcaminho — quem precisa e o app, e por isso manifest/sw usam caminhos
+# relativos (app/tests/pages.test.js cobra).
+#
+# Sem segredo: nada deste fluxo e privado, e a permissao vem do GITHUB_TOKEN
+# padrao do runner. Este arquivo tambem NAO muda visibilidade do repositorio:
+# abrir o repo e decisao humana, fora do CI.
+name: Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # A suite roda antes do deploy de proposito: colocar no ar um catalogo
+      # errado na frente de quem chegou pelo post e pior que nao colocar.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Testes do app
+        run: npm test --prefix app
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: app
+
+      - id: deployment
+        uses: actions/deploy-pages@v4

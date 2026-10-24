@@ -174,7 +174,11 @@ bind(root, state, toggle);
 // navegadores sem suporte, `navigator.serviceWorker` simplesmente nao existe.
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   try {
-    const reg = await navigator.serviceWorker.register('sw.js', { scope: '/' });
+    // Escopo vem da URL do documento, nunca de '/': publicado em /<repo>/, um
+    // escopo na raiz do dominio faria o navegador RECUSAR o registro (o sw.js
+    // estaria fora do escopo pedido) e o app perderia o offline em silencio.
+    const escopo = new URL('./', document.baseURI).pathname;
+    const reg = await navigator.serviceWorker.register('sw.js', { scope: escopo });
     reg.addEventListener('updatefound', () => {
       const novo = reg.installing;
       novo?.addEventListener('statechange', () => {
