@@ -1,22 +1,55 @@
 # Projeto Atlas
 
-App de estudo pessoal do Lucas, construído sobre o currículo aberto da
-**Universidade Brasileira Livre (UBL)**. Roda no navegador como PWA, sem build e
-sem dependências: o servidor é `node app/serve.js`, os testes são `node --test`.
+Trilha de Ciência da Computação da **Universidade Brasileira Livre (UBL)** em forma
+de app: mostra as 35 disciplinas, o que está destrancado pelo que você já fez e o
+que estudar em seguida. Roda no navegador, instala no celular e funciona offline.
 
-## O que ele faz
+Sem build, sem dependências, sem framework. O conteúdo vem de uma fonte aberta
+auditada, e **nada é inventado**: o que a fonte não tem aparece como faltando.
 
-- mostra as 35 disciplinas do currículo com pré-requisitos e o que fazer em
-  seguida;
-- separa as **eletivas** arquivadas na fonte, numa seção própria e fora da grade
-  — elas não somam progresso, porque a fonte não as soma sem decisão editorial;
-- lista as **especializações** com os recursos delas, e marca como *aguardando
-  conteúdo* as que a fonte ainda tem "em construção";
-- mostra a **bibliografia** de cada disciplina quando a fonte a traz, e quando
-  não traz mostra o caminho na fonte com o aviso de que não foi conferido.
+## Como abrir
 
-Regra da casa: **nada é inventado**. O que a fonte não tem aparece como faltando,
-nunca preenchido com plausível.
+- **Online:** ainda não está no ar. O workflow do GitHub Pages está pronto
+  (`.github/workflows/pages.yml`), mas o Pages do repositório ainda está
+  desligado — ligá-lo é decisão do Lucas, e não se faz pelo CI.
+- **Local:**
+  ```bash
+  node app/serve.js     # sobe o app (porta pela variável PORT, se precisar)
+  npm test --prefix app # roda a suite inteira
+  ```
+  Abrir `index.html` direto no arquivo não basta: service worker exige http(s).
+
+## O que já tem
+
+- **Grade obrigatória:** as 35 disciplinas da fonte com pré-requisitos, organizadas
+  em estágios, e destaque do que fazer em seguida.
+- **Eletivas:** em seção própria, marcadas como arquivadas na fonte e **fora** do
+  progresso — a fonte não as soma na grade, então o Atlas também não.
+- **Especializações:** as 9 da fonte com os 75 recursos delas; as 3 que a fonte tem
+  "em construção" aparecem como *aguardando conteúdo*, com o motivo escrito.
+- **Bibliografia:** o caminho de cada disciplina na fonte, e o aviso explícito de
+  que o conteúdo não foi conferido quando ela não traz a bibliografia pronta.
+- **PWA:** instalável no celular e com a trilha inteira no cache — offline sem dados
+  seria offline inútil.
+- **Proveniência na tela:** de qual commit da fonte o catálogo foi derivado, visível
+  para quem está usando.
+
+## O que ainda falta
+
+Honesto, sem enfeite:
+
+- **O app não está publicado.** O Pages está preparado, não ligado. Enquanto isso,
+  ninguém abre o Atlas sem clonar o repositório.
+- **Offline e instalação não foram confirmados num celular de verdade.** Node não
+  executa service worker: o que está testado é que os arquivos existem, são servidos
+  com o content-type certo e o precache está sincronizado com o disco. A instalação
+  real no Android ainda é uma promessa.
+- **Licença do código não foi escolhida.** Está proposta, não aplicada (veja abaixo).
+- **Sem busca, sem anotações, sem lembrete de estudo.** O progresso fica só no
+  `localStorage` daquele aparelho: trocar de navegador é começar do zero.
+- **A fonte não é fixada por commit em tudo.** O currículo principal está auditado
+  no SHA `b995c11`; as eletivas vêm de material que a fonte ainda move, e a tela diz
+  isso.
 
 ## De onde vêm os dados
 
@@ -27,14 +60,19 @@ auditada no SHA `b995c11` e transformada em `app/data/catalog.json` por
 Os recursos externos — cursos, vídeos, livros — pertencem aos autores deles. O
 Atlas só aponta para onde estão; não redistribui nada.
 
-## Como rodar
+## Como foi feito
 
-```bash
-node app/serve.js                 # abre o app (PORT opcional)
-node --test app/tests/*.test.js   # 100 testes
-```
+O Atlas foi escrito pela **Aurora**, uma assistente de arquitetura cognitiva que
+trabalha com o Lucas no dia a dia: ela lê a fonte, deriva o catálogo, escreve o
+código e os testes, e registra o que decidiu e por quê.
 
-No Windows, `node --test app/tests/` com a pasta quebra; passe os arquivos.
+O **Claude** entrou como revisor e juiz: leu o que a Aurora fez, apontou o que
+estava errado ou apenas plausível demais, e arbitrou as discordâncias. Várias
+decisões deste repositório existem porque ele não aceitou a primeira versão — entre
+elas, marcar como não verificado o que ninguém conferiu.
+
+As regras do jogo: nada de dado inventado, cada mudança com teste antes, um commit
+por item e o histórico do que se decidiu mantido junto do código.
 
 ## Créditos e licença
 
@@ -65,3 +103,10 @@ e não é o que a fonte pede.
 
 Seja qual for a decisão, o aviso de copyright da UBL e o texto de permissão da
 MIT precisam continuar no `CREDITS.md`. Isso não é opcional.
+
+## Testes
+
+Mais de 100 testes (a conta exata aparece na saída do runner) em 13 arquivos,
+sem framework: `node:test`. O `npm test` lista os arquivos um a um de propósito —
+funciona igual em qualquer shell, e `app/tests/npm-script.test.js` falha a suite se
+alguém criar um teste novo e esquecer de colocá-lo na lista.
