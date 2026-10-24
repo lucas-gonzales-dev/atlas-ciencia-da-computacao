@@ -8,6 +8,14 @@
 import { unlockedCourses, detectCycles, nextUp } from '../core/progress.js';
 import { prereqLabel } from '../core/catalog.js';
 
+// Raiz publica do repositorio da fonte (Universidade-Livre/ciencia-da-computacao).
+// Usada SÓ para montar o link da bibliografia a partir do caminho que a propria
+// fonte declara (bibliographySourcePath). Nao e um endereco de recurso do Atlas:
+// e o lugar onde o aluno confere o original. O commit da fonte NAO esta fixado
+// (main-unpinned), entao o link aponta para main e a tela avisa que nao foi
+// verificado — mesma regra de honestidade do resto do catalogo.
+const ORIGEM_REPO = 'https://github.com/Universidade-Livre/ciencia-da-computacao';
+
 const STORAGE_KEY = 'atlas.progresso.v1';
 
 export function loadCompleted() {
@@ -303,6 +311,33 @@ export function render(root, { courses, completed, origem, electives, origemElet
       el('span', { class: 'titulo' }, `${c.title}${prereq}`),
       el('span', { class: 'status' }, rotulo)
     ];
+
+    // BIBLIOGRAFIA (item 3, 24/10/2026). O que existe de verdade: cada uma das
+    // 35 disciplinas traz `bibliographySourcePath` transcrito do README da UBL
+    // (ex.: extras/bibliography/01_digital_circuits.md). O CONTEUDO dessas
+    // paginas NAO foi transcrito — a reconciliacao do kit conferiu que os 35
+    // caminhos resolvem, nada alem disso. Entao a tela mostra o caminho e o
+    // link para a pagina na fonte, e diz com todas as letras que o caminho vem
+    // da fonte e que a lista de livros nao esta dentro do Atlas.
+    // Inventar titulo de livro aqui seria o pior erro possivel deste item.
+    const biblioPath = typeof c.bibliography === 'string' ? c.bibliography.trim() : '';
+    if (biblioPath !== '') {
+      // el() recebe TEXTO no terceiro argumento, nao filhos. Montar o span e dar
+      // append() nele: passar o array de filhos jogaria "[object Object]" na tela
+      // e sumiria com o link e com o aviso sem erro nenhum no console — foi o que
+      // os testes de bibliografia pegaram em 24/10/2026 (0 links em 35).
+      const biblio = el('span', { class: 'biblio' });
+      biblio.append(
+        el('a', {
+          class: 'biblio-link',
+          href: `${ORIGEM_REPO}/blob/main/${biblioPath}`,
+          target: '_blank',
+          rel: 'noopener noreferrer'
+        }, `Bibliografia: ${biblioPath}`),
+        el('span', { class: 'biblio-nota' }, 'Caminho transcrito da fonte, disponibilidade nao verificada. O Atlas nao guarda o conteudo dos livros.')
+      );
+      pedacos.push(biblio);
+    }
 
     // O recurso e o motivo de a trilha existir: sem ele o aluno ve "Python I"
     // e nao tem onde estudar. Aparece tambem na disciplina TRANCADA — a trava
