@@ -96,6 +96,87 @@ function descreverOrigem(seed) {
 }
 
 /**
+ * Converte o seed de ELETIVAS COMENTADAS no que a tela mostra.
+ *
+ * Por que elas NAO entram em toCatalog(): o proprio seed traz a decisao editorial
+ * da fonte — "preservar como conteudo legado/inativo e NAO somar a grade
+ * obrigatoria sem decisao editorial". Sao linhas dentro de um bloco HTML
+ * COMENTADO do README. Mistura-las na grade faria o progresso do aluno contar
+ * materia que a universidade nao oferece, e e exatamente isso que este modulo
+ * separado existe para impedir.
+ *
+ * Regra da casa: zero filesystem. Quem le o arquivo e o teste ou o build.
+ *
+ * @param {object} seed conteudo de commented-electives-seed.json
+ * @returns {{electives: Array, origem: string, total: number, descartados: number}}
+ */
+export function toElectives(seed) {
+  if (!seed || typeof seed !== 'object') {
+    throw new TypeError('seed de eletivas invalido: esperado um objeto, veio ' + typeof seed);
+  }
+  if (!Array.isArray(seed.items)) {
+    throw new TypeError('seed de eletivas sem a lista "items": nao ha nada para derivar');
+  }
+
+  const electives = [];
+  let descartados = 0;
+
+  for (const i of seed.items) {
+    if (!i || typeof i.id !== 'string' || i.id.length === 0) {
+      // Sem id nao ha como identificar o registro na tela nem no link da fonte.
+      // Conto e sigo, como em toCatalog — esconder seria uma perda invisivel.
+      descartados += 1;
+      continue;
+    }
+
+    electives.push({
+      id: i.id,
+      title: typeof i.title === 'string' ? i.title : i.id,
+      // A fonte usa `url` aqui (nao resourceUrl). Aceito os dois e registro
+      // qual veio, pelo mesmo motivo de toCatalog.
+      resourceUrl: typeof i.url === 'string' && i.url.length ? i.url
+        : typeof i.resourceUrl === 'string' && i.resourceUrl.length ? i.resourceUrl
+        : null,
+      // `state` e o que permite a tela dizer "arquivada na fonte" em vez de
+      // fingir que e materia corrente. Preservado cru, sem traducao.
+      state: typeof i.state === 'string' ? i.state : null,
+      // TITULOS, nunca ids. A fonte so da prerequisiteTitles; mapear para id
+      // seria inventar um pre-requisito que ela nao declarou — e pre-requisito
+      // inventado tranca ou destranca progresso na base de achismo.
+      prerequisiteTitles: Array.isArray(i.prerequisiteTitles)
+        ? i.prerequisiteTitles.filter((t) => typeof t === 'string')
+        : [],
+      topics: typeof i.topicsRaw === 'string' && i.topicsRaw.length ? i.topicsRaw : null,
+      sourceLineHint: Number.isInteger(i.sourceLineHint) ? i.sourceLineHint : null,
+      note: typeof i.note === 'string' ? i.note : null
+    });
+  }
+
+  // Sem sort(): o seed ja vem na ordem do README, e reordenar eletiva por titulo
+  // seria outra decisao editorial escondida dentro do gerador.
+  return { electives, origem: descreverOrigemEletivas(seed), total: seed.items.length, descartados };
+}
+
+/**
+ * Frase de proveniencia das eletivas, VISIVEL na tela.
+ * O commitSha do seed de eletivas e null: a fonte pode ter mudado desde a
+ * auditoria, e o aluno tem direito de saber disso antes de clicar num link.
+ */
+function descreverOrigemEletivas(seed) {
+  const src = seed.source && typeof seed.source === 'object' ? seed.source : {};
+  const repo = typeof src.repository === 'string' && src.repository.length
+    ? src.repository
+    : 'fonte desconhecida';
+  const n = Array.isArray(seed.items) ? seed.items.length : 0;
+  const arquivadas = `${n} eletivas arquivadas na fonte (bloco comentado do README) — Universidade Livre Brasileira (${repo})`;
+
+  if (typeof src.commitSha === 'string' && src.commitSha.length) {
+    return `${arquivadas} @ ${src.commitSha}`;
+  }
+  return `${arquivadas} @ commit NAO FIXADO: a fonte pode ter mudado desde a auditoria`;
+}
+
+/**
  * Rotulo legivel dos pre-requisitos de uma disciplina.
  *
  * Por que nao mostrar o id cru: "precisa de: ubl-core-introducao-cc-python-i"

@@ -54,7 +54,15 @@ export async function loadCatalog() {
     const json = await r.json();
     const courses = Array.isArray(json?.courses) ? json.courses : null;
     if (!courses || courses.length === 0) return minimo;
-    return { courses, origem: json.origem || 'data/catalog.json' };
+    // Eletivas sao OPCIONAIS de proposito: um catalog.json gerado antes de
+    // 24/10/2026 nao tem o campo, e a tela precisa continuar abrindo (com a
+    // grade, sem a secao) em vez de morrer por um acrescimo.
+    return {
+      courses,
+      origem: json.origem || 'data/catalog.json',
+      electives: Array.isArray(json.electives) ? json.electives : [],
+      origemEletivas: typeof json.origemEletivas === 'string' ? json.origemEletivas : ''
+    };
   } catch {
     return minimo; // file:// bloqueia fetch: cai no minimo em vez de quebrar a tela
   }
@@ -111,9 +119,64 @@ function proximaMateria(courses, completed, cyclic) {
 }
 
 /**
+ * Bloco de ELETIVAS ARQUIVADAS — incremento de 24/10/2026.
+ *
+ * Decisao de produto (do Lucas, 24/10): tudo o que o repositorio tem vem para a
+ * tela, e o que a fonte nao tem aparece como aguardando conteudo, sem inventar
+ * nada. As eletivas sao o caso mais delicado disso: elas existem na fonte como
+ * linhas COMENTADAS, entao aparecerem como materia corrente seria mentira — e
+ * desaparecerem seria jogar fora trabalho que a universidade documentou.
+ *
+ * Por isso: secao propria, DEPOIS da grade, com o aviso de arquivamento, com o
+ * link da fonte, e SEM botao de concluir (nao somam ao progresso).
+ */
+function secaoEletivas(electives, origemEletivas) {
+  if (!Array.isArray(electives) || electives.length === 0) return null; // sem dado, sem secao vazia
+
+  const s = el('section', { class: 'eletivas' });
+  s.append(el('h2', {}, 'Eletivas'));
+  s.append(el('p', { class: 'aviso-eletivas' },
+    'Arquivadas na fonte: estas disciplinas aparecem num bloco comentado do README da UBL e NAO somam a grade obrigatoria sem decisao editorial. Estao aqui para consulta — nao contam no seu progresso.'));
+  if (typeof origemEletivas === 'string' && origemEletivas.length) {
+    s.append(el('p', { class: 'fonte' }, `Dados: ${origemEletivas}`));
+  }
+
+  const lista = el('ul', { class: 'eletivas-lista' });
+  for (const e of electives) {
+    const li = el('li', { class: 'item eletiva', 'data-id': e.id });
+    const pedacos = [el('span', { class: 'titulo' }, e.title)];
+
+    // Pre-requisitos da fonte sao TITULOS, e a tela os mostra como texto:
+    // nao ha trava aqui, porque nao ha progresso a travar.
+    if (Array.isArray(e.prerequisiteTitles) && e.prerequisiteTitles.length > 0) {
+      pedacos.push(el('span', { class: 'prereq-texto' }, ` — pre-requisitos citados na fonte: ${e.prerequisiteTitles.join(', ')}`));
+    }
+    if (typeof e.topics === 'string' && e.topics.length) {
+      pedacos.push(el('span', { class: 'topicos' }, e.topics));
+    }
+
+    const recurso = typeof e.resourceUrl === 'string' ? e.resourceUrl.trim() : '';
+    if (recurso !== '') {
+      pedacos.push(el('a', {
+        class: 'recurso',
+        href: recurso,
+        target: '_blank',
+        rel: 'noopener noreferrer'
+      }, 'Abrir recurso'));
+    }
+
+    li.append(...pedacos);
+    lista.append(li);
+  }
+
+  s.append(lista);
+  return s;
+}
+
+/**
  * Desenha a lista. Puro: recebe estado, devolve DOM. Sem regra de negocio.
  */
-export function render(root, { courses, completed, origem }) {
+export function render(root, { courses, completed, origem, electives, origemEletivas }) {
   root.textContent = '';
 
   const done = new Set(completed);
@@ -187,6 +250,13 @@ export function render(root, { courses, completed, origem }) {
   }
 
   root.append(lista);
+
+  // Eletivas DEPOIS da grade, e fora dela: sao conteudo arquivado, nao caminho.
+  // `total` e `feitos` continuam sendo os da grade obrigatoria — se um dia
+  // alguem somar eletiva aqui, o progresso do aluno passa a mentir.
+  const eletivas = secaoEletivas(electives, origemEletivas);
+  if (eletivas) root.append(eletivas);
+
   return { feitos, total, open: open.size };
 }
 

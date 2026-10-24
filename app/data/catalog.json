@@ -479,5 +479,60 @@
       "prerequisites": [],
       "bibliography": "extras/bibliography/35_methodology.md"
     }
+  ],
+  "geradoDeEletivas": "app/data/commented-electives-seed.json",
+  "origemEletivas": "4 eletivas arquivadas na fonte (bloco comentado do README) — Universidade Livre Brasileira (https://github.com/Universidade-Livre/ciencia-da-computacao) @ commit NAO FIXADO: a fonte pode ter mudado desde a auditoria",
+  "electives": [
+    {
+      "id": "ubl-commented-elective-computer-vision",
+      "title": "Visão Computacional",
+      "resourceUrl": "https://www.youtube.com/playlist?list=PLmDIGfkfgKy1SBjXA0kBk4DAhIaN1vQOS",
+      "state": "commented_or_archived",
+      "prerequisiteTitles": [
+        "Fundamentos de Computação Gráfica"
+      ],
+      "topics": null,
+      "sourceLineHint": 197,
+      "note": "Linha dentro de bloco HTML comentado do README."
+    },
+    {
+      "id": "ubl-commented-elective-image-processing",
+      "title": "Processamento de Imagens",
+      "resourceUrl": "https://www.youtube.com/watch?v=Bd0PCypQ44s&list=PLo4jXE-LdDTRaFa39TdNN3FgPAKkcuHvj&index=1",
+      "state": "commented_or_archived",
+      "prerequisiteTitles": [
+        "Cálculo II",
+        "Álgebra Linear I",
+        "Análise de Algoritmos",
+        "Fundamentos de Computação Gráfica"
+      ],
+      "topics": null,
+      "sourceLineHint": 199,
+      "note": "Linha dentro de bloco HTML comentado do README."
+    },
+    {
+      "id": "ubl-commented-elective-approximation-algorithms",
+      "title": "Algoritmos Aproximativos",
+      "resourceUrl": "https://www.youtube.com/watch?v=Owm_idXvw2I&list=PL6mfjjCaO1Wq3sLEGtMWCOAN6n9xIBOu8",
+      "state": "commented_or_archived",
+      "prerequisiteTitles": [
+        "Análise de Algoritmos"
+      ],
+      "topics": "Definições; Algoritmos Aproximativos Determinísticos; Algoritmos Aproximativos Evolutivos; Algoritmos Aleatórios; Complexidade de Problemas e Algoritmos Aproximativos.",
+      "sourceLineHint": 201,
+      "note": "Linha dentro de bloco HTML comentado do README."
+    },
+    {
+      "id": "ubl-commented-elective-probabilistic-algorithms",
+      "title": "Algoritmos Probabilísticos",
+      "resourceUrl": "https://www.youtube.com/watch?v=-8BsuBl4vOE&list=PL6mfjjCaO1WpMf4T3AUVzzqkRIhmEemTB",
+      "state": "commented_or_archived",
+      "prerequisiteTitles": [
+        "Análise de Algoritmos"
+      ],
+      "topics": "Notação básica; exemplos; análise probabilística; ferramentas de probabilidade; desigualdades; martingais; método probabilístico; cadeias de Markov; Monte Carlo; algoritmos aleatórios; geradores pseudoaleatórios.",
+      "sourceLineHint": 204,
+      "note": "Linha dentro de bloco HTML comentado do README."
+    }
   ]
 }

@@ -13,7 +13,11 @@
 // AUDITADA e versionada no git. Ele so muda quando alguem roda o build e faz
 // commit. Servir o cache primeiro e mais rapido e mais honesto do que fingir
 // frescor num dado que muda uma vez por semana.
-const VERSAO = 'atlas-v1';
+// BUMP OBRIGATORIO quando o PRECACHE ou o catalog.json mudam (24/10/2026):
+// a estrategia e cache-first, entao quem ja instalou o app com atlas-v1 jamais
+// re-buscaria o catalogo novo — veria a trilha antiga para sempre e acharia que
+// o Atlas nao tem eletivas. Versao nova = cache novo = install roda de novo.
+const VERSAO = 'atlas-v2';
 
 const PRECACHE = [
   // Nao listar a raiz aqui de proposito: o teste de sincronia compara caminho
@@ -28,6 +32,7 @@ const PRECACHE = [
   '/core/catalog.js',
   '/data/catalog.json',
   '/data/ubl-core-seed.json',
+  '/data/commented-electives-seed.json',
   // Os dois abaixo NAO sao assets de navegador (package.json e metadado,
   // serve.js e o servidor node). Estao aqui so porque o teste de sincronia
   // deriva a lista de TODOS os .js/.json fora de tests/. Mantidos no cache:

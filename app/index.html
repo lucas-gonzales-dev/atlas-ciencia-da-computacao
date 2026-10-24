@@ -66,6 +66,25 @@
   button.marca:disabled { cursor: not-allowed; opacity: .45; }
   .item.disponivel button.marca { background: #12352a; border-color: #1f6b52; color: var(--aberto); }
   .item.concluida button.marca { background: #16233d; border-color: #2c4c7d; color: var(--feito); }
+  /* ELETIVAS ARQUIVADAS (24/10/2026): mesma linguagem visual da grade, mas com
+     borda esquerda cinza e opacidade menor — o olho tem de entender em meio
+     segundo que isto NAO e o caminho obrigatorio. Sem cor de "disponivel",
+     porque disponivel aqui so existe para a grade. */
+  section.eletivas { margin-top: 34px; }
+  section.eletivas h2 { font-size: 1.15rem; margin: 0 0 4px; letter-spacing: -.01em; }
+  .aviso-eletivas {
+    margin: 0 0 10px; padding: 10px 12px; border-radius: 10px; font-size: .84rem;
+    background: #1b1f33; border: 1px solid var(--borda); color: var(--fosco);
+  }
+  .eletivas-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+  .item.eletiva {
+    grid-template-columns: 1fr; opacity: .78;
+    border-left-color: var(--trancado);
+  }
+  .item.eletiva .titulo { grid-column: 1; font-weight: 600; }
+  .item.eletiva .prereq-texto { grid-column: 1; color: var(--fosco); font-size: .8rem; }
+  .item.eletiva .topicos { grid-column: 1; color: var(--fosco); font-size: .8rem; margin-top: 4px; }
+  .item.eletiva .recurso { grid-column: 1; }
   @media (min-width: 620px) {
     .app { padding: 28px 20px 64px; }
     h1 { font-size: 1.9rem; }
@@ -111,8 +130,8 @@ function aviso(texto) {
   root.prepend(p);
 }
 
-const { courses, origem } = await loadCatalog();
-state = { ...state, courses, origem };
+const { courses, origem, electives, origemEletivas } = await loadCatalog();
+state = { ...state, courses, origem, electives, origemEletivas };
 paint();
 bind(root, state, toggle);
 
