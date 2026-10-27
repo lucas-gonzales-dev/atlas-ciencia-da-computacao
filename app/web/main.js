@@ -10,6 +10,10 @@ import { prereqLabel } from '../core/catalog.js';
 // Exportar/importar progresso (27/10/2026). A VALIDACAO mora no core: este
 // arquivo nao decide o que e um arquivo bom, so chama quem decide.
 import { serializeExport, nomeDoArquivo, parseImport } from '../core/progress-io.js';
+// Busca de disciplina (27/10/2026). A REGRA de filtrar (sem acento, sem caixa,
+// substring, nas tres listas) mora em core/search.js, com teste; aqui so ha o
+// campo e a ligacao dele ao redesenho.
+import { buscar } from '../core/search.js';
 
 // Raiz publica do repositorio da fonte (Universidade-Livre/ciencia-da-computacao).
 // Usada SÓ para montar o link da bibliografia a partir do caminho que a propria
@@ -85,7 +89,9 @@ function el(tag, attrs = {}, text) {
   const n = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs)) {
     if (k === 'class') n.className = v;
-    else if (k.startsWith('data-')) n.setAttribute(k, v);
+    // data-* e aria-* NAO sao propriedades JS: sem setAttribute viram um campo
+    // morto no objeto (o navegador ignora, o leitor de tela nunca ve o rotulo).
+    else if (k.startsWith('data-') || k.startsWith('aria-')) n.setAttribute(k, v);
     else n[k] = v;
   }
   if (text !== undefined) n.textContent = text;
@@ -263,7 +269,7 @@ function secaoEspecializacoes(specializations, origem) {
 /**
  * Desenha a lista. Puro: recebe estado, devolve DOM. Sem regra de negocio.
  */
-export function render(root, { courses, completed, origem, electives, origemEletivas, specializations, origemEspecializacoes }) {
+export function render(root, { courses, completed, origem, electives, origemEletivas, specializations, origemEspecializacoes, busca }) {
   root.textContent = '';
 
   const done = new Set(completed);
@@ -289,8 +295,14 @@ export function render(root, { courses, completed, origem, electives, origemElet
   const destaque = proximaMateria(courses, completed, cyclic);
   root.append(destaque);
 
+  // BUSCA (27/10/2026): filtra grade, eletivas e especializacoes pelo nome.
+  // A regra esta no core (core/search.js, com teste). Progresso, contagem e
+  // destaque continuam sobre o catalogo INTEIRO — esconder linhas nao muda o
+  // que esta concluido nem qual e a proxima materia.
+  const resultado = buscar(busca, { courses, electives, specializations });
+
   const lista = el('ul', { class: 'trilha' });
-  for (const c of courses) {
+  for (const c of resultado.courses) {
     const estado = done.has(c.id) ? 'concluida' : open.has(c.id) ? 'disponivel' : cyclic.has(c.id) ? 'ciclo' : 'trancada';
     const rotulo = { concluida: 'Concluida', disponivel: 'Disponivel agora', trancada: 'Trancada', ciclo: 'Trancada (ciclo)' }[estado];
 
@@ -365,13 +377,22 @@ export function render(root, { courses, completed, origem, electives, origemElet
 
   root.append(lista);
 
+  // Busca ativa sem nenhum match: DIZER que nao achou, ecoando o texto digitado.
+  // Tela que so fica sem linhas parece quebrada; o eco mostra o que se procurou
+  // e a frase lembra que acento/caixa nao importam (foi por isso que ele achou
+  // zero com "quimica" e nao por erro do app).
+  if (resultado.semResultado) {
+    root.append(el('p', { class: 'busca-vazia' },
+      `Nada encontrado para "${String(busca ?? '').trim()}". Acento e maiuscula nao importam; tente parte do nome.`));
+  }
+
   // Eletivas DEPOIS da grade, e fora dela: sao conteudo arquivado, nao caminho.
   // `total` e `feitos` continuam sendo os da grade obrigatoria — se um dia
   // alguem somar eletiva aqui, o progresso do aluno passa a mentir.
-  const especializacoes = secaoEspecializacoes(specializations, origemEspecializacoes);
+  const especializacoes = secaoEspecializacoes(resultado.specializations, origemEspecializacoes);
   if (especializacoes) root.append(especializacoes);
 
-  const eletivas = secaoEletivas(electives, origemEletivas);
+  const eletivas = secaoEletivas(resultado.electives, origemEletivas);
   if (eletivas) root.append(eletivas);
 
   // LEVAR O PROGRESSO JUNTO (27/10/2026). Botao, nao <a download>: o teste de
@@ -394,6 +415,27 @@ export function bind(root, state, onToggle) {
     if (!id) return;
     onToggle(id);
   });
+}
+
+/**
+ * Campo de busca (27/10/2026). Cria o <input> no slot e liga o evento 'input'
+ * ao onChange; quem decide o que fazer com o texto (redesenhar com filtro) e
+ * quem chama o boot. O campo vive FORA da area redesenhada: render() limpa o
+ * root a cada paint, e um input la dentro perderia o foco a cada tecla.
+ * Sem slot: devolve null e nao explode — a busca simplesmente nao existe.
+ * @returns {HTMLElement|null} o input criado (para o boot focar/limpar)
+ */
+export function montarBusca(slot, { onChange } = {}) {
+  if (!slot) return null;
+  const input = el('input', {
+    type: 'search',
+    class: 'busca',
+    placeholder: 'Buscar disciplina... ("calculo" acha "Cálculo")',
+    'aria-label': 'Buscar disciplina por nome'
+  });
+  input.addEventListener('input', () => onChange?.(input.value));
+  slot.append(input);
+  return input;
 }
 
 // ---------------------------------------------------------------------------

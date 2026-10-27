@@ -28,9 +28,10 @@
 // de novo. atlas-v4: o precache virou relativo (motivo acima); quem tem v3
 // cacheado precisa de cache novo, senao continua apontando para a raiz.
 // atlas-v5: entrou core/progress-io.js no precache (exportar/importar progresso).
-// Sem o bump, quem ja instalou recebe a tela nova pedindo um modulo que o cache
-// antigo nao tem — e offline, que e quando o PWA importa, o import falha.
-const VERSAO = 'atlas-v5';
+// atlas-v6: entrou core/search.js no precache (busca de disciplina). Mesmo
+// motivo das duas: cache-first + modulo novo = quem ja instalou pediria,
+// offline, um arquivo que o cache antigo nao tem e a tela morreria no import.
+const VERSAO = 'atlas-v6';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../atlas-kit-tools/. Todo caminho do precache sai daqui.
@@ -47,6 +48,7 @@ const PRECACHE = [
   'web/main.js',
   'core/progress.js',
   'core/progress-io.js',
+  'core/search.js',
   'core/catalog.js',
   'data/catalog.json',
   'data/ubl-core-seed.json',

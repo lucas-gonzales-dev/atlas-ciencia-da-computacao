@@ -128,6 +128,22 @@
   .io-acoes .marca { flex: 1 1 auto; }
   .importar-arquivo { display: none; }
   .io-recado { margin: 10px 0 0; color: var(--fosco); font-size: .84rem; min-height: 1.2em; }
+  /* BUSCA (27/10/2026): campo fora do #app, mesma paleta, alvo de toque de
+     44px. .busca-vazia e o "nada encontrado" que render() desenha — mesma
+     linguagem do .alerta: aviso, nao enfeite. */
+  .busca-slot { max-width: 720px; margin: 0 auto; padding: 14px 14px 0; }
+  .busca-slot[hidden] { display: none; }
+  input.busca {
+    width: 100%; min-height: 44px; padding: 10px 14px; border-radius: 12px;
+    border: 1px solid var(--borda); background: var(--cartao); color: var(--texto);
+    font: inherit; font-size: 1rem;
+  }
+  input.busca::placeholder { color: var(--fosco); }
+  input.busca:focus-visible { outline: 2px solid var(--feito); outline-offset: 1px; }
+  p.busca-vazia {
+    margin: 14px 0 0; padding: 10px 12px; border-radius: 10px; font-size: .88rem;
+    background: #3a2a12; border: 1px solid #6b4a1c; color: var(--alerta);
+  }
   @media (min-width: 620px) {
     .app { padding: 28px 20px 64px; }
     h1 { font-size: 1.9rem; }
@@ -139,16 +155,20 @@
 </style>
 </head>
 <body>
+<!-- BUSCA (27/10/2026): slot FORA do #app — render() limpa o root a cada
+     redesenho, e um input la dentro perderia o foco a cada tecla. Fica
+     escondido ate o catalogo carregar (sem dados, busca nao faz sentido). -->
+<div id="busca-slot" class="busca-slot" hidden></div>
 <main id="app" class="app" aria-live="polite">
   <p class="carregando">Carregando a trilha…</p>
 </main>
 
 <script type="module">
-import { loadCatalog, loadCompleted, saveCompleted, render, bind, bindProgressIO } from './web/main.js';
+import { loadCatalog, loadCompleted, saveCompleted, render, bind, bindProgressIO, montarBusca } from './web/main.js';
 
 const root = document.getElementById('app');
 
-let state = { courses: [], completed: loadCompleted(), origem: 'carregando…' };
+let state = { courses: [], completed: loadCompleted(), origem: 'carregando…', busca: '' };
 
 function paint() {
   render(root, state);
@@ -175,6 +195,18 @@ function aviso(texto) {
 
 const { courses, origem, electives, origemEletivas, specializations, origemEspecializacoes } = await loadCatalog();
 state = { ...state, courses, origem, electives, origemEletivas, specializations, origemEspecializacoes };
+
+// BUSCA (27/10/2026): montarBusca cria o campo no slot externo e liga o evento
+// 'input' ao estado -> redesenho. A regra de filtrar (sem acento, sem caixa,
+// nas tres listas) mora em core/search.js, com teste no node; aqui nao ha
+// regra nenhuma. Sem debounce de proposito: 35 linhas redesenham mais rapido
+// do que se digita, e debounce so atrasaria o eco sem ganhar nada.
+const buscaSlot = document.getElementById('busca-slot');
+montarBusca(buscaSlot, {
+  onChange: (q) => { state = { ...state, busca: q }; paint(); }
+});
+if (buscaSlot) buscaSlot.hidden = false;
+
 paint();
 bind(root, state, toggle);
 
