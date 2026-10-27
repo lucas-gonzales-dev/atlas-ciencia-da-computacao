@@ -31,6 +31,14 @@ auditada, e **nada é inventado**: o que a fonte não tem aparece como faltando.
   que o conteúdo não foi conferido quando ela não traz a bibliografia pronta.
 - **PWA:** instalável no celular e com a trilha inteira no cache — offline sem dados
   seria offline inútil.
+- **Busca:** campo no topo filtra grade obrigatória, eletivas e especializações pelo
+  nome, sem acento nem caixa importarem (`calculo` acha *Cálculo*); busca sem
+  resultado diz que não achou, em vez de deixar a tela muda. A regra mora em
+  `app/core/search.js`, com teste no node.
+- **Progresso portátil:** *Exportar progresso* baixa um `.json` com as disciplinas
+  concluídas; *Importar progresso* lê esse arquivo em outro navegador ou aparelho.
+  A validação (formato, versão, ids desconhecidos contados) mora em
+  `app/core/progress-io.js`, com teste.
 - **Proveniência na tela:** de qual commit da fonte o catálogo foi derivado, visível
   para quem está usando.
 
@@ -45,8 +53,9 @@ Honesto, sem enfeite:
   com o content-type certo e o precache está sincronizado com o disco. A instalação
   real no Android ainda é uma promessa.
 - **Licença do código não foi escolhida.** Está proposta, não aplicada (veja abaixo).
-- **Sem busca, sem anotações, sem lembrete de estudo.** O progresso fica só no
-  `localStorage` daquele aparelho: trocar de navegador é começar do zero.
+- **Sem anotações, sem lembrete de estudo.** O progresso fica no `localStorage` do
+  aparelho, mas não é mais refém dele: exporte o `.json` numa máquina e importe na
+  outra (seção *Leve o seu progresso junto*, no fim da tela).
 - **A fonte não é fixada por commit em tudo.** O currículo principal está auditado
   no SHA `b995c11`; as eletivas vêm de material que a fonte ainda move, e a tela diz
   isso.
@@ -106,7 +115,7 @@ MIT precisam continuar no `CREDITS.md`. Isso não é opcional.
 
 ## Testes
 
-Mais de 100 testes (a conta exata aparece na saída do runner) em 13 arquivos,
+145 testes em 15 arquivos (contados na saída do runner em 27/10/2026),
 sem framework: `node:test`. O `npm test` lista os arquivos um a um de propósito —
 funciona igual em qualquer shell, e `app/tests/npm-script.test.js` falha a suite se
 alguém criar um teste novo e esquecer de colocá-lo na lista.
