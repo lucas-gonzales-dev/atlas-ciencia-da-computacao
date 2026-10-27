@@ -119,6 +119,15 @@
   .esp-recursos a { min-height: 44px; display: inline-flex; align-items: center; }
   .esp-meta { color: var(--fosco); font-size: .8rem; }
   .esp-nota { color: #c9b98a; font-size: .78rem; }
+  /* PROGRESSO PORTATIL (27/10/2026): exportar/importar. Os dois botoes cabem
+     lado a lado em tela larga e empilham no celular — flex-wrap, sem media
+     query propria. Alvo de toque minimo de 44px vem do button.marca. */
+  section.progresso-io { margin-top: 34px; }
+  section.progresso-io h2 { font-size: 1.15rem; margin: 0 0 4px; letter-spacing: -.01em; }
+  .io-acoes { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+  .io-acoes .marca { flex: 1 1 auto; }
+  .importar-arquivo { display: none; }
+  .io-recado { margin: 10px 0 0; color: var(--fosco); font-size: .84rem; min-height: 1.2em; }
   @media (min-width: 620px) {
     .app { padding: 28px 20px 64px; }
     h1 { font-size: 1.9rem; }
@@ -135,7 +144,7 @@
 </main>
 
 <script type="module">
-import { loadCatalog, loadCompleted, saveCompleted, render, bind } from './web/main.js';
+import { loadCatalog, loadCompleted, saveCompleted, render, bind, bindProgressIO } from './web/main.js';
 
 const root = document.getElementById('app');
 
@@ -168,6 +177,26 @@ const { courses, origem, electives, origemEletivas, specializations, origemEspec
 state = { ...state, courses, origem, electives, origemEletivas, specializations, origemEspecializacoes };
 paint();
 bind(root, state, toggle);
+
+// EXPORTAR/IMPORTAR PROGRESSO (27/10/2026). A validacao mora em
+// core/progress-io.js (com teste); aqui so ha estado e recado na tela.
+// `estado` e uma FUNCAO de proposito: `state` e substituido a cada paint, e um
+// valor capturado aqui envelheceria na primeira interacao — o importador
+// validaria contra um catalogo vazio e recusaria arquivo bom.
+bindProgressIO(root, {
+  estado: () => state,
+  aplicar: (ids) => {
+    state = { ...state, completed: ids };
+    if (!saveCompleted(ids)) {
+      aviso('Importei, mas não consegui salvar neste navegador: o progresso vale só enquanto esta aba estiver aberta.');
+    }
+    paint();
+  },
+  // O hook se chama `avisar`; a funcao desta pagina se chama `aviso`. Escrever
+  // so `avisar` aqui seria shorthand de uma variavel que NAO existe — e o erro
+  // so apareceria no navegador, nunca no node (testar_pagina pegou em 27/10).
+  avisar: aviso
+});
 
 // Service worker DEPOIS da primeira pintura: registrar antes atrasaria o que
 // o aluno veio ver. Falha aqui nao pode derrubar a tela — em file:// e em

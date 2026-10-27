@@ -7,6 +7,9 @@
 // Funciona em file:// E em http:// por causa do loadCatalog() abaixo.
 import { unlockedCourses, detectCycles, nextUp } from '../core/progress.js';
 import { prereqLabel } from '../core/catalog.js';
+// Exportar/importar progresso (27/10/2026). A VALIDACAO mora no core: este
+// arquivo nao decide o que e um arquivo bom, so chama quem decide.
+import { serializeExport, nomeDoArquivo, parseImport } from '../core/progress-io.js';
 
 // Raiz publica do repositorio da fonte (Universidade-Livre/ciencia-da-computacao).
 // Usada SÓ para montar o link da bibliografia a partir do caminho que a propria
@@ -371,6 +374,11 @@ export function render(root, { courses, completed, origem, electives, origemElet
   const eletivas = secaoEletivas(electives, origemEletivas);
   if (eletivas) root.append(eletivas);
 
+  // LEVAR O PROGRESSO JUNTO (27/10/2026). Botao, nao <a download>: o teste de
+  // apresentacao cobra target=_blank + rel=noopener em TODO link da tela, e um
+  // download local nao e recurso externo de terceiro — seria excecao a toa.
+  root.append(secaoProgressoIO());
+
   return { feitos, total, open: open.size };
 }
 
@@ -385,5 +393,136 @@ export function bind(root, state, onToggle) {
     const id = li?.dataset?.id;
     if (!id) return;
     onToggle(id);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// EXPORTAR / IMPORTAR PROGRESSO — incremento de 27/10/2026
+//
+// Regra de negocio (o que e um arquivo valido, o que e id desconhecido) esta em
+// core/progress-io.js, com teste. Aqui so ha: desenhar a secao, baixar o
+// arquivo, ler o arquivo escolhido e devolver recado para a tela.
+// ---------------------------------------------------------------------------
+
+/**
+ * Secao de transferencia de progresso. Pura: recebe nada, devolve DOM.
+ */
+export function secaoProgressoIO() {
+  const s = el('section', { class: 'progresso-io' });
+  s.append(el('h2', {}, 'Leve o seu progresso junto'));
+  s.append(el('p', { class: 'aviso-eletivas' },
+    'O progresso fica salvo neste navegador. Exporte um arquivo .json para levar para outro aparelho, e importe de volta depois de trocar de navegador ou limpar o cache.'));
+
+  const acoes = el('div', { class: 'io-acoes' });
+  acoes.append(
+    // Classe 'marca' de proposito: reaproveita o estilo do botao de concluir, e
+    // bind() ignora estes dois porque eles nao estao dentro de um li.item.
+    el('button', { type: 'button', class: 'marca', 'data-acao': 'exportar' }, 'Exportar progresso'),
+    el('button', { type: 'button', class: 'marca', 'data-acao': 'importar' }, 'Importar progresso'),
+    // O input fica escondido e e disparado pelo botao: no celular o seletor de
+    // arquivo e o mesmo, mas a tela nao mostra um controle feio e sem rotulo.
+    el('input', { type: 'file', class: 'importar-arquivo', accept: 'application/json,.json', hidden: true })
+  );
+  s.append(acoes);
+  s.append(el('p', { class: 'io-recado', 'data-io-recado': '1' }, ''));
+  return s;
+}
+
+/**
+ * Gera o arquivo de exportacao e pede o download ao navegador.
+ * Devolve tambem o texto, para o teste conferir sem depender de Blob.
+ */
+export function baixarProgresso(state = {}) {
+  const courses = Array.isArray(state.courses) ? state.courses : [];
+  const completed = Array.isArray(state.completed) ? state.completed : [];
+  const agora = new Date();
+  const texto = serializeExport(courses, completed, agora);
+  const nome = nomeDoArquivo(agora);
+
+  if (typeof Blob !== 'function' || typeof document === 'undefined' || typeof URL?.createObjectURL !== 'function') {
+    return { ok: false, nome, texto, mensagem: 'Este ambiente nao permite baixar arquivos. O conteudo do export esta no console.' };
+  }
+
+  const url = URL.createObjectURL(new Blob([texto], { type: 'application/json' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = nome;
+  // Sem target=_blank/rel=noopener aqui de proposito: e um download local, nao
+  // um recurso de terceiro. O teste de apresentacao so olha o DOM de render().
+  document.body?.append(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  return { ok: true, nome, texto, mensagem: `Progresso exportado: ${nome}` };
+}
+
+/** Le o File escolhido. file.text() existe em todo navegador com PWA. */
+async function lerArquivoEscolhido(file) {
+  if (!file) return { ok: false, erro: 'Nenhum arquivo escolhido.' };
+  try {
+    return { ok: true, texto: await file.text() };
+  } catch (e) {
+    return { ok: false, erro: `Nao consegui ler o arquivo (${e.message}).` };
+  }
+}
+
+/**
+ * Aplica a importacao ao estado: valida, e so devolve `completed` quando o
+ * arquivo presta. Quando nao presta, devolve o progresso ANTERIOR intacto —
+ * o chamador nao tem como salvar o que nao veio.
+ * @param {{courses?: Array, completed?: string[]}} state
+ * @param {unknown} texto
+ */
+export function aplicarImportacao(state = {}, texto) {
+  const r = parseImport(texto, Array.isArray(state.courses) ? state.courses : []);
+  if (!r.ok) {
+    return {
+      ok: false,
+      completed: [...(Array.isArray(state.completed) ? state.completed : [])],
+      erro: r.erro,
+      mensagem: `${r.erro} O progresso que ja estava salvo neste navegador nao foi alterado.`
+    };
+  }
+  return { ok: true, completed: r.completed, ignorados: r.ignorados, mensagem: r.mensagem };
+}
+
+/**
+ * Liga os dois botoes e o input de arquivo. Delegacao na raiz: render()
+ * reconstrui o DOM a cada paint, e listener em elemento filho morreria ali.
+ * @param {HTMLElement} root
+ * @param {{estado: () => object, aplicar: (ids: string[]) => void, avisar: (texto: string) => void}} hooks
+ */
+export function bindProgressIO(root, hooks = {}) {
+  const { estado, aplicar, avisar } = hooks;
+  const recado = (texto) => avisar?.(texto);
+
+  root.addEventListener('click', (ev) => {
+    const btn = ev.target.closest?.('button[data-acao]');
+    if (!btn) return;
+    const acao = btn.dataset?.acao ?? btn.getAttribute?.('data-acao');
+
+    if (acao === 'exportar') {
+      recado(baixarProgresso(estado?.() ?? {}).mensagem);
+    } else if (acao === 'importar') {
+      root.querySelector('input.importar-arquivo')?.click();
+    }
+  });
+
+  root.addEventListener('change', async (ev) => {
+    const input = ev.target;
+    if (!input || !input.classList?.contains('importar-arquivo')) return;
+
+    const lido = await lerArquivoEscolhido(input.files?.[0]);
+    // Zerar ANTES de aplicar: sem isto, escolher o mesmo arquivo duas vezes nao
+    // dispara 'change' e o aluno acha que o botao quebrou.
+    input.value = '';
+
+    if (!lido.ok) {
+      recado(lido.erro);
+      return;
+    }
+    const r = aplicarImportacao(estado?.() ?? {}, lido.texto);
+    if (r.ok) aplicar?.(r.completed);
+    recado(r.mensagem);
   });
 }
