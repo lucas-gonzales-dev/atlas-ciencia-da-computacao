@@ -115,7 +115,7 @@ MIT precisam continuar no `CREDITS.md`. Isso não é opcional.
 
 ## Testes
 
-145 testes em 15 arquivos (contados na saída do runner em 27/10/2026),
+149 testes em 16 arquivos (contados na saída do runner em 27/10/2026),
 sem framework: `node:test`. O `npm test` lista os arquivos um a um de propósito —
 funciona igual em qualquer shell, e `app/tests/npm-script.test.js` falha a suite se
 alguém criar um teste novo e esquecer de colocá-lo na lista.

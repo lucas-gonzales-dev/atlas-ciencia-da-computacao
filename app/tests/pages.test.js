@@ -35,18 +35,26 @@ test('Pages: manifest usa start_url, scope e icones RELATIVOS', async () => {
   for (const i of m.icons) relativo(i.src, 'manifest.icons[].src');
 });
 
-test('Pages: index.html registra o sw sem escopo fixo na raiz', async () => {
-  const html = await ler('index.html');
-  assert.match(html, /serviceWorker\.register\(/, 'sem registro nao ha offline');
+test('Pages: o registro do sw usa escopo relativo a URL do documento', async () => {
+  // 27/10/2026: o registro saiu do index.html (script inline) e foi para
+  // web/boot.js, que e modulo com teste. Quem cobra o escopo le onde o codigo
+  // esta agora — cobrar no HTML passaria a cobrar o vazio.
+  const boot = await ler('web/boot.js');
+  assert.match(boot, /serviceWorker\.register\(/, 'sem registro nao ha offline');
   assert.ok(
-    !/scope:\s*['"]\/['"]/.test(html),
+    !/scope:\s*['"]\/['"]/.test(boot),
     "scope: '/' trava o sw na raiz do dominio; sob subcaminho o registro e RECUSADO"
   );
   assert.match(
-    html,
+    boot,
     /baseURI|location\.href|new URL\(/,
     'o escopo precisa vir da URL do documento, nao de um literal'
   );
+  // A pagina carrega o modulo: sem a tag, boot.js nao roda e nao ha nem sw nem tela.
+  const html = await ler('index.html');
+  assert.match(html, /<script[^>]+src=["']\.\/web\/boot\.js["']/, 'index.html deixou de carregar web/boot.js');
+
+  // Assets do documento continuam cobertos aqui (nao no boot): e o HTML que os cita.
   // Assets do documento: nada de href="/..." ou src="/...".
   const absolutos = [...html.matchAll(/(?:href|src)\s*=\s*"(\/[^"]*)"/g)].map((x) => x[1]);
   assert.deepEqual(absolutos, [], `asset absoluto em index.html: ${absolutos.join(', ')}`);

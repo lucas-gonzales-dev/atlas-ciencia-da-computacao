@@ -88,12 +88,17 @@ test('PWA: o manifest tem o minimo para o Android oferecer "instalar"', () => {
   }
 });
 
-test('PWA: index.html liga o manifest E registra o service worker', async () => {
+test('PWA: index.html liga o manifest E o modulo que registra o service worker', async () => {
   const html = await readFile(join(RAIZ, 'index.html'), 'utf8');
   assert.match(html, /rel="manifest"/, 'sem <link rel=manifest> o Android nem ve o app');
   assert.match(html, /manifest\.webmanifest/);
-  assert.match(html, /serviceWorker/, 'sem registro de sw.js nao ha offline');
-  assert.match(html, /sw\.js/);
+  // 27/10/2026: o registro do sw saiu do script inline da pagina e foi para
+  // web/boot.js (modulo testavel). Cobrar `serviceWorker` no HTML virou cobrar
+  // o vazio; agora a pagina precisa CARREGAR o boot, e o boot precisa registrar.
+  assert.match(html, /<script[^>]+src=["']\.\/web\/boot\.js["']/, 'index.html precisa carregar web/boot.js');
+  const boot = await readFile(join(RAIZ, 'web', 'boot.js'), 'utf8');
+  assert.match(boot, /serviceWorker/, 'sem registro de sw.js nao ha offline');
+  assert.match(boot, /sw\.js/);
 });
 
 test('PWA: /sw.js e /manifest.webmanifest sao servidos com o content-type certo', async () => {

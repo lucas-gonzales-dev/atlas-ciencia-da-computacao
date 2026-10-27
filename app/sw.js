@@ -31,7 +31,11 @@
 // atlas-v6: entrou core/search.js no precache (busca de disciplina). Mesmo
 // motivo das duas: cache-first + modulo novo = quem ja instalou pediria,
 // offline, um arquivo que o cache antigo nao tem e a tela morreria no import.
-const VERSAO = 'atlas-v6';
+// atlas-v7: entrou web/boot.js — o script que era inline no index.html virou
+// modulo (para ter teste). E o modulo que A pagina importa: sem ele no cache,
+// quem abriu offline receberia um index.html novo pedindo um arquivo que o
+// cache v6 nao tem, e a tela ficaria em "Carregando a trilha…" para sempre.
+const VERSAO = 'atlas-v7';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../atlas-kit-tools/. Todo caminho do precache sai daqui.
@@ -45,6 +49,7 @@ const PRECACHE = [
   'index.html',
   'manifest.webmanifest',
   'icons/icone.svg',
+  'web/boot.js',
   'web/main.js',
   'core/progress.js',
   'core/progress-io.js',

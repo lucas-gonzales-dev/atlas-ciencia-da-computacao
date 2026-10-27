@@ -163,93 +163,13 @@
   <p class="carregando">Carregando a trilha…</p>
 </main>
 
-<script type="module">
-import { loadCatalog, loadCompleted, saveCompleted, render, bind, bindProgressIO, montarBusca } from './web/main.js';
-
-const root = document.getElementById('app');
-
-let state = { courses: [], completed: loadCompleted(), origem: 'carregando…', busca: '' };
-
-function paint() {
-  render(root, state);
-}
-
-// Unico lugar que muda `completed`. Regra de negocio fica em core/progress.js.
-function toggle(id) {
-  const tem = state.completed.includes(id);
-  state.completed = tem
-    ? state.completed.filter((x) => x !== id)
-    : [...state.completed, id];
-
-  if (!saveCompleted(state.completed)) aviso('Não consegui salvar neste navegador: o progresso vale só enquanto esta aba estiver aberta.');
-  paint();
-}
-
-function aviso(texto) {
-  root.querySelector('p.aviso-save')?.remove();
-  const p = document.createElement('p');
-  p.className = 'alerta aviso-save';
-  p.textContent = texto;
-  root.prepend(p);
-}
-
-const { courses, origem, electives, origemEletivas, specializations, origemEspecializacoes } = await loadCatalog();
-state = { ...state, courses, origem, electives, origemEletivas, specializations, origemEspecializacoes };
-
-// BUSCA (27/10/2026): montarBusca cria o campo no slot externo e liga o evento
-// 'input' ao estado -> redesenho. A regra de filtrar (sem acento, sem caixa,
-// nas tres listas) mora em core/search.js, com teste no node; aqui nao ha
-// regra nenhuma. Sem debounce de proposito: 35 linhas redesenham mais rapido
-// do que se digita, e debounce so atrasaria o eco sem ganhar nada.
-const buscaSlot = document.getElementById('busca-slot');
-montarBusca(buscaSlot, {
-  onChange: (q) => { state = { ...state, busca: q }; paint(); }
-});
-if (buscaSlot) buscaSlot.hidden = false;
-
-paint();
-bind(root, state, toggle);
-
-// EXPORTAR/IMPORTAR PROGRESSO (27/10/2026). A validacao mora em
-// core/progress-io.js (com teste); aqui so ha estado e recado na tela.
-// `estado` e uma FUNCAO de proposito: `state` e substituido a cada paint, e um
-// valor capturado aqui envelheceria na primeira interacao — o importador
-// validaria contra um catalogo vazio e recusaria arquivo bom.
-bindProgressIO(root, {
-  estado: () => state,
-  aplicar: (ids) => {
-    state = { ...state, completed: ids };
-    if (!saveCompleted(ids)) {
-      aviso('Importei, mas não consegui salvar neste navegador: o progresso vale só enquanto esta aba estiver aberta.');
-    }
-    paint();
-  },
-  // O hook se chama `avisar`; a funcao desta pagina se chama `aviso`. Escrever
-  // so `avisar` aqui seria shorthand de uma variavel que NAO existe — e o erro
-  // so apareceria no navegador, nunca no node (testar_pagina pegou em 27/10).
-  avisar: aviso
-});
-
-// Service worker DEPOIS da primeira pintura: registrar antes atrasaria o que
-// o aluno veio ver. Falha aqui nao pode derrubar a tela — em file:// e em
-// navegadores sem suporte, `navigator.serviceWorker` simplesmente nao existe.
-if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-  try {
-    // Escopo vem da URL do documento, nunca de '/': publicado em /<repo>/, um
-    // escopo na raiz do dominio faria o navegador RECUSAR o registro (o sw.js
-    // estaria fora do escopo pedido) e o app perderia o offline em silencio.
-    const escopo = new URL('./', document.baseURI).pathname;
-    const reg = await navigator.serviceWorker.register('sw.js', { scope: escopo });
-    reg.addEventListener('updatefound', () => {
-      const novo = reg.installing;
-      novo?.addEventListener('statechange', () => {
-        if (novo.state === 'activated') aviso('Nova versão instalada. Ela vale na próxima abertura.');
-      });
-    });
-  } catch (e) {
-    console.warn('service worker nao registrou:', e.message);
-  }
-}
-</script>
+<!-- BOOT (27/10/2026): a logica de abrir a pagina mora em web/boot.js, um
+     MODULO — com teste no node (tests/boot.test.js). Aqui so fica a tag.
+     Motivo, e nao arrumacao: o que estava inline NAO entrava em teste nenhum
+     (o node importa modulos, nao HTML), e foi assim que um ReferenceError no
+     fio `avisar` do importador de progresso chegou ao navegador sem que a
+     suite visse. tests/boot.test.js tambem falha se codigo voltar para dentro
+     desta pagina. -->
+<script type="module" src="./web/boot.js"></script>
 </body>
 </html>
