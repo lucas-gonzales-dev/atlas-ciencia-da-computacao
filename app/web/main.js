@@ -14,6 +14,12 @@ import { serializeExport, nomeDoArquivo, parseImport } from '../core/progress-io
 // substring, nas tres listas) mora em core/search.js, com teste; aqui so ha o
 // campo e a ligacao dele ao redesenho.
 import { buscar } from '../core/search.js';
+// Anotacoes por disciplina (28/10/2026). As REGRAS — limite, vazio apaga, id
+// desconhecido ignorado e contado — moram em core/notes.js, com teste. Aqui so
+// ha o campo na tela e a ligacao dele com o storage. Em nenhum ponto se passa
+// anotacao por innerHTML: e texto puro, e um arquivo importado com HTML dentro
+// tem de aparecer como texto, nao executar.
+import { LIMITE_NOTA, STORAGE_KEY as NOTAS_KEY, cortarNota, setNota, parseNotas, serializeNotas } from '../core/notes.js';
 
 // Raiz publica do repositorio da fonte (Universidade-Livre/ciencia-da-computacao).
 // Usada SÓ para montar o link da bibliografia a partir do caminho que a propria
@@ -154,7 +160,7 @@ function proximaMateria(courses, completed, cyclic) {
  * Por isso: secao propria, DEPOIS da grade, com o aviso de arquivamento, com o
  * link da fonte, e SEM botao de concluir (nao somam ao progresso).
  */
-function secaoEletivas(electives, origemEletivas) {
+function secaoEletivas(electives, origemEletivas, anotacoes = {}) {
   if (!Array.isArray(electives) || electives.length === 0) return null; // sem dado, sem secao vazia
 
   const s = el('section', { class: 'eletivas' });
@@ -189,6 +195,7 @@ function secaoEletivas(electives, origemEletivas) {
       }, 'Abrir recurso'));
     }
 
+    pedacos.push(campoNota(e.id, anotacoes?.[e.id]));
     li.append(...pedacos);
     lista.append(li);
   }
@@ -206,7 +213,7 @@ function secaoEletivas(electives, origemEletivas) {
  * (DBA e Mobile). Quem nao tem recurso aparece como "aguardando conteudo" com o
  * link da fonte — nunca como uma trilha bonita e vazia.
  */
-function secaoEspecializacoes(specializations, origem) {
+function secaoEspecializacoes(specializations, origem, anotacoes = {}) {
   if (!Array.isArray(specializations) || specializations.length === 0) return null;
 
   const s = el('section', { class: 'especializacoes' });
@@ -264,6 +271,10 @@ function secaoEspecializacoes(specializations, origem) {
       li.append(ul);
     }
 
+    // Anotacao tambem na especializacao: o pedido e pelas tres listas, e e
+    // justamente aqui que o aluno decide o que estudar depois da grade.
+    li.append(campoNota(sp.id, anotacoes?.[sp.id]));
+
     lista.append(li);
   }
 
@@ -274,7 +285,7 @@ function secaoEspecializacoes(specializations, origem) {
 /**
  * Desenha a lista. Puro: recebe estado, devolve DOM. Sem regra de negocio.
  */
-export function render(root, { courses, completed, origem, electives, origemEletivas, specializations, origemEspecializacoes, busca }) {
+export function render(root, { courses, completed, origem, electives, origemEletivas, specializations, origemEspecializacoes, busca, anotacoes = {} }) {
   root.textContent = '';
 
   const done = new Set(completed);
@@ -389,6 +400,10 @@ export function render(root, { courses, completed, origem, electives, origemElet
       );
     }
 
+    // ANOTACAO NA PROPRIA DISCIPLINA (28/10/2026). Aqui, e nao num modal nem
+    // noutra tela: a anotacao que exige abrir outra coisa e a anotacao que nunca
+    // chega a ser escrita.
+    pedacos.push(campoNota(c.id, anotacoes?.[c.id]));
     pedacos.push(btn);
     li.append(...pedacos);
     lista.append(li);
@@ -408,10 +423,10 @@ export function render(root, { courses, completed, origem, electives, origemElet
   // Eletivas DEPOIS da grade, e fora dela: sao conteudo arquivado, nao caminho.
   // `total` e `feitos` continuam sendo os da grade obrigatoria — se um dia
   // alguem somar eletiva aqui, o progresso do aluno passa a mentir.
-  const especializacoes = secaoEspecializacoes(resultado.specializations, origemEspecializacoes);
+  const especializacoes = secaoEspecializacoes(resultado.specializations, origemEspecializacoes, anotacoes);
   if (especializacoes) root.append(especializacoes);
 
-  const eletivas = secaoEletivas(resultado.electives, origemEletivas);
+  const eletivas = secaoEletivas(resultado.electives, origemEletivas, anotacoes);
   if (eletivas) root.append(eletivas);
 
   // LEVAR O PROGRESSO JUNTO (27/10/2026). Botao, nao <a download>: o teste de
@@ -465,6 +480,102 @@ export function montarBusca(slot, { onChange } = {}) {
 // arquivo, ler o arquivo escolhido e devolver recado para a tela.
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// ANOTACOES POR DISCIPLINA — incremento de 28/10/2026
+//
+// As regras (limite, vazio apaga, id desconhecido, texto puro) estao em
+// core/notes.js, com teste. Aqui so ha: o campo na tela, o storage do aparelho e
+// a ligacao entre os dois. Nenhuma decisao de negocio neste bloco.
+// ---------------------------------------------------------------------------
+
+/**
+ * Campo de anotacao de UMA disciplina.
+ *
+ * `<input>` com o texto em `.value`, nunca innerHTML: anotacao e texto puro, e
+ * um arquivo importado com HTML dentro tem de aparecer como texto na tela, nao
+ * executar. Importar progresso nao pode virar XSS.
+ *
+ * `maxlength` vai por setAttribute, nao como propriedade: e atributo HTML, e
+ * atributo posto como campo JS e invisivel para o navegador e para o leitor de
+ * tela — o mesmo motivo pelo qual el() trata data-* e aria-* a parte.
+ *
+ * @param {string} id
+ * @param {unknown} texto anotacao atual desta disciplina
+ * @returns {HTMLElement}
+ */
+function campoNota(id, texto) {
+  const n = el('input', {
+    type: 'text',
+    class: 'nota',
+    'data-nota-id': id,
+    'aria-label': 'Anotação',
+    placeholder: 'Anotação — o que você quer lembrar daqui'
+  });
+  n.setAttribute('maxlength', String(LIMITE_NOTA));
+  n.value = cortarNota(texto);
+  return n;
+}
+
+/**
+ * Anotacoes guardadas no aparelho, ao lado do progresso (em outra chave).
+ * Storage negado — modo privado, quota cheia, file:// restrito — devolve vazio
+ * em vez de derrubar a tela: perder anotacao e ruim, perder o app e pior.
+ * @returns {Record<string,string>}
+ */
+export function loadNotas() {
+  try {
+    return parseNotas(localStorage.getItem(NOTAS_KEY));
+  } catch {
+    return {};
+  }
+}
+
+/** @returns {boolean} false quando o aparelho nao deixou salvar */
+export function saveNotas(notas) {
+  try {
+    localStorage.setItem(NOTAS_KEY, serializeNotas(notas));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Estado novo com a anotacao aplicada. Nao muta o estado recebido: quem chama
+ * adota o resultado, salva e redesenha — e o teste pode provar que o anterior
+ * continua intacto.
+ * @param {object} state
+ * @param {string} id
+ * @param {unknown} texto
+ */
+export function aplicarNota(state = {}, id, texto) {
+  return { ...state, anotacoes: setNota(state.anotacoes, id, texto) };
+}
+
+/**
+ * Liga os campos de anotacao ao salvamento. Delegacao na RAIZ, como bind():
+ * render() reconstrói o DOM a cada pintura e um listener preso ao campo morreria
+ * ali. `change` e nao `input` de proposito — salvar e redesenhar a cada tecla
+ * jogaria o foco do aluno fora no meio da frase.
+ *
+ * @param {HTMLElement} root
+ * @param {{salvar?: (id: string, texto: string) => void}} hooks
+ */
+export function bindNotas(root, { salvar } = {}) {
+  root.addEventListener('change', (ev) => {
+    const campo = ev?.target;
+    if (!campo) return;
+    // className, e nao classList: o DOM de mentira dos testes so tem className,
+    // e no navegador real os dois existem. Ler so um dos dois e escrever um teste
+    // que passa onde a tela falha.
+    const classes = typeof campo.className === 'string' ? campo.className.split(/\s+/) : [];
+    if (!classes.includes('nota')) return;
+    const id = campo.getAttribute?.('data-nota-id') ?? campo.dataset?.notaId;
+    if (!id) return;
+    salvar?.(id, campo.value ?? '');
+  });
+}
+
 /**
  * Secao de transferencia de progresso. Pura: recebe nada, devolve DOM.
  */
@@ -497,7 +608,14 @@ export function baixarProgresso(state = {}) {
   const courses = Array.isArray(state.courses) ? state.courses : [];
   const completed = Array.isArray(state.completed) ? state.completed : [];
   const agora = new Date();
-  const texto = serializeExport(courses, completed, agora);
+  // As anotacoes vao junto (formato v2). Sem isto o aluno leva o progresso para o
+  // outro aparelho e chega la sem uma linha do que pensou sobre cada materia —
+  // que e a parte que nenhum catalogo tem.
+  const anotacoes = state.anotacoes && typeof state.anotacoes === 'object' ? state.anotacoes : {};
+  const texto = serializeExport(courses, completed, agora, anotacoes, {
+    electives: state.electives,
+    specializations: state.specializations
+  });
   const nome = nomeDoArquivo(agora);
 
   if (typeof Blob !== 'function' || typeof document === 'undefined' || typeof URL?.createObjectURL !== 'function') {
@@ -528,23 +646,46 @@ async function lerArquivoEscolhido(file) {
 }
 
 /**
- * Aplica a importacao ao estado: valida, e so devolve `completed` quando o
- * arquivo presta. Quando nao presta, devolve o progresso ANTERIOR intacto —
- * o chamador nao tem como salvar o que nao veio.
- * @param {{courses?: Array, completed?: string[]}} state
+ * Aplica a importacao ao estado: valida e devolve o NOVO completed E as NOVAS
+ * anotacoes. Quando o arquivo nao presta, devolve os dois ANTERIORES intactos —
+ * o chamador nao tem o que salvar, entao o que ja existe sobrevive por construcao.
+ *
+ * A regra que importa aqui: arquivo de VERSAO 1 nao fala de anotacoes, e "nao
+ * falar" e diferente de "dizer que nao ha nenhuma". Apagar as anotacoes do
+ * aparelho porque o arquivo e antigo seria perda de dados do aluno; por isso elas
+ * so sao substituidas quando `trazAnotacoes` e true. Importar e trocar de estado,
+ * nao somar — mas trocar so o que o arquivo trouxe.
+ *
+ * Nao muta o estado recebido.
+ * @param {{courses?: Array, completed?: string[], anotacoes?: object,
+ *          electives?: Array, specializations?: Array}} state
  * @param {unknown} texto
  */
 export function aplicarImportacao(state = {}, texto) {
-  const r = parseImport(texto, Array.isArray(state.courses) ? state.courses : []);
+  const anteriores = state.anotacoes && typeof state.anotacoes === 'object' ? state.anotacoes : {};
+  const r = parseImport(texto, Array.isArray(state.courses) ? state.courses : [], {
+    electives: state.electives,
+    specializations: state.specializations
+  });
+
   if (!r.ok) {
     return {
       ok: false,
       completed: [...(Array.isArray(state.completed) ? state.completed : [])],
+      anotacoes: { ...anteriores },
       erro: r.erro,
-      mensagem: `${r.erro} O progresso que já estava salvo neste navegador não foi alterado.`
+      mensagem: `${r.erro} O progresso e as anotações que já estavam salvos neste navegador não foram alterados.`
     };
   }
-  return { ok: true, completed: r.completed, ignorados: r.ignorados, mensagem: r.mensagem };
+
+  return {
+    ok: true,
+    completed: r.completed,
+    ignorados: r.ignorados,
+    anotacoes: r.trazAnotacoes ? { ...r.anotacoes } : { ...anteriores },
+    trazAnotacoes: Boolean(r.trazAnotacoes),
+    mensagem: r.mensagem
+  };
 }
 
 /**
@@ -583,7 +724,10 @@ export function bindProgressIO(root, hooks = {}) {
       return;
     }
     const r = aplicarImportacao(estado?.() ?? {}, lido.texto);
-    if (r.ok) aplicar?.(r.completed);
+    // Segundo argumento: as anotacoes que o arquivo trouxe — ou as que ficam,
+    // quando ele e de versao anterior. Quem recebia so `completed` jogava fora
+    // justamente a metade que o aluno escreveu com a propria mao.
+    if (r.ok) aplicar?.(r.completed, r.anotacoes);
     recado(r.mensagem);
   });
 }
