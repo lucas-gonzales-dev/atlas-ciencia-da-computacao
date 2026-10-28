@@ -51,19 +51,32 @@ test('README: diz como foi feito, com quem escreveu e quem julgou', async () => 
   assert.match(r, /Claude/, 'quem revisou e julgou precisa estar dito');
 });
 
+// Este teste era VAZIO e passou verde com numero velho por muito tempo: ele
+// aceitava "n === arquivos || n >= arquivos * 5", entao qualquer citacao acima de
+// 100 passava. No dia em que se olhou, o README dizia "149 testes em 16 arquivos"
+// (medicao de 27/10) e a suite era 191 em 20 — o teste criado para pegar numero
+// velho nao pegou nada. Agora ele cobra EXATO o numero de ARQUIVOS, que e o que
+// se deriva da lista do package.json sem rodar a suite. A contagem de testes
+// nao e derivavel aqui, entao a regra e outra: ela tem de dizer QUANDO foi
+// medida, porque numero sem data e justamente o que envelhece em silencio.
 test('README: o numero de testes citado bate com a suite de agora', async () => {
   const r = await ler('README.md');
-  const citados = [...r.matchAll(/(\d{2,3})\s+testes/g)].map((m) => Number(m[1]));
-  assert.ok(citados.length > 0, 'README que nao diz quantos testes existem convida desconfianca');
-  // Derivado da lista do package.json: nao ha numero fixo para envelhecer aqui.
   const pkg = JSON.parse(await readFile(new URL('app/package.json', RAIZ_REPO), 'utf8'));
-  const esperados = pkg.scripts.test.split(/\s+/).filter((a) => a.endsWith('.test.js')).length;
-  for (const n of citados) {
-    assert.ok(
-      n === esperados || n >= esperados * 5,
-      `README cita ${n} testes, mas sao ${esperados} ARQUIVOS de teste (a conta certa esta na saida do runner)`
-    );
+  const arquivos = pkg.scripts.test.split(/\s+/).filter((a) => a.endsWith('.test.js')).length;
+  assert.ok(arquivos > 0, 'sanidade: o package.json nao lista arquivo de teste nenhum');
+
+  const citadosArquivos = [...r.matchAll(/em\s+(\d{1,3})\s+arquivos/g)].map((m) => Number(m[1]));
+  assert.ok(citadosArquivos.length > 0,
+    'o README precisa dizer em quantos arquivos a suite roda: esse numero e derivavel e nao pode envelhecer em silencio');
+  for (const n of citadosArquivos) {
+    assert.equal(n, arquivos,
+      `README cita ${n} arquivos de teste, mas o package.json lista ${arquivos}`);
   }
+
+  const citadosTestes = [...r.matchAll(/(\d{2,3})\s+testes/g)].map((m) => Number(m[1]));
+  assert.ok(citadosTestes.length > 0, 'README que nao diz quantos testes existem convida desconfianca');
+  assert.match(r, /contados na sa[íi]da do runner em \d{2}\/\d{2}\/\d{4}/,
+    'a contagem precisa dizer QUANDO foi medida, senao vira numero sem data');
 });
 
 test('README: manda rodar local sem depender de nada que nao existe', async () => {

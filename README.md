@@ -118,7 +118,7 @@ qualquer obra derivada.
 
 ## Testes
 
-149 testes em 16 arquivos (contados na saída do runner em 27/10/2026),
+191 testes em 20 arquivos (contados na saída do runner em 28/10/2026),
 sem framework: `node:test`. O `npm test` lista os arquivos um a um de propósito —
 funciona igual em qualquer shell, e `app/tests/npm-script.test.js` falha a suite se
 alguém criar um teste novo e esquecer de colocá-lo na lista.
