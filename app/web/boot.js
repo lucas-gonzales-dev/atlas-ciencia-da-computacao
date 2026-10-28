@@ -26,7 +26,14 @@ import {
   render,
   bind,
   bindProgressIO,
-  montarBusca
+  montarBusca,
+  // Anotacoes por disciplina (28/10/2026): o estado ganha um campo, e a tela
+  // ganha um listener. Nenhuma regra nova aqui — limite, corte e validacao estao
+  // em core/notes.js.
+  loadNotas,
+  saveNotas,
+  aplicarNota,
+  bindNotas
 } from './main.js';
 
 const root = document.getElementById('app');
@@ -34,6 +41,9 @@ const root = document.getElementById('app');
 let state = {
   courses: [],
   completed: loadCompleted(),
+  // Carregado no boot, e nao na primeira escrita: a anotacao que ja estava no
+  // aparelho tem de voltar no campo assim que a tela abre.
+  anotacoes: loadNotas(),
   origem: 'carregando…',
   busca: ''
 };
@@ -157,6 +167,19 @@ async function subir() {
   paint();
   bind(root, state, toggle);
 
+  // ANOTACOES (28/10/2026). Delegacao na raiz, pelo mesmo motivo de bind():
+  // render() reconstrói o DOM a cada pintura. Redesenhar depois de salvar e o
+  // que mantem estado, storage e tela dizendo a mesma coisa.
+  bindNotas(root, {
+    salvar: (id, texto) => {
+      state = aplicarNota(state, id, texto);
+      if (!saveNotas(state.anotacoes)) {
+        aviso('Não consegui salvar a anotação neste navegador: ela vale só enquanto esta aba estiver aberta.');
+      }
+      paint();
+    }
+  });
+
   // EXPORTAR/IMPORTAR PROGRESSO (27/10/2026). A validacao mora em
   // core/progress-io.js (com teste); aqui so ha estado e recado na tela.
   // `estado` e uma FUNCAO de proposito: `state` e substituido a cada paint, e um
@@ -166,10 +189,15 @@ async function subir() {
   // de uma variavel que nunca existiu) que matou o recado do importador em 27/10.
   bindProgressIO(root, {
     estado: () => state,
-    aplicar: (ids) => {
-      state = { ...state, completed: ids };
+    aplicar: (ids, anotacoes) => {
+      state = { ...state, completed: ids, anotacoes: anotacoes ?? state.anotacoes };
       if (!saveCompleted(ids)) {
         aviso('Importei, mas não consegui salvar neste navegador: o progresso vale só enquanto esta aba estiver aberta.');
+      }
+      // As anotacoes tambem vao para o storage: o arquivo importado e o novo
+      // estado do aluno, e estado que nao e salvo some no primeiro reload.
+      if (!saveNotas(state.anotacoes)) {
+        aviso('Importei, mas não consegui salvar as anotações neste navegador.');
       }
       paint();
     },

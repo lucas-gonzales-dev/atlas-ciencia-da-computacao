@@ -35,7 +35,11 @@
 // modulo (para ter teste). E o modulo que A pagina importa: sem ele no cache,
 // quem abriu offline receberia um index.html novo pedindo um arquivo que o
 // cache v6 nao tem, e a tela ficaria em "Carregando a trilha…" para sempre.
-const VERSAO = 'atlas-v7';
+// atlas-v8: entrou core/notes.js (anotacoes por disciplina) e o formato de
+// exportacao subiu para v2. Mesma razao das anteriores: cache-first + modulo
+// novo = quem ja instalou pediria, offline, um arquivo que o cache v7 nao tem,
+// e a tela morreria no import (index.html/main.js importam notes.js).
+const VERSAO = 'atlas-v8';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../atlas-kit-tools/. Todo caminho do precache sai daqui.
@@ -53,6 +57,7 @@ const PRECACHE = [
   'web/main.js',
   'core/progress.js',
   'core/progress-io.js',
+  'core/notes.js',
   'core/search.js',
   'core/catalog.js',
   'data/catalog.json',
