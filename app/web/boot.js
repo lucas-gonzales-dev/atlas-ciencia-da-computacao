@@ -82,9 +82,22 @@ function toggle(id) {
  * RECUSARIA o registro — app instalado sem offline nenhum, sem erro na tela.
  * O escopo sai da URL do documento (baseURI), que vale na raiz e no subcaminho.
  *
+ * AVISO DE VERSAO NOVA SO NA SEGUNDA VEZ (28/10/2026). Na PRIMEIRA visita o
+ * navegador tambem passa por installing -> activated, porque instalar e o que
+ * ele faz quando nao ha nada instalado. O codigo anterior ouvia `updatefound`
+ * sem perguntar se ja existia um SW no controle, entao a primeira visita lia
+ * "Nova versao instalada. Ela vale na proxima abertura." sem que nada tivesse
+ * sido atualizado — um recado falso na primeira impressao do app. A regra agora
+ * e a que o Claude escreveu: so ha "versao nova" quando ja havia um service
+ * worker controlando a pagina ANTES do registro, e isso se le em
+ * `navigator.serviceWorker.controller` capturado ANTES de chamar register()
+ * (depois do registro, clients.claim() do sw.js pode preencher o campo e a
+ * prova some — foi lendo o lugar errado, `navigator.controller`, que o primeiro
+ * rascunho desta correcao falhou no proprio teste).
+ *
  * @param {object} win janela (injetavel para teste; no navegador, globalThis)
  * @param {(texto: string) => void} avisar
- * @returns {Promise<{registrado: boolean, escopo?: string, motivo?: string}>}
+ * @returns {Promise<{registrado: boolean, escopo?: string, motivo?: string, jaControlava?: boolean}>}
  */
 export async function registrarSW(win, avisar) {
   const nav = win?.navigator;
@@ -94,18 +107,22 @@ export async function registrarSW(win, avisar) {
   if (!String(win?.location?.protocol ?? '').startsWith('http')) {
     return { registrado: false, motivo: 'protocolo nao-http (file://): o navegador nao permite sw' };
   }
+  // ANTES do register: e a unica leitura que prova que ja havia um SW no controle.
+  const jaControlava = Boolean(nav.serviceWorker?.controller);
   try {
     const escopo = new URL('./', win.document.baseURI).pathname;
     const reg = await nav.serviceWorker.register('sw.js', { scope: escopo });
-    reg.addEventListener?.('updatefound', () => {
-      const novo = reg.installing;
-      novo?.addEventListener('statechange', () => {
-        if (novo.state === 'activated') {
-          avisar?.('Nova versão instalada. Ela vale na próxima abertura.');
-        }
+    if (jaControlava) {
+      reg.addEventListener?.('updatefound', () => {
+        const novo = reg.installing;
+        novo?.addEventListener('statechange', () => {
+          if (novo.state === 'activated') {
+            avisar?.('Nova versão instalada. Ela vale na próxima abertura.');
+          }
+        });
       });
-    });
-    return { registrado: true, escopo };
+    }
+    return { registrado: true, escopo, jaControlava };
   } catch (e) {
     // console.warn e nao aviso(): registro recusado e problema do app, nao do
     // aluno — jogar recado vermelho na tela dele por isso seria ruído.

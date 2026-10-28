@@ -210,37 +210,93 @@ test('boot: o fio `avisar` existe — a acao de exportar escreve recado na tela'
   assert.match(recados[0].textContent, /exportad/i, `recado inesperado: ${recados[0].textContent}`);
 });
 
-test('boot: registrarSW usa escopo relativo a baseURI e avisa quando a versao nova ativa', async () => {
-  const registradas = [];
-  let aoAtualizar = null;
-  const nav = {
+/**
+ * Navigator de mentira com service worker. `controller` e a PROVA de que ja
+ * havia um SW controlando a pagina antes do registro — no navegador ele e null
+ * na primeira visita e preenchido nas seguintes (clients.claim() do sw.js).
+ * `reg.controller` existe so para mostrar que o teste leria o lugar errado se
+ * registrarSW consultasse o registro em vez do navigator.
+ */
+function navComSW({ controller }) {
+  // O registro e criado aqui e EXPOSTO em estado.reg porque o listener de
+  // updatefound fecha sobre ele: o teste precisa por o SW novo em reg.installing
+  // ANTES de disparar o evento, exatamente como o navegador faz.
+  const estado = {
+    registradas: [],
+    aoAtualizar: null,
+    regController: {}, // diferente do navigator.controller, de proposito
+    reg: { installing: null, addEventListener: () => {} }
+  };
+  estado.reg.addEventListener = (tipo, fn) => { if (tipo === 'updatefound') estado.aoAtualizar = fn; };
+  return {
+    estado,
     serviceWorker: {
+      controller,
       register: async (arquivo, opts) => {
-        registradas.push({ arquivo, opts });
-        return { addEventListener: (tipo, fn) => { if (tipo === 'updatefound') aoAtualizar = fn; } };
+        estado.registradas.push({ arquivo, opts });
+        estado.reg.controller = estado.regController;
+        return estado.reg;
       }
     }
   };
-  // Pagina publicada em subcaminho (GitHub Pages): e aqui que escopo '/' quebraria.
-  const win = {
+}
+
+function winCom(nav) {
+  return {
     document: { baseURI: 'https://lucas-gonzales-dev.github.io/atlas-kit-tools/index.html' },
     location: { protocol: 'https:', href: 'https://lucas-gonzales-dev.github.io/atlas-kit-tools/' },
     navigator: nav,
     console
   };
+}
+
+test('boot: registrarSW usa escopo relativo a baseURI e nao avisa nada na primeira visita', async () => {
+  // PRIMEIRA VISITA: sem navigator.controller. O navegador instala e ativa o SW
+  // (e isso e normal, nao e atualizacao), entao "Nova versao instalada" seria
+  // mentira — foi exatamente o que testar_pagina pegou em 28/10/2026.
+  const nav = navComSW({ controller: null });
+  const win = winCom(nav);
   const avisos = [];
   const r = await boot.registrarSW(win, (t) => avisos.push(t));
 
   assert.equal(r.registrado, true, `registro nao aconteceu: ${JSON.stringify(r)}`);
-  assert.equal(registradas.length, 1);
-  assert.equal(registradas[0].arquivo, 'sw.js');
-  assert.equal(registradas[0].opts.scope, '/atlas-kit-tools/', 'escopo absoluto derruba o registro em subcaminho');
+  assert.equal(r.jaControlava, false, 'primeira visita tem de ser reconhecida como primeira');
+  assert.equal(nav.estado.registradas.length, 1);
+  assert.equal(nav.estado.registradas[0].arquivo, 'sw.js');
+  assert.equal(nav.estado.registradas[0].opts.scope, '/atlas-kit-tools/', 'escopo absoluto derruba o registro em subcaminho');
+  assert.equal(nav.estado.aoAtualizar, null,
+    'listener de updatefound instalado sem SW anterior: e ele que dispara o aviso falso na primeira visita');
+  assert.equal(avisos.length, 0, 'avisar nao pode disparar antes da atualizacao');
 
   // Sem navigator.serviceWorker (file://, node) nao registra e nao explode.
   const semSW = await boot.registrarSW({ location: { protocol: 'http:' }, navigator: {} }, () => {});
   assert.equal(semSW.registrado, false);
-  assert.ok(aoAtualizar, 'sem listener de updatefound o aluno nunca sabe que a versao nova instalou');
-  assert.equal(avisos.length, 0, 'avisar nao pode disparar antes da atualizacao');
+});
+
+test('boot: com SW ja no controle, a versao nova que ativa avisa o aluno', async () => {
+  // VISITA SEGUINTE: ja havia um SW controlando, entao instalar outro e
+  // atualizacao de verdade e o recado e honesto. Se alguem "simplificar"
+  // registrarSW tirando a checagem de controller, este teste falha junto com o
+  // da primeira visita — os dois lados da regra ficam cobertos.
+  const nav = navComSW({ controller: { scriptURL: 'sw.js' } });
+  const win = winCom(nav);
+  const avisos = [];
+  const r = await boot.registrarSW(win, (t) => avisos.push(t));
+
+  assert.equal(r.registrado, true);
+  assert.equal(r.jaControlava, true, 'nao reconheceu o SW que ja controlava a pagina');
+  assert.equal(typeof nav.estado.aoAtualizar, 'function',
+    'sem listener de updatefound o aluno nunca sabe que a versao nova instalou');
+
+  // Updatefound -> installing -> activated: o recado so pode aparecer no fim.
+  const swNovo = { state: 'installing', handlers: {}, addEventListener(t, f) { (this.handlers[t] ??= []).push(f); } };
+  nav.estado.reg.installing = swNovo; // o navegador instala o novo antes de anunciar
+  nav.estado.aoAtualizar({});
+  assert.equal(avisos.length, 0, 'avisou enquanto o SW novo ainda estava instalando');
+  swNovo.state = 'activated';
+  for (const f of swNovo.handlers.statechange ?? []) f({});
+  assert.equal(avisos.length, 1, 'o aluno nao ficou sabendo da atualizacao');
+  assert.match(avisos[0], /Nova versão instalada/);
 });
 
 test('index.html: sem <script> inline com codigo, e o boot entra como modulo', async () => {
