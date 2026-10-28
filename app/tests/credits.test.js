@@ -96,6 +96,24 @@ test('CREDITS.md nomeia a licenca real da fonte e o que ela exige', () => {
   assert.ok(n.includes('garantia'), 'MIT vem sem garantia; o CREDITS precisa repassar isso');
 });
 
+// A MIT da UBL exige DUAS coisas no material derivado: o aviso de copyright E o
+// texto de permissao. O CREDITS.md tinha so o primeiro — o copyright citado numa
+// linha. Isso nao cumpre a condicao inteira, e o teste abaixo e o que impede o
+// texto de sumir numa reescrita do documento. A frase conferida e a abertura real
+// da MIT na fonte (atlas-planning-kit/source/LICENSE), lida e nao lembrada.
+test('CREDITS.md traz o texto integral da MIT da fonte, nao so o copyright', () => {
+  const t = ler('CREDITS.md');
+  assert.ok(t.includes('Permission is hereby granted'),
+    'falta o texto de permissao da MIT: a licenca exige o aviso de copyright E esse texto');
+  assert.ok(t.includes('The above copyright notice and this permission notice'),
+    'e essa a clausula que diz o que precisa acompanhar o material derivado');
+  assert.ok(t.includes('THE SOFTWARE IS PROVIDED "AS IS"'),
+    'a renuncia de garantia faz parte do texto integral');
+  const secaoIntegral = secao(t, 'Texto integral');
+  assert.ok(secaoIntegral.length > 0,
+    'precisa haver uma secao propria para o texto integral, e nao ele solto no documento');
+});
+
 test('CREDITS.md lista os 13 autores do git, sem e-mail', () => {
   const texto = ler('CREDITS.md');
   const secaoAutores = secao(texto, 'Quem fez');

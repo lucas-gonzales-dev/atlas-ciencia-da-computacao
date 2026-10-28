@@ -63,6 +63,41 @@ tipo — nem de comerciabilidade, nem de adequação a um fim específico. Se um
 disciplina, um link ou uma bibliografia estiver errada ou fora do ar, a
 responsabilidade é de quem usa, não dos autores da UBL.
 
+## Texto integral da licença da fonte
+
+A MIT exige **duas** coisas no material derivado, não uma: o aviso de copyright
+**e** o texto de permissão. O aviso está citado acima; o texto integral é o que
+vem a seguir, copiado do arquivo `LICENSE` da fonte no SHA auditado `b995c11`
+(`atlas-planning-kit/source/LICENSE`), sem alteração de uma palavra:
+
+```
+MIT License
+
+Copyright (c) 2021 Universidade Brasileira Livre
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+Isto é o cumprimento da condição da licença da UBL sobre o conteúdo derivado
+deste repositório. A licença do **código do Atlas** é outra e está no arquivo
+[`LICENSE`](LICENSE) na raiz.
+
 ## Quem fez a UBL
 
 Lista tirada do próprio git da fonte (`git shortlog -sn` no SHA auditado
