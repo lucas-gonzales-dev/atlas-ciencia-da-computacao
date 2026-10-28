@@ -115,8 +115,8 @@ test('honestidade: a tela diz que o caminho nao foi verificado e que o conteudo 
   assert.equal(notas.length, CATALOGO.courses.length, 'cada bibliografia precisa do aviso');
   for (const n of notas) {
     const t = textoDe(n);
-    assert.match(t, /nao verificada/, 'falta dizer que a disponibilidade nao foi conferida');
-    assert.match(t, /nao guarda o conteudo/, 'falta dizer que o Atlas nao tem os livros');
+    assert.match(t, /não verificada/, 'falta dizer que a disponibilidade nao foi conferida');
+    assert.match(t, /não guarda o conteúdo/, 'falta dizer que o Atlas nao tem os livros');
   }
 });
 

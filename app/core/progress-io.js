@@ -79,7 +79,7 @@ export function buildExport(courses, completed = [], agora = new Date()) {
     formato: FORMATO,
     versao: VERSAO_FORMATO,
     exportadoEm: agora instanceof Date ? agora.toISOString() : new Date().toISOString(),
-    app: 'Projeto Atlas — Ciencia da Computacao (UBL)',
+    app: 'Projeto Atlas — Ciência da Computação (UBL)',
     catalogo: { total: catalogo.length },
     completed: validos,
     // O que ficou de fora vai DENTRO do arquivo: quem importar daqui a um ano
@@ -120,17 +120,17 @@ export function nomeDoArquivo(agora = new Date()) {
  */
 export function parseImport(texto, courses = []) {
   if (typeof texto !== 'string') {
-    return { ok: false, erro: 'O arquivo precisa ser texto. Nao consegui ler o que chegou.' };
+    return { ok: false, erro: 'O arquivo precisa ser texto. Não consegui ler o que chegou.' };
   }
   if (texto.trim() === '') {
-    return { ok: false, erro: 'Arquivo vazio: sem conteudo para importar.' };
+    return { ok: false, erro: 'Arquivo vazio: sem conteúdo para importar.' };
   }
 
   let dados;
   try {
     dados = JSON.parse(texto);
   } catch (e) {
-    return { ok: false, erro: `Nao consegui ler o arquivo como JSON (${e.message}).` };
+    return { ok: false, erro: `Não consegui ler o arquivo como JSON (${e.message}).` };
   }
 
   let idsCandidatos;
@@ -140,20 +140,20 @@ export function parseImport(texto, courses = []) {
     if (dados.formato !== FORMATO) {
       return {
         ok: false,
-        erro: `Formato "${dados.formato ?? '(sem formato)'}" nao e do Projeto Atlas. Esperado "${FORMATO}".`
+        erro: `Formato "${dados.formato ?? '(sem formato)'}" não é do Projeto Atlas. Esperado "${FORMATO}".`
       };
     }
     const versao = dados.versao;
     if (typeof versao !== 'number') {
       return {
         ok: false,
-        erro: 'O arquivo nao diz a versao do formato. Sem isso eu teria de adivinhar o que ele contem — e adivinhar formato e como se perde progresso.'
+        erro: 'O arquivo não diz a versão do formato. Sem isso eu teria de adivinhar o que ele contem — e adivinhar formato e como se perde progresso.'
       };
     }
     if (versao > VERSAO_FORMATO) {
       return {
         ok: false,
-        erro: `Este arquivo e da versao ${versao}; este Atlas entende ate a versao ${VERSAO_FORMATO}. Atualize o app para importa-lo.`
+        erro: `Este arquivo é da versão ${versao}; este Atlas entende até a versão ${VERSAO_FORMATO}. Atualize o app para importa-lo.`
       };
     }
     if (!Array.isArray(dados.completed)) {
@@ -161,19 +161,19 @@ export function parseImport(texto, courses = []) {
     }
     idsCandidatos = dados.completed;
   } else {
-    return { ok: false, erro: 'O arquivo nao contem nem o envelope do Atlas nem uma lista de ids.' };
+    return { ok: false, erro: 'O arquivo não contém nem o envelope do Atlas nem uma lista de ids.' };
   }
 
   const catalogo = idsDoCatalogo(courses);
   const { completed, ignorados, descartados } = filtrar(idsCandidatos, catalogo);
 
-  let mensagem = `Importadas ${completed.length} disciplina(s) deste catalogo.`;
+  let mensagem = `Importadas ${completed.length} disciplina(s) deste catálogo.`;
   if (completed.length === 0) {
-    mensagem = 'Nenhuma disciplina deste catalogo estava no arquivo: o progresso ficou vazio.';
+    mensagem = 'Nenhuma disciplina deste catálogo estava no arquivo: o progresso ficou vazio.';
   }
   if (ignorados > 0) {
     const nomes = descartados.slice(0, 5).join(', ');
-    mensagem += ` ${ignorados} id(s) ignorado(s) por nao pertencer a este catalogo${nomes ? `: ${nomes}` : ''}.`;
+    mensagem += ` ${ignorados} id(s) ignorado(s) por não pertencer a este catálogo${nomes ? `: ${nomes}` : ''}.`;
   }
 
   return { ok: true, completed, ignorados, mensagem };

@@ -540,7 +540,7 @@
     "app/data/specialization-resources-seed.json",
     "app/data/specializations-unindexed-overlay.json"
   ],
-  "origemEspecializacoes": "9 especializacoes — 6 com recursos indexados, 3 aguardando conteudo na fonte",
+  "origemEspecializacoes": "9 especializações — 6 com recursos indexados, 3 aguardando conteúdo na fonte",
   "specializations": [
     {
       "id": "ubl-specialization-computer-graphics",
@@ -1498,7 +1498,7 @@
       "sourceUrl": null,
       "reachableFromIndex": true,
       "aguardandoConteudo": true,
-      "motivoAguardando": "A fonte anuncia esta especializacao, mas ainda nao tem pagina de recursos indexada.",
+      "motivoAguardando": "A fonte anuncia esta especialização, mas ainda não tem página de recursos indexada.",
       "resources": [],
       "pageNotes": []
     },
@@ -1511,7 +1511,7 @@
       "sourceUrl": null,
       "reachableFromIndex": false,
       "aguardandoConteudo": true,
-      "motivoAguardando": "A pagina existe na fonte mas esta \"em construcao\" e nao e alcancavel pelo indice do README: nao ha recursos para estudar ainda.",
+      "motivoAguardando": "A página existe na fonte mas está \"em construção\" e não é alcançável pelo índice do README: nao ha recursos para estudar ainda.",
       "pageNotes": [],
       "resources": []
     },
@@ -1524,7 +1524,7 @@
       "sourceUrl": null,
       "reachableFromIndex": false,
       "aguardandoConteudo": true,
-      "motivoAguardando": "A pagina existe na fonte mas esta \"em construcao\" e nao e alcancavel pelo indice do README: nao ha recursos para estudar ainda.",
+      "motivoAguardando": "A página existe na fonte mas está \"em construção\" e não é alcançável pelo índice do README: nao ha recursos para estudar ainda.",
       "pageNotes": [],
       "resources": []
     }

@@ -127,9 +127,9 @@ test('honestidade: 3 aguardando conteudo, e sao exatamente as 3 sem recurso', ()
     );
   }
   assert.equal(DERIVADO.aguardando, 3);
-  assert.match(DERIVADO.origem, /9 especializacoes/);
+  assert.match(DERIVADO.origem, /9 especializações/);
   assert.match(DERIVADO.origem, /6 com recursos indexados/);
-  assert.match(DERIVADO.origem, /3 aguardando conteudo/);
+  assert.match(DERIVADO.origem, /3 aguardando conteúdo/);
 });
 
 test('honestidade: alcançavel pelo indice e fato da fonte, nao enfeite meu', () => {
@@ -205,8 +205,8 @@ test('tela: secao propria, entre a trilha e as eletivas, com a origem dos dados'
   assert.ok(iEsp >= 0, 'secao de especializacoes nao foi desenhada');
   assert.ok(iElet >= 0 && iEsp < iElet, 'especializacoes devem vir antes das eletivas');
   const h2 = comClasse(secoes[iEsp], 'especializacoes').length ? secoes[iEsp] : null;
-  assert.match(textoDe(h2), /Especializacoes/);
-  assert.match(textoDe(h2), /9 especializacoes/, 'a origem dos dados precisa aparecer');
+  assert.match(textoDe(h2), /Especializações/);
+  assert.match(textoDe(h2), /9 especializações/, 'a origem dos dados precisa aparecer');
 });
 
 test('tela: 9 itens, 3 marcados como aguardando e com o motivo escrito', () => {
@@ -218,9 +218,9 @@ test('tela: 9 itens, 3 marcados como aguardando e com o motivo escrito', () => {
   const avisos = comClasse(root, 'aviso-esp');
   assert.equal(avisos.length, 3, 'cada aguardando precisa de aviso proprio');
   const texto = textoDe(root);
-  assert.match(texto, /Aguardando conteudo/);
-  assert.match(texto, /em construcao/, 'o motivo das nao indexadas precisa dizer em construcao');
-  assert.match(texto, /nao tem pagina de recursos indexada/, 'o motivo de Design de Algoritmos');
+  assert.match(texto, /Aguardando conteúdo/);
+  assert.match(texto, /em construção/, 'o motivo das nao indexadas precisa dizer em construcao');
+  assert.match(texto, /não tem página de recursos indexada/, 'o motivo de Design de Algoritmos');
   // As 6 com recurso mostram quantos recursos sao — numero da fonte, nao meu.
   assert.match(texto, /18 recurso\(s\)/);
   assert.match(texto, /8 recurso\(s\)/);

@@ -54,12 +54,12 @@ export function saveCompleted(ids) {
 export async function loadCatalog() {
   const minimo = {
     courses: [
-      { id: 'logica', title: 'Logica de Programacao', stage: 1, prerequisites: [] },
+      { id: 'logica', title: 'Lógica de Programação', stage: 1, prerequisites: [] },
       { id: 'python-1', title: 'Python I', stage: 2, prerequisites: ['logica'] },
       { id: 'python-2', title: 'Python II', stage: 2, prerequisites: ['python-1'] },
       { id: 'eda', title: 'Estruturas de Dados e Algoritmos', stage: 3, prerequisites: ['python-2'] }
     ],
-    origem: 'catalogo minimo embutido (data/catalog.json ainda nao gerado)'
+    origem: 'catálogo mínimo embutido (data/catalog.json ainda não gerado)'
   };
 
   if (typeof fetch !== 'function') return minimo;
@@ -99,7 +99,7 @@ function el(tag, attrs = {}, text) {
 }
 
 /**
- * Bloco "sua proxima materia" — incremento de 23/10/2026.
+ * Bloco "sua próxima matéria" — incremento de 23/10/2026.
  * Abrir o app e ter de ler 35 linhas para descobrir o que fazer agora e o
  * caminho mais rapido para desistir de estudar: o proximo passo vem primeiro.
  *
@@ -111,28 +111,28 @@ function proximaMateria(courses, completed, cyclic) {
   const { state, course, abertas } = nextUp(courses, completed);
 
   if (state === 'open' && course) {
-    s.append(el('h2', {}, 'Sua proxima materia'));
+    s.append(el('h2', {}, 'Sua próxima matéria'));
     s.append(el('p', { class: 'proxima-nome' }, course.title));
     const rec = typeof course.resourceUrl === 'string' ? course.resourceUrl.trim() : '';
     // Mesmo criterio da lista: sem URL de verdade, link nenhum. href "#" seria
     // pior do que nao ter botao.
     if (rec !== '') {
-      s.append(el('a', { class: 'recurso proxima-ir', href: rec, target: '_blank', rel: 'noopener noreferrer' }, 'Comecar a estudar'));
+      s.append(el('a', { class: 'recurso proxima-ir', href: rec, target: '_blank', rel: 'noopener noreferrer' }, 'Começar a estudar'));
     }
     if (abertas.length > 1) {
-      s.append(el('p', { class: 'proxima-mais' }, `Ha mais ${abertas.length - 1} disponivel(is) agora, na lista abaixo.`));
+      s.append(el('p', { class: 'proxima-mais' }, `Há mais ${abertas.length - 1} disponível(eis) agora, na lista abaixo.`));
     }
   } else if (state === 'done') {
-    s.append(el('h2', {}, 'Trilha concluida'));
-    s.append(el('p', {}, `Voce concluiu todas as ${courses.length} disciplinas deste catalogo.`));
+    s.append(el('h2', {}, 'Trilha concluída'));
+    s.append(el('p', {}, `Você concluiu todas as ${courses.length} disciplinas deste catálogo.`));
   } else {
     // blocked: nao ha o que abrir. Dizer isso em voz alta e melhor que um
     // destaque vazio — e, se a causa for ciclo na fonte, o aluno merece saber
     // que o problema e o dado, nao ele.
     s.append(el('h2', {}, 'Nada destrancado agora'));
     s.append(el('p', {}, cyclic.size > 0
-      ? `Nenhuma materia destrancada: ${cyclic.size} disciplina(s) estao em ciclo de pre-requisitos na fonte.`
-      : 'Nenhuma materia destrancada: conclua um pre-requisito para abrir a proxima.'));
+      ? `Nenhuma matéria destrancada: ${cyclic.size} disciplina(s) estão em ciclo de pré-requisitos na fonte.`
+      : 'Nenhuma matéria destrancada: conclua um pré-requisito para abrir a próxima.'));
   }
   return s;
 }
@@ -155,7 +155,7 @@ function secaoEletivas(electives, origemEletivas) {
   const s = el('section', { class: 'eletivas' });
   s.append(el('h2', {}, 'Eletivas'));
   s.append(el('p', { class: 'aviso-eletivas' },
-    'Arquivadas na fonte: estas disciplinas aparecem num bloco comentado do README da UBL e NAO somam a grade obrigatoria sem decisao editorial. Estao aqui para consulta — nao contam no seu progresso.'));
+    'Arquivadas na fonte: estas disciplinas aparecem num bloco comentado do README da UBL e NÃO somam à grade obrigatória sem decisão editorial. Estão aqui para consulta — não contam no seu progresso.'));
   if (typeof origemEletivas === 'string' && origemEletivas.length) {
     s.append(el('p', { class: 'fonte' }, `Dados: ${origemEletivas}`));
   }
@@ -168,7 +168,7 @@ function secaoEletivas(electives, origemEletivas) {
     // Pre-requisitos da fonte sao TITULOS, e a tela os mostra como texto:
     // nao ha trava aqui, porque nao ha progresso a travar.
     if (Array.isArray(e.prerequisiteTitles) && e.prerequisiteTitles.length > 0) {
-      pedacos.push(el('span', { class: 'prereq-texto' }, ` — pre-requisitos citados na fonte: ${e.prerequisiteTitles.join(', ')}`));
+      pedacos.push(el('span', { class: 'prereq-texto' }, ` — pré-requisitos citados na fonte: ${e.prerequisiteTitles.join(', ')}`));
     }
     if (typeof e.topics === 'string' && e.topics.length) {
       pedacos.push(el('span', { class: 'topicos' }, e.topics));
@@ -205,7 +205,7 @@ function secaoEspecializacoes(specializations, origem) {
   if (!Array.isArray(specializations) || specializations.length === 0) return null;
 
   const s = el('section', { class: 'especializacoes' });
-  s.append(el('h2', {}, 'Especializacoes'));
+  s.append(el('h2', {}, 'Especializações'));
   if (typeof origem === 'string' && origem.length) {
     s.append(el('p', { class: 'fonte' }, `Dados: ${origem}`));
   }
@@ -215,7 +215,7 @@ function secaoEspecializacoes(specializations, origem) {
     const li = el('li', { class: `item esp${sp.aguardandoConteudo ? ' aguardando' : ''}`, 'data-id': sp.id });
     li.append(
       el('span', { class: 'titulo' }, sp.title),
-      el('span', { class: 'status' }, sp.aguardandoConteudo ? 'Aguardando conteudo' : `${sp.resources.length} recurso(s)`)
+      el('span', { class: 'status' }, sp.aguardandoConteudo ? 'Aguardando conteúdo' : `${sp.resources.length} recurso(s)`)
     );
 
     if (sp.aguardandoConteudo && typeof sp.motivoAguardando === 'string') {
@@ -230,7 +230,7 @@ function secaoEspecializacoes(specializations, origem) {
         href: sp.sourceUrl,
         target: '_blank',
         rel: 'noopener noreferrer'
-      }, 'Ver pagina na fonte'));
+      }, 'Ver página na fonte'));
     }
 
     const recursos = Array.isArray(sp.resources) ? sp.resources : [];
@@ -247,7 +247,7 @@ function secaoEspecializacoes(specializations, origem) {
         } else {
           // Recurso sem URL na transcricao: mostro o titulo e digo que falta o
           // link. Inventar um seria pior que nao ter.
-          liR.append(el('span', {}, `${r.title || '(sem titulo na fonte)'} — sem URL na fonte`));
+          liR.append(el('span', {}, `${r.title || '(sem título na fonte)'} — sem URL na fonte`));
         }
         const meta = [r.duration, r.dedication].filter((x) => typeof x === 'string' && x.length).join(' · ');
         if (meta) liR.append(el('span', { class: 'esp-meta' }, ` (${meta})`));
@@ -286,7 +286,7 @@ export function render(root, { courses, completed, origem, electives, origemElet
 
   if (cyclic.size > 0) {
     root.append(
-      el('p', { class: 'alerta' }, `Aviso: ${cyclic.size} disciplina(s) em ciclo de pre-requisitos — ${[...cyclic].join(', ')}`)
+      el('p', { class: 'alerta' }, `Aviso: ${cyclic.size} disciplina(s) em ciclo de pré-requisitos — ${[...cyclic].join(', ')}`)
     );
   }
 
@@ -304,13 +304,13 @@ export function render(root, { courses, completed, origem, electives, origemElet
   const lista = el('ul', { class: 'trilha' });
   for (const c of resultado.courses) {
     const estado = done.has(c.id) ? 'concluida' : open.has(c.id) ? 'disponivel' : cyclic.has(c.id) ? 'ciclo' : 'trancada';
-    const rotulo = { concluida: 'Concluida', disponivel: 'Disponivel agora', trancada: 'Trancada', ciclo: 'Trancada (ciclo)' }[estado];
+    const rotulo = { concluida: 'Concluída', disponivel: 'Disponível agora', trancada: 'Trancada', ciclo: 'Trancada (ciclo)' }[estado];
 
     const btn = el('button', {
       type: 'button',
       className: 'marca',
       disabled: estado === 'trancada' || estado === 'ciclo',
-      title: estado === 'disponivel' ? 'Marcar como concluida' : estado === 'concluida' ? 'Desmarcar' : 'Conclua o pre-requisito antes'
+      title: estado === 'disponivel' ? 'Marcar como concluída' : estado === 'concluida' ? 'Desmarcar' : 'Conclua o pré-requisito antes'
     }, estado === 'concluida' ? 'Desfazer' : 'Concluir');
 
     // Titulo do pre-requisito, nao o id cru (core/catalog.js decide isso, com teste).
@@ -349,7 +349,7 @@ export function render(root, { courses, completed, origem, electives, origemElet
           target: '_blank',
           rel: 'noopener noreferrer'
         }, `Bibliografia: ${biblioPath}`),
-        el('span', { class: 'biblio-nota' }, 'Caminho transcrito da fonte, disponibilidade nao verificada. O Atlas nao guarda o conteudo dos livros.')
+        el('span', { class: 'biblio-nota' }, 'Caminho transcrito da fonte, disponibilidade não verificada. O Atlas não guarda o conteúdo dos livros.')
       );
       pedacos.push(biblio);
     }
@@ -383,7 +383,7 @@ export function render(root, { courses, completed, origem, electives, origemElet
   // zero com "quimica" e nao por erro do app).
   if (resultado.semResultado) {
     root.append(el('p', { class: 'busca-vazia' },
-      `Nada encontrado para "${String(busca ?? '').trim()}". Acento e maiuscula nao importam; tente parte do nome.`));
+      `Nada encontrado para "${String(busca ?? '').trim()}". Acento e maiúscula não importam; tente parte do nome.`));
   }
 
   // Eletivas DEPOIS da grade, e fora dela: sao conteudo arquivado, nao caminho.
@@ -482,7 +482,7 @@ export function baixarProgresso(state = {}) {
   const nome = nomeDoArquivo(agora);
 
   if (typeof Blob !== 'function' || typeof document === 'undefined' || typeof URL?.createObjectURL !== 'function') {
-    return { ok: false, nome, texto, mensagem: 'Este ambiente nao permite baixar arquivos. O conteudo do export esta no console.' };
+    return { ok: false, nome, texto, mensagem: 'Este ambiente não permite baixar arquivos. O conteúdo do export está no console.' };
   }
 
   const url = URL.createObjectURL(new Blob([texto], { type: 'application/json' }));
@@ -504,7 +504,7 @@ async function lerArquivoEscolhido(file) {
   try {
     return { ok: true, texto: await file.text() };
   } catch (e) {
-    return { ok: false, erro: `Nao consegui ler o arquivo (${e.message}).` };
+    return { ok: false, erro: `Não consegui ler o arquivo (${e.message}).` };
   }
 }
 
@@ -522,7 +522,7 @@ export function aplicarImportacao(state = {}, texto) {
       ok: false,
       completed: [...(Array.isArray(state.completed) ? state.completed : [])],
       erro: r.erro,
-      mensagem: `${r.erro} O progresso que ja estava salvo neste navegador nao foi alterado.`
+      mensagem: `${r.erro} O progresso que já estava salvo neste navegador não foi alterado.`
     };
   }
   return { ok: true, completed: r.completed, ignorados: r.ignorados, mensagem: r.mensagem };

@@ -263,7 +263,7 @@ export function toSpecializations(seedEspecializacoes, seedRecursos, overlay) {
       // Sem recurso = nada para estudar. A tela avisa; nunca finge trilha.
       aguardandoConteudo: recursos.length === 0,
       motivoAguardando: recursos.length === 0
-        ? 'A fonte anuncia esta especializacao, mas ainda nao tem pagina de recursos indexada.'
+        ? 'A fonte anuncia esta especialização, mas ainda não tem página de recursos indexada.'
         : null,
       resources: recursos
     });
@@ -300,7 +300,7 @@ export function toSpecializations(seedEspecializacoes, seedRecursos, overlay) {
       sourceUrl: null,
       reachableFromIndex: false,
       aguardandoConteudo: true,
-      motivoAguardando: 'A pagina existe na fonte mas esta "em construcao" e nao e alcancavel pelo indice do README: nao ha recursos para estudar ainda.',
+      motivoAguardando: 'A página existe na fonte mas está "em construção" e não é alcançável pelo índice do README: nao ha recursos para estudar ainda.',
       pageNotes: [],
       resources: []
     });
@@ -309,7 +309,7 @@ export function toSpecializations(seedEspecializacoes, seedRecursos, overlay) {
   const aguardando = saida.filter((sp) => sp.aguardandoConteudo).length;
   return {
     specializations: saida,
-    origem: `${saida.length} especializacoes — ${saida.length - aguardando} com recursos indexados, ${aguardando} aguardando conteudo na fonte`,
+    origem: `${saida.length} especializações — ${saida.length - aguardando} com recursos indexados, ${aguardando} aguardando conteúdo na fonte`,
     aguardando
   };
 }
