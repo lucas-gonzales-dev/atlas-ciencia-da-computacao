@@ -113,6 +113,8 @@ do Atlas; o currículo é de vocês.
 
 ---
 
-**Nota sobre a licença do código do Atlas:** a licença deste repositório ainda
-**não foi escolhida**. Existe uma proposta no README, mas a decisão é do Lucas.
-Nenhum arquivo `LICENSE` foi aplicado até ele decidir.
+**Nota sobre a licença do código do Atlas:** este repositório está sob **MIT
+License**, `Copyright (c) 2026 Lucas Leite Gonzales` — o arquivo
+[`LICENSE`](LICENSE) na raiz. A decisão foi do Lucas, em 28/10/2026, e é
+compatível com a MIT da UBL citada acima: as duas licenças convivem sem que o
+Atlas precise herdar nada, e o aviso de copyright da fonte continua aqui.

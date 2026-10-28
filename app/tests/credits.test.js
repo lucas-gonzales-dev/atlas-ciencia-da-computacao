@@ -14,9 +14,12 @@
 // recursos externos (cursos, videos, livros) pertencem aos autores deles — o
 // Atlas so aponta, nao redistribui.
 //
-// E ha um teste de NAO-ACAO de proposito: a licenca do CODIGO do Atlas e
-// PROPOSTA ao Lucas, nao aplicada. Se um arquivo LICENSE aparecer na raiz antes
-// da decisao dele, o ultimo teste falha — e e assim que deve ser.
+// A licenca do CODIGO do Atlas foi DECIDIDA pelo Lucas em 28/10/2026: MIT, com
+// "Copyright (c) 2026 Lucas Leite Gonzales". Ate essa data havia aqui um teste
+// de NAO-ACAO que reprova se existisse LICENSE na raiz — ele foi escrito para
+// esperar a decisao, e a decisao veio. O ultimo teste agora cobra o contrario:
+// LICENSE existe, e MIT, e traz o aviso de copyright do Lucas. Se um dia a
+// licenca mudar sem o README e o CREDITS.md mudarem junto, ele falha.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
@@ -120,10 +123,27 @@ test('README tem a secao "Créditos e licença" apontando para o CREDITS.md', ()
   assert.ok(t.toLowerCase().includes('mit'), 'precisa citar a licenca da fonte');
 });
 
-test('a licenca do codigo do Atlas e proposta, nao aplicada', () => {
-  const n = ler('README.md').toLowerCase();
-  assert.ok(n.includes('proposta'), 'a licenca do codigo precisa estar marcada como proposta');
-  assert.ok(n.includes('lucas'), 'a decisao e do Lucas, e o README precisa dizer isso');
-  assert.ok(!existsSync(urlDaRaiz('LICENSE')),
-    'LICENSE na raiz aplicaria uma licenca que o Lucas ainda nao decidiu');
+test('LICENSE existe na raiz, e MIT e traz o copyright do Lucas', () => {
+  assert.ok(existsSync(urlDaRaiz('LICENSE')),
+    'a licenca foi decidida: o arquivo LICENSE precisa existir na raiz');
+  const t = ler('LICENSE');
+  assert.ok(t.includes('MIT License'), 'a decisao do Lucas foi MIT');
+  assert.ok(t.includes('Copyright (c) 2026 Lucas Leite Gonzales'),
+    'o aviso de copyright e do Lucas, com o ano e o nome completos');
+  assert.ok(t.includes('Permission is hereby granted'),
+    'MIT sem o texto de permissao nao e MIT');
+  assert.ok(t.includes('WITHOUT WARRANTY OF ANY KIND'),
+    'MIT sem a clausula de ausencia de garantia esta incompleta');
+});
+
+test('README e CREDITS.md dizem que a licenca e MIT, e nao que esta pendente', () => {
+  const readme = ler('README.md');
+  const credits = ler('CREDITS.md');
+  assert.ok(readme.includes('Licença: MIT'), 'o README precisa ter a secao "Licença: MIT"');
+  assert.ok(!readme.toLowerCase().includes('proposta'),
+    'nada de licenca "proposta": ela ja foi escolhida');
+  assert.ok(!credits.includes('não foi escolhida') && !credits.includes('nao foi escolhida'),
+    'o CREDITS.md ainda dizia que a licenca nao foi escolhida');
+  assert.ok(readme.includes('Lucas Leite Gonzales') || credits.includes('Lucas Leite Gonzales'),
+    'o titular do copyright do Atlas precisa estar nomeado');
 });

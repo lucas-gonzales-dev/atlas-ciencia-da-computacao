@@ -75,14 +75,15 @@ test('README: manda rodar local sem depender de nada que nao existe', async () =
   await access(new URL('app/package.json', RAIZ_REPO));
 });
 
-test('README: a secao de creditos e a licenca continuam como estavam (nao aplicada)', async () => {
+test('README: a secao de creditos e a licenca continuam como estavam', async () => {
   const r = await ler('README.md');
   assert.match(r, /##\s*Créditos e licença/, 'a secao de creditos nao pode sumir numa reescrita');
   assert.match(r, /CREDITS\.md/, 'o detalhe completo mora no CREDITS.md');
   assert.match(r, /MIT/, 'a licenca real da fonte precisa estar dita');
-  // Decisao do Lucas: enquanto ele nao escolhe, nao existe LICENSE na raiz.
-  await assert.rejects(
-    () => access(new URL('LICENSE', RAIZ_REPO)),
-    'apareceu um LICENSE na raiz sem o Lucas ter decidido — remova ou registre a decisao'
-  );
+  // Decisao do Lucas, tomada em 28/10/2026: MIT. Ate la este teste fazia o
+  // contrario — exigia que o LICENSE NAO existisse, para flagrar quem aplicasse
+  // uma licenca antes da decisao. A decisao veio, entao a trava virou cobranca:
+  // o arquivo precisa existir, e o README precisa dizer que existe.
+  await access(new URL('LICENSE', RAIZ_REPO));
+  assert.match(r, /LICENSE/, 'o README precisa apontar para o arquivo LICENSE que agora existe');
 });

@@ -52,7 +52,6 @@ Honesto, sem enfeite:
   executa service worker: o que está testado é que os arquivos existem, são servidos
   com o content-type certo e o precache está sincronizado com o disco. A instalação
   real no Android ainda é uma promessa.
-- **Licença do código não foi escolhida.** Está proposta, não aplicada (veja abaixo).
 - **Sem anotações, sem lembrete de estudo.** O progresso fica no `localStorage` do
   aparelho, mas não é mais refém dele: exporte o `.json` numa máquina e importe na
   outra (seção *Leve o seu progresso junto*, no fim da tela).
@@ -93,25 +92,21 @@ licença para obras derivadas.
 **Detalhe completo, lista dos 13 autores e o que cada licença cobre:
 [CREDITS.md](CREDITS.md).**
 
-### Licença do código do Atlas — PROPOSTA, ainda não aplicada
+### Licença: MIT
 
-A escolha é do **Lucas**, e nada foi aplicado até ele decidir: não há arquivo
-`LICENSE` na raiz deste repositório.
+O código do Atlas está sob **MIT License**, `Copyright (c) 2026 Lucas Leite
+Gonzales` — o texto completo está no arquivo [`LICENSE`](LICENSE) na raiz deste
+repositório. A decisão foi do Lucas, em 28/10/2026.
 
-**Proposta: MIT.**
+MIT é também a escolha de menor atrito por construção: a fonte é MIT, então não
+cria obrigação nova nem conflito de redistribuição, e mantém a liberdade que a
+UBL deu ao publicar o currículo. Para um repositório público que serve de
+portfólio, é o que menos fricção cria para quem quiser ler, usar ou estudar o
+código.
 
-Motivo: a fonte é MIT, então MIT é compatível por construção — não cria
-obrigação nova nem conflito de redistribuição, e mantém a liberdade que a UBL
-deu ao publicar o currículo. Para um repositório público que serve de portfólio,
-é o que menos atrito cria para quem quiser ler, usar ou estudar o código.
-
-Alternativa, se o Lucas quiser copyleft: **CC BY-SA 4.0 para o conteúdo** mais
-**MIT (ou GPL-3.0) para o código**. É defensável, mas exige separar as duas
-coisas no README e obriga quem derivar a manter a mesma licença — mais fricção,
-e não é o que a fonte pede.
-
-Seja qual for a decisão, o aviso de copyright da UBL e o texto de permissão da
-MIT precisam continuar no `CREDITS.md`. Isso não é opcional.
+O aviso de copyright da UBL e o **texto integral** da licença dela continuam no
+[CREDITS.md](CREDITS.md). Isso não é opcional: é o que a MIT da fonte exige de
+qualquer obra derivada.
 
 ## Testes
 
