@@ -1,0 +1,56 @@
+name: Um dado parece errado
+description: Nome de disciplina, pré-requisito, estágio, link de curso ou bibliografia que não bate com a fonte.
+title: "[dado] "
+labels: ["conteúdo", "fonte-ubl"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        O conteúdo do Atlas **não é digitado à mão**: ele é derivado do currículo da
+        [Universidade Brasileira Livre](https://github.com/Universidade-Livre/ciencia-da-computacao)
+        por `tools/build-catalog.mjs`, auditado num SHA fixo (`b995c11`).
+
+        Por isso, uma correção feita direto no `app/data/catalog.json` deste
+        repositório **some na próxima reconstrução** e desmente a fonte. O caminho
+        certo é corrigir na UBL:
+
+        **→ <https://github.com/Universidade-Livre/ciencia-da-computacao/issues>**
+
+        Preencha isto aqui também se quiser que o Atlas seja reconstruído quando a
+        fonte aceitar a correção. Se o dado errado for do próprio gerador (o script
+        leu a fonte certo e escreveu errado), aí sim o conserto é aqui — diga isso
+        no último campo.
+  - type: input
+    id: onde-esta
+    attributes:
+      label: Onde está o dado
+      description: A disciplina, eletiva, especialização ou recurso, pelo nome que aparece na tela.
+      placeholder: Cálculo I — pré-requisitos
+    validations:
+      required: true
+  - type: textarea
+    id: o-que-diz
+    attributes:
+      label: O que o Atlas mostra, e o que a fonte diz
+      description: Os dois lados, com o link da fonte se você o tiver.
+      placeholder: |
+        Atlas: mostra X como pré-requisito.
+        Fonte (link): não lista X.
+    validations:
+      required: true
+  - type: input
+    id: issue-na-fonte
+    attributes:
+      label: Issue aberta na UBL
+      description: Se você já abriu a correção na fonte, cole o link aqui.
+      placeholder: https://github.com/Universidade-Livre/ciencia-da-computacao/issues/...
+  - type: dropdown
+    id: origem
+    attributes:
+      label: De onde vem o erro, na sua leitura
+      options:
+        - A fonte da UBL está errada ou desatualizada
+        - A fonte está certa e o gerador (tools/build-catalog.mjs) escreveu errado
+        - Não sei dizer
+    validations:
+      required: true

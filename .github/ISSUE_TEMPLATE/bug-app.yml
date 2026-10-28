@@ -1,0 +1,55 @@
+name: Algo não funciona no app
+description: Um comportamento errado no Atlas — a tela, o progresso, a busca, o offline, a instalação.
+title: "[app] "
+labels: ["bug", "app"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Obrigado por reportar. Um aviso que economiza tempo dos dois lados:
+
+        **Se o problema é um dado do currículo** (nome de disciplina, pré-requisito,
+        ordem dos estágios, link de curso, livro da bibliografia), use o modelo
+        **"Um dado parece errado"**. Esse tipo de erro se corrige na fonte da UBL,
+        não aqui — o Atlas é derivado dela.
+  - type: textarea
+    id: o-que-aconteceu
+    attributes:
+      label: O que aconteceu
+      description: O comportamento errado, com o que você esperava que acontecesse.
+      placeholder: Marquei "Cálculo I" como concluída e a disciplina seguinte não destrancou.
+    validations:
+      required: true
+  - type: textarea
+    id: como-reproduzir
+    attributes:
+      label: Como reproduzir
+      description: Os passos, na ordem. Se precisar de um estado anterior (um progresso importado, uma anotação), diga.
+      placeholder: |
+        1. Abrir o app
+        2. Marcar ... como Concluída
+        3. Olhar a seção ...
+    validations:
+      required: true
+  - type: input
+    id: onde
+    attributes:
+      label: Onde
+      description: Aparelho e navegador, ou "local" se você estava rodando `node app/serve.js`.
+      placeholder: Android 14, Chrome 129 / instalado como PWA
+    validations:
+      required: true
+  - type: input
+    id: versao
+    attributes:
+      label: Versão
+      description: O endereço onde abriu, ou o commit que você tem local (`git log --oneline -1`).
+      placeholder: https://lucas-gonzales-dev.github.io/atlas-ciencia-da-computacao/ ou f2526bd
+  - type: textarea
+    id: console
+    attributes:
+      label: Erro no console, se houver
+      description: O que o console do navegador mostrou. Texto puro, sem captura de tela.
+      render: text
+    validations:
+      required: false
