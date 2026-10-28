@@ -306,6 +306,21 @@ export function render(root, { courses, completed, origem, electives, origemElet
   // que esta concluido nem qual e a proxima materia.
   const resultado = buscar(busca, { courses, electives, specializations });
 
+  // NOTA DA BIBLIOGRAFIA UMA VEZ SO (28/10/2026). O aviso "caminho transcrito,
+  // disponibilidade nao verificada, o Atlas nao guarda o conteudo dos livros"
+  // descreve uma propriedade do CONJUNTO, nao de cada disciplina: repeti-lo 35
+  // vezes nao o tornava mais verdadeiro, so mais invisivel — na terceira linha
+  // o olho ja pula, e e aviso que some exatamente quando importa. Por isso ele
+  // e dito aqui, ANTES da lista, uma vez. O caminho de cada bibliografia
+  // CONTINUA no cartao de cada disciplina (biblio-link, um por disciplina).
+  // Condicionado a existir bibliografia na lista que vai ser desenhada: sem
+  // caminho nenhum na tela, avisar sobre caminhos seria falar do que nao ha.
+  const comBiblio = resultado.courses.some((c) => typeof c.bibliography === 'string' && c.bibliography.trim() !== '');
+  if (comBiblio) {
+    root.append(el('p', { class: 'biblio-nota' },
+      'Caminhos de bibliografia transcritos da fonte, disponibilidade não verificada. O Atlas não guarda o conteúdo dos livros — cada disciplina abaixo mostra o caminho dela.'));
+  }
+
   const lista = el('ul', { class: 'trilha' });
   for (const c of resultado.courses) {
     const estado = done.has(c.id) ? 'concluida' : open.has(c.id) ? 'disponivel' : cyclic.has(c.id) ? 'ciclo' : 'trancada';
@@ -337,8 +352,8 @@ export function render(root, { courses, completed, origem, electives, origemElet
     // (ex.: extras/bibliography/01_digital_circuits.md). O CONTEUDO dessas
     // paginas NAO foi transcrito — a reconciliacao do kit conferiu que os 35
     // caminhos resolvem, nada alem disso. Entao a tela mostra o caminho e o
-    // link para a pagina na fonte, e diz com todas as letras que o caminho vem
-    // da fonte e que a lista de livros nao esta dentro do Atlas.
+    // link para a pagina na fonte. O AVISO de que nada foi verificado nao vem
+    // aqui: e dito uma vez, antes da lista (ver `biblio-nota` no render).
     // Inventar titulo de livro aqui seria o pior erro possivel deste item.
     const biblioPath = typeof c.bibliography === 'string' ? c.bibliography.trim() : '';
     if (biblioPath !== '') {
@@ -353,8 +368,7 @@ export function render(root, { courses, completed, origem, electives, origemElet
           href: `${ORIGEM_REPO}/blob/main/${biblioPath}`,
           target: '_blank',
           rel: 'noopener noreferrer'
-        }, `Bibliografia: ${biblioPath}`),
-        el('span', { class: 'biblio-nota' }, 'Caminho transcrito da fonte, disponibilidade não verificada. O Atlas não guarda o conteúdo dos livros.')
+        }, `Bibliografia: ${biblioPath}`)
       );
       pedacos.push(biblio);
     }

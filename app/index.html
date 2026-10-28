@@ -68,6 +68,10 @@
   }
   a.biblio-link:hover, a.biblio-link:focus-visible { color: #d8e4f5; border-bottom-style: solid; }
   .biblio-nota { color: #8a8f98; font-size: 0.72rem; line-height: 1.35; }
+  /* NOTA UNICA (28/10/2026): o aviso saiu dos 35 cartoes e virou um <p> antes
+     da lista. Sem margin ele colava no destaque de "proxima materia"; 60ch e a
+     medida em que a linha ainda se le de um folego no celular e no desktop. */
+  p.biblio-nota { margin: 14px 0 0; max-width: 60ch; }
   /* Alvo de toque minimo de 44px no celular: o padding acima ja garante. */
   .item.disponivel { border-left-color: var(--aberto); }
   .item.disponivel .status { color: var(--aberto); }

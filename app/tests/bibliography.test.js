@@ -109,14 +109,31 @@ test('tela: um link de bibliografia por disciplina, e o caminho e o REAL da font
   }
 });
 
-test('honestidade: a tela diz que o caminho nao foi verificado e que o conteudo nao esta aqui', () => {
+test('honestidade: o aviso de nao-verificado e dito UMA vez, antes da lista, e nao em cada disciplina', () => {
+  // Regra de 28/10/2026: a mesma frase aparecia debaixo das 35 disciplinas.
+  // Repetir aviso nao o fortalece, o apaga — e o caminho de cada bibliografia
+  // continua no cartao dela, que e o dado, enquanto o aviso e a leitura do conjunto.
   const root = desenhar(CATALOGO.courses);
   const notas = comClasse(root, 'biblio-nota');
-  assert.equal(notas.length, CATALOGO.courses.length, 'cada bibliografia precisa do aviso');
-  for (const n of notas) {
-    const t = textoDe(n);
-    assert.match(t, /não verificada/, 'falta dizer que a disponibilidade nao foi conferida');
-    assert.match(t, /não guarda o conteúdo/, 'falta dizer que o Atlas nao tem os livros');
+  assert.equal(notas.length, 1,
+    `a nota apareceu ${notas.length} vezes: repetida por disciplina, o aviso vira textura que o olho pula`);
+
+  const t = textoDe(notas[0]);
+  assert.match(t, /não verificada/, 'falta dizer que a disponibilidade nao foi conferida');
+  assert.match(t, /não guarda o conteúdo/, 'falta dizer que o Atlas nao tem os livros');
+
+  // "No comeco da lista" e posicao, nao intencao: a nota tem de vir ANTES da
+  // <ul> da trilha. Quem rola direto para o fim nao pode ser o unico a le-la.
+  const ul = achar(root, 'ul')[0];
+  assert.ok(ul, 'a lista de disciplinas sumiu');
+  assert.ok(root.children.indexOf(notas[0]) < root.children.indexOf(ul),
+    'a nota veio depois da lista: o aluno le 35 caminhos sem saber que nenhum foi conferido');
+
+  // Nenhum cartao carrega o aviso de volta, e todos continuam com o caminho.
+  assert.equal(comClasse(root, 'biblio-link').length, CATALOGO.courses.length,
+    'o caminho da bibliografia sumiu junto com o aviso');
+  for (const li of achar(root, 'li').filter((n) => String(n.className).includes('item'))) {
+    assert.equal(comClasse(li, 'biblio-nota').length, 0, 'o aviso voltou para dentro do cartao');
   }
 });
 
