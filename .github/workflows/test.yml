@@ -1,0 +1,38 @@
+# Projeto Atlas — suite de testes em todo push e pull request.
+#
+# Por que existe separado do pages.yml: o Pages so roda em push no main, e so
+# serve arquivos. Quem abre um pull request precisa ver os testes rodando ANTES
+# de o codigo chegar no main — e o selo no topo do README precisa de um workflow
+# com historico proprio, em vez de um numero de testes escrito a mao que
+# envelhece em silencio (o README ja afirmou 149 quando a suite era 191).
+#
+# Nada para instalar: o app nao tem dependencia nenhuma, nem de teste — usa
+# node:test, que vem no Node. A ausencia de `npm install` aqui e o fato, nao
+# esquecimento.
+name: Testes
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: testes-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  suite:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Node LTS: e o que o Pages tambem usa, e o app roda sem build.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+
+      - name: Suite (node:test, sem dependencia para instalar)
+        run: npm test --prefix app
