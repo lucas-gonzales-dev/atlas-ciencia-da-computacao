@@ -1,124 +1,208 @@
+# Atlas — Ciência da Computação
+
+A trilha de Ciência da Computação da **Universidade Brasileira Livre (UBL)** em
+forma de app: mostra as 35 disciplinas, o que o seu progresso já destrancou e o
+que estudar em seguida. Sem conta, sem servidor, sem dependência.
+
+<p align="center">
+  <a href="https://github.com/lucas-gonzales-dev/atlas-ciencia-da-computacao/actions/workflows/test.yml">
+    <img src="https://github.com/lucas-gonzales-dev/atlas-ciencia-da-computacao/actions/workflows/test.yml/badge.svg?branch=main" alt="Estado da suíte de testes no branch main" />
+  </a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/licen%C3%A7a-MIT-blue.svg" alt="Licença MIT" /></a>
+  <img src="https://img.shields.io/badge/depend%C3%AAncias-nenhuma-success.svg" alt="Nenhuma dependência" />
+  <img src="https://img.shields.io/badge/offline-PWA%20%2B%20cache-success.svg" alt="PWA com cache offline" />
+</p>
+
 Projeto independente e não oficial. O currículo, os recursos e a bibliografia são
-da Universidade Brasileira Livre e dos seus contribuidores (veja CREDITS.md). O
-Atlas é uma forma de estudá-los.
+da Universidade Brasileira Livre e dos seus contribuidores (veja
+[CREDITS.md](CREDITS.md)). O Atlas é uma forma de estudá-los.
 
-# Projeto Atlas
+## Para quem é
 
-Trilha de Ciência da Computação da **Universidade Brasileira Livre (UBL)** em forma
-de app: mostra as 35 disciplinas, o que está destrancado pelo que você já fez e o
-que estudar em seguida. Roda no navegador, instala no celular e funciona offline.
+Para quem estuda Ciência da Computação sozinho, pela grade aberta da UBL, e
+precisa responder duas perguntas sem depender de ninguém: **o que eu já posso
+estudar** (o que os pré-requisitos deixam) e **o que vem em seguida**. Roda no
+celular, instala como aplicativo, funciona sem internet e não guarda nada seu
+fora do seu aparelho.
 
-Sem build, sem dependências, sem framework. O conteúdo vem de uma fonte aberta
-auditada, e **nada é inventado**: o que a fonte não tem aparece como faltando.
+## Abrir
 
-## Como abrir
+- **Online:** o endereço será
+  `https://lucas-gonzales-dev.github.io/atlas-ciencia-da-computacao/`
+  — o Pages está sendo ligado agora e, até o primeiro deploy terminar, o endereço
+  ainda não está no ar (respondia 404 em 28/10/2026). O workflow que publica é
+  [.github/workflows/pages.yml](.github/workflows/pages.yml).
+- **No celular, instalado:** abra o endereço acima no Chrome do Android e use
+  *⋮ → Adicionar à tela inicial*; no iOS, *Compartilhar → Adicionar à Tela de
+  Início*. Depois disso o app abre sem internet. (O `manifest.webmanifest` e o
+  service worker estão prontos e testados; a instalação num aparelho de verdade
+  ainda não foi confirmada — veja *Próximos passos*.)
+- **No computador:** veja *Rodar e testar*, abaixo.
 
-- **Online:** ainda não está no ar. O endereço será
-  `https://lucas-gonzales-dev.github.io/atlas-ciencia-da-computacao/` quando o
-  GitHub Pages for ligado no repositório
-  [`atlas-ciencia-da-computacao`](https://github.com/lucas-gonzales-dev/atlas-ciencia-da-computacao).
-  O workflow está pronto (`.github/workflows/pages.yml`), mas o Pages ainda está
-  desligado — ligá-lo é decisão do Lucas, e não se faz pelo CI. Até lá, o
-  endereço acima não abre nada, e é por isso que ele não vem como link.
-- **Local:**
-  ```bash
-  node app/serve.js     # sobe o app (porta pela variável PORT, se precisar)
-  npm test --prefix app # roda a suite inteira
-  ```
-  Abrir `index.html` direto no arquivo não basta: service worker exige http(s).
+<!-- Quando o Pages publicar o primeiro deploy: transforme o endereço em link e
+     apague o aviso "ainda não está no ar". app/tests/readme.test.js cobra a
+     coerência dos dois — link vivo com aviso de fora do ar reprova. -->
 
-## O que já tem
+## O que faz
 
-- **Grade obrigatória:** as 35 disciplinas da fonte com pré-requisitos, organizadas
-  em estágios, e destaque do que fazer em seguida.
-- **Eletivas:** em seção própria, marcadas como arquivadas na fonte e **fora** do
-  progresso — a fonte não as soma na grade, então o Atlas também não.
-- **Especializações:** as 9 da fonte com os 75 recursos delas; as 3 que a fonte tem
+**A trilha**
+
+- As 35 disciplinas obrigatórias da fonte, com pré-requisitos, organizadas em
+  estágios — cada uma diz o que precisa estar concluído antes.
+- O que está destrancado agora e o que estudar em seguida, calculado a partir do
+  que você marcou (as regras ficam em [app/core/progress.js](app/core/progress.js),
+  com detecção de ciclo e alcance de pré-requisito).
+- Busca no topo que filtra grade, eletivas e especializações pelo nome, sem
+  acento nem caixa importarem (`calculo` acha *Cálculo*). Sem resultado, a tela
+  diz que não achou, em vez de ficar muda.
+- Eletivas em seção própria, marcadas como arquivadas na fonte e **fora** do
+  progresso: a fonte não as soma na grade, então o Atlas também não soma.
+- As 9 especializações da fonte com os 75 recursos delas; as 3 que a fonte traz
   "em construção" aparecem como *aguardando conteúdo*, com o motivo escrito.
-- **Bibliografia:** o caminho de cada disciplina na fonte, e o aviso explícito de
-  que o conteúdo não foi conferido quando ela não traz a bibliografia pronta.
-- **PWA:** instalável no celular e com a trilha inteira no cache — offline sem dados
-  seria offline inútil.
-- **Busca:** campo no topo filtra grade obrigatória, eletivas e especializações pelo
-  nome, sem acento nem caixa importarem (`calculo` acha *Cálculo*); busca sem
-  resultado diz que não achou, em vez de deixar a tela muda. A regra mora em
-  `app/core/search.js`, com teste no node.
-- **Progresso portátil:** *Exportar progresso* baixa um `.json` com as disciplinas
-  concluídas; *Importar progresso* lê esse arquivo em outro navegador ou aparelho.
-  A validação (formato, versão, ids desconhecidos contados) mora em
-  `app/core/progress-io.js`, com teste.
-- **Proveniência na tela:** de qual commit da fonte o catálogo foi derivado, visível
+
+**O seu progresso**
+
+- Concluir disciplina, com o estado salvo no `localStorage` do aparelho.
+- Anotação por disciplina, eletiva e especialização: texto curto, editável na
+  própria matéria, vazio apaga, longo é cortado no limite que o teste diz, e
+  anotação de id que não existe no catálogo é ignorada e contada
+  ([app/core/notes.js](app/core/notes.js)).
+- Exportar e importar o progresso em `.json` (formato v2, ainda aceitando v1): o
+  seu estudo não é refém de um navegador, e a validação mora em
+  [app/core/progress-io.js](app/core/progress-io.js).
+- PWA instalável, com a trilha inteira no precache — offline sem dados seria
+  offline inútil.
+
+**O conteúdo da fonte**
+
+- De cada disciplina, o caminho dela na fonte e a bibliografia quando a fonte a
+  traz pronta; quando não traz, o aviso explícito de que o conteúdo não foi
+  conferido.
+- Proveniência na tela: de qual commit da fonte o catálogo foi derivado, visível
   para quem está usando.
+- Nada de dado inventado. O que a fonte não tem aparece como faltando, com o
+  motivo — nunca preenchido por suposição.
 
-## O que ainda falta
+## Como funciona
 
-Honesto, sem enfeite:
+```mermaid
+flowchart LR
+  UBL["fonte da UBL<br/>Universidade-Livre/ciencia-da-computacao<br/>auditada no SHA b995c11"] --> BUILD["tools/build-catalog.mjs"]
+  BUILD --> JSON["app/data/catalog.json"]
+  JSON --> CORE["app/core/<br/>regras puras: pré-requisito,<br/>progresso, export/import,<br/>busca, anotações"]
+  CORE --> WEB["app/web/<br/>a tela, sem framework"]
+  WEB --> SW["app/sw.js<br/>precache, offline"]
+  CORE -.-> TEST["app/tests/<br/>node:test"]
+  JSON -.-> TEST
+```
 
-- **O app não está publicado.** O Pages está preparado, não ligado. Enquanto isso,
-  ninguém abre o Atlas sem clonar o repositório.
-- **Offline e instalação não foram confirmados num celular de verdade.** Node não
-  executa service worker: o que está testado é que os arquivos existem, são servidos
-  com o content-type certo e o precache está sincronizado com o disco. A instalação
-  real no Android ainda é uma promessa.
-- **Sem anotações, sem lembrete de estudo.** O progresso fica no `localStorage` do
-  aparelho, mas não é mais refém dele: exporte o `.json` numa máquina e importe na
-  outra (seção *Leve o seu progresso junto*, no fim da tela).
-- **A fonte não é fixada por commit em tudo.** O currículo principal está auditado
-  no SHA `b995c11`; as eletivas vêm de material que a fonte ainda move, e a tela diz
-  isso.
+O currículo da UBL é lido do clone oficial fixado num SHA e transformado em
+[app/data/catalog.json](app/data/catalog.json) por
+[tools/build-catalog.mjs](tools/build-catalog.mjs) — o conteúdo nunca é digitado
+à mão. Sobre esse JSON, [app/core/](app/core) tem as regras puras, sem DOM: é o
+que o `node:test` cobre. [app/web/](app/web) desenha a tela a partir do que o
+core devolve, sem build e sem framework, e [app/sw.js](app/sw.js) guarda os
+arquivos no cache para o app abrir sem rede. A separação existe por um motivo
+prático: regra de pré-requisito se testa no Node em milissegundos, sem navegador.
 
-## De onde vêm os dados
+## Rodar e testar
 
-Fonte: [`Universidade-Livre/ciencia-da-computacao`](https://github.com/Universidade-Livre/ciencia-da-computacao),
-auditada no SHA `b995c11` e transformada em `app/data/catalog.json` por
-`tools/build-catalog.mjs`.
+Precisa de Node 20 ou mais novo (o CI roda na LTS). Não há nada para instalar.
 
-Os recursos externos — cursos, vídeos, livros — pertencem aos autores deles. O
-Atlas só aponta para onde estão; não redistribui nada.
+```bash
+node app/serve.js      # sobe o app; a variável PORT muda a porta
+npm test --prefix app  # a suíte inteira, no node:test
+```
+
+Abra o endereço que o servidor imprimir. Abrir o `app/index.html` direto no
+arquivo não basta: o service worker exige http(s) e o fetch do catálogo falha em
+`file://`.
+
+O CI ([.github/workflows/test.yml](.github/workflows/test.yml)) roda exatamente o
+`npm test --prefix app` em todo push no `main` e em todo pull request — é dele
+que vem o selo no topo deste arquivo.
+
+## Princípios
+
+1. **Nada inventado.** O que a fonte não tem aparece como faltando, com o motivo.
+   O que ninguém conferiu é marcado como não conferido. Número sem data de
+   medição não entra em documento — e o estado dos testes vem de um selo que o CI
+   atualiza, não de uma contagem escrita à mão.
+2. **Proveniência visível.** O catálogo diz de qual commit da fonte ele veio, e
+   isso aparece na tela para quem está usando, não só num comentário.
+3. **Acessível na tela.** Campo com rótulo, texto em português correto (com
+   acento), busca que responde quando não acha nada. Ainda incompleto: veja
+   *Próximos passos*.
+4. **Sem rastreio, sem conta.** Nada sai do aparelho. O progresso é
+   `localStorage` mais um `.json` que você exporta quando quiser.
 
 ## Como foi feito
 
-O Atlas foi escrito pela **Aurora**, uma assistente de arquitetura cognitiva que
-trabalha com o Lucas no dia a dia: ela lê a fonte, deriva o catálogo, escreve o
-código e os testes, e registra o que decidiu e por quê.
+Escrito pela **Aurora**, assistente de arquitetura cognitiva que trabalha com o
+Lucas no dia a dia: lê a fonte, deriva o catálogo, escreve o código e os testes,
+e registra o que decidiu e por quê. O **Claude** entrou como revisor e juiz — leu
+o que a Aurora fez, apontou o que estava errado ou apenas plausível demais, e
+arbitrou as discordâncias. Várias decisões deste repositório existem porque ele
+não aceitou a primeira versão: entre elas, marcar como não verificado o que
+ninguém conferiu.
 
-O **Claude** entrou como revisor e juiz: leu o que a Aurora fez, apontou o que
-estava errado ou apenas plausível demais, e arbitrou as discordâncias. Várias
-decisões deste repositório existem porque ele não aceitou a primeira versão — entre
-elas, marcar como não verificado o que ninguém conferiu.
+As regras do jogo continuam as mesmas: nada de dado inventado, teste antes da
+mudança, um commit por causa, e o histórico do que se decidiu mantido junto do
+código — nos comentários dos testes.
 
-As regras do jogo: nada de dado inventado, cada mudança com teste antes, um commit
-por item e o histórico do que se decidiu mantido junto do código.
+## Próximos passos
+
+Honesto, sem enfeite:
+
+- **Publicação.** O Pages está sendo ligado agora; até o primeiro deploy, ninguém
+  abre o Atlas sem clonar o repositório.
+- **Instalação e offline num aparelho de verdade.** O Node não executa service
+  worker: o que está testado é que os arquivos existem, são servidos com o
+  content-type certo e o precache está sincronizado com o disco. O comportamento
+  real no celular ainda é uma promessa.
+- **Rótulo do campo de anotação.** Hoje ele é `Anotação` em todas as matérias,
+  então um leitor de tela anuncia o mesmo nome dezenas de vezes sem dizer de qual
+  disciplina é. Precisa virar um rótulo único por matéria.
+- **A fonte não é fixada por commit em tudo.** O currículo principal está
+  auditado no SHA `b995c11`; as eletivas vêm de material que a fonte ainda move,
+  e as 3 especializações "em construção" esperam conteúdo dela.
+- **Sem capturas de tela ainda.** Entram quando o visual estiver pronto — e aí o
+  README mostra o app, em vez de só descrevê-lo.
+
+## Contribuir
+
+Leia o [CONTRIBUTING.md](CONTRIBUTING.md): como rodar, como testar e as regras da
+casa. A diferença que mais importa está lá no começo — **erro no conteúdo do
+currículo se corrige na fonte da UBL**, não aqui; erro no app se corrige aqui.
+Há dois modelos de issue, um para cada caso.
 
 ## Créditos e licença
 
-Todo o conteúdo curricular vem da UBL, sob **MIT License**
-(copyright 2021, Universidade Brasileira Livre), auditada no SHA `b995c11`.
-A MIT exige atribuição e permite inclusive uso comercial; não exige a mesma
-licença para obras derivadas.
-
-**Detalhe completo, lista dos 13 autores e o que cada licença cobre:
-[CREDITS.md](CREDITS.md).**
+Todo o conteúdo curricular vem da UBL, sob **MIT License** (copyright 2021,
+Universidade Brasileira Livre), auditado no SHA `b995c11`. A MIT exige atribuição
+e permite inclusive uso comercial; não exige a mesma licença para obras derivadas.
+O aviso de copyright e o **texto integral** da licença da fonte estão em
+[CREDITS.md](CREDITS.md), junto com a lista dos 13 autores — isso não é opcional,
+é o que a MIT dela exige de qualquer obra derivada. Os recursos externos (cursos,
+vídeos, livros) pertencem aos autores deles; o Atlas só aponta para onde estão.
 
 ### Licença: MIT
 
 O código do Atlas está sob **MIT License**, `Copyright (c) 2026 Lucas Leite
-Gonzales` — o texto completo está no arquivo [`LICENSE`](LICENSE) na raiz deste
-repositório. A decisão foi do Lucas, em 28/10/2026.
+Gonzales` — texto completo em [LICENSE](LICENSE). A decisão foi do Lucas, em
+28/10/2026. É também a escolha de menor atrito: a fonte é MIT, então não cria
+obrigação nova nem conflito de redistribuição.
 
-MIT é também a escolha de menor atrito por construção: a fonte é MIT, então não
-cria obrigação nova nem conflito de redistribuição, e mantém a liberdade que a
-UBL deu ao publicar o currículo. Para um repositório público que serve de
-portfólio, é o que menos fricção cria para quem quiser ler, usar ou estudar o
-código.
+## In English
 
-O aviso de copyright da UBL e o **texto integral** da licença dela continuam no
-[CREDITS.md](CREDITS.md). Isso não é opcional: é o que a MIT da fonte exige de
-qualquer obra derivada.
-
-## Testes
-
-191 testes em 20 arquivos (contados na saída do runner em 28/10/2026),
-sem framework: `node:test`. O `npm test` lista os arquivos um a um de propósito —
-funciona igual em qualquer shell, e `app/tests/npm-script.test.js` falha a suite se
-alguém criar um teste novo e esquecer de colocá-lo na lista.
+Atlas is an unofficial, independent study app built on top of the open Computer
+Science curriculum published by Universidade Brasileira Livre (a Brazilian free
+university project). It lists the 35 core courses with their prerequisites, works
+out what your progress has unlocked and what to study next, and keeps everything
+on your device — no account, no server, no tracking, and it runs offline as an
+installed PWA. There is no build step and no dependency: plain JavaScript, with
+the test suite on `node:test`. The curriculum data is generated from the source
+repository at a pinned commit, never typed by hand, and whatever the source does
+not provide is shown as missing rather than guessed. Code is MIT licensed; the
+curriculum belongs to UBL and its 13 contributors, credited in
+[CREDITS.md](CREDITS.md).
