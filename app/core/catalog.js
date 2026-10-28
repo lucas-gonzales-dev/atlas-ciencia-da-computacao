@@ -89,10 +89,20 @@ function descreverOrigem(seed) {
     : 'fonte desconhecida';
   const n = Array.isArray(seed.subjects) ? seed.subjects.length : 0;
 
+  // NOME DA FONTE (27/10/2026): a fonte se autodenomina "Universidade Brasileira
+  // Livre" — e o que vale e o que ela diz de si, no aviso de copyright do LICENSE
+  // e do README dela ("Copyright (c) 2021 Universidade Brasileira Livre"), nao o
+  // que este repo repetiu por habito. Tests/credits.test.js compara as duas
+  // pontas para o erro nao voltar.
+  //
+  // COMMIT: quando o seed traz commitSha, a grade foi RECONCILIADA contra esse
+  // snapshot (b995c11, 35 disciplinas, 0 divergencias — ver CREDITS.md). Dizer
+  // "NAO FIXADO" nesse caso era mentira sobre o proprio trabalho: o CREDITS ja
+  // dizia a verdade e a tela dizia outra. SHA curto porque a frase e para leitor.
   if (typeof src.commitSha === 'string' && src.commitSha.length) {
-    return `${n} disciplinas da grade obrigatoria — Universidade Livre Brasileira (${repo}) @ ${src.commitSha}`;
+    return `${n} disciplinas da grade obrigatória — Universidade Brasileira Livre (${repo}) @ ${src.commitSha.slice(0, 7)} (grade auditada neste commit)`;
   }
-  return `${n} disciplinas da grade obrigatoria — Universidade Livre Brasileira (${repo}) @ commit NAO FIXADO: a fonte pode ter mudado desde a auditoria`;
+  return `${n} disciplinas da grade obrigatória — Universidade Brasileira Livre (${repo}) @ commit não fixado: a fonte pode ter mudado desde a auditoria`;
 }
 
 /**
@@ -168,12 +178,15 @@ function descreverOrigemEletivas(seed) {
     ? src.repository
     : 'fonte desconhecida';
   const n = Array.isArray(seed.items) ? seed.items.length : 0;
-  const arquivadas = `${n} eletivas arquivadas na fonte (bloco comentado do README) — Universidade Livre Brasileira (${repo})`;
+  const arquivadas = `${n} eletivas arquivadas na fonte (bloco comentado do README) — Universidade Brasileira Livre (${repo})`;
 
   if (typeof src.commitSha === 'string' && src.commitSha.length) {
-    return `${arquivadas} @ ${src.commitSha}`;
+    return `${arquivadas} @ ${src.commitSha.slice(0, 7)}`;
   }
-  return `${arquivadas} @ commit NAO FIXADO: a fonte pode ter mudado desde a auditoria`;
+  // As ELETIVAS continuam sem commit fixado, e a tela diz isso: a reconciliacao
+  // de b995c11 cobriu a grade obrigatoria (35) e as linhas de especializacao,
+  // nao o bloco comentado. Verdade por secao, nao um aviso generico para tudo.
+  return `${arquivadas} @ commit não fixado: a fonte pode ter mudado desde a auditoria`;
 }
 
 /**

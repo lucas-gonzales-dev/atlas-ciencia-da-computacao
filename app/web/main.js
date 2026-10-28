@@ -280,7 +280,7 @@ export function render(root, { courses, completed, origem, electives, origemElet
 
   root.append(
     el('h1', {}, 'Projeto Atlas'),
-    el('p', { class: 'sub' }, `Ciencia da Computacao — Universidade Livre Brasileira. ${feitos}/${total} concluidas.`),
+    el('p', { class: 'sub' }, `Ciência da Computação — Universidade Brasileira Livre. ${feitos}/${total} concluídas.`),
     el('p', { class: 'fonte' }, `Dados: ${origem}`)
   );
 

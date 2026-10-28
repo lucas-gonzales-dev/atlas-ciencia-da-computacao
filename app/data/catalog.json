@@ -1,7 +1,7 @@
 {
   "geradoPor": "tools/build-catalog.mjs",
   "geradoDe": "app/data/ubl-core-seed.json",
-  "origem": "35 disciplinas da grade obrigatoria — Universidade Livre Brasileira (https://github.com/Universidade-Livre/ciencia-da-computacao) @ commit NAO FIXADO: a fonte pode ter mudado desde a auditoria",
+  "origem": "35 disciplinas da grade obrigatória — Universidade Brasileira Livre (https://github.com/Universidade-Livre/ciencia-da-computacao) @ b995c11 (grade auditada neste commit)",
   "courses": [
     {
       "id": "ubl-core-circuitos-digitais",
@@ -481,7 +481,7 @@
     }
   ],
   "geradoDeEletivas": "app/data/commented-electives-seed.json",
-  "origemEletivas": "4 eletivas arquivadas na fonte (bloco comentado do README) — Universidade Livre Brasileira (https://github.com/Universidade-Livre/ciencia-da-computacao) @ commit NAO FIXADO: a fonte pode ter mudado desde a auditoria",
+  "origemEletivas": "4 eletivas arquivadas na fonte (bloco comentado do README) — Universidade Brasileira Livre (https://github.com/Universidade-Livre/ciencia-da-computacao) @ commit não fixado: a fonte pode ter mudado desde a auditoria",
   "electives": [
     {
       "id": "ubl-commented-elective-computer-vision",

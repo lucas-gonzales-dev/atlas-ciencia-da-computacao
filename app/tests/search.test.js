@@ -216,7 +216,7 @@ test('buscar nao muda progresso nem proxima materia: eles sao do catalogo inteir
     courses: GRADE, completed: ['calculo-1'], origem: 'teste', busca: 'python'
   });
   // "1/3 concluidas" — nao "0/1" da unica linha visivel.
-  assert.match(textoDe(root), /1\/3 concluidas/);
+  assert.match(textoDe(root), /1\/3 conclu[íi]das/);
   // Destaque vem de nextUp() sobre o catalogo INTEIRO: concluida Cálculo I, a
   // proxima aberta e Logica — mesmo a busca so mostrando python-1 na lista.
   const destaque = achar(root, 'section').find((s) => s.className.includes('proxima'));

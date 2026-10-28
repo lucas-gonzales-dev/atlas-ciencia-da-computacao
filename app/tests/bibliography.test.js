@@ -145,7 +145,7 @@ test('disciplina sem bibliografia nao ganha link inventado', () => {
 
 test('bibliografia nao vira botao de concluir nem entra no progresso', () => {
   const root = desenhar(CATALOGO.courses);
-  const contador = textoDe(root).match(/(\d+)\s*\/\s*(\d+)\s*concluidas/);
+  const contador = textoDe(root).match(/(\d+)\s*\/\s*(\d+)\s*conclu[íi]das/);
   assert.ok(contador, 'contador sumiu');
   assert.equal(contador[1], '0');
   assert.equal(contador[2], String(CATALOGO.courses.length), 'o contador passou a contar bibliografia');

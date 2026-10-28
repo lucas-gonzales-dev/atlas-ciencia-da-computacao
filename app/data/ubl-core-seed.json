@@ -3,9 +3,10 @@
   "source": {
     "repository": "https://github.com/Universidade-Livre/ciencia-da-computacao",
     "branch": "main",
-    "commitSha": null,
+    "commitSha": "b995c118fdb3929412004ee041a25c77cb0aa997",
     "observedAt": "2026-10-22",
-    "note": "Seed transcription from rendered README. Commit SHA and full local clone audit remain pending."
+    "auditedAt": "2026-10-22",
+    "note": "Transcrito do README renderizado (main, 2026-10-22) e RECONCILIADO contra o snapshot b995c118 no mesmo dia: 35 disciplinas em 7 etapas, 0 divergencias de stage, resourceUrl e bibliographySourcePath; os 35 caminhos de bibliografia resolvem. A transcricao por disciplina continua marcada revision=main-unpinned porque foi assim que nasceu; o que foi AUDITADO e o conjunto, no commitSha acima. Ver CREDITS.md."
   },
   "tracks": [
     {

@@ -76,10 +76,22 @@ test('descarta registro sem id e conta quantos descartou', () => {
 
 test('origem diz de onde veio E avisa quando o commit nao esta fixado', () => {
   const fixado = toCatalog(SEED_MIN);
+  // SHA curto e a palavra "auditada": a frase e para leitor, nao para diff.
   assert.match(fixado.origem, /b995c11/);
+  assert.match(fixado.origem, /auditada neste commit/);
+  // Grade auditada NAO pode dizer que esta solta — era a mentira que o topo
+  // contava em 27/10: o CREDITS dizia b995c11 e a tela dizia "NAO FIXADO".
+  assert.doesNotMatch(fixado.origem, /n[aã]o fixado/i);
 
   const solto = toCatalog({ source: { repository: 'r', commitSha: null }, subjects: SEED_MIN.subjects });
-  assert.match(solto.origem, /NAO FIXADO/);
+  assert.match(solto.origem, /não fixado/);
+  assert.doesNotMatch(solto.origem, /auditada/);
+});
+
+test('origem usa o nome que a fonte da a si mesma', () => {
+  const { origem } = toCatalog(SEED_MIN);
+  assert.match(origem, /Universidade Brasileira Livre/);
+  assert.doesNotMatch(origem, /Universidade Livre Brasileira/);
 });
 
 test('prereqLabel mostra o TITULO do pre-requisito, nao o id cru', () => {

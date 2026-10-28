@@ -1,7 +1,7 @@
 {
   "name": "Projeto Atlas — Trilha de Ciência da Computação",
   "short_name": "Atlas",
-  "description": "Trilha de Ciência da Computação da Universidade Livre Brasileira, com pré-requisitos, progresso e acesso offline.",
+  "description": "Trilha de Ciência da Computação da Universidade Brasileira Livre, com pré-requisitos, progresso e acesso offline.",
   "lang": "pt-BR",
   "dir": "ltr",
   "start_url": "./",

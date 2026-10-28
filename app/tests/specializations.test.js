@@ -273,7 +273,7 @@ test('tela: especializacao NAO entra no progresso da grade obrigatoria', () => {
   // contador continua contando so a grade obrigatoria, e o numero de disciplinas
   // com botao de concluir continua o mesmo.
   const contador = (root) => {
-    const m = textoDe(root).match(/(\d+)\s*\/\s*(\d+)\s*concluidas/);
+    const m = textoDe(root).match(/(\d+)\s*\/\s*(\d+)\s*conclu[íi]das/);
     assert.ok(m, 'contador de progresso nao encontrado na tela');
     return `${m[1]}/${m[2]}`;
   };

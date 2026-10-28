@@ -156,7 +156,9 @@ test('topicsRaw ausente fica null, nunca string vazia fingindo dado', () => {
 
 test('a origem das eletivas diz que o commit NAO esta fixado (honestidade sobre a fonte)', () => {
   const { origem } = toElectives(SEED_ELETIVAS);
-  assert.match(origem, /NAO FIXADO/i);
+  // A grafia aceita acento de proposito: "nao fixado" era texto sem acento na
+  // tela, e a tela e portuguesa — o teste nao pode travar a correcao.
+  assert.match(origem, /n[aã]o fixado/i);
   assert.match(origem, /arquivad/i, 'a frase de origem ja avisa que sao arquivadas');
 });
 
