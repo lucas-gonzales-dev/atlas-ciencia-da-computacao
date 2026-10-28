@@ -300,7 +300,7 @@ export function toSpecializations(seedEspecializacoes, seedRecursos, overlay) {
       sourceUrl: null,
       reachableFromIndex: false,
       aguardandoConteudo: true,
-      motivoAguardando: 'A página existe na fonte mas está "em construção" e não é alcançável pelo índice do README: nao ha recursos para estudar ainda.',
+      motivoAguardando: 'A página existe na fonte mas está "em construção" e não é alcançável pelo índice do README: não há recursos para estudar ainda.',
       pageNotes: [],
       resources: []
     });

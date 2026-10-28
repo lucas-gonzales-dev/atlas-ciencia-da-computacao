@@ -120,7 +120,12 @@ function proximaMateria(courses, completed, cyclic) {
       s.append(el('a', { class: 'recurso proxima-ir', href: rec, target: '_blank', rel: 'noopener noreferrer' }, 'Começar a estudar'));
     }
     if (abertas.length > 1) {
-      s.append(el('p', { class: 'proxima-mais' }, `Há mais ${abertas.length - 1} disponível(eis) agora, na lista abaixo.`));
+      // PORTUGUES DE VERDADE (28/10/2026): "disponível(eis)" e atalho de quem
+      // nao quis escolher a forma, e o aluno le o atalho. Aqui o numero e
+      // conhecido (abertas.length > 1, entao ha pelo menos 1 alem da proxima),
+      // entao a forma e escolhida: 1 -> disponivel, mais -> disponiveis.
+      const demais = abertas.length - 1;
+      s.append(el('p', { class: 'proxima-mais' }, `Há mais ${demais} ${demais === 1 ? 'disciplina disponível' : 'disciplinas disponíveis'} agora, na lista abaixo.`));
     }
   } else if (state === 'done') {
     s.append(el('h2', {}, 'Trilha concluída'));
