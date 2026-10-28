@@ -1,9 +1,10 @@
 # Projeto Atlas — coloca a pasta app/ no ar pelo GitHub Pages.
 #
-# NAO RODA SOZINHO AINDA: o Pages do repositorio esta desligado, e liga-lo e
-# decisao do Lucas. Quando ele ligar (Settings > Pages > Source: GitHub
-# Actions), este workflow passa a servir em
-#   https://<usuario>.github.io/atlas-kit-tools/
+# Este workflow serve a pasta app/ em
+#   https://lucas-gonzales-dev.github.io/atlas-ciencia-da-computacao/
+# O Pages esta sendo ligado pelo Lucas agora (Settings > Pages > Source: GitHub
+# Actions); ate la o endereco acima responde 404 — medido em 28/10/2026. O
+# deploy so acontece com o Pages ligado E um push no main que rode este fluxo.
 # O configure-pages descobre a URL base sozinho, entao nada aqui precisa saber
 # o subcaminho — quem precisa e o app, e por isso manifest/sw usam caminhos
 # relativos (app/tests/pages.test.js cobra).
