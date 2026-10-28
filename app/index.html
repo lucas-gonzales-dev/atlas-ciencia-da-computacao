@@ -40,7 +40,14 @@
   }
   .item .titulo { grid-column: 1; font-weight: 600; }
   .item .status { grid-column: 2; grid-row: 1; font-size: .74rem; color: var(--fosco); text-align: right; }
-  .item .marca { grid-column: 1 / -1; grid-row: 3; justify-self: start; }
+  /* CELULA PROPRIA (28/10/2026): cada filho de coluna cheia tem a sua linha —
+     recurso=2, biblio=3, marca=4. Antes .marca e .biblio declaravam a MESMA
+     celula (grid-row: 3) e o botao Concluir/Desfazer caia por cima da nota da
+     bibliografia. No desktop ninguém via: o media query abaixo move o botao
+     para grid-row 1, entao a sobreposicao so existia no celular. Regra: se um
+     filho novo entra na grade do .item, ele ganha uma linha propria — dois
+     filhos na mesma linha so com grid-column diferente. */
+  .item .marca { grid-column: 1 / -1; grid-row: 4; justify-self: start; }
   .item .recurso { grid-column: 1 / -1; grid-row: 2; justify-self: start; }
   a.recurso {
     margin-top: 8px; min-height: 40px; padding: 8px 14px; border-radius: 9px;
