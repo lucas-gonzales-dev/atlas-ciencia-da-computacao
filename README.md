@@ -1,3 +1,7 @@
+Projeto independente e não oficial. O currículo, os recursos e a bibliografia são
+da Universidade Brasileira Livre e dos seus contribuidores (veja CREDITS.md). O
+Atlas é uma forma de estudá-los.
+
 # Projeto Atlas
 
 Trilha de Ciência da Computação da **Universidade Brasileira Livre (UBL)** em forma
@@ -9,9 +13,13 @@ auditada, e **nada é inventado**: o que a fonte não tem aparece como faltando.
 
 ## Como abrir
 
-- **Online:** ainda não está no ar. O workflow do GitHub Pages está pronto
-  (`.github/workflows/pages.yml`), mas o Pages do repositório ainda está
-  desligado — ligá-lo é decisão do Lucas, e não se faz pelo CI.
+- **Online:** ainda não está no ar. O endereço será
+  `https://lucas-gonzales-dev.github.io/atlas-ciencia-da-computacao/` quando o
+  GitHub Pages for ligado no repositório
+  [`atlas-ciencia-da-computacao`](https://github.com/lucas-gonzales-dev/atlas-ciencia-da-computacao).
+  O workflow está pronto (`.github/workflows/pages.yml`), mas o Pages ainda está
+  desligado — ligá-lo é decisão do Lucas, e não se faz pelo CI. Até lá, o
+  endereço acima não abre nada, e é por isso que ele não vem como link.
 - **Local:**
   ```bash
   node app/serve.js     # sobe o app (porta pela variável PORT, se precisar)
