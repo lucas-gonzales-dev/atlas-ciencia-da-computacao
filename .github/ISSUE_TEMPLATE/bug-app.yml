@@ -44,7 +44,7 @@ body:
     attributes:
       label: Versão
       description: O endereço onde abriu, ou o commit que você tem local (`git log --oneline -1`).
-      placeholder: https://lucas-gonzales-dev.github.io/atlas-ciencia-da-computacao/ ou f2526bd
+      placeholder: https://atlas-ciencia-da-computacao.pages.dev/ ou f2526bd
   - type: textarea
     id: console
     attributes:

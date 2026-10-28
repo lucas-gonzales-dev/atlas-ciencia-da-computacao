@@ -15,7 +15,7 @@
 //   2. o fio `avisar` do importador existe de verdade: disparar o clique de
 //      exportar escreve um recado na tela (e o bug acima nao volta);
 //   3. o service worker e registrado com escopo RELATIVO a baseURI (o bug de
-//      escopo '/' que quebraria o offline no GitHub Pages);
+//      escopo '/' que quebra o offline servido fora da raiz do dominio);
 //   4. guarda: o index.html NAO pode voltar a ter <script> inline com codigo.
 // node nao executa navegador: layout, foco e PWA instalada continuam sendo
 // assunto do testar_pagina / do Android.
@@ -243,8 +243,12 @@ function navComSW({ controller }) {
 
 function winCom(nav) {
   return {
-    document: { baseURI: 'https://lucas-gonzales-dev.github.io/atlas-kit-tools/index.html' },
-    location: { protocol: 'https:', href: 'https://lucas-gonzales-dev.github.io/atlas-kit-tools/' },
+    // Fixture servida em SUBCAMINHO de proposito. O endereco real do Atlas e
+    // https://atlas-ciencia-da-computacao.pages.dev/ (raiz do dominio, Cloudflare
+    // Pages, 28/10/2026) — mas um escopo relativo tem de valer nos dois casos, e
+    // o subcaminho e o que pega o bug: na raiz, um escopo errado passa despercebido.
+    document: { baseURI: 'https://exemplo.test/atlas/index.html' },
+    location: { protocol: 'https:', href: 'https://exemplo.test/atlas/' },
     navigator: nav,
     console
   };
@@ -263,7 +267,7 @@ test('boot: registrarSW usa escopo relativo a baseURI e nao avisa nada na primei
   assert.equal(r.jaControlava, false, 'primeira visita tem de ser reconhecida como primeira');
   assert.equal(nav.estado.registradas.length, 1);
   assert.equal(nav.estado.registradas[0].arquivo, 'sw.js');
-  assert.equal(nav.estado.registradas[0].opts.scope, '/atlas-kit-tools/', 'escopo absoluto derruba o registro em subcaminho');
+  assert.equal(nav.estado.registradas[0].opts.scope, '/atlas/', 'escopo absoluto derruba o registro em subcaminho');
   assert.equal(nav.estado.aoAtualizar, null,
     'listener de updatefound instalado sem SW anterior: e ele que dispara o aviso falso na primeira visita');
   assert.equal(avisos.length, 0, 'avisar nao pode disparar antes da atualizacao');

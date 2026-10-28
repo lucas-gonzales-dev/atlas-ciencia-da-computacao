@@ -15,6 +15,15 @@ Depois abra o endereço que o servidor imprimir (a variável `PORT` muda a porta
 Abrir o `app/index.html` direto no arquivo **não** funciona: o service worker
 exige http(s), e sem o fetch do catálogo a tela cai num conteúdo mínimo.
 
+## Onde o site está
+
+O Atlas publicado vive em
+<https://atlas-ciencia-da-computacao.pages.dev/>, pelo Cloudflare Pages, que
+reconstrói a cada push no `main` servindo a pasta [`app/`](app). Não há passo de
+build nem segredo: o que está no ar é exatamente o que `node app/serve.js` serve
+na sua máquina. Caminho absoluto (`/data/catalog.json`, `start_url: "/"`) quebra
+isso em silêncio — use relativo, como o resto do app faz.
+
 ## Testar
 
 ```bash

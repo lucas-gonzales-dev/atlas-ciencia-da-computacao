@@ -27,21 +27,14 @@ fora do seu aparelho.
 
 ## Abrir
 
-- **Online:** o endereço será
-  `https://lucas-gonzales-dev.github.io/atlas-ciencia-da-computacao/`
-  — o Pages está sendo ligado agora e, até o primeiro deploy terminar, o endereço
-  ainda não está no ar (respondia 404 em 28/10/2026). O workflow que publica é
-  [.github/workflows/pages.yml](.github/workflows/pages.yml).
-- **No celular, instalado:** abra o endereço acima no Chrome do Android e use
-  *⋮ → Adicionar à tela inicial*; no iOS, *Compartilhar → Adicionar à Tela de
-  Início*. Depois disso o app abre sem internet. (O `manifest.webmanifest` e o
-  service worker estão prontos e testados; a instalação num aparelho de verdade
-  ainda não foi confirmada — veja *Próximos passos*.)
+- **Online:** [atlas-ciencia-da-computacao.pages.dev](https://atlas-ciencia-da-computacao.pages.dev/)
+  — no ar, publicado pelo Cloudflare Pages a cada push no `main`, servindo a pasta
+  [`app/`](app).
+- **No celular:** abra o endereço acima e use o **Adicionar à tela inicial** do
+  navegador (no Chrome do Android, *⋮ → Adicionar à tela inicial*; no iOS,
+  *Compartilhar → Adicionar à Tela de Início*). O Atlas passa a abrir como
+  aplicativo, e a trilha inteira fica no cache — abre sem internet depois disso.
 - **No computador:** veja *Rodar e testar*, abaixo.
-
-<!-- Quando o Pages publicar o primeiro deploy: transforme o endereço em link e
-     apague o aviso "ainda não está no ar". app/tests/readme.test.js cobra a
-     coerência dos dois — link vivo com aviso de fora do ar reprova. -->
 
 ## O que faz
 
@@ -154,12 +147,12 @@ código — nos comentários dos testes.
 
 Honesto, sem enfeite:
 
-- **Publicação.** O Pages está sendo ligado agora; até o primeiro deploy, ninguém
-  abre o Atlas sem clonar o repositório.
-- **Instalação e offline num aparelho de verdade.** O Node não executa service
-  worker: o que está testado é que os arquivos existem, são servidos com o
-  content-type certo e o precache está sincronizado com o disco. O comportamento
-  real no celular ainda é uma promessa.
+- **Instalação num aparelho de verdade.** O Node não executa service worker: o que
+  a suíte prova é que os arquivos existem, são servidos com o content-type certo e
+  o precache está sincronizado com o disco. Abrindo o site como visitante em
+  28/10/2026, o service worker ativou com 18 entradas no cache, o catálogo
+  respondeu 200, o console veio limpo e o progresso sobreviveu ao recarregar — mas
+  o *Adicionar à tela inicial* num celular ainda não foi conferido por ninguém.
 - **Rótulo do campo de anotação.** Hoje ele é `Anotação` em todas as matérias,
   então um leitor de tela anuncia o mesmo nome dezenas de vezes sem dizer de qual
   disciplina é. Precisa virar um rótulo único por matéria.

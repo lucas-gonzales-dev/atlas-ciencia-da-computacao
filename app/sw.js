@@ -3,9 +3,9 @@
 // Objetivo unico: o aluno abre o app SEM internet (onibus, zona rural, franquia
 // acabada) e ve a trilha inteira com o progresso dele. Sem rede, sem tela branca.
 //
-// CAMINHOS RELATIVOS, RESOLVIDOS CONTRA self.location (24/10/2026): o GitHub
-// Pages serve o Atlas em https://<usuario>.github.io/atlas-kit-tools/, nao na
-// raiz do dominio. Um precache com caminho absoluto pediria a raiz do dominio,
+// CAMINHOS RELATIVOS, RESOLVIDOS CONTRA self.location (24/10/2026): o Atlas ja
+// foi servido da raiz e pode voltar a ser servido em subcaminho — relativo vale
+// nos dois, absoluto so no primeiro. Um precache com caminho absoluto pediria a raiz do dominio,
 // receberia 404, e cache.addAll() falha INTEIRO quando um unico arquivo falha —
 // o app "instalaria" sem offline nenhum, em silencio, e so quem abriu no onibus
 // descobriria. Relativo + BASE funciona na raiz local e no subcaminho publicado,
@@ -42,7 +42,7 @@
 const VERSAO = 'atlas-v8';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
-// .../atlas-kit-tools/. Todo caminho do precache sai daqui.
+// .../subcaminho/. Todo caminho do precache sai daqui.
 const BASE = new URL('.', self.location);
 
 const PRECACHE = [

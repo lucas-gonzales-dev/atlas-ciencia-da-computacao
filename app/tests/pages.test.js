@@ -1,32 +1,40 @@
-// Projeto Atlas — pronto para publicar em SUBCAMINHO (GitHub Pages).
+// Projeto Atlas — caminhos RELATIVOS, que e o que faz o app funcionar em QUALQUER endereco.
 //
-// Por que existe: o Pages serve repositorio de usuario em
-//   https://<usuario>.github.io/atlas-kit-tools/
-// e nao na raiz do dominio. Todo caminho ABSOLUTO do app (start_url "/",
-// escopo "/" do service worker, "/data/catalog.json" no precache) aponta para
-// a raiz do dominio — que nao e o Atlas. Resultado: sem offline (addAll falha
-// inteira se UM arquivo 404), e o app instalado abre a pagina errada.
-// Nao da para ver isso no navegador local servindo da raiz: so aparece publicado.
+// Por que existe: todo caminho ABSOLUTO do app (start_url "/", escopo "/" do
+// service worker, "/data/catalog.json" no precache) aponta para a raiz do
+// DOMINIO, nao para o app. Servindo da raiz local isso passa despercebido;
+// publicado em subcaminho, quebra em silencio de dois jeitos: cache.addAll() falha
+// INTEIRO quando um unico arquivo da 404 (o app "instala" sem offline nenhum, e
+// so quem abriu no onibus descobre), e o registro do sw com escopo '/' e RECUSADO
+// pelo navegador porque o sw.js estaria fora do escopo pedido.
+//
+// Historico do endereco (28/10/2026): este arquivo nasceu para o GitHub Pages,
+// que serviria o Atlas em https://<usuario>.github.io/atlas-kit-tools/ — um
+// subcaminho. O Atlas foi publicado no Cloudflare Pages
+// (https://atlas-ciencia-da-computacao.pages.dev/), que serve da RAIZ do
+// dominio, e o workflow do Pages saiu do repositorio. A cobranca continua a
+// mesma, por um motivo mais forte que o endereco de hoje: caminho relativo e o
+// que sobrevive a mudanca de hospedagem — vale na raiz, vale em subcaminho, vale
+// no `node app/serve.js` de quem clona. O que saiu daqui foi so o teste do
+// workflow, porque o arquivo que ele lia deixou de existir.
 //
 // A sincronia precache-vs-disco e do pwa.test.js — aqui so se cobra o que o
-// subcaminho muda: caminhos RELATIVOS e o workflow que publica app/.
+// endereco muda: caminhos RELATIVOS no manifesto, no registro do sw e no precache.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
 const RAIZ_APP = fileURLToPath(new URL('..', import.meta.url));
-const RAIZ_REPO = fileURLToPath(new URL('../..', import.meta.url));
 const ler = async (caminho) => readFile(new URL(caminho, `file:///${RAIZ_APP.replace(/\\/g, '/')}`), 'utf8');
-const lerRepo = async (caminho) => readFile(new URL(caminho, `file:///${RAIZ_REPO.replace(/\\/g, '/')}`), 'utf8');
 
 const relativo = (valor, onde) =>
   assert.ok(
     typeof valor === 'string' && valor.length > 0 && !valor.startsWith('/'),
-    `${onde} com caminho absoluto quebra sob /atlas-kit-tools/: ${JSON.stringify(valor)}`
+    `${onde} com caminho absoluto so funciona servido da raiz do dominio: ${JSON.stringify(valor)}`
   );
 
-test('Pages: manifest usa start_url, scope e icones RELATIVOS', async () => {
+test('Endereco: manifest usa start_url, scope e icones RELATIVOS', async () => {
   const m = JSON.parse(await ler('manifest.webmanifest'));
   relativo(m.start_url, 'manifest.start_url');
   relativo(m.scope, 'manifest.scope');
@@ -35,7 +43,7 @@ test('Pages: manifest usa start_url, scope e icones RELATIVOS', async () => {
   for (const i of m.icons) relativo(i.src, 'manifest.icons[].src');
 });
 
-test('Pages: o registro do sw usa escopo relativo a URL do documento', async () => {
+test('Endereco: o registro do sw usa escopo relativo a URL do documento', async () => {
   // 27/10/2026: o registro saiu do index.html (script inline) e foi para
   // web/boot.js, que e modulo com teste. Quem cobra o escopo le onde o codigo
   // esta agora — cobrar no HTML passaria a cobrar o vazio.
@@ -60,7 +68,7 @@ test('Pages: o registro do sw usa escopo relativo a URL do documento', async () 
   assert.deepEqual(absolutos, [], `asset absoluto em index.html: ${absolutos.join(', ')}`);
 });
 
-test('Pages: o precache do sw resolve contra a URL dele, nao contra "/"', async () => {
+test('Endereco: o precache do sw resolve contra a URL dele, nao contra "/"', async () => {
   const sw = await ler('sw.js');
   const bloco = sw.match(/PRECACHE\s*=\s*\[([\s\S]*?)\]/);
   assert.ok(bloco, 'sw.js precisa de um array PRECACHE explicito');
@@ -74,17 +82,4 @@ test('Pages: o precache do sw resolve contra a URL dele, nao contra "/"', async 
     !/caches\.match\(['"]\/index\.html['"]\)/.test(sw),
     "fallback offline com '/index.html' busca a raiz do dominio e devolve 404"
   );
-});
-
-test('Pages: o workflow publica a pasta app/ e nao exige segredo', async () => {
-  const yml = await lerRepo('.github/workflows/pages.yml');
-  assert.match(yml, /actions\/configure-pages/, 'sem configure-pages o Pages nao sabe a URL base');
-  assert.match(yml, /actions\/upload-pages-artifact/, 'sem upload-pages-artifact nada chega ao Pages');
-  assert.match(yml, /actions\/deploy-pages/, 'sem deploy-pages o artefato fica parado');
-  assert.match(yml, /path:\s*app\s*$/m, 'precisa publicar a pasta app/, que e onde o site esta');
-  assert.match(yml, /permissions:[\s\S]*?pages:\s*write/, 'sem permissao pages o deploy falha com 403');
-  assert.match(yml, /id-token:\s*write/, 'deploy-pages exige id-token para provar quem publica');
-  assert.match(yml, /workflow_dispatch/, 'sem dispatch manual o Lucas nao consegue publicar sob demanda');
-  assert.ok(!/secrets\./.test(yml), 'este workflow nao pode depender de segredo: nada aqui e privado');
-  assert.ok(!/--force|gh repo|visibility|public/i.test(yml), 'o workflow nao pode mudar visibilidade do repo — isso e decisao do Lucas');
 });

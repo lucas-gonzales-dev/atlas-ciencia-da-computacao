@@ -7,8 +7,8 @@
 //
 // CAMINHOS RELATIVOS AQUI (24/10/2026): este arquivo ja cobrou caminhos
 // ABSOLUTOS ('/data/catalog.json', start_url '/', icone com src '/'). Isso era
-// certo para servir da raiz e errado para o GitHub Pages, que serve o Atlas em
-// /atlas-kit-tools/. Os absolutos viraram relativos de proposito, e o teste que
+// certo para servir da raiz e errado para quem serve o Atlas em subcaminho (foi
+// assim que o GitHub Pages serviria). Os absolutos viraram relativos de proposito, e o teste que
 // cobra isso e app/tests/pages.test.js — os dois leem o MESMO fato de angulos
 // diferentes (sincronia com o disco aqui, resolvibilidade em subcaminho la).
 //

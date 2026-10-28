@@ -87,7 +87,7 @@ function toggle(id) {
  * checagem e por valor, nao por try/catch de import.
  *
  * ESCOPO RELATIVO, e este e o detalhe que quebra em silencio: publicado em
- * https://<usuario>.github.io/atlas-kit-tools/, um escopo '/' apontaria para a
+ * subcaminho (foi assim que o GitHub Pages serviria), um escopo '/' apontaria para a
  * raiz do DOMINIO, o sw.js estaria fora do escopo pedido e o navegador
  * RECUSARIA o registro — app instalado sem offline nenhum, sem erro na tela.
  * O escopo sai da URL do documento (baseURI), que vale na raiz e no subcaminho.

@@ -5,7 +5,7 @@
 // que ainda nao existe, um "funciona offline" que ninguem conferiu no celular,
 // um numero de testes velho. Este arquivo cobra tres coisas concretas:
 //   1. o README diz o que FALTA (nao so o que ja tem);
-//   2. nao apresenta como vivo um link do Pages que ainda nao esta no ar;
+//   2. da o endereco onde o site esta de fato no ar, como link clicavel;
 //   3. diz como foi feito (Aurora escrevendo, Claude revisando e julgando).
 // Nao cobra redacao: so o que, se sumir, torna o README desonesto.
 import test from 'node:test';
@@ -26,23 +26,32 @@ test('README: diz o que ja tem E o que ainda falta', async () => {
   }
 });
 
-test('README: nao apresenta como vivo um Pages que ainda nao esta no ar', async () => {
+// Historico desta cobranca:
+//   - v1 (28/10) cobrava o contrario do que vale hoje: sem link vivo para
+//     github.io, o README TINHA de dizer "ainda nao esta no ar". Fazia sentido
+//     enquanto a publicacao era promessa — o Pages nunca chegou a publicar.
+//   - v2 (agora) inverte: o Lucas publicou o Atlas no Cloudflare Pages, entao o
+//     endereco vivo tem de estar la como LINK clicavel, e o endereco antigo nao
+//     pode sobrar. Por que cobrar isso em teste: endereco de site e o que
+//     envelhece em silencio quando a hospedagem muda, e era exatamente o buraco
+//     da v1 — um README apontando para um 404 passa verde nela.
+const ENDERECO = 'https://atlas-ciencia-da-computacao.pages.dev/';
+
+test('README: da o endereco onde o Atlas esta no ar, como link, e nao cita outro', async () => {
   const r = await ler('README.md');
-  // Link de verdade para github.io so pode existir se o Pages ja estiver ligado.
-  const linkVivo = /\]\(\s*https:\/\/[^)]*github\.io[^)]*\)/.test(r);
-  if (!linkVivo) {
-    assert.match(
-      r,
-      /ainda n[aã]o est[aá] no ar|Pages.*desligado|desligado.*Pages/i,
-      'sem link e sem aviso, quem le nao sabe se o app esta publicado ou nao'
-    );
-    return;
-  }
-  // Se um dia o Lucas ligar o Pages, o README precisa para de dizer que esta fora.
-  assert.ok(
-    !/ainda n[aã]o est[aá] no ar/i.test(r),
-    'README diz que o Pages nao esta no ar E traz um link vivo: um dos dois esta errado'
+  assert.ok(r.includes(ENDERECO), `o README precisa dar o endereco vivo do Atlas: ${ENDERECO}`);
+  // Link de verdade, nao so prosa: quem chega tem de conseguir clicar.
+  assert.match(
+    r,
+    /\]\(\s*<?https:\/\/atlas-ciencia-da-computacao\.pages\.dev\/?>?\s*\)/,
+    'o endereco precisa estar como link clicavel, e nao apenas citado em texto'
   );
+  assert.ok(!/github\.io/.test(r),
+    'o GitHub Pages nao e mais a casa do site: endereco velho no README manda visita para um 404');
+  assert.ok(!/ainda n[aã]o est[aá] no ar/i.test(r),
+    'o Atlas esta no ar; o README nao pode continuar dizendo o contrario');
+  assert.match(r, /Adicionar à tela inicial/i,
+    'quem abre no celular precisa saber como instalar — e e esse gesto que faz o offline valer');
 });
 
 test('README: diz como foi feito, com quem escreveu e quem julgou', async () => {
