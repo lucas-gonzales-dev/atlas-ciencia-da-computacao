@@ -5,9 +5,7 @@ forma de app: mostra as 35 disciplinas, o que o seu progresso já destrancou e o
 que estudar em seguida. Sem conta, sem servidor, sem dependência.
 
 <p align="center">
-  <a href="https://github.com/lucas-gonzales-dev/atlas-ciencia-da-computacao/actions/workflows/test.yml">
-    <img src="https://github.com/lucas-gonzales-dev/atlas-ciencia-da-computacao/actions/workflows/test.yml/badge.svg?branch=main" alt="Estado da suíte de testes no branch main" />
-  </a>
+  <!-- O selo de testes volta aqui quando o GitHub Actions do repositorio religar. -->
   <a href="LICENSE"><img src="https://img.shields.io/badge/licen%C3%A7a-MIT-blue.svg" alt="Licença MIT" /></a>
   <img src="https://img.shields.io/badge/depend%C3%AAncias-nenhuma-success.svg" alt="Nenhuma dependência" />
   <img src="https://img.shields.io/badge/offline-PWA%20%2B%20cache-success.svg" alt="PWA com cache offline" />

@@ -68,18 +68,35 @@ test('README: diz como foi feito, com quem escreveu e quem julgou', async () => 
 //   - v2 passou a cobrar EXATO o numero de arquivos e a data da medicao. Melhor,
 //     mas continuava sendo um numero escrito a mao: envelhece a cada commit que
 //     acrescenta teste, e obriga alguem a lembrar de editar o README.
-//   - v3 (agora) troca o numero pelo SELO do workflow: o badge do GitHub mostra
-//     o resultado da ultima run no main, entao nao existe versao desatualizada
-//     dele. O que este teste cobra e o que faz o selo ser VIVO e nao decoracao:
-//     o workflow tem de existir, o nome no badge tem de ser o nome do workflow,
-//     o branch tem de ser o branch certo — e o README nao pode voltar a citar
-//     contagem a mao do lado dele.
-test('README: o estado dos testes vem de um selo vivo, nao de numero escrito a mao', async () => {
+//   - v3 trocou o numero pelo SELO do workflow e passou a EXIGI-lo no README.
+//     Durou um commit: a conta do Lucas tem pendencia de cobranca no GitHub ate
+//     07/11 e o Actions do repositorio foi desligado ate la, entao o badge so
+//     pode nascer cinza ("no status") — e num repositorio que vai para
+//     portfolio, selo cinza e pior que selo nenhum. O b5ebafe anunciou a saida
+//     do selo na mensagem e nao a fez no diff; este teste e o conserto.
+//   - v4 (agora) inverte a v3: NENHUM badge de workflow no README, e o test.yml
+//     continua existindo e cobrindo a mesma suite — o que esta desligado e a
+//     execucao, nao o fluxo. Quando o Actions religar, o selo volta e este teste
+//     volta a cobra-lo (nao a proibi-lo): cobrar ausencia para sempre deixaria o
+//     README sem selo vivo de novo, que e o defeito que a v3 quis consertar.
+test('README: sem selo de CI enquanto o Actions estiver desligado; o workflow continua valendo', async () => {
   const r = await ler('README.md');
   const yml = await ler('.github/workflows/test.yml');
 
-  // 1. O workflow existe, tem nome e roda a MESMA suite que se roda aqui. Sem
-  //    isso o selo seria decoracao apontando para um fluxo que nao testa nada.
+  // 1. Nenhum badge de workflow no README, nem como markdown (![alt](url)) nem
+  //    como HTML (<img src="url">) — as duas formas porque quem desenha e o
+  //    GitHub, e o topo e centrado com <p align="center">, que so aceita HTML.
+  const badges = [
+    ...[...r.matchAll(/!\[[^\]]*\]\((https:\/\/[^)\s]+)\)/g)].map((m) => m[1]),
+    ...[...r.matchAll(/<img[^>]+src="(https:\/\/[^"]+)"/g)].map((m) => m[1]),
+  ].filter((u) => u.includes('/actions/workflows/'));
+  assert.deepEqual(badges, [],
+    `selo de CI de volta no README (${badges.join(' | ')}): com o Actions desligado ele so pode nascer cinza`);
+  // Nem o link para a pagina do workflow: sem run, ela e uma pagina vazia.
+  assert.ok(!/actions\/workflows\//.test(r),
+    'sobrou referencia a actions/workflows no README: sem Actions rodando, o link leva a uma pagina sem historico');
+
+  // 2. O workflow continua existindo e rodando a MESMA suite que se roda aqui.
   assert.match(yml, /^\s*name:\s*\S/m, 'test.yml sem "name": o badge nao tem o que pedir');
   assert.match(yml, /npm test --prefix app/, 'o workflow precisa rodar o npm test do app, senao o selo mente');
   assert.match(yml, /pull_request/, 'sem pull_request quem contribui nao ve os testes antes do merge');
@@ -91,39 +108,10 @@ test('README: o estado dos testes vem de um selo vivo, nao de numero escrito a m
   assert.ok(!/run:\s*npm\s+(?:ci|install)/.test(yml),
     'o app nao tem dependencia para instalar: um passo "npm ci" aqui so serviria para falhar (nao ha lockfile)');
 
-  // 2. O selo existe, aponta para este repositorio, para este workflow e para o
-  //    branch main — badge de outro repo ou sem branch mostra estado alheio.
-  //    Aceita as duas sintaxes porque quem desenha e o GitHub: markdown
-  //    (![alt](url)) e HTML (<img src="url">, a forma usada quando o topo e
-  //    centrado com <p align="center">). Cobrar so uma delas faria o teste falhar
-  //    por forma de escrever, e nao por selo ausente.
-  const REPO = 'lucas-gonzales-dev/atlas-ciencia-da-computacao';
-  const selos = [
-    ...[...r.matchAll(/!\[[^\]]*\]\((https:\/\/[^)\s]+)\)/g)].map((m) => m[1]),
-    ...[...r.matchAll(/<img[^>]+src="(https:\/\/[^"]+)"/g)].map((m) => m[1]),
-  ];
-  const deTeste = selos.filter((u) => u.includes('/actions/workflows/'));
-  assert.equal(deTeste.length, 1,
-    `esperava exatamente UM selo de workflow de testes, achei ${deTeste.length}: ${deTeste.join(' | ')}`);
-  const b = deTeste[0];
-  assert.ok(b.includes(REPO), `selo de workflow apontando para outro repositorio: ${b}`);
-  assert.ok(b.includes('actions/workflows/test.yml/badge.svg'),
-    `selo aponta para outro workflow, nao para o test.yml: ${b}`);
-  assert.ok(/branch=main/.test(b), `selo sem branch=main mostra a ultima run de qualquer branch: ${b}`);
-
-  // 3. E o selo tem de ser clicavel: quem ve vermelho precisa chegar no log.
-  //    De novo as duas formas: link markdown e <a href>.
-  const envoltos = [
-    ...[...r.matchAll(/\]\(\s*(https:\/\/github\.com\/[^)\s]+)\s*\)/g)].map((m) => m[1]),
-    ...[...r.matchAll(/<a\s+href="(https:\/\/github\.com\/[^"]+)"/g)].map((m) => m[1]),
-  ];
-  assert.ok(envoltos.some((u) => u.includes(`${REPO}/actions/workflows/test.yml`)),
-    'o selo sem link para o workflow e enfeite: quem ve vermelho nao tem como conferir o porque');
-
-  // 4. Nenhuma contagem escrita a mao pode voltar ao lado do selo.
+  // 3. E nenhuma contagem escrita a mao pode voltar no lugar do selo.
   const manuais = [...r.matchAll(/(\d{2,3})\s+testes/g)].map((m) => m[0]);
   assert.deepEqual(manuais, [],
-    `contagem de testes escrita a mao de volta no README (${manuais.join(', ')}): e isso que envelhece em silencio — o selo ja diz o estado`);
+    `contagem de testes escrita a mao de volta no README (${manuais.join(', ')}): e isso que envelhece em silencio — o estado dos testes vem do workflow`);
 });
 
 test('README: manda rodar local sem depender de nada que nao existe', async () => {
