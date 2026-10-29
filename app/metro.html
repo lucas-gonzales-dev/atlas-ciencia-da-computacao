@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#fbf7f0">
+<meta name="description" content="A sua próxima estação na trilha de Ciência da Computação da Universidade Brasileira Livre.">
+<title>Atlas — a sua próxima estação</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icone.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icone.svg">
+<!-- PEDIDO 16 (29/10/2026): a tela começa a virar o mapa de metrô.
+     tokens.css é a única fonte de cor/tipo/espaço/movimento; fontes.css declara
+     a Overpass (SIL OFL 1.1, woff2 local); metro.css é o desenho desta tela e
+     não escreve nenhum valor à mão. Não há build: o que está no disco é o que o
+     navegador usa. O app antigo (index.html) continua intacto enquanto a
+     migração dos --p-* restantes não termina. -->
+<link rel="stylesheet" href="./web/tokens.css">
+<link rel="stylesheet" href="./web/fontes.css">
+<link rel="stylesheet" href="./web/metro.css">
+</head>
+<body class="l6">
+<main id="metro" class="metro">
+  <p class="placa-rotulo">Carregando a rede…</p>
+</main>
+<!-- A lógica de abrir a página mora em web/metro.js, um MÓDULO com teste no
+     node (tests/metro.test.js). Aqui só fica a tag: código inline não entra em
+     teste nenhum, e foi assim que o ReferenceError de 27/10 chegou ao celular. -->
+<script type="module" src="./web/metro.js"></script>
+</body>
+</html>

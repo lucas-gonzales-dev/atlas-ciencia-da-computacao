@@ -32,6 +32,14 @@ export const placa = {
   salvar: 'Salvar',
   cancelar: 'Cancelar',
   limpar: 'Limpar',
+  // Pedido 16 (a tela de metrô): a placa tem UMA ação só, e o texto dela muda
+  // com o estado — "Começar a estudar" quando ainda não começou, "Continuar"
+  // quando está em curso. "Marcar" é o verbo do embarque da primeira visita.
+  comecarEstudar: 'Começar a estudar',
+  continuar: 'Continuar',
+  marcar: 'Marcar',
+  concluida: 'Concluída.',
+  bibliografiaNota: 'A fonte publica esta bibliografia; o Atlas não conferiu se a página está no ar.',
   buscar: 'Buscar estação',
   exportar: 'Exportar progresso',
   importar: 'Importar progresso',

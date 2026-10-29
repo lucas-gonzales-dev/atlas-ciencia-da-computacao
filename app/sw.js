@@ -44,7 +44,11 @@
 // offline sem a fonte seria OUTRA cara, que e exatamente o defeito que o DS
 // veio corrigir. Cache-first + asset novo = quem ja instalou pediria, offline,
 // um arquivo que o cache v8 nao tem.
-const VERSAO = 'atlas-v9';
+// atlas-v10: entrou a TELA DO METRO — metro.html, web/metro.js, web/metro.css.
+// A pagina ja esta no disco e ja e navegavel; sem os tres no precache quem
+// abriu o Atlas no onibus receberia o index.html novo e uma tela que pede
+// arquivo que o cache v9 nao tem. Mesmo motivo das nove anteriores.
+const VERSAO = 'atlas-v10';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.
@@ -60,6 +64,12 @@ const PRECACHE = [
   'icons/icone.svg',
   'web/boot.js',
   'web/main.js',
+  // Tela do metrô (29/10/2026): a página nova e os dois arquivos dela. Entra
+  // aqui no commit em que a página entra no disco — precache atrasado é
+  // offline quebrado em silêncio, e só quem abre no ônibus descobre.
+  'metro.html',
+  'web/metro.js',
+  'web/metro.css',
   // Design system (29/10/2026): tokens e @font-face. A fonte e asset de cara —
   // sem ela o app volta a ter fonte do sistema, que e o que o DS proibe.
   'web/tokens.css',

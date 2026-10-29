@@ -1,0 +1,267 @@
+/* Projeto Atlas — CSS da tela de metrô (pedido 16, 29/10/2026).
+ *
+ * REGRA DA CASA: nenhuma cor, duração, raio, espaço ou ponto de quebra escrito
+ * à mão aqui. Tudo vem de web/tokens.css, e a trava que confere isso é
+ * app/tests/design-system.test.js. Se um valor não existe nos tokens, ele não
+ * é escrito: ou se usa o token, ou se propõe o token.
+ *
+ * MOBILE-FIRST DE VERDADE: o padrão É o celular (uma coluna, selo pequeno,
+ * faixa de linhas que rola de lado). Este arquivo NÃO TEM @media de largura —
+ * o painel do tablet e o mapa da rede inteira vêm nos próximos pedidos e trarão
+ * os seus, com os números dos tokens.
+ *
+ * --cor e --cor-fraca são definidos por linha (.l1 … .l7) e herdados: é assim
+ * que uma regra só de forma serve às 7 cores sem repetir 7 blocos. */
+
+/* ── as 7 linhas: cor cheia e cor a 25% (o trecho que falta) ───────────── */
+.l1 { --cor: var(--linha-1); --cor-fraca: var(--trilho-falta-1); }
+.l2 { --cor: var(--linha-2); --cor-fraca: var(--trilho-falta-2); }
+.l3 { --cor: var(--linha-3); --cor-fraca: var(--trilho-falta-3); }
+.l4 { --cor: var(--linha-4); --cor-fraca: var(--trilho-falta-4); }
+.l5 { --cor: var(--linha-5); --cor-fraca: var(--trilho-falta-5); }
+.l6 { --cor: var(--linha-6); --cor-fraca: var(--trilho-falta-6); }
+.l7 { --cor: var(--linha-7); --cor-fraca: var(--trilho-falta-7); }
+
+.metro {
+  margin: 0 auto; padding: var(--espaco-4) var(--espaco-4) var(--espaco-8);
+  background: var(--fundo); color: var(--tinta);
+  font-family: var(--fonte-corpo); font-size: var(--tipo-corpo);
+  line-height: var(--entrelinha-corpo);
+}
+.metro * { box-sizing: border-box; }
+
+/* ── 1. A PLACA "Sua próxima estação" ─────────────────────────────────────
+ * Placa de estação: rótulo serigrafado em caixa alta, selo da linha, o nome no
+ * MAIOR tamanho da escala (--tipo-estacao) e UMA ação só. Nada mais compete. */
+.placa {
+  background: var(--superficie); border: var(--anel-trancada) solid var(--borda);
+  border-radius: var(--raio-placa); padding: var(--espaco-4);
+  display: grid; gap: var(--espaco-2);
+}
+.placa-rotulo {
+  margin: 0; font-family: var(--fonte-placa); font-size: var(--tipo-placa);
+  font-weight: var(--peso-placa); letter-spacing: var(--espacamento-placa);
+  text-transform: uppercase; color: var(--fosca);
+  line-height: var(--entrelinha-placa);
+}
+.placa-cabeca { display: flex; align-items: center; gap: var(--espaco-3); }
+.placa-nome {
+  margin: 0; font-family: var(--fonte-placa); font-size: var(--tipo-estacao);
+  font-weight: var(--peso-placa); line-height: var(--entrelinha-apertada);
+  letter-spacing: -0.01em; color: var(--tinta);
+  overflow-wrap: anywhere;
+}
+.placa-linha {
+  margin: 0; font-family: var(--fonte-placa); font-size: var(--tipo-placa);
+  font-weight: var(--peso-forte); letter-spacing: var(--espacamento-placa);
+  text-transform: uppercase; color: var(--cor, var(--fosca));
+}
+.placa-contador {
+  margin: 0; font-family: var(--fonte-mono); font-size: var(--tipo-nota);
+  color: var(--fosca); line-height: var(--entrelinha-nota);
+}
+.placa-acao {
+  justify-self: start; margin-top: var(--espaco-2);
+  min-height: var(--alvo-toque); padding: var(--espaco-3) var(--espaco-6);
+  border: 0; border-radius: var(--raio-placa);
+  background: var(--cor, var(--tinta)); color: var(--superficie);
+  font-family: var(--fonte-placa); font-size: var(--tipo-corpo);
+  font-weight: var(--peso-forte); text-decoration: none;
+  display: inline-flex; align-items: center; cursor: pointer;
+  transition: transform var(--movimento-toque) var(--curva-mecanica);
+}
+.placa-acao:active { transform: translateY(1px); }
+.placa-acao:focus-visible, .estacao:focus-visible, .selo:focus-visible,
+.anotacao:focus-visible, .botao:focus-visible {
+  outline: var(--anel-foco) solid var(--tinta); outline-offset: var(--espaco-1);
+}
+.placa-vazia { margin: 0; color: var(--fosca); font-size: var(--tipo-corpo); }
+
+/* ── selo da linha: o número dentro do círculo, na cor da linha ─────────── */
+.selo {
+  flex: 0 0 auto; width: var(--espaco-8); height: var(--espaco-8);
+  border-radius: var(--raio-estacao); border: 0; padding: 0;
+  background: var(--cor, var(--trancada)); color: var(--superficie);
+  font-family: var(--fonte-mono); font-size: var(--tipo-corpo);
+  font-weight: var(--peso-placa); line-height: 1;
+  display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer;
+}
+.selo-grande { width: var(--espaco-8); height: var(--espaco-8); }
+
+/* ── 3. seletor das 7 linhas: faixa que rola de lado ────────────────────── */
+.linhas {
+  margin-top: var(--espaco-4); display: flex; gap: var(--espaco-2);
+  overflow-x: auto; padding-bottom: var(--espaco-2);
+  scrollbar-width: thin; -webkit-overflow-scrolling: touch;
+}
+.linhas .selo { width: var(--espaco-6); height: var(--espaco-6); font-size: var(--tipo-placa); }
+.linhas .selo[aria-current="true"] {
+  box-shadow: 0 0 0 var(--anel-foco) var(--tinta);
+}
+.linhas .selo[aria-current="true"]::after { content: ""; }
+
+/* ── 2. a linha desenhada na VERTICAL, como o diagrama da porta do trem ─── */
+.diagrama { list-style: none; margin: var(--espaco-4) 0 0; padding: 0; }
+.parada { display: grid; grid-template-columns: auto 1fr; column-gap: var(--espaco-3); }
+
+/* o trilho: 6 px na cor da linha; percorrido = cor cheia, falta = cor a 25% */
+.trilho-col { display: grid; grid-template-rows: auto auto auto; justify-items: center; align-content: start; }
+.trilho-col .trilho-superior { grid-row: 1; }
+.trilho-col .forma { grid-row: 2; }
+.trilho-col .trilho-inferior { grid-row: 3; }
+.trilho { width: var(--trilho); background: var(--cor-fraca); border-radius: var(--raio-selo); }
+.trilho-superior { height: var(--espaco-4); }
+.trilho-inferior { height: var(--espaco-6); }
+.trilho.percorrido { background: var(--cor); }
+.parada:first-child .trilho-superior, .parada:last-child .trilho-inferior { background: none; }
+
+/* a forma do estado — a cor NUNCA é o único sinal: a forma e o rótulo dizem */
+.forma {
+  width: var(--estacao); height: var(--estacao); border-radius: var(--raio-estacao);
+  background: var(--superficie); position: relative; overflow: hidden;
+  border: var(--anel-trancada) solid var(--trancada);   /* trancada: anel fino cinza */
+  transition: background var(--movimento-chegada) var(--curva-chegada),
+              border-color var(--movimento-chegada) var(--curva-chegada);
+}
+.forma.disponivel { border: var(--anel-disponivel) solid var(--cor); }
+.forma.concluida { border: var(--anel-disponivel) solid var(--cor); background: var(--cor); }
+.forma.em-curso { border: var(--anel-disponivel) solid var(--cor); }
+/* meio círculo: metade cheia na cor da linha, metade miolo claro */
+.forma.em-curso::after {
+  content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 50%;
+  background: var(--cor);
+}
+.forma.proxima { animation: respirar var(--movimento-pulso) var(--curva-pulso) infinite; }
+.forma.desperta { animation: pulso var(--movimento-pulso-anel) var(--curva-mecanica); }
+
+@keyframes respirar {
+  50% { transform: scale(var(--pulso-escala)); }
+}
+@keyframes pulso {
+  50% { transform: scale(var(--pulso-escala)); }
+}
+
+/* a estação é um BOTÃO inteiro: nome + forma, alvo de toque de 44 px */
+.estacao {
+  grid-column: 2; grid-row: 1; align-self: center;
+  min-height: var(--alvo-toque); width: 100%;
+  display: flex; align-items: center; gap: var(--espaco-2);
+  margin: 0; padding: var(--espaco-2) 0; border: 0; background: none;
+  color: inherit; font: inherit; text-align: left; cursor: pointer;
+}
+.estacao-nome { font-weight: var(--peso-forte); font-size: var(--tipo-corpo); }
+.estacao-estado {
+  font-family: var(--fonte-placa); font-size: var(--tipo-nota);
+  letter-spacing: var(--espacamento-placa); text-transform: uppercase;
+  color: var(--fosca);
+}
+.estacao.trancada .estacao-nome { color: var(--fosca); }
+.estacao.concluida .estacao-nome { color: var(--fosca); }
+.estacao[aria-expanded="true"] .estacao-nome { color: var(--cor); }
+
+/* o trilho fica na coluna 1, e a forma é desenhada DENTRO do botão:
+ * .trilho-col carrega a forma para que o traço e o círculo alinhem */
+.trilho-col .forma { grid-row: 1; margin: var(--espaco-2) 0; }
+
+/* ── folha da estação: o que ela precisa ────────────────────────────────── */
+.detalhe {
+  grid-column: 1 / -1; grid-row: 2;
+  background: var(--superficie); border: 1px solid var(--borda);
+  border-left: var(--trilho) solid var(--cor);
+  border-radius: var(--raio-placa); padding: var(--espaco-3);
+  display: grid; gap: var(--espaco-3); margin: var(--espaco-2) 0 var(--espaco-3);
+}
+.detalhe[hidden] { display: none; }
+.detalhe-falta { margin: 0; font-size: var(--tipo-corpo); color: var(--alerta); }
+.recurso {
+  justify-self: start; min-height: var(--alvo-toque);
+  padding: var(--espaco-3) var(--espaco-4); border-radius: var(--raio-placa);
+  background: var(--cor); color: var(--superficie);
+  font-family: var(--fonte-placa); font-weight: var(--peso-forte);
+  font-size: var(--tipo-corpo); text-decoration: none;
+  display: inline-flex; align-items: center;
+}
+.biblio { justify-self: start; display: grid; gap: var(--espaco-1); }
+.biblio-link {
+  min-height: var(--alvo-toque); display: inline-flex; align-items: center;
+  color: var(--tinta); font-size: var(--tipo-corpo); text-decoration: underline;
+  text-decoration-thickness: 1px; text-underline-offset: var(--espaco-1);
+  overflow-wrap: anywhere;
+}
+.biblio-nota { margin: 0; font-size: var(--tipo-nota); color: var(--fosca); line-height: var(--entrelinha-nota); }
+.anotacao-rotulo {
+  display: grid; gap: var(--espaco-1); font-size: var(--tipo-placa);
+  font-family: var(--fonte-placa); letter-spacing: var(--espacamento-placa);
+  text-transform: uppercase; color: var(--fosca);
+}
+.anotacao {
+  width: 100%; min-height: var(--espaco-8); padding: var(--espaco-2) var(--espaco-3);
+  border: 1px solid var(--borda); border-radius: var(--raio-placa);
+  background: var(--fundo); color: var(--tinta); font: inherit;
+  font-size: var(--tipo-corpo); resize: vertical;
+}
+.botao {
+  justify-self: start; min-height: var(--alvo-toque);
+  padding: var(--espaco-3) var(--espaco-4); border-radius: var(--raio-placa);
+  border: 1px solid var(--borda); background: var(--fundo); color: var(--tinta);
+  font-family: var(--fonte-placa); font-size: var(--tipo-corpo);
+  font-weight: var(--peso-forte); cursor: pointer;
+  transition: transform var(--movimento-toque) var(--curva-mecanica);
+}
+.botao:active { transform: translateY(1px); }
+.botao[disabled] { cursor: not-allowed; opacity: 0.5; }
+.botao-concluir { background: var(--cor); border-color: var(--cor); color: var(--superficie); }
+
+/* ── 4. a chegada: aviso com desfazer ───────────────────────────────────── */
+.aviso-chegada {
+  position: sticky; bottom: var(--espaco-4); z-index: 2;
+  margin: var(--espaco-4) 0 0; padding: var(--espaco-3) var(--espaco-4);
+  border-radius: var(--raio-placa); background: var(--tinta); color: var(--fundo);
+  display: flex; align-items: center; justify-content: space-between; gap: var(--espaco-3);
+  font-size: var(--tipo-corpo);
+  animation: subir var(--movimento-chegada) var(--curva-chegada);
+}
+.aviso-chegada[hidden] { display: none; }
+.aviso-chegada .desfazer {
+  min-height: var(--alvo-toque); padding: var(--espaco-2) var(--espaco-3);
+  border: 0; border-radius: var(--raio-selo); background: none;
+  color: var(--fundo); font-family: var(--fonte-placa); font-weight: var(--peso-forte);
+  font-size: var(--tipo-corpo); text-decoration: underline; cursor: pointer;
+}
+@keyframes subir {
+  from { transform: translateY(var(--espaco-3)); }
+}
+
+/* ── 5. os dois estados ─────────────────────────────────────────────────── */
+/* Esqueleto: PARADO e só depois de --atraso-esqueleto. Sem brilho correndo:
+ * shimmer é spinner disfarçado, e spinner está na lista do proibido. */
+.esqueleto { display: grid; gap: var(--espaco-3); opacity: 0;
+  animation: surgir var(--movimento-toque) var(--atraso-esqueleto) both; }
+@keyframes surgir { to { opacity: 1; } }
+.esqueleto-titulo { height: var(--espaco-8); border-radius: var(--raio-selo); background: var(--borda); }
+.esqueleto-linha { display: flex; align-items: center; gap: var(--espaco-3); }
+.esqueleto-circulo { width: var(--estacao); height: var(--estacao); border-radius: var(--raio-estacao); background: var(--borda); }
+.esqueleto-traco { flex: 1 1 auto; height: var(--trilho); border-radius: var(--raio-selo); background: var(--borda); }
+
+.embarque {
+  margin-top: var(--espaco-4); padding: var(--espaco-4);
+  background: var(--superficie); border: 1px solid var(--borda);
+  border-radius: var(--raio-placa); display: grid; gap: var(--espaco-2);
+}
+.embarque-titulo {
+  margin: 0; font-family: var(--fonte-placa); font-size: var(--tipo-titulo);
+  font-weight: var(--peso-placa); line-height: var(--entrelinha-titulo);
+}
+.embarque-texto, .embarque-acao { margin: 0; color: var(--fosca); font-size: var(--tipo-corpo); }
+.lista-marcar { list-style: none; margin: var(--espaco-2) 0 0; padding: 0; display: grid; gap: var(--espaco-2); }
+.lista-marcar li { display: flex; align-items: center; justify-content: space-between; gap: var(--espaco-3); }
+
+/* ── movimento reduzido: tudo acontece, nada se move ────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .metro *, .metro *::before, .metro *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+  .esqueleto { opacity: 1; }
+}
