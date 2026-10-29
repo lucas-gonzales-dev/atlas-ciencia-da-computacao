@@ -181,6 +181,76 @@ test('cor: nenhuma cor escrita à mão fora do tokens.css', async () => {
   assert.deepEqual(achados, [], 'cor fora dos tokens: use var(--p-*) do tokens.css (design/README.md §2)');
 });
 
+// A regra de cima só enxerga cor em forma de PROPRIEDADE CSS (`color: #fff`).
+// Ela é cega para o outro caminho pelo qual a cor entra na tela: o JS que
+// desenha. O "compartilhar a viagem" vai pintar num canvas (`ctx.fillStyle =
+// '#…'`), e um SVG montado em string leva `fill="#…"` como ATRIBUTO. Nos dois
+// casos não há propriedade CSS nenhuma, e a cor passa por fora do tokens.css,
+// do contraste e do tema — exatamente o que o §9 proíbe.
+const HEX = /#[0-9a-fA-F]{3,8}(?![0-9a-zA-Z-])/g;
+// O valor inteiro, parênteses e aspas incluídos: a mensagem que reprova é a que
+// o próximo desenvolvedor vai ler, e `rgb(` cortado não diz o que consertar.
+const FUNCAO_COR = /\b(?:rgba?|hsla?|lab|lch|oklab|oklch)\s*\([^)]*\)/g;
+const ATRIBUTO_COR =
+  /\b(?:fill|stroke|stop-color|flood-color|lighting-color|color|style)\s*=\s*"(?=[^"]*(?:#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\())[^"]*"/g;
+
+/** Ids que existem nos HTML do app: em JS, `#id` é seletor, não cor. */
+async function idsDoHtml() {
+  const ids = new Set();
+  for (const c of (await daApp()).map(norm).filter((x) => x.endsWith('.html'))) {
+    for (const m of (await ler(c)).matchAll(/\bid\s*=\s*"([^"]+)"/g)) ids.add(m[1]);
+  }
+  return ids;
+}
+
+/** O `#` aqui é cor, ou é outra coisa que começa com cerquilha? */
+function ehSeletorOuFragmento(hex, antes) {
+  if (antes.includes('://')) return true; // fragmento de URL: .../pagina#secao
+  return idsDoHtmlCache.has(hex.slice(1)); // seletor de id que existe no HTML
+}
+const idsDoHtmlCache = new Set();
+
+test('cor: literal de cor em string de JS ou atributo de HTML também é cor à mão', async () => {
+  for (const id of await idsDoHtml()) idsDoHtmlCache.add(id);
+  const achados = [];
+  const alvos = (await daApp())
+    .map(norm)
+    .filter((c) => /\.(js|html)$/.test(c) && c !== 'web/tokens.css' && !c.startsWith('tests/'));
+  assert.ok(alvos.includes('sw.js'), 'o sw.js é JS do app e não pode ficar fora da trava de cor');
+
+  for (const c of alvos) {
+    const linhas = (await ler(c)).split('\n');
+    linhas.forEach((linhaTexto, i) => {
+      const n = i + 1;
+      // Comentário não pinta nada; string pinta. Pular comentário evita
+      // reprovar um exemplo escrito num texto ("a placa antiga era #0b1020").
+      if (/^\s*(?:\/\/|\*|\/\*)/.test(linhaTexto)) return;
+      if (c.endsWith('.html')) {
+        for (const m of linhaTexto.matchAll(ATRIBUTO_COR)) achados.push(`${c}:${n} → ${m[0].trim()}`);
+        // <script> dentro do HTML: o código ali também é JS do app.
+        for (const m of linhaTexto.matchAll(HEX)) {
+          if (!/^\s*<script/.test(linhaTexto) && !/\bfillStyle|\bstrokeStyle|cssText/.test(linhaTexto)) continue;
+          if (!ehSeletorOuFragmento(m[0], linhaTexto.slice(0, m.index))) achados.push(`${c}:${n} → ${m[0]}`);
+        }
+        return;
+      }
+      for (const m of linhaTexto.matchAll(FUNCAO_COR)) achados.push(`${c}:${n} → ${m[0].trim()}`);
+      for (const m of linhaTexto.matchAll(HEX)) {
+        if (ehSeletorOuFragmento(m[0], linhaTexto.slice(0, m.index))) continue;
+        achados.push(`${c}:${n} → ${m[0]}`);
+      }
+    });
+  }
+
+  assert.deepEqual(
+    achados,
+    [],
+    'cor escrita à mão em string de JS ou em atributo de HTML: leia do CSS com '
+      + 'getComputedStyle ou escreva var(--linha-N) — cor fora do tokens.css não '
+      + 'passa pela conta de contraste nem troca com o tema (design/README.md §2, §9)',
+  );
+});
+
 test('tempo: nenhuma duração escrita à mão fora do tokens.css', async () => {
   const crua = /(?:transition|animation|transition-duration|animation-duration|animation-delay|transition-delay)\s*:[^;{}]*?(\d+(?:\.\d+)?m?s)/g;
   const achados = [];
