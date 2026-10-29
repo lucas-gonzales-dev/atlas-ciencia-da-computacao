@@ -117,14 +117,52 @@ test('concluir o pré-requisito destranca a estação', () => {
   assert.equal(estadoDaEstacao('beta', [], GRADE).estado, ESTADOS.TRANCADA);
 });
 
-test('em curso é estado próprio, e a precedência é concluída > em curso', () => {
+test('em curso é estado próprio, e concluir tira o id do em curso', () => {
   let p = iniciarEstacao([], 'alfa', GRADE);
   assert.equal(estadoDaEstacao('alfa', p, GRADE).estado, ESTADOS.EM_CURSO);
-  // discrimina: quem checa emCurso antes de completed mostraria "em curso"
-  // numa estação já carimbada — a palavra da pessoa pesa mais que o cálculo
   p = concluirEstacao(p, 'alfa', '2026-10-01', GRADE);
   assert.equal(estadoDaEstacao('alfa', p, GRADE).estado, ESTADOS.CONCLUIDA);
-  assert.equal(p.emCurso.includes('alfa'), false, 'concluir tira do em curso');
+  // discrimina: quem concatena em vez de filtrar deixaria o id nos dois
+  // conjuntos — e a estação apareceria "em curso" no resumo mesmo carimbada
+  assert.deepEqual(p.emCurso, [], 'concluir esvazia o em curso do id');
+  assert.equal(p.completed.includes('alfa'), true);
+});
+
+test('precedência concluída > em curso vale no progresso IMPORTADO', () => {
+  // O caso que o de cima não alcança: concluirEstacao tira o id de emCurso,
+  // então quem inicia e conclui nunca produz os dois conjuntos sobrepostos.
+  // A sobreposição chega de fora — arquivo de outra versão, localStorage
+  // escrito à mão, exportação antiga — e lerProgresso não a saneia (nem deve:
+  // descartar completed seria perder a palavra da pessoa).
+  const importado = {
+    completed: ['alfa'],
+    emCurso: ['alfa', 'beta'],
+    conclusoes: { alfa: '2026-10-01' }
+  };
+  assert.equal(lerProgresso(importado).emCurso.includes('alfa'), true, 'a sobreposição chega intacta à regra');
+  // discrimina: inverter a precedência (emCurso antes de completed) devolve
+  // "em curso" para uma estação já carimbada — a tela mandaria estudar de novo
+  // o que a pessoa disse que concluiu, e o carimbo sumiria do bilhete
+  assert.equal(estadoDaEstacao('alfa', importado, GRADE).estado, ESTADOS.CONCLUIDA);
+  assert.equal(estadoDaEstacao('beta', importado, GRADE).estado, ESTADOS.EM_CURSO);
+  // e o resumo conta cada estação uma vez só, no lugar certo
+  const r = resumoDaViagem(importado, GRADE);
+  assert.equal(r.concluidas, 1, 'a sobreposição não vira duas conclusões');
+  assert.equal(r.emCurso, 1, 'nem vira um em curso fantasma');
+});
+
+test('concluirEstacao limpa o em curso sobreposto sem mexer na data antiga', () => {
+  const importado = {
+    completed: ['alfa'],
+    emCurso: ['alfa'],
+    conclusoes: { alfa: '2026-10-01' }
+  };
+  const p = concluirEstacao(importado, 'alfa', '2026-10-09', GRADE);
+  assert.deepEqual(p.emCurso, []);
+  assert.deepEqual(p.completed, ['alfa']);
+  // discrimina: re-toque que reescreve a data mudaria o dia em que a pessoa
+  // disse que concluiu — e mudaria junto os dias de viagem
+  assert.equal(p.conclusoes.alfa, '2026-10-01', 'vale a primeira data');
 });
 
 test('estação dentro de ciclo é trancada COM o sinal de ciclo', () => {
