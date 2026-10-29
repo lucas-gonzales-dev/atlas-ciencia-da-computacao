@@ -5,6 +5,6 @@
   "type": "module",
   "description": "Nucleo compartilhado do Projeto Atlas. Roda no Node (testes) e no navegador (web/PWA) sem build.",
   "scripts": {
-    "test": "node --test tests/bibliography.test.js tests/boot.test.js tests/catalog.test.js tests/credits.test.js tests/e2e-serve.test.js tests/electives.test.js tests/fonte-nome.test.js tests/grid-celulas.test.js tests/links-repo.test.js tests/nextup.test.js tests/notes.test.js tests/npm-script.test.js tests/pages.test.js tests/progress-io.test.js tests/portugues-tela.test.js tests/progress.test.js tests/pwa.test.js tests/readme.test.js tests/render.test.js tests/search.test.js tests/specializations.test.js"
+    "test": "node --test tests/bibliography.test.js tests/boot.test.js tests/catalog.test.js tests/credits.test.js tests/e2e-serve.test.js tests/electives.test.js tests/fonte-nome.test.js tests/grid-celulas.test.js tests/links-repo.test.js tests/nextup.test.js tests/notes.test.js tests/npm-script.test.js tests/pages.test.js tests/progress-io.test.js tests/portugues-tela.test.js tests/progress.test.js tests/pwa.test.js tests/readme.test.js tests/render.test.js tests/search.test.js tests/specializations.test.js tests/viagem.test.js"
   }
 }

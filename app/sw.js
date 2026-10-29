@@ -57,6 +57,10 @@ const PRECACHE = [
   'web/main.js',
   'core/progress.js',
   'core/progress-io.js',
+  // viagem.js ainda nao e importado por tela nenhuma (o pedido que o criou e o
+  // das regras, e a tela vem depois do design system). Esta aqui porque o
+  // precache cobre o disco: quando a tela passar a importar, o cache ja tem.
+  'core/viagem.js',
   'core/notes.js',
   'core/search.js',
   'core/catalog.js',
