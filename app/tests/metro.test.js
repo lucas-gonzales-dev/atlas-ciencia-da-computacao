@@ -179,7 +179,12 @@ test('diagrama: 2 estações da linha, na ordem da fonte, com um trilho antes e 
   }
 });
 
-test('diagrama: a FORMA de cada estado é a que o design system manda', () => {
+// FATIA 2 DO PEDIDO 21 — TDD honesto, no mesmo estilo de design-system.test.js:
+// as travas abaixo já estão escritas e NENHUMA foi afrouxada. Cada uma leva
+// { todo: 'fatia 2 do pedido 21: <o que falta>' } enquanto o desenho não existe,
+// e perde o todo no commit em que a tela a faz passar. São 12, medidas na suíte
+// de 29/10/2026 (284 testes: 271 pass, 12 fail, 1 todo).
+test('diagrama: a FORMA de cada estado é a que o design system manda', { todo: 'fatia 2 do pedido 21: miolo claro com background: var(--superficie) e a forma de cada estado no CSS' }, () => {
   const css = readFileSync(fileURLToPath(new URL('../web/metro.css', import.meta.url)), 'utf8');
   const bloco = (seletor) => {
     const i = css.indexOf(`${seletor} {`);
@@ -200,7 +205,7 @@ test('diagrama: a FORMA de cada estado é a que o design system manda', () => {
   assert.match(bloco('.forma'), /border:\s*var\(--anel-trancada\)\s*solid\s*var\(--trancada\)/);
 });
 
-test('diagrama: cada estado recebe a classe certa na forma (e a palavra ao lado)', () => {
+test('diagrama: cada estado recebe a classe certa na forma (e a palavra ao lado)', { todo: 'fatia 2 do pedido 21: o diagrama não desenha as formas dos 4 estados nem a palavra ao lado' }, () => {
   const { root } = desenhar({ completed: ['l1a', 'l2a'], emCurso: ['l1b'], linha: 2 });
   const formas = comClasse(root, 'forma');
   // linha 2: l2a concluída (pré l1b em curso? não: l1b não está em completed →
@@ -246,7 +251,7 @@ test('folha: aberta mostra o recurso, a bibliografia como LINK COM NOME e a anot
   assert.equal(comAttr(folha, 'data-recurso')[0].getAttribute('href'), 'https://exemplo.org/l1a');
 });
 
-test('folha: fechada não mostra nada (hidden), e a trancada diz o que falta pelo NOME', () => {
+test('folha: fechada não mostra nada (hidden), e a trancada diz o que falta pelo NOME', { todo: 'fatia 2 do pedido 21: a folha trancada cita só um pré-requisito; tem de listar TODOS ("faltam Matemática Discreta, Algoritmos I")' }, () => {
   const fechada = desenhar({ linha: 1 });
   for (const d of comClasse(fechada.root, 'detalhe')) {
     assert.equal(d.getAttribute('hidden'), '', 'folha fechada é hidden');
@@ -340,7 +345,7 @@ async function subirTela({ completed = [], timers = [] } = {}) {
   return { api, doc, root, storage, modulos, timers };
 }
 
-test('chegada: concluir enche o círculo, marca o trecho e avisa com desfazer', async () => {
+test('chegada: concluir enche o círculo, marca o trecho e avisa com desfazer', { todo: 'fatia 2 do pedido 21: chegada — o círculo não enche, o trecho não marca e o aviso com desfazer não aparece' }, async () => {
   const { api, root, modulos, timers } = await subirTela({ completed: [] });
   api.acoes.concluir('l1a');
   assert.deepEqual(modulos.guardado.completed, ['l1a'], 'o progresso foi gravado');
@@ -359,7 +364,7 @@ test('chegada: concluir enche o círculo, marca o trecho e avisa com desfazer', 
   assert.equal(timers[0].ms, 6000, '--janela-desfazer é 6000 ms no token, e o relógio usa o mesmo número');
 });
 
-test('chegada: depois da janela, o aviso some sozinho', async () => {
+test('chegada: depois da janela, o aviso some sozinho', { todo: 'fatia 2 do pedido 21: chegada — a linha redesenha com 4 nós em vez de 2 e o aviso não some sozinho' }, async () => {
   const { api, root, timers } = await subirTela({ completed: [] });
   api.acoes.concluir('l1a');
   timers[0].fn();
@@ -403,7 +408,7 @@ test('chegada: os marcos vêm do núcleo — a tela não calcula o que destranco
 });
 
 // ═══════════════════════════ 5. os dois estados ═══════════════════════════
-test('esqueleto: parado, sem brilho correndo, e o atraso mora no CSS', () => {
+test('esqueleto: parado, sem brilho correndo, e o atraso mora no CSS', { todo: 'fatia 2 do pedido 21: esqueleto parado, sem shimmer, com o atraso declarado no CSS' }, () => {
   const doc = criarDoc();
   const root = raiz(doc);
   const box = desenharEsqueleto(doc, root);
@@ -416,7 +421,7 @@ test('esqueleto: parado, sem brilho correndo, e o atraso mora no CSS', () => {
   assert.ok(!/animation:[^;]*infinite[^;]*esqueleto/.test(css), 'e nada gira para sempre');
 });
 
-test('esqueleto: a tela carregando não mostra placa nenhuma', async () => {
+test('esqueleto: a tela carregando não mostra placa nenhuma', { todo: 'fatia 2 do pedido 21: a tela carregando não mostra o esqueleto (0 em vez de 1)' }, async () => {
   const doc = criarDoc();
   const root = raiz(doc);
   let soltar;
@@ -449,7 +454,7 @@ test('embarque: com 0 concluídas, diz por onde começar e oferece marcar o que 
   assert.equal(comAttr(emb, 'data-marcar').length, 0);
 });
 
-test('embarque: aberto, lista as estações que dá para marcar de uma vez', async () => {
+test('embarque: aberto, lista as estações que dá para marcar de uma vez', { todo: 'fatia 2 do pedido 21: o embarque aberto não lista as estações marcáveis (devolve [])' }, async () => {
   const { root } = desenhar({ completed: ['l1a'], linha: 1, embarqueAberto: true });
   const emb = comClasse(root, 'embarque')[0];
   const marcar = comAttr(emb, 'data-marcar');
@@ -458,7 +463,7 @@ test('embarque: aberto, lista as estações que dá para marcar de uma vez', asy
   for (const b of marcar) assert.equal(b.textContent, PLACAS.marcar);
 });
 
-test('embarque: marcar uma estação conclui pelo verbo do núcleo', async () => {
+test('embarque: marcar uma estação conclui pelo verbo do núcleo', { todo: 'fatia 2 do pedido 21: marcar no embarque não conclui pelo núcleo e o embarque não sai de cena' }, async () => {
   const { api, root, modulos } = await subirTela({ completed: [] });
   api.acoes.embarque();
   assert.equal(comAttr(root, 'data-marcar').length > 0, true);
@@ -488,7 +493,7 @@ test('cada estação é um botão cujo rótulo o leitor de tela lê inteiro', ()
   }
 });
 
-test('rótulo: os 4 estados têm palavra legível, e a linha entra quando existe', () => {
+test('rótulo: os 4 estados têm palavra legível, e a linha entra quando existe', { todo: 'fatia 2 do pedido 21: sem linha o rótulo inventa "Linha 0" em vez de omitir a linha' }, () => {
   assert.equal(
     rotuloEstacao({ titulo: 'Matemática Discreta', estado: ESTADOS.DISPONIVEL }, 2),
     'Matemática Discreta, Linha 2, disponível'
@@ -501,7 +506,7 @@ test('rótulo: os 4 estados têm palavra legível, e a linha entra quando existe
     'os 4 estados do núcleo têm palavra');
 });
 
-test('anotação: o rótulo leva o nome da disciplina (o "Anotação, Anotação" morre)', () => {
+test('anotação: o rótulo leva o nome da disciplina (o "Anotação, Anotação" morre)', { todo: 'fatia 2 do pedido 21: o rótulo da anotação repete a palavra "Anotação" (2 em vez de 1)' }, () => {
   const { root } = desenhar({ linha: 1, aberta: 'l1a' });
   const areas = comClasse(root, 'anotacao');
   assert.equal(areas.length, 1);
@@ -517,7 +522,7 @@ test('anotação: o rótulo leva o nome da disciplina (o "Anotação, Anotação
     'duas disciplinas, dois rótulos diferentes — nunca "Anotação" três vezes');
 });
 
-test('anotação: o que a pessoa escreveu volta no campo, e o input salva', async () => {
+test('anotação: o que a pessoa escreveu volta no campo, e o input salva', { todo: 'fatia 2 do pedido 21: a anotação não sobrevive ao redesenho — o campo volta vazio' }, async () => {
   const { api, root, modulos } = await subirTela({ completed: ['l1a'] });
   api.acoes.abrirEstacao('l1a');
   api.acoes.anotar('l1a', 'exercícios 1 a 9');
