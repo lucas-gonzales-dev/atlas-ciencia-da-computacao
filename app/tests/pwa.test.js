@@ -50,7 +50,11 @@ async function arquivosDaApp(pasta = RAIZ, base = RAIZ, saida = []) {
       // tests/ NAO vai para o cache: e ferramenta de desenvolvimento, nao produto.
       if (entrada.name === 'tests' || entrada.name === 'node_modules') continue;
       await arquivosDaApp(caminho, base, saida);
-    } else if (/\.(js|json|html|svg|css|webmanifest)$/.test(entrada.name)) {
+    // woff2 (29/10/2026): a Overpass entrou no precache do sw.js pelo design
+    // system, e asset de cara é asset que o navegador baixa. Sem a extensão aqui,
+    // o teste dizia que os dois woff2 do sw.js "não existem" — a lista de extensões
+    // é o que define o que conta como arquivo do app, então a fonte pertence a ela.
+    } else if (/\.(js|json|html|svg|css|webmanifest|woff2)$/.test(entrada.name)) {
       // sw.js nao se precacheia: o navegador busca a versao nova sozinho.
       if (entrada.name === 'sw.js') continue;
       // Sem '/' na frente: caminho absoluto e a raiz do dominio, e o Pages

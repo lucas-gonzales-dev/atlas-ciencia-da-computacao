@@ -1,0 +1,237 @@
+/* Projeto Atlas — TOKENS DO DESIGN SYSTEM.
+ *
+ * Este arquivo é a ÚNICA fonte de cor, tipo, espaço, raio, duração, curva e
+ * ponto de quebra do app. O documento que o explica é design/README.md, e a
+ * trava que impede ele de apodrecer é app/tests/design-system.test.js:
+ * cor ou duração escrita à mão em qualquer outro CSS/JS do app QUEBRA A SUÍTE.
+ *
+ * Ordem de leitura: :root tem o tema claro (o padrão, cor de placa) e os tokens
+ * que não mudam com o tema. O bloco prefers-color-scheme: dark só TROCA cor —
+ * nenhum tamanho, duração ou ponto de quebra aparece lá, porque nada disso muda
+ * no escuro.
+ *
+ * PROVISÓRIOS: o bloco no fim guarda as cores da tela de HOJE (o azul-marinho
+ * que o Lucas rejeitou). Estão aqui só para a trava de cor valer sem mudar a
+ * aparência antes da hora. Cada um morre no pedido que redesenha a tela dele.
+ * Veja "Migração" em design/README.md. */
+
+:root {
+  /* ── COR · fundo e tinta ────────────────────────────────────────────────
+   * Claro: papel quente de placa esmaltada. Escuro: carvão NEUTRO — nunca
+   * azul-marinho. Contrastes medidos (WCAG 2.1) estão na tabela de
+   * design/README.md §2 e a conta roda no teste. */
+  --fundo: #fbf7f0;            /* 17,34:1 com --tinta */
+  --superficie: #fffdf8;       /* cartão, folha, painel */
+  --tinta: #16130f;            /* texto principal — 17,34:1 AA */
+  --fosca: #635b50;            /* texto secundário — 6,26:1 AA */
+  --borda: #ded6c8;            /* decorativa: separa superfície, não informa */
+  --trancada: #8b8578;         /* anel de estação trancada — 3,44:1 (1.4.11) */
+  --alerta: #8a5a00;           /* obras e aviso — 5,55:1 AA */
+  --alerta-fundo: #f6ecd9;     /* fundo do selo de aviso */
+
+  /* ── COR · as 7 linhas ─────────────────────────────────────────────────
+   * Cor de linha SÓ marca linha: nunca significa sucesso, erro ou atenção.
+   * As 7 são distintas em matiz, e todas passam AA como TEXTO sobre o fundo
+   * (o nome "Linha 3" é escrito na cor da linha 3, em corpo pequeno). */
+  --linha-1: #c1121f;          /* vermelho  — 5,83:1 */
+  --linha-2: #b24a00;          /* laranja   — 5,08:1 */
+  --linha-3: #7a5b00;          /* ouro      — 5,92:1 */
+  --linha-4: #1e7a3c;          /* verde     — 5,04:1 */
+  --linha-5: #0a6e75;          /* água      — 5,62:1 */
+  --linha-6: #1d4ed8;          /* azul      — 6,28:1 */
+  --linha-7: #7b2d8b;          /* ameixa    — 7,59:1 */
+
+  /* O trecho percorrido é a cor cheia; o que falta é a cor a 25%. É
+   * preenchimento decorativo de um estado que a forma e o texto já dizem —
+   * por isso fica abaixo de 3:1 e NUNCA carrega significado sozinho. */
+  --trilho-percorrido: var(--linha-6);
+  --trilho-falta-1: color-mix(in srgb, var(--linha-1) 25%, var(--fundo));
+  --trilho-falta-2: color-mix(in srgb, var(--linha-2) 25%, var(--fundo));
+  --trilho-falta-3: color-mix(in srgb, var(--linha-3) 25%, var(--fundo));
+  --trilho-falta-4: color-mix(in srgb, var(--linha-4) 25%, var(--fundo));
+  --trilho-falta-5: color-mix(in srgb, var(--linha-5) 25%, var(--fundo));
+  --trilho-falta-6: color-mix(in srgb, var(--linha-6) 25%, var(--fundo));
+  --trilho-falta-7: color-mix(in srgb, var(--linha-7) 25%, var(--fundo));
+
+  /* ── TIPO ──────────────────────────────────────────────────────────────
+   * Uma família só, de placa de sinalização: Overpass (SIL OFL 1.1), pesos
+   * 400/700/900, mais a Mono para números. Os woff2 variáveis estão em
+   * app/fonts/, declarados em app/web/fontes.css e no precache do sw.js.
+   * --fonte-corpo ainda é a pilha do sistema: a Overpass está declarada e
+   * pronta, mas a tela só troca no pedido que redesenha (design/README.md,
+   * "Migração"). */
+  --fonte-placa: "Overpass", "Overpass Local", sans-serif;
+  --fonte-mono: "Overpass Mono", ui-monospace, monospace;
+  --fonte-corpo: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  /* Escala de 5 tamanhos, e só 5. --tipo-estacao é o MAIOR texto da tela:
+   * nada pode passar dele, ou a hierarquia mente. */
+  --tipo-estacao: 32px;        /* nome da estação em "Sua próxima estação" */
+  --tipo-titulo: 22px;
+  --tipo-corpo: 16px;
+  --tipo-placa: 13px;          /* caixa alta, letter-spacing de serigrafia */
+  --tipo-nota: 12px;
+
+  --entrelinha-apertada: 1.1;
+  --entrelinha-titulo: 1.2;
+  --entrelinha-placa: 1.3;
+  --entrelinha-nota: 1.4;
+  --entrelinha-corpo: 1.5;
+
+  --peso-normal: 400;
+  --peso-forte: 700;
+  --peso-placa: 900;
+  --espacamento-placa: 0.08em; /* só com --tipo-placa, em caixa alta */
+
+  /* ── ESPAÇO · escala de 4 em 4 px ──────────────────────────────────────
+   * Não existe 5, 7, 13 nem 18 px. Se o valor não está aqui, está errado. */
+  --espaco-1: 4px;
+  --espaco-2: 8px;
+  --espaco-3: 12px;
+  --espaco-4: 16px;
+  --espaco-6: 24px;
+  --espaco-8: 32px;
+
+  /* ── FORMA ─────────────────────────────────────────────────────────────
+   * A estação é círculo; o resto é quase reto, como placa. */
+  --trilho: 6px;               /* espessura da linha desenhada */
+  --estacao: 14px;             /* diâmetro da estação */
+  --estacao-proxima: 22px;     /* a próxima estação, a única maior */
+  --estacao-em-curso: 14px;    /* meio círculo: mesma caixa, metade cheia */
+  --raio-estacao: 50%;
+  --raio-placa: 4px;           /* cartão, painel, botão, folha */
+  --raio-selo: 2px;            /* selo e etiqueta */
+  --anel-disponivel: 3px;      /* anel grosso com miolo claro */
+  --anel-trancada: 1.5px;      /* anel fino, cinza */
+  --anel-foco: 2px;            /* :focus-visible, em cor de tinta */
+  --alvo-toque: 44px;          /* piso de qualquer área tocável */
+
+  /* ── MOVIMENTO · três vozes ────────────────────────────────────────────
+   * Duração diz o que o movimento SIGNIFICA: curto é máquina respondendo,
+   * meio segundo é o trem chegando, devagar é onde você está. */
+  --movimento-toque: 100ms;    /* mecânica: toque, foco, hover (máx. 120 ms) */
+  --movimento-chegada: 520ms;  /* chegada: trecho enche, círculo enche, pulso */
+  --movimento-pulso: 2000ms;   /* você está aqui: anel da próxima estação */
+  --movimento-pulso-anel: 400ms; /* o pulso curto das que destrancaram */
+  --atraso-esqueleto: 150ms;   /* antes disso, nenhum esqueleto aparece */
+  --janela-desfazer: 6000ms;   /* quanto tempo o "desfazer" fica disponível */
+
+  --curva-mecanica: cubic-bezier(0, 0, 0.2, 1);
+  --curva-chegada: cubic-bezier(0.16, 1, 0.3, 1); /* saída suave */
+  --curva-pulso: ease-in-out;
+  --pulso-escala: 1.15;
+
+  /* ── PONTOS DE QUEBRA · 4, e só 4 ──────────────────────────────────────
+   * CSS não aceita var() dentro de @media, então o @media escreve o número —
+   * mas a trava exige que esse número seja UM DESTES. Número que não está aqui
+   * é um quinto layout que ninguém testou.
+   *   celular      → até 599 px
+   *   tablet       → 600 a 1023 px   (duas colunas: linha + painel fixo)
+   *   computador   → 1024 a 1439 px  (o mapa da rede inteira + painel lateral)
+   *   tela larga   → 1440 px ou mais (mapa + painel + coluna da viagem) */
+  --bp-celular: 599px;
+  --bp-tablet: 600px;
+  --bp-computador: 1024px;
+  --bp-tela-larga: 1440px;
+
+  /* Áreas seguras do app instalado: sem a barra do navegador a tela vai até a
+   * borda, e conteúdo colado no recorte da câmera é conteúdo ilegível. */
+  --margem-segura-topo: env(safe-area-inset-top, 0px);
+  --margem-segura-direita: env(safe-area-inset-right, 0px);
+  --margem-segura-baixo: env(safe-area-inset-bottom, 0px);
+  --margem-segura-esquerda: env(safe-area-inset-left, 0px);
+}
+
+/* ── TEMA ESCURO · carvão neutro, nunca azul-marinho ─────────────────────
+ * Só cor muda aqui. As 7 linhas ganham valor mais claro para manter o AA
+ * sobre o carvão — mesma família de matiz, outro valor. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fundo: #17181a;          /* carvão neutro */
+    --superficie: #202124;
+    --tinta: #f4f1ec;          /* 15,77:1 AA */
+    --fosca: #aea9a0;          /* 7,60:1 AA */
+    --borda: #33343a;
+    --trancada: #7c7d81;       /* 4,32:1 (1.4.11) */
+    --alerta: #e0a94a;         /* 8,41:1 AA */
+    --alerta-fundo: #2a2313;
+
+    --linha-1: #ff6b6b;        /* 6,40:1 */
+    --linha-2: #ff9a4d;        /* 8,44:1 */
+    --linha-3: #e8c547;        /* 10,58:1 */
+    --linha-4: #4cd07d;        /* 8,99:1 */
+    --linha-5: #4fd1d9;        /* 9,69:1 */
+    --linha-6: #7aa7ff;        /* 7,44:1 */
+    --linha-7: #d98ce8;        /* 7,50:1 */
+
+    --trilho-percorrido: var(--linha-6);
+    --trilho-falta-1: color-mix(in srgb, var(--linha-1) 25%, var(--fundo));
+    --trilho-falta-2: color-mix(in srgb, var(--linha-2) 25%, var(--fundo));
+    --trilho-falta-3: color-mix(in srgb, var(--linha-3) 25%, var(--fundo));
+    --trilho-falta-4: color-mix(in srgb, var(--linha-4) 25%, var(--fundo));
+    --trilho-falta-5: color-mix(in srgb, var(--linha-5) 25%, var(--fundo));
+    --trilho-falta-6: color-mix(in srgb, var(--linha-6) 25%, var(--fundo));
+    --trilho-falta-7: color-mix(in srgb, var(--linha-7) 25%, var(--fundo));
+  }
+}
+
+/* Movimento reduzido: todo movimento vira troca de estado instantânea e o
+ * pulso some. Não é "mais devagar" — é sem animação, e nenhuma informação se
+ * perde: o estado final é o mesmo. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --movimento-toque: 0ms;
+    --movimento-chegada: 0ms;
+    --movimento-pulso: 0ms;
+    --movimento-pulso-anel: 0ms;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── PROVISÓRIOS · a aparência de HOJE, que ainda não mudou ──────────────
+ * A tela atual é a que o Lucas rejeitou: fundo azul-marinho, botões contornados
+ * iguais, fonte do sistema. Este pedido entrega o DS sem mudar a tela, então as
+ * cores antigas viraram tokens com prefixo --p- para a trava de cor valer.
+ *
+ * CADA UM MORRE no pedido que redesenha a tela dele: o que for migrado passa a
+ * usar --fundo, --tinta, --linha-N, e o --p-* correspondente é APAGADO. Um
+ * provisório que sobrevive ao redesenho é dívida. */
+:root {
+  --p-fundo: #0b1020;          /* PROVISÓRIO: azul-marinho rejeitado → --fundo */
+  --p-cartao: #151b30;         /* PROVISÓRIO → --superficie */
+  --p-borda: #26304d;          /* PROVISÓRIO → --borda */
+  --p-texto: #e8ecf7;          /* PROVISÓRIO → --tinta */
+  --p-fosco: #93a0c2;          /* PROVISÓRIO → --fosca */
+  --p-aberto: #38d39f;         /* PROVISÓRIO: estado por cor → forma + --linha-N */
+  --p-feito: #6aa9ff;          /* PROVISÓRIO → cor da linha da estação */
+  --p-trancado: #5a6482;       /* PROVISÓRIO → --trancada */
+  --p-alerta: #ffb454;         /* PROVISÓRIO → --alerta */
+  --p-alerta-fundo: #3a2a12;   /* PROVISÓRIO → --alerta-fundo */
+  --p-alerta-borda: #6b4a1c;   /* PROVISÓRIO → --alerta-fundo + --alerta */
+  --p-recurso-fundo: #101a30;  /* PROVISÓRIO → --superficie */
+  --p-link-biblio: #9fb8d8;    /* PROVISÓRIO → --linha-6 */
+  --p-link-biblio-forte: #d8e4f5; /* PROVISÓRIO → --tinta */
+  --p-link-biblio-borda: rgba(159, 184, 216, 0.5); /* PROVISÓRIO → --linha-6 */
+  --p-nota: #8a8f98;           /* PROVISÓRIO → --fosca */
+  --p-riscado: #4a5a80;        /* PROVISÓRIO → --trancada */
+  --p-botao-fundo: #1d2740;    /* PROVISÓRIO → --superficie */
+  --p-aberto-fundo: #12352a;   /* PROVISÓRIO → cor da linha a 25% */
+  --p-aberto-borda: #1f6b52;   /* PROVISÓRIO → cor da linha */
+  --p-feito-fundo: #16233d;    /* PROVISÓRIO → cor da linha a 25% */
+  --p-feito-borda: #2c4c7d;    /* PROVISÓRIO → cor da linha */
+  --p-aviso-fundo: #1b1f33;    /* PROVISÓRIO → --superficie */
+  --p-obras-borda: #8a6a1f;    /* PROVISÓRIO → --alerta */
+  --p-obras-fundo: #1d1a12;    /* PROVISÓRIO → --alerta-fundo */
+  --p-obras-texto: #e9d9a8;    /* PROVISÓRIO → --alerta */
+  --p-obras-caixa: #2a2313;    /* PROVISÓRIO → --alerta-fundo */
+  --p-obras-caixa-borda: #55461f; /* PROVISÓRIO → --alerta */
+  --p-esp-nota: #c9b98a;       /* PROVISÓRIO → --fosca */
+}

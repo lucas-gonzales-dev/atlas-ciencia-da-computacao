@@ -9,13 +9,27 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icone.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icons/icone.svg">
+<!-- DESIGN SYSTEM (29/10/2026): tokens.css e a UNICA fonte de cor, tipo,
+     espaco, raio, duracao e ponto de quebra do app; fontes.css declara a
+     Overpass (SIL OFL 1.1, woff2 local em app/fonts/). Os dois vem ANTES do
+     style inline para que ele possa usar var(--*). Nao ha build: o que esta no
+     disco e o que o navegador usa. -->
+<link rel="stylesheet" href="./web/tokens.css">
+<link rel="stylesheet" href="./web/fontes.css">
 <style>
   /* Mobile-first de verdade: o padrao E o celular. Tela grande so ganha
      largura e colunas, nunca outra estrutura. */
+  /* MIGRACAO (29/10/2026): nenhuma cor escrita a mao aqui. Estes nomes viraram
+     APELIDOS para os tokens PROVISORIOS do tokens.css (--p-*), que guardam a
+     aparencia de hoje — o azul-marinho que o Lucas rejeitou. A tela nao muda
+     de proposito: este pedido entrega o design system, e a tela redesenhada vem
+     nos proximos. Quando uma regra migrar para --fundo/--tinta/--linha-N, o
+     apelido e o --p-* dela morrem juntos. Veja "Migracao" em design/README.md. */
   :root {
-    --fundo: #0b1020; --cartao: #151b30; --borda: #26304d;
-    --texto: #e8ecf7; --fosco: #93a0c2;
-    --aberto: #38d39f; --feito: #6aa9ff; --trancado: #5a6482; --alerta: #ffb454;
+    --fundo: var(--p-fundo); --cartao: var(--p-cartao); --borda: var(--p-borda);
+    --texto: var(--p-texto); --fosco: var(--p-fosco);
+    --aberto: var(--p-aberto); --feito: var(--p-feito);
+    --trancado: var(--p-trancado); --alerta: var(--p-alerta);
   }
   * { box-sizing: border-box; }
   body {
@@ -29,7 +43,7 @@
   .fonte { font-size: .76rem; opacity: .85; word-break: break-word; }
   .alerta {
     margin: 12px 0; padding: 10px 12px; border-radius: 10px; font-size: .86rem;
-    background: #3a2a12; border: 1px solid #6b4a1c; color: var(--alerta);
+    background: var(--p-alerta-fundo); border: 1px solid var(--p-alerta-borda); color: var(--alerta);
   }
   .carregando { color: var(--fosco); }
   .trilha { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: 10px; }
@@ -51,7 +65,7 @@
   .item .recurso { grid-column: 1 / -1; grid-row: 2; justify-self: start; }
   a.recurso {
     margin-top: 8px; min-height: 40px; padding: 8px 14px; border-radius: 9px;
-    border: 1px solid var(--borda); background: #101a30; color: var(--feito);
+    border: 1px solid var(--borda); background: var(--p-recurso-fundo); color: var(--feito);
     font-size: .86rem; font-weight: 600; text-decoration: none;
     display: inline-flex; align-items: center;
   }
@@ -62,12 +76,12 @@
      texto menor — e aviso, nao rodape decorativo. */
   .item .biblio { grid-column: 1 / -1; grid-row: 3; display: flex; flex-direction: column; gap: 2px; margin-top: 6px; }
   a.biblio-link {
-    color: #9fb8d8; font-size: 0.82rem; text-decoration: none;
-    border-bottom: 1px dashed rgba(159, 184, 216, 0.5); align-self: flex-start;
+    color: var(--p-link-biblio); font-size: 0.82rem; text-decoration: none;
+    border-bottom: 1px dashed var(--p-link-biblio-borda); align-self: flex-start;
     word-break: break-all;
   }
-  a.biblio-link:hover, a.biblio-link:focus-visible { color: #d8e4f5; border-bottom-style: solid; }
-  .biblio-nota { color: #8a8f98; font-size: 0.72rem; line-height: 1.35; }
+  a.biblio-link:hover, a.biblio-link:focus-visible { color: var(--p-link-biblio-forte); border-bottom-style: solid; }
+  .biblio-nota { color: var(--p-nota); font-size: 0.72rem; line-height: 1.35; }
   /* NOTA UNICA (28/10/2026): o aviso saiu dos 35 cartoes e virou um <p> antes
      da lista. Sem margin ele colava no destaque de "proxima materia"; 60ch e a
      medida em que a linha ainda se le de um folego no celular e no desktop. */
@@ -77,18 +91,18 @@
   .item.disponivel .status { color: var(--aberto); }
   .item.concluida { border-left-color: var(--feito); opacity: .82; }
   .item.concluida .status { color: var(--feito); }
-  .item.concluida .titulo { text-decoration: line-through; text-decoration-color: #4a5a80; }
+  .item.concluida .titulo { text-decoration: line-through; text-decoration-color: var(--p-riscado); }
   .item.trancada, .item.ciclo { opacity: .62; }
   .item.ciclo .status { color: var(--alerta); }
   button.marca {
     margin-top: 8px; min-height: 40px; padding: 8px 16px; border-radius: 9px;
-    border: 1px solid var(--borda); background: #1d2740; color: var(--texto);
+    border: 1px solid var(--borda); background: var(--p-botao-fundo); color: var(--texto);
     font: inherit; font-size: .88rem; font-weight: 600; cursor: pointer;
   }
   button.marca:active { transform: translateY(1px); }
   button.marca:disabled { cursor: not-allowed; opacity: .45; }
-  .item.disponivel button.marca { background: #12352a; border-color: #1f6b52; color: var(--aberto); }
-  .item.concluida button.marca { background: #16233d; border-color: #2c4c7d; color: var(--feito); }
+  .item.disponivel button.marca { background: var(--p-aberto-fundo); border-color: var(--p-aberto-borda); color: var(--aberto); }
+  .item.concluida button.marca { background: var(--p-feito-fundo); border-color: var(--p-feito-borda); color: var(--feito); }
   /* ELETIVAS ARQUIVADAS (24/10/2026): mesma linguagem visual da grade, mas com
      borda esquerda cinza e opacidade menor — o olho tem de entender em meio
      segundo que isto NAO e o caminho obrigatorio. Sem cor de "disponivel",
@@ -97,7 +111,7 @@
   section.eletivas h2 { font-size: 1.15rem; margin: 0 0 4px; letter-spacing: -.01em; }
   .aviso-eletivas {
     margin: 0 0 10px; padding: 10px 12px; border-radius: 10px; font-size: .84rem;
-    background: #1b1f33; border: 1px solid var(--borda); color: var(--fosco);
+    background: var(--p-aviso-fundo); border: 1px solid var(--borda); color: var(--fosco);
   }
   .eletivas-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
   .item.eletiva {
@@ -118,18 +132,18 @@
   .item.esp { grid-template-columns: 1fr; align-items: start; }
   .item.esp .titulo { grid-column: 1; font-weight: 600; }
   .item.esp .status { grid-column: 1; color: var(--fosco); font-size: .78rem; }
-  .item.esp.aguardando { border-left-color: #8a6a1f; background: #1d1a12; }
+  .item.esp.aguardando { border-left-color: var(--p-obras-borda); background: var(--p-obras-fundo); }
   .aviso-esp {
     grid-column: 1; margin: 6px 0 0; padding: 9px 11px; border-radius: 9px;
-    font-size: .82rem; line-height: 1.45; color: #e9d9a8;
-    background: #2a2313; border: 1px solid #55461f;
+    font-size: .82rem; line-height: 1.45; color: var(--p-obras-texto);
+    background: var(--p-obras-caixa); border: 1px solid var(--p-obras-caixa-borda);
   }
   .esp-recursos { list-style: none; grid-column: 1; margin: 8px 0 0; padding: 0; display: grid; gap: 2px; }
   .esp-recursos li { padding: 7px 0; border-bottom: 1px solid var(--borda); font-size: .9rem; line-height: 1.4; }
   .esp-recursos li:last-child { border-bottom: 0; }
   .esp-recursos a { min-height: 44px; display: inline-flex; align-items: center; }
   .esp-meta { color: var(--fosco); font-size: .8rem; }
-  .esp-nota { color: #c9b98a; font-size: .78rem; }
+  .esp-nota { color: var(--p-esp-nota); font-size: .78rem; }
   /* PROGRESSO PORTATIL (27/10/2026): exportar/importar. Os dois botoes cabem
      lado a lado em tela larga e empilham no celular — flex-wrap, sem media
      query propria. Alvo de toque minimo de 44px vem do button.marca. */
@@ -153,9 +167,13 @@
   input.busca:focus-visible { outline: 2px solid var(--feito); outline-offset: 1px; }
   p.busca-vazia {
     margin: 14px 0 0; padding: 10px 12px; border-radius: 10px; font-size: .88rem;
-    background: #3a2a12; border: 1px solid #6b4a1c; color: var(--alerta);
+    background: var(--p-alerta-fundo); border: 1px solid var(--p-alerta-borda); color: var(--alerta);
   }
-  @media (min-width: 620px) {
+  /* PONTO DE QUEBRA (29/10/2026): era 620px, numero escrito a mao que nao era
+     nenhum dos 4 do DS. O tablet comeca em 600px (--bp-tablet), entao entre 600
+     e 619px o respiro largo chega 20px antes. Nenhuma estrutura muda aqui — e a
+     trava do DS que exige: @media so usa numero que existe nos tokens. */
+  @media (min-width: 600px) {
     .app { padding: 28px 20px 64px; }
     h1 { font-size: 1.9rem; }
     .item { grid-template-columns: 1fr auto auto; }

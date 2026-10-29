@@ -39,7 +39,12 @@
 // exportacao subiu para v2. Mesma razao das anteriores: cache-first + modulo
 // novo = quem ja instalou pediria, offline, um arquivo que o cache v7 nao tem,
 // e a tela morreria no import (index.html/main.js importam notes.js).
-const VERSAO = 'atlas-v8';
+// atlas-v9: entrou o DESIGN SYSTEM — web/tokens.css, web/fontes.css, os dois
+// woff2 da Overpass e core/textos.js. A fonte esta no precache de proposito:
+// offline sem a fonte seria OUTRA cara, que e exatamente o defeito que o DS
+// veio corrigir. Cache-first + asset novo = quem ja instalou pediria, offline,
+// um arquivo que o cache v8 nao tem.
+const VERSAO = 'atlas-v9';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.
@@ -55,6 +60,12 @@ const PRECACHE = [
   'icons/icone.svg',
   'web/boot.js',
   'web/main.js',
+  // Design system (29/10/2026): tokens e @font-face. A fonte e asset de cara —
+  // sem ela o app volta a ter fonte do sistema, que e o que o DS proibe.
+  'web/tokens.css',
+  'web/fontes.css',
+  'fonts/overpass-latin-var.woff2',
+  'fonts/overpass-mono-latin-var.woff2',
   'core/progress.js',
   'core/progress-io.js',
   // viagem.js ainda nao e importado por tela nenhuma (o pedido que o criou e o
@@ -63,6 +74,10 @@ const PRECACHE = [
   'core/viagem.js',
   'core/notes.js',
   'core/search.js',
+  // Os textos da tela, num lugar so (design/README.md §6). Ainda nao importado
+  // pela tela — entra aqui pelo mesmo motivo do viagem.js: o precache cobre o
+  // disco, e quando a tela redesenhada importar, o cache ja tem.
+  'core/textos.js',
   'core/catalog.js',
   'data/catalog.json',
   'data/ubl-core-seed.json',

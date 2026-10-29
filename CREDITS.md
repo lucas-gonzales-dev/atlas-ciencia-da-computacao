@@ -117,6 +117,149 @@ Lista tirada do próprio git da fonte (`git shortlog -sn` no SHA auditado
 - Leonel M. Morgado
 - Yúri Kerber
 
+## A tipografia: Overpass (SIL OFL 1.1)
+
+O design system do Atlas escolheu **uma família só**, de placa de sinalização:
+a **Overpass**, desenhada a partir da sinalização rodoviária americana, mais a
+**Overpass Mono** para números e códigos. A escolha e a escala estão em
+`design/README.md` §3.
+
+**De onde vieram os arquivos.** Os dois woff2 foram baixados do CDN oficial do
+Google Fonts (a Overpass é publicada lá sob SIL OFL 1.1), no subconjunto
+`latin` — o Atlas é em português, e `latin-ext`/`cyrillic`/`vietnamese` seriam
+bytes que nenhuma tela desenha. São **fontes variáveis**, por isso dois
+arquivos cobrem os três pesos que o DS usa (400, 700 e 900): o eixo `wght` vai
+de 100 a 900 na Overpass e de 300 a 700 na Mono.
+
+| Arquivo no repositório | Família | Peso declarado | Bytes | URL de onde veio |
+|---|---|---|---|---|
+| `app/fonts/overpass-latin-var.woff2` | Overpass | `100 900` | 39.380 | `https://fonts.gstatic.com/s/overpass/v19/qFdH35WCmI96Ajtm81GlU9s.woff2` |
+| `app/fonts/overpass-mono-latin-var.woff2` | Overpass Mono | `300 700` | 22.012 | `https://fonts.gstatic.com/s/overpassmono/v21/_Xmq-H86tzKDdAPa-KPQZ-AC1i-0tg.woff2` |
+
+**sha256 de cada arquivo**, para conferir que o binário do repositório é o que
+foi baixado (e que nenhum arquivo de fonte é duplicata de outro):
+
+- `overpass-latin-var.woff2` —
+  `29217ef8adef5f6c059feb461bdb029348205fc233dc9b6ca8604b0d068ac086`
+- `overpass-mono-latin-var.woff2` —
+  `a7ed2af1f5da37980a753570bad1fd59ebf7f0da7b215c110ea3b3c9d5552f56`
+
+O `@font-face` que declara as duas famílias está em `app/web/fontes.css`, e os
+dois arquivos estão no **precache** do service worker (`app/sw.js`): offline sem
+a fonte seria outra cara, que é exatamente o defeito que o design system veio
+corrigir.
+
+**O que a SIL OFL 1.1 permite:** usar, estudar, copiar, mesclar, embutir,
+modificar e redistribuir a fonte, inclusive com software comercial, e embuti-la
+em documentos sem que o documento herde a licença.
+
+**O que ela exige:** que cada cópia distribuída leve o aviso de copyright e o
+texto da licença; que a fonte nunca seja vendida sozinha; que nenhuma versão
+modificada use o nome reservado sem permissão escrita; e que a fonte e suas
+modificações continuem sob a OFL. O Atlas redistribui os arquivos **sem
+modificação**, com o aviso e o texto a seguir, e não os vende.
+
+### Texto integral da SIL Open Font License 1.1
+
+Copiado sem alteração de `ofl/overpass/OFL.txt` no repositório oficial
+[`google/fonts`](https://github.com/google/fonts):
+
+```
+Copyright 2021 The Overpass Project Authors (https://github.com/RedHatOfficial/Overpass)
+
+This Font Software is licensed under the SIL Open Font License, Version 1.1.
+This license is copied below, and is also available with a FAQ at:
+http://scripts.sil.org/OFL
+
+
+-----------------------------------------------------------
+SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007
+-----------------------------------------------------------
+
+PREAMBLE
+The goals of the Open Font License (OFL) are to stimulate worldwide
+development of collaborative font projects, to support the font creation
+efforts of academic and linguistic communities, and to provide a free and
+open framework in which fonts may be shared and improved in partnership
+with others.
+
+The OFL allows the licensed fonts to be used, studied, modified and
+redistributed freely as long as they are not sold by themselves. The
+fonts, including any derivative works, can be bundled, embedded,
+redistributed and/or sold with any software provided that any reserved
+names are not used by derivative works. The fonts and derivatives,
+however, cannot be released under any other type of license. The
+requirement for fonts to remain under this license does not apply
+to any document created using the fonts or their derivatives.
+
+DEFINITIONS
+"Font Software" refers to the set of files released by the Copyright
+Holder(s) under this license and clearly marked as such. This may
+include source files, build scripts and documentation.
+
+"Reserved Font Name" refers to any names specified as such after the
+copyright statement(s).
+
+"Original Version" refers to the collection of Font Software components as
+distributed by the Copyright Holder(s).
+
+"Modified Version" refers to any derivative made by adding to, deleting,
+or substituting -- in part or in whole -- any of the components of the
+Original Version, by changing formats or by porting the Font Software to a
+new environment.
+
+"Author" refers to any designer, engineer, programmer, technical
+writer or other person who contributed to the Font Software.
+
+PERMISSION & CONDITIONS
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of the Font Software, to use, study, copy, merge, embed, modify,
+redistribute, and sell modified and unmodified copies of the Font
+Software, subject to the following conditions:
+
+1) Neither the Font Software nor any of its individual components,
+in Original or Modified Versions, may be sold by itself.
+
+2) Original or Modified Versions of the Font Software may be bundled,
+redistributed and/or sold with any software, provided that each copy
+contains the above copyright notice and this license. These can be
+included either as stand-alone text files, human-readable headers or
+in the appropriate machine-readable metadata fields within text or
+binary files as long as those fields can be easily viewed by the user.
+
+3) No Modified Version of the Font Software may use the Reserved Font
+Name(s) unless explicit written permission is granted by the corresponding
+Copyright Holder. This restriction only applies to the primary font name as
+presented to the users.
+
+4) The name(s) of the Copyright Holder(s) or the Author(s) of the Font
+Software shall not be used to promote, endorse or advertise any
+Modified Version, except to acknowledge the contribution(s) of the
+Copyright Holder(s) and the Author(s) or with their explicit written
+permission.
+
+5) The Font Software, modified or unmodified, in part or in whole,
+must be distributed entirely under this license, and must not be
+distributed under any other license. The requirement for fonts to
+remain under this license does not apply to any document created
+using the Font Software.
+
+TERMINATION
+This license becomes null and void if any of the above conditions are
+not met.
+
+DISCLAIMER
+THE FONT SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT
+OF COPYRIGHT, PATENT, TRADEMARK, OR OTHER RIGHT. IN NO EVENT SHALL THE
+COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+INCLUDING ANY GENERAL, SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL
+DAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
+OTHER DEALINGS IN THE FONT SOFTWARE.
+```
+
 ## Recursos externos
 
 Cada disciplina e cada especialização do Atlas aponta para cursos, vídeos,
