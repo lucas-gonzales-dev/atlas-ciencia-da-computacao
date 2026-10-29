@@ -7,6 +7,10 @@
 # planejamento, secao "Recriar a fonte auditada", com o SHA exato.
 source/
 
+# Rascunho e prova de mutacao: script descartavel que a Aurora roda para provar
+# que os testes discriminam. Nao e parte do produto e nao pertence ao historico.
+tmp/
+
 # Artefatos de bytecode do Python.
 __pycache__/
 *.py[cod]
