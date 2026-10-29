@@ -18,6 +18,10 @@
 //      medido a olho.
 //   4. TEXTOS: core/textos.js não tem texto vazio, as funções usam o parâmetro
 //      que recebem, e os oito estados obrigatórios existem.
+//   5. HEURÍSTICAS: a tabela do design/README.md §8 tem as 10, numeradas de 1 a
+//      10, e a coluna "Onde se confere" preenchida — com teste que EXISTE no
+//      disco, ou com a captura de tela que falta. O documento diz que coluna
+//      vazia reprova a suíte; este item é o que torna essa frase verdade.
 //
 // LIMITE HONESTO: node não tem navegador. O que se prova é o que falharia em
 // silêncio no código; como a tela aparece de verdade se confere com
@@ -399,4 +403,62 @@ test('textos: o proibido está escrito em código, para o próximo desenvolvedor
   assert.ok(Array.isArray(proibido) && proibido.length >= 10, 'a lista do proibido sumiu');
   for (const item of proibido) assert.ok(item.trim(), 'item vazio na lista do proibido');
   assert.equal(TEXTOS.proibido, proibido, 'TEXTOS não exporta a lista do proibido');
+});
+
+// ---------------------------------------------------------------------------
+// 5. HEURÍSTICAS (design/README.md §8)
+// ---------------------------------------------------------------------------
+// O documento afirma: "Se a coluna 'Onde se confere' estiver vazia, a
+// heurística não está implementada — e o teste design-system.test.js reprova".
+// Nada lia a tabela, então a afirmação era falsa: uma heurística podia perder a
+// forma de conferir sem que nenhum teste caísse. Agora cai.
+
+/** O texto de uma seção `##` do documento, até a próxima seção. */
+function secaoDe(texto, titulo) {
+  const inicio = texto.indexOf(titulo);
+  assert.ok(inicio >= 0, `a seção "${titulo}" sumiu do design/README.md`);
+  const fim = texto.indexOf('\n## ', inicio + titulo.length);
+  return texto.slice(inicio, fim < 0 ? texto.length : fim);
+}
+
+/** As linhas de dados de uma tabela markdown: [célula1, célula2, …]. */
+function linhasDaTabela(secao) {
+  return secao
+    .split('\n')
+    .filter((l) => /^\|\s*\d+\s*\|/.test(l)) // só linha que COMEÇA com número
+    .map((l) => l.split('|').slice(1, -1).map((c) => c.trim()));
+}
+
+test('heurísticas: as 10 na tabela, numeradas, cada uma com onde se confere', async () => {
+  const doc = await readFile(join(REPO, 'design/README.md'), 'utf8');
+  const linhas = linhasDaTabela(secaoDe(doc, '## 8. As 10 heurísticas'));
+
+  assert.deepEqual(
+    linhas.map((c) => c[0]),
+    ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
+    'a tabela das heurísticas não tem as 10 linhas numeradas de 1 a 10',
+  );
+
+  for (const c of linhas) {
+    const [n, nome, regra, onde] = c;
+    assert.ok(/\S/.test(nome ?? ''), `heurística ${n}: sem nome`);
+    assert.ok(
+      (regra ?? '').length >= 40,
+      `heurística ${n} (${nome}): a regra concreta está vazia — o DS tem de ser `
+        + 'preciso o bastante para ser seguido sem olhar a tela',
+    );
+    assert.ok(
+      /\.test\.js|captura/.test(onde ?? ''),
+      `heurística ${n} (${nome}): "Onde se confere" vazia. Coluna vazia é `
+        + 'heurística não implementada — aponte o teste que a cobre ou escreva '
+        + 'que falta a captura de tela',
+    );
+    // Citar teste que não existe é o mesmo buraco com outra roupa: a coluna
+    // fica preenchida e a prova, ausente.
+    for (const m of (onde ?? '').matchAll(/tests\/([\w.-]+\.test\.js)/g)) {
+      await readFile(join(RAIZ, 'tests', m[1]), 'utf8').catch(() =>
+        assert.fail(`heurística ${n} cita tests/${m[1]}, que não existe no disco`),
+      );
+    }
+  }
 });
