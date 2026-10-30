@@ -94,12 +94,19 @@
 // salva nada, e e exatamente o cache-first da regra antiga que a trava da v11
 // obriga a declarar. Sem subir a VERSAO, o navegador compara este arquivo por
 // bytes, nao instala, e a pessoa anota, fecha e perde a anotacao para sempre.
-const VERSAO = 'atlas-v15';
+// atlas-v16: a 2d-1 (critica visual do Claude) mudou o metro.js no conteudo: o
+// aviso da chegada passou a dizer o que o gesto destrancou, pelo nome, inclusive
+// baldeacao, e "Comecar a estudar" ganhou embaixo a ORIGEM do recurso tirada do
+// catalogo. Quem tem v15 no cache continuaria concluindo sem saber o que abriu e
+// abrindo video sem saber de onde veio — e e a regra da trava da v11 que obriga a
+// declarar. Sem subir a VERSAO, o navegador compara este arquivo por bytes, nao
+// instala, e a tela fica na chegada muda de antes.
+const VERSAO = 'atlas-v16';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
 // deixa o cache antigo sem o nome novo. Recalcular: node tests/precache-hash.js.
-const PRECACHE_HASH = 'sha256-5152409826e046dc36542f4d6169b90f5a3761b4b0e5ba4394f37ab49b22357b';
+const PRECACHE_HASH = 'sha256-6e2eb88bf83006f870a1b192082dc09affd5d390ba5123b0c529025fae11d48a';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.

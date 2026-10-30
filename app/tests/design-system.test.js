@@ -415,6 +415,7 @@ test('textos: as funções com valor usam o valor que recebem', async () => {
     trancadaFalta: ['Cálculo I'],
     trancadaFaltam: ['Cálculo I e Cálculo II'],
     baldeacao: ['Algoritmos II', 4],
+    destrancou: ['Algoritmos II'],
     buscaVazia: ['quântica'],
     viagem: [12, 35],
     progressoLinha: [2, 3, 5],

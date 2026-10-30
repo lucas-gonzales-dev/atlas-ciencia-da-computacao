@@ -258,6 +258,57 @@ export function baldeacoes(progresso, catalogo) {
   return feitas;
 }
 
+/**
+ * O QUE O GESTO DE AGORA ABRIU (FATIA 2d-1, JORNADA §2.5).
+ *
+ * \"Depois de concluir, a pessoa quer saber o que o gesto dela destrancou.\" Isso
+ * é regra de estado — quais estações passaram a estar disponíveis, e se um par
+ * de baldeação se formou — e por isso mora AQUI, não na tela. A placa, o bilhete
+ * e o aviso da chegada leem a mesma porta; reimplementar pré-requisito no
+ * metro.js é ter duas regras que discordam em silêncio.
+ *
+ * A definição de \"abriu\" é comparativa, como em marcosNovos: vale em `depois`
+ * e não valia em `antes`. Desfazer, concluído de novo, qualquer gesto que não
+ * mude o conjunto devolve lista vazia.
+ *
+ * @param {unknown} antes progresso antes do gesto
+ * @param {unknown} depois progresso depois do gesto
+ * @param {Array} catalogo
+ * @returns {{destravadas: Array<{id:string,titulo:string,linha:number|null}>,
+ *            baldeacao: {de:object,para:object}|null}}
+ */
+export function abreComBaldeacao(antes, depois, catalogo) {
+  const { lista, byId } = malha(catalogo);
+  const a = lerProgresso(antes);
+  const b = lerProgresso(depois);
+  const feitasAntes = new Set(a.completed.filter((id) => byId.has(id)));
+  const feitasDepois = new Set(b.completed.filter((id) => byId.has(id)));
+
+  const informacao = (id) => {
+    const c = byId.get(id);
+    return {
+      id,
+      titulo: c && typeof c.title === 'string' ? c.title : id,
+      linha: c && Number.isFinite(Number(c.stage)) ? Number(c.stage) : null
+    };
+  };
+
+  // Destrancaram AGORA: estão livres depois do gesto e não estavam livres antes.
+  const livresAntes = new Set(unlockedCourses(lista, [...feitasAntes]));
+  const destravadas = unlockedCourses(lista, [...feitasDepois])
+    .filter((id) => !feitasAntes.has(id) && !livresAntes.has(id))
+    .map(informacao);
+
+  // Baldeação que SE FORMOU agora: o par existe em `depois` e não existia em
+  // `antes` (pelo menos um dos dois ainda não estava concluído).
+  const par = baldeacoes(b, lista).find((p) => !feitasAntes.has(p.de) || !feitasAntes.has(p.para)) || null;
+
+  return {
+    destravadas,
+    baldeacao: par ? { de: informacao(par.de), para: informacao(par.para) } : null
+  };
+}
+
 // ────────────────────────────── resumo da viagem ──────────────────────────────
 
 /**

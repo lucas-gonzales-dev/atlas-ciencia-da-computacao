@@ -15,7 +15,7 @@
 //   3. NENHUMA COR AQUI. A cor da linha é uma CLASSE (.l1 … .l7) que o CSS
 //      resolve com os tokens. JS que escolhe hex é JS que fura o design system.
 
-import { placa, comValores, estados } from '../core/textos.js';
+import { placa, comValores, estados, ORIGEM, TIPO_DE_ORIGEM } from '../core/textos.js';
 import {
   ESTADOS,
   lerProgresso,
@@ -24,7 +24,8 @@ import {
   concluirEstacao,
   iniciarEstacao,
   desfazerConclusao,
-  marcosNovos
+  marcosNovos,
+  abreComBaldeacao
 } from '../core/viagem.js';
 
 // ─────────────────────────── progresso em curso / datas ───────────────────────────
@@ -103,6 +104,95 @@ export function rotuloEstacao(estacao, linha) {
 /** A ação ÚNICA da placa: "Continuar" quando já está em curso, senão começar. */
 export function acaoDaPlaca(estado) {
   return estado === ESTADOS.EM_CURSO ? placa.continuar : placa.comecarEstudar;
+}
+
+/**
+ * DE ONDE VEIO O RECURSO (fatia 2d-1, JORNADA §2.3: "a pessoa desiste se o
+ * recurso abrir sem dizer de onde veio").
+ *
+ * Nada é inventado: a frase sai do `resourceType` e do domínio de `resourceUrl`
+ * DO CATÁLOGO. O que a fonte não diz, a tela não diz — por isso a função devolve
+ * `null` (e o desenho não mostra nada) quando nem tipo nem site são conhecidos.
+ *
+ * Esta tabela é o dicionário host → nome pelo qual a pessoa chama o lugar. Não é
+ * texto de tela: é a tradução de um nome próprio que já está no endereço, e por
+ * isso mora ao lado da regra que lê o endereço. As FRASES (com a preposição, o
+ * artigo, o "no") estão em core/textos.js, onde todo texto deste arquivo mora.
+ */
+export const ORIGEM_DE_SITE = new Map(Object.entries(Object.freeze({
+  'youtube.com': 'YouTube',
+  'khanacademy.org': 'Khan Academy',
+  'coursera.org': 'Coursera',
+  'edx.org': 'edX',
+  'udemy.com': 'Udemy',
+  'escolavirtual.gov.br': 'Escola Virtual',
+  'cursoemvideo.com': 'Curso em Vídeo',
+  'univesp.br': 'UNIVESP',
+  'github.com': 'GitHub',
+  '4linux.com.br': '4Linux',
+  'solyd.com.br': 'Solyd',
+  'eucapacito.com.br': 'Eu Capacito',
+  'elastic.co': 'Elastic',
+  'microfocus.com': 'Micro Focus',
+  'nova8.com.br': 'Nova',
+  'acaditi.com.br': 'Acaditi',
+  'hackaflag.com.br': 'HackaFlag',
+  'convisoappsec.com': 'Conviso'
+})));
+
+/** O domínio cru do endereço, sem o `www` que nenhuma pessoa fala. */
+export function hostDoRecurso(url) {
+  if (typeof url !== 'string' || !url.trim()) return null;
+  let host = null;
+  try {
+    host = new URL(url).hostname;
+  } catch {
+    return null; // endereço quebrado: a tela não adivinha de onde veio
+  }
+  const semWww = host.replace(/^www\./i, '');
+  return semWww || null;
+}
+
+/** O nome pelo qual a pessoa conhece aquele domínio. Desconhecido = null. */
+export function dominioLegivel(host) {
+  if (typeof host !== 'string' || !host) return null;
+  const alvo = host.toLowerCase().replace(/^www\./, '');
+  for (const [chave, nome] of ORIGEM_DE_SITE) {
+    if (alvo === chave || alvo.endsWith(`.${chave}`)) return nome;
+  }
+  return null;
+}
+
+/**
+ * A frase de origem, montada pelo texto do núcleo a partir do que o catálogo diz.
+ * `null` é resposta legítima: sem tipo conhecido e sem site conhecido, a tela
+ * cala — é o que a regra "nada inventado" exige.
+ */
+export function origemDoRecurso(curso) {
+  if (!curso) return null;
+  const nomeDoTipo = TIPO_DE_ORIGEM[curso.resourceType];
+  const fazer = nomeDoTipo ? ORIGEM[nomeDoTipo] : null;
+  const site = dominioLegivel(hostDoRecurso(curso.resourceUrl));
+  if (fazer) return fazer(site);
+  return site ? ORIGEM.somenteSite(site) : null;
+}
+
+/**
+ * O AVISO DA CHEGADA (fatia 2d-1, JORNADA §2.5: quem conclui "quer saber o que o
+ * gesto dela destrancou"). É montagem de texto puro: nomes, números e o par de
+ * baldeação vêm do núcleo (`abreComBaldeacao`), e as frases vêm de textos.js.
+ * A tela não decide nada aqui — o que decide está em core/viagem.js, e o teste
+ * de mutação não deixa o desenho chamar outra coisa.
+ */
+export function textoDaChegada({ titulo, concluidas, total, abre = [], baldeacao = null }) {
+  const partes = [`${placa.concluida} ${titulo}`];
+  const nomes = (Array.isArray(abre) ? abre : [])
+    .map((c) => c?.titulo)
+    .filter(Boolean);
+  if (nomes.length > 0) partes.push(comValores.destrancou(nomes.join(', ')));
+  if (baldeacao?.para) partes.push(comValores.baldeacao(baldeacao.para.titulo, baldeacao.para.linha));
+  partes.push(comValores.viagem(concluidas, total));
+  return partes.join(' · ');
 }
 
 /**
@@ -318,6 +408,13 @@ export function desenharMetro(doc, root, estado) {
     }
     cartao.append(acao);
     nos.placaAcao = acao;
+    // FATIA 2d-1 (JORNADA §2.3): o botão abre um site lá fora, e abrir no escuro
+    // é motivo de desistência. A linha embaixo da ação diz de onde o recurso
+    // veio, com a MESMA palavra da folha — uma origem por tela, não duas.
+    const origemPlaca = origemDoRecurso(proxima.estado === ESTADOS.EM_CURSO ? null : curso);
+    if (origemPlaca) {
+      cartao.append(el(doc, 'p', 'placa-origem', { text: origemPlaca }));
+    }
   } else {
     // Terminal, ou catálogo sem estação: a placa diz o estado em vez de mentir.
     cartao.append(el(doc, 'p', 'placa-nome', {
@@ -445,11 +542,26 @@ export function desenharMetro(doc, root, estado) {
   // aviso (texto + desfazer) e a linha com exatamente dois `data-id` depois do
   // desfazer — um aviso que se empilha a cada pintura faria quatro.
   if (chegadaId) {
+    // FATIA 2d-1 (JORNADA §2.5): \"Concluída.\" sozinha é o gesto sem o
+    // resultado. O aviso diz QUAL estação, O QUE ela abriu pelo nome (inclusive a
+    // baldeação, quando o par se formou agora) e o contador. O que abriu vem do
+    // núcleo (abreComBaldeacao, no gesto) e as frases de textos.js — aqui só se
+    // monta. Sem informação nenhuma no estado, textoDaChegada devolve a frase
+    // curta de sempre, e o aviso não inventa destravamento.
+    const chegou = estadoDaEstacao(chegadaId, progresso, catalogo);
     aviso = el(doc, 'div', 'aviso-chegada', { role: 'status' });
     desfazer = el(doc, 'button', 'desfazer', {
       type: 'button', 'data-desfazer': chegadaId, text: placa.desfazer
     });
-    aviso.append(el(doc, 'span', 'aviso-texto', { text: placa.concluida }));
+    aviso.append(el(doc, 'span', 'aviso-texto', {
+      text: textoDaChegada({
+        titulo: chegou?.titulo || '',
+        concluidas: resumo.concluidas,
+        total: resumo.estacoes,
+        abre: estado.chegada.abre,
+        baldeacao: estado.chegada.baldeacao
+      })
+    }));
     aviso.append(desfazer);
     root.append(aviso);
     nos.aviso = aviso;
@@ -481,6 +593,11 @@ function folha(doc, curso, e, id, aberta, linha) {
       // UM verbo só na tela (item 5 da crítica): o mesmo texto da placa.
       'data-recurso': curso.id, text: placa.comecarEstudar
     }));
+    // FATIA 2d-1 (JORNADA §2.3): embaixo do botão, a origem que o CATÁLOGO diz.
+    // Nada inventado: sem tipo conhecido e sem site conhecido, a linha não sai —
+    // a tela cala em vez de adivinhar. É a palavra da placa, na mesma folha.
+    const origem = origemDoRecurso(curso);
+    if (origem) box.append(el(doc, 'p', 'recurso-origem', { text: origem }));
   }
 
   if (curso?.bibliography) {
@@ -642,8 +759,11 @@ export async function subirMetro(deps = {}) {
   // esqueleto nascer já junto com a placa, sem nunca ter mostrado a espera.
   pintar();
 
-  const avisarChegada = (id) => {
-    ui.chegada = { id };
+  const avisarChegada = (id, abriu) => {
+    // 2d-1: além do id, a chegada carrega O QUE O GESTO ABRIU — calculado pelo
+    // núcleo no momento do concluir, porque a pintura não pode recomparar antes
+    // e depois (depois de pintar, o "antes" já se perdeu).
+    ui.chegada = { id, abre: abriu?.destravadas || [], baldeacao: abriu?.baldeacao || null };
     if (janela) clearTimeout(janela);
     // A chegada é o momento em que o esforço vira visível (JORNADA §2.4/§4.6):
     // sem pintar aqui, o círculo enchia no estado e a tela não mostrava nada.
@@ -683,7 +803,11 @@ export async function subirMetro(deps = {}) {
       const marcos = marcosNovos(antes, depois, ui.catalogo);
       const chegou = marcos.find((m) => m.tipo === 'estacao' && m.id === id);
       ui.despertas = [id];
-      if (chegou) avisarChegada(id); else pintar();
+      // O que o gesto abriu, perguntado ao núcleo ANTES de pintar: a tela não
+      // reimplementa pré-requisito (regra 1 do arquivo), e a pintura sozinha não
+      // tem como saber o "antes".
+      if (chegou) avisarChegada(id, abreComBaldeacao(antes, depois, ui.catalogo));
+      else pintar();
     },
     // MARCAR é concluir pela porta do embarque: a lista fecha junto, porque o
     // embarque é o momento de quem ainda não tem nada concluído (JORNADA §2.2).

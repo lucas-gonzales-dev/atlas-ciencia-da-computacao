@@ -21,10 +21,15 @@ import { fileURLToPath } from 'node:url';
 import {
   desenharMetro, desenharEsqueleto, bindMetro, rotuloEstacao, acaoDaPlaca,
   textoDoQueFalta, estacoesDaLinha, linhasDoCatalogo, carregarViagem,
-  salvarViagem, subirMetro, ESTADO_LEGIVEL, CHAVE_VIAGEM
+  salvarViagem, subirMetro, ESTADO_LEGIVEL, CHAVE_VIAGEM,
+  origemDoRecurso, hostDoRecurso, dominioLegivel, ORIGEM_DE_SITE, textoDaChegada
 } from '../web/metro.js';
-import { ESTADOS, resumoDaViagem, estadoDaEstacao } from '../core/viagem.js';
-import { placa as PLACAS, comValores, estados as TEXTOS_ESTADOS } from '../core/textos.js';
+import {
+  ESTADOS, resumoDaViagem, estadoDaEstacao, concluirEstacao, abreComBaldeacao
+} from '../core/viagem.js';
+import {
+  placa as PLACAS, comValores, estados as TEXTOS_ESTADOS, ORIGEM, TIPO_DE_ORIGEM
+} from '../core/textos.js';
 import { setNota } from '../core/notes.js';
 import * as mainReal from '../web/main.js';
 
@@ -110,10 +115,13 @@ const CATALOGO = [
 
 function raiz(doc) { return doc.registrar('metro', doc.createElement('div')); }
 
-function desenhar({ completed = [], emCurso = [], linha = 1, aberta = null, despertas, embarqueAberto = false, notas = {} }) {
+function desenhar({ completed = [], emCurso = [], linha = 1, aberta = null, despertas, embarqueAberto = false, notas = {}, catalogo: dado = CATALOGO }) {
   const doc = criarDoc();
   const root = raiz(doc);
-  const catalogo = CATALOGO.map((c) => (notas[c.id] ? { ...c, nota: notas[c.id] } : c));
+  // `dado` é o catálogo inteiro quando o teste precisa de um catálogo que não
+  // seja o padrão (a 2d-1: um recurso com tipo e domínio QUE O CATÁLOGO REAL USA,
+  // porque exemplo.org/video não existe em lugar nenhum e não ensinaria nada).
+  const catalogo = dado.map((c) => (notas[c.id] ? { ...c, nota: notas[c.id] } : c));
   const progresso = { completed, emCurso, conclusoes: {} };
   const nos = desenharMetro(doc, root, {
     catalogo, progresso, linha, aberta, despertas, embarqueAberto
@@ -162,6 +170,10 @@ test('placa: o contador é o texto do núcleo (N de M estações), não um núme
 
 test('MUTAÇÃO: placa sem selo da linha quebra o teste', () => {
   const mutado = desenharMetro.toString();
+  // O texto do aviso É uma chamada, não um texto escrito à mão dentro do desenho
+  // (regra 2 do metro.js): se a função sumir da linha, o aviso volta a ser
+  // \"Concluída.\" mudo — que é exatamente o que a 2d-1 veio consertar.
+  assert.ok(mutado.includes('textoDaChegada('), 'quem escreve o aviso é uma função, não o render');
   assert.ok(mutado.includes("selo(doc, proxima.linha"), 'a placa desenha o selo da linha');
   assert.ok(mutado.includes('placa-nome'), 'e o nome da estação');
   // mutação real: sem o resumo do núcleo, a placa inventaria a próxima
@@ -491,7 +503,7 @@ test('MUTAÇÃO: selo sem aria-current deixa de marcar a linha atual', () => {
 const CHAVE_NOTAS = 'atlas.anotacoes.v1';
 const CHAVE_PROGRESSO = 'atlas.progresso.v1';
 
-function modulosFake({ completed = [] } = {}) {
+function modulosFake({ completed = [], catalogo = CATALOGO } = {}) {
   const aparelho = criarStorage();
   const guardado = { completed: [...completed], notas: {}, aparelho };
   const lerNotas = () => {
@@ -499,7 +511,7 @@ function modulosFake({ completed = [] } = {}) {
   };
   return {
     guardado,
-    loadCatalog: async () => ({ courses: CATALOGO, origem: 'teste' }),
+    loadCatalog: async () => ({ courses: catalogo, origem: 'teste' }),
     loadCompleted: () => [...guardado.completed],
     saveCompleted: (lista) => {
       guardado.completed = [...lista];
@@ -515,11 +527,11 @@ function modulosFake({ completed = [] } = {}) {
   };
 }
 
-async function subirTela({ completed = [], timers = [] } = {}) {
+async function subirTela({ completed = [], timers = [], catalogo = CATALOGO } = {}) {
   const doc = criarDoc();
   const root = raiz(doc);
   const storage = criarStorage();
-  const modulos = modulosFake({ completed });
+  const modulos = modulosFake({ completed, catalogo });
   // O main.js real escreve no localStorage GLOBAL, nunca recebe storage. O dublê
   // faz o mesmo: fazer diferente seria continuar testando uma tela que não existe.
   globalThis.localStorage = modulos.guardado.aparelho;
@@ -563,7 +575,16 @@ test('chegada: concluir enche o círculo, marca o trecho e avisa com desfazer', 
   assert.ok(aviso, 'o aviso apareceu');
   assert.equal(aviso.getAttribute('role'), 'status', 'role=status: o leitor de tela anuncia a chegada');
   assert.equal(comAttr(aviso, 'data-desfazer')[0].getAttribute('data-desfazer'), 'l1a');
-  assert.equal(textoDe(aviso).includes(PLACAS.concluida), true);
+  // MUTOU na 2d-1 (30/10/2026): antes o aviso era PLACAS.concluida SOZINHO
+  // (\"Concluída.\") e o teste garantia essa frase. Ela ainda está no texto — mas
+  // agora o nome da estação que chegou e o contador também, porque \"Concluída.\"
+  // sem dizer o quê é o gesto sem o resultado (JORNADA §2.5).
+  const textoAviso = textoDe(aviso);
+  assert.ok(textoAviso.includes('Matemática Discreta'), 'o aviso diz QUAL estação chegou, pelo nome');
+  assert.ok(textoAviso.includes(comValores.viagem(1, 6)), 'e o quanto isso já é: 1 de 6 estações');
+  assert.ok(!textoAviso.includes('destrancou'),
+    'aqui l1a não abre nada (l2b precisa dela E de l1b): sem baldeação o aviso não fala de destravamento');
+  assert.ok(textoAviso.includes(PLACAS.concluida), 'a palavra do núcleo continua no aviso');
   assert.equal(textoDe(aviso).includes(PLACAS.desfazer), true);
   assert.equal(timers.length, 1, 'o desfazer tem janela');
   assert.equal(timers[0].ms, 6000, '--janela-desfazer é 6000 ms no token, e o relógio usa o mesmo número');
@@ -616,6 +637,192 @@ test('MUTAÇÃO: concluir sem o núcleo deixaria a data de viagem de fora', asyn
 test('chegada: os marcos vêm do núcleo — a tela não calcula o que destrancou', async () => {
   const fonte = readFileSync(fileURLToPath(new URL('../web/metro.js', import.meta.url)), 'utf8');
   assert.match(fonte, /marcosNovos\(antes, depois, ui\.catalogo\)/);
+});
+
+// ═══════════════ 4b. FATIA 2d-1: o que o gesto abriu, e de onde veio ═══════
+// A crítica do celular (30/10/2026), itens 1 e 2 da JORNADA:
+//   §2.5 Avançar — quem conclui quer saber o que o gesto dela destrancou, e o
+//     aviso dizia só \"Concluída.\";
+//   §2.3 — \"desiste se o recurso abrir sem dizer de onde veio\": o botão abria o
+//     YouTube no escuro. Nada inventado: a origem sai do resourceType e do
+//     domínio do resourceUrl, e o que o catálogo não diz a tela não diz.
+// Os dois catálogos abaixo usam os TIPOS e DOMÍNIOS QUE EXISTEM no catalog.json
+// de verdade (external_course_or_playlist, www.youtube.com, pt.khanacademy.org),
+// porque exemplo.org + 'video' não ensinam nada a ninguém.
+const CAT_RECURSO = [
+  { id: 'l1a', title: 'Matemática Discreta', stage: 1, prerequisites: [], resourceUrl: 'https://www.youtube.com/playlist?list=PLx', resourceType: 'external_course_or_playlist', bibliography: null },
+  { id: 'l1b', title: 'Algoritmos I', stage: 1, prerequisites: [], resourceUrl: 'https://pt.khanacademy.org/computing', resourceType: 'external_course_or_playlist', bibliography: null },
+  { id: 'l2a', title: 'Estrutura de Dados', stage: 2, prerequisites: ['l1b'], resourceUrl: 'https://www.cursoemvideo.com/matematica-discreta/', resourceType: 'external_course_or_playlist', bibliography: null },
+  { id: 'l2b', title: 'Arquitetura de Computadores', stage: 2, prerequisites: ['l1a'], resourceUrl: null, resourceType: null, bibliography: null }
+];
+
+// O catálogo da baldeação de verdade: uma estação da Linha 1 que é pré-requisito
+// de uma da Linha 2 JÁ CONCLUÍDA. Concluir a da Linha 1 é o que fecha o par — e
+// o par é a definição de baldeação em core/viagem.js.
+const CAT_BALDEACAO = [
+  { id: 'a1', title: 'Matemática Discreta', stage: 1, prerequisites: [], resourceUrl: null, resourceType: null },
+  { id: 'c1', title: 'Algoritmos I', stage: 1, prerequisites: ['a1'], resourceUrl: null, resourceType: null },
+  { id: 'b2', title: 'Estrutura de Dados', stage: 2, prerequisites: ['a1'], resourceUrl: null, resourceType: null }
+];
+
+test('origem: o que o catálogo diz vira palavra, e o que ele não diz vira nada', () => {
+  assert.equal(origemDoRecurso({ resourceType: 'external_course_or_playlist', resourceUrl: 'https://www.youtube.com/playlist?list=PLx' }),
+    ORIGEM.cursoOuPlaylist('YouTube'), 'tipo + domínio conhecido: \"Curso ou playlist no YouTube\"');
+  assert.equal(origemDoRecurso({ resourceType: 'external_course_or_playlist', resourceUrl: 'https://youtube.com/@abl' }),
+    ORIGEM.cursoOuPlaylist('YouTube'), 'youtube.com e www.youtube.com são o mesmo lugar');
+  assert.equal(origemDoRecurso({ resourceType: 'external_course_or_playlist', resourceUrl: 'https://pt.khanacademy.org/x' }),
+    ORIGEM.cursoOuPlaylist('Khan Academy'));
+  assert.equal(origemDoRecurso({ resourceType: 'video', resourceUrl: 'https://www.youtube.com/watch?v=1' }),
+    ORIGEM.video('YouTube'), 'tipo que a fonte usa em outros registros');
+  // O que NÃO está na fonte não pode virar afirmação da tela:
+  assert.equal(origemDoRecurso({ resourceType: 'external_course_or_playlist', resourceUrl: 'https://exemplo.org/x' }),
+    'Curso ou playlist', 'domínio que a fonte não usa: fica só o tipo, sem site');
+  assert.equal(origemDoRecurso({ resourceType: null, resourceUrl: 'https://www.youtube.com/x' }),
+    'YouTube', 'sem tipo: fica só o site');
+  assert.equal(origemDoRecurso({ resourceType: null, resourceUrl: 'https://exemplo.org/x' }), null,
+    'nada dito na fonte = nada na tela');
+  assert.equal(origemDoRecurso(null), null);
+  // O domínio nu sai da regra, e o texto final nunca é URL crua (lista do proibido):
+  assert.equal(hostDoRecurso('https://www.youtube.com/playlist?list=PLx'), 'youtube.com');
+  assert.equal(dominioLegivel('www.youtube.com'), 'YouTube');
+  assert.equal(ORIGEM_DE_SITE.get('youtube.com'), 'YouTube');
+  // A tabela tipo→palavra mora em textos.js com as outras palavras. Uma chave
+  // que não caça em função nenhuma é origem que some da tela em silêncio.
+  for (const [tipo, chave] of Object.entries(TIPO_DE_ORIGEM)) {
+    assert.equal(typeof ORIGEM[chave], 'function', `TIPO_DE_ORIGEM.${tipo} → ${chave} não existe em ORIGEM`);
+  }
+  assert.equal(TIPO_DE_ORIGEM.external_course_or_playlist, 'cursoOuPlaylist',
+    'o tipo que a fonte publica (35 registros) tem palavra');
+});
+
+test('folha: embaixo do botão, a origem tirada do próprio catálogo', () => {
+  const { root } = desenhar({ linha: 1, aberta: 'l1a', catalogo: CAT_RECURSO });
+  const folha = comClasse(root, 'detalhe').find((d) => d.getAttribute('hidden') === null);
+  const recurso = comAttr(folha, 'data-recurso')[0];
+  assert.equal(recurso.getAttribute('href'), 'https://www.youtube.com/playlist?list=PLx',
+    'o endereço continua sendo o do catálogo');
+  assert.equal(recurso.textContent, PLACAS.comecarEstudar, 'e o verbo único não mudou');
+  const origem = comClasse(folha, 'recurso-origem')[0];
+  assert.ok(origem, 'a folha diz de onde o recurso veio');
+  assert.equal(origem.textContent, ORIGEM.cursoOuPlaylist('YouTube'));
+  assert.ok(!origem.textContent.includes('http'), 'a origem é palavra, nunca URL crua');
+  assert.ok(folha.children.indexOf(origem) > folha.children.indexOf(recurso),
+    'a origem fica DEBAIXO do botão (JORNADA item 2)');
+  // Sem recurso, nenhum aviso de recurso: \"não temos fonte\" é o núcleo que diz,
+  // e isso é a fatia 3 — aqui a tela não inventa nem apaga.
+  const semRecurso = desenhar({ linha: 2, aberta: 'l2b', catalogo: CAT_RECURSO });
+  const f2 = comClasse(semRecurso.root, 'detalhe').find((d) => d.getAttribute('hidden') === null);
+  assert.equal(comAttr(f2, 'data-recurso').length, 0, 'sem resourceUrl não há botão de recurso');
+  assert.equal(comClasse(f2, 'recurso-origem').length, 0, 'e sem botão não há origem pendurada');
+});
+
+test('placa: a ação da próxima estação também diz de onde veio, com a MESMA palavra', () => {
+  const { root } = desenhar({ completed: [], catalogo: CAT_RECURSO });
+  const acao = comClasse(root, 'placa-acao')[0];
+  assert.equal(acao.getAttribute('href'), 'https://www.youtube.com/playlist?list=PLx');
+  const origem = comClasse(root, 'placa-origem')[0];
+  assert.equal(origem.textContent, ORIGEM.cursoOuPlaylist('YouTube'));
+  assert.equal(comAttr(root, 'data-acao-placa').length, 1, 'UMA ação só na placa, continua');
+  // A Khan Academy da l1b tem de sair com outro site — se a tela fixasse
+  // \"YouTube\" num lugar só, o teste acima passaria mentindo.
+  const outra = desenhar({ completed: ['l1a'], catalogo: CAT_RECURSO });
+  assert.equal(comClasse(outra.root, 'placa-origem')[0].textContent, ORIGEM.cursoOuPlaylist('Khan Academy'));
+});
+
+test('origem: a folha da estação do catálogo REAL tem origem (não é só o dublê)', () => {
+  // catalog.json só publica external_course_or_playlist; se o metro.js depender
+  // de um tipo que a fonte nunca escreve, a tela fica muda no site publicado.
+  const real = JSON.parse(readFileSync(fileURLToPath(new URL('../data/catalog.json', import.meta.url)), 'utf8'));
+  const courses = real.courses || real;
+  const comRecurso = courses.filter((c) => c.resourceUrl).slice(0, 5);
+  assert.ok(comRecurso.length > 0, 'o catálogo tem recurso');
+  for (const c of comRecurso) {
+    assert.equal(origemDoRecurso(c), ORIGEM.cursoOuPlaylist('YouTube'),
+      `${c.id}: ${c.resourceType} + ${c.resourceUrl} tem de virar palavra`);
+  }
+});
+
+test('chegada: o aviso diz o que a estação abriu, pelo nome', async () => {
+  const { api, root } = await subirTela({ completed: [] });
+  api.acoes.concluir('l1b'); // abre l2a (Estrutura de Dados), sozinha
+  const aviso = textoDe(comClasse(root, 'aviso-chegada')[0]);
+  assert.ok(aviso.includes(PLACAS.concluida), 'a palavra do núcleo continua');
+  assert.ok(aviso.includes('Algoritmos I'), 'a estação que chegou, pelo nome');
+  assert.ok(aviso.includes(comValores.destrancou('Estrutura de Dados')), `tem de dizer o que abriu: «${aviso}»`);
+  assert.ok(aviso.includes(comValores.viagem(1, 6)), 'e o contador');
+  assert.ok(!aviso.includes('Linha'), 'sem baldeação não se nomeia linha');
+  assert.ok(!aviso.includes('l2a'), 'nunca pelo id');
+});
+
+test('chegada: quando a estação abre o caminho por BALDEAÇÃO, o aviso nomeia a baldeação e a linha de destino', async () => {
+  const { api, root } = await subirTela({ completed: ['b2'], catalogo: CAT_BALDEACAO });
+  api.acoes.concluir('a1');
+  const aviso = textoDe(comClasse(root, 'aviso-chegada')[0]);
+  assert.ok(aviso.includes('Matemática Discreta'), 'a estação que chegou');
+  assert.ok(aviso.includes(comValores.destrancou('Algoritmos I')), 'o que ela abriu na própria linha');
+  assert.ok(aviso.includes(comValores.baldeacao('Estrutura de Dados', 2)),
+    `a baldeação com a estação de outra linha, com a linha de destino: «${aviso}»`);
+  assert.ok(aviso.includes(comValores.viagem(2, 3)), 'e o contador');
+});
+
+test('chegada: quem decide o que abriu é o núcleo — a tela não reimplementa pré-requisito', () => {
+  const progresso = { completed: ['b2'], emCurso: [], conclusoes: {} };
+  const p = concluirEstacao(progresso, 'a1', '2026-10-30', CAT_BALDEACAO);
+  const abre = abreComBaldeacao(progresso, p, CAT_BALDEACAO);
+  assert.deepEqual(abre.destravadas.map((c) => c.id), ['c1'], 'quem destrava agora');
+  assert.equal(abre.baldeacao.para.id, 'b2', 'e o par de baldeação que se formou');
+  assert.equal(abre.destravadas.length, 1, 'uma estação abriu, não duas');
+  // Nada de novo antes do gesto: o núcleo compara antes e depois.
+  const igual = abreComBaldeacao(progresso, progresso, CAT_BALDEACAO);
+  assert.deepEqual(igual.destravadas, [], 'concluir o que já estava concluído não abre nada');
+  assert.equal(igual.baldeacao, null);
+  const fonte = readFileSync(fileURLToPath(new URL('../web/metro.js', import.meta.url)), 'utf8');
+  assert.match(fonte, /import \{[\s\S]*abreComBaldeacao[\s\S]*\} from '\.\.\/core\/viagem\.js'/,
+    'a tela chama a porta do núcleo');
+  assert.ok(!fonte.includes('unlockedCourses('),
+    'a tela não calcula destravamento sozinha: duas regras de pré-requisito é a receita para placa e aviso discordarem');
+});
+
+test('aviso: o texto é montado por uma função, com as palavras do núcleo', () => {
+  const t = (extra) => textoDaChegada({
+    titulo: 'Matemática Discreta', concluidas: 2, total: 6, ...extra
+  });
+  assert.equal(t({}), 'Concluída. Matemática Discreta · 2 de 6 estações');
+  assert.equal(t({ abre: [{ id: 'c1', titulo: 'Algoritmos I', linha: 1 }] }),
+    'Concluída. Matemática Discreta · destrancou Algoritmos I · 2 de 6 estações');
+  assert.equal(t({
+    abre: [{ id: 'c1', titulo: 'Algoritmos I', linha: 1 }],
+    baldeacao: { para: { titulo: 'Estrutura de Dados', linha: 2 } }
+  }), 'Concluída. Matemática Discreta · destrancou Algoritmos I · baldeação com Estrutura de Dados (Linha 2) · 2 de 6 estações');
+  const todas = t({ abre: [{ titulo: 'A' }, { titulo: 'B' }] });
+  assert.ok(todas.includes('A, B'), 'abriu mais de uma: nomeia todas, como a folha faz com o que falta');
+});
+
+test('contrato: com o main.js REAL o aviso nomeia a estação e a folha diz a origem', async () => {
+  const gravado = new Map();
+  const aparelho = {
+    getItem: (k) => (gravado.has(String(k)) ? gravado.get(String(k)) : null),
+    setItem: (k, v) => { gravado.set(String(k), String(v)); },
+    removeItem: (k) => { gravado.delete(String(k)); }
+  };
+  globalThis.localStorage = aparelho;
+  try {
+    const modulos = { ...mainReal, loadCatalog: async () => ({ courses: CAT_RECURSO, origem: 'teste' }) };
+    const doc = criarDoc();
+    const root = raiz(doc);
+    const api = await subirMetro({
+      document: doc, root, storage: criarStorage(), modulos,
+      setTimeout: () => ({}), hoje: '2026-10-30'
+    });
+    assert.equal(comClasse(root, 'placa-origem')[0].textContent, ORIGEM.cursoOuPlaylist('YouTube'),
+      'a placa sobe com a origem, com o main.js de verdade');
+    api.acoes.concluir('l1a');
+    const aviso = textoDe(comClasse(root, 'aviso-chegada')[0]);
+    assert.ok(aviso.includes('Matemática Discreta'), `o aviso chegou inteiro: «${aviso}»`);
+    assert.ok(aviso.includes(comValores.viagem(1, 4)), 'e o contador bate com o catálogo');
+  } finally {
+    delete globalThis.localStorage;
+  }
 });
 
 // ═══════════════════════════ 5. os dois estados ═══════════════════════════

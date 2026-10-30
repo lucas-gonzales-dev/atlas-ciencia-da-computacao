@@ -73,6 +73,9 @@ export const comValores = {
   /** Baldeação: a conexão vem de outra linha. */
   baldeacao: (estacao, linha) => `baldeação com ${estacao} (Linha ${linha})`,
 
+  /** FATIA 2d-1 (§2.5): o que o gesto de agora abriu, pelo nome. */
+  destrancou: (nomes) => `destrancou ${nomes}`,
+
   /** Busca sem resultado: repete o termo, para provar que a busca ouviu. */
   buscaVazia: (termo) => `Nada encontrado para «${termo}».`,
 
@@ -93,6 +96,59 @@ export const comValores = {
   /** Link com nome, no lugar da URL crua. */
   linkBibliografia: (titulo) => `Bibliografia: ${titulo}`,
 };
+
+/**
+ * A ORIGEM do recurso — JORNADA §2.3: \"a pessoa desiste se o recurso abrir sem
+ * dizer de onde veio\". A frase é montada a partir do que O CATÁLOGO DIZ (o campo
+ * `resourceType` e o domínio de `resourceUrl`); o que a fonte não diz, a tela não
+ * diz. Por isso cada função aceita `site` e devolve a frase SEM o site quando ele
+ * não é conhecido — \"Curso ou playlist\" é honesto, \"Playlist no YouTube\"
+ * inventado é o que a tela não pode fazer.
+ *
+ * Não é uma das 4 chaves que o design-system percorre (placa/estados/legenda):
+ * aqui os valores são funções de propósito, como comValores, e a origem delas é
+ * medida em tests/metro.test.js contra o catalog.json real.
+ */
+export const ORIGEM = {
+  /** O tipo que a fonte publica: `external_course_or_playlist` (35 registros). */
+  cursoOuPlaylist: (site) => `Curso ou playlist${comSite(site)}`,
+  curso: (site) => `Curso${comSite(site)}`,
+  playlist: (site) => `Playlist${comSite(site)}`,
+  video: (site) => `Vídeo${comSite(site)}`,
+  texto: (site) => `Texto${comSite(site)}`,
+  artigo: (site) => `Artigo${comSite(site)}`,
+  livro: (site) => `Livro${comSite(site)}`,
+  /** Sem tipo na fonte: sobra o lugar, e o lugar já é uma palavra. */
+  somenteSite: (site) => site,
+};
+
+/**
+ * A preposição, como se fala: sites cujo nome termina em \"a\" pedem \"na\"
+ * (na Khan Academy, na Escola Virtual); os outros, \"no\" (no YouTube, no
+ * Coursera). É a única licença de forma desta lista — o nome vem do catálogo.
+ */
+function comSite(site) {
+  if (!site) return '';
+  return /a$/i.test(site) ? ` na ${site}` : ` no ${site}`;
+}
+
+/**
+ * `resourceType` da fonte → a palavra desta lista. Escrita aqui e não no
+ * metro.js porque vocabulário fora do lugar do texto é o que faz a mesma
+ * origem aparecer de dois jeitos em duas telas (regra 2 do metro.js).
+ */
+export const TIPO_DE_ORIGEM = Object.freeze({
+  external_course_or_playlist: 'cursoOuPlaylist',
+  course: 'curso',
+  playlist: 'playlist',
+  video: 'video',
+  artigo: 'artigo',
+  article: 'artigo',
+  texto: 'texto',
+  text: 'texto',
+  livro: 'livro',
+  book: 'livro',
+});
 
 /**
  * Os oito estados obrigatórios (design/README.md §6). Cada um traz o texto que
@@ -207,6 +263,6 @@ export const proibido = [
 ];
 
 /** Tudo junto, para quem precisa percorrer (o teste percorre). */
-export const TEXTOS = { placa, comValores, estados, legenda, proibido };
+export const TEXTOS = { placa, comValores, estados, legenda, proibido, ORIGEM, TIPO_DE_ORIGEM };
 
 export default TEXTOS;
