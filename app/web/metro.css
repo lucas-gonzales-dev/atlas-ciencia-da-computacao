@@ -101,23 +101,43 @@
 }
 .linhas .selo[aria-current="true"]::after { content: ""; }
 
-/* ── 2. a linha desenhada na VERTICAL, como o diagrama da porta do trem ─── */
+/* ── 2. a linha desenhada na VERTICAL, como o diagrama da porta do trem ───
+ * FATIA 2b-1 (pedido 21, 29/10/2026) — UM TRAÇO SÓ, CONTÍNUO. A crítica do
+ * Claude, abrindo a tela no celular (375×812): "a linha sai do lado do círculo,
+ * não do centro, e há buraco entre uma parada e a seguinte". Duas causas, e as
+ * duas morreram aqui:
+ *   · ALTURA FIXA no trecho (--espaco-4 em cima, --espaco-6 embaixo): quando a
+ *     linha é mais alta que a soma dos pedaços, sobra vazio entre um segmento e
+ *     o próximo. Agora cada trecho é `align-self: stretch` numa linha
+ *     `1fr auto 1fr`: ele enche exatamente o espaço entre dois círculos.
+ *   · COLUNA DE LARGURA `auto`: a coluna media a largura do círculo de 14 px,
+ *     mas a próxima tem 22 — o centro x mudava de uma estação para outra. A
+ *     coluna agora tem a largura da MAIOR forma e tudo nela é
+ *     `justify-items: center`: traço de 6, círculo de 14, círculo de 22 têm os
+ *     três o mesmo centro x.
+ * O círculo fica POR CIMA do traço: miolo opaco (--superficie) + z-index. */
 .diagrama { list-style: none; margin: var(--espaco-4) 0 0; padding: 0; }
-.parada { display: grid; grid-template-columns: auto 1fr; column-gap: var(--espaco-3); }
-
-/* o trilho: 6 px na cor da linha; percorrido = cor cheia, falta = cor a 25% */
-.trilho-col { display: grid; grid-template-rows: auto auto auto; justify-items: center; align-content: start; }
-.trilho-col .trilho-superior { grid-row: 1; }
-.trilho-col .forma { grid-row: 2; }
-.trilho-col .trilho-inferior { grid-row: 3; }
-.trilho { width: var(--trilho); background: var(--cor-fraca); border-radius: var(--raio-selo); }
-.trilho-superior { height: var(--espaco-4); }
-.trilho-inferior { height: var(--espaco-6); }
+.parada {
+  display: grid; grid-template-columns: var(--estacao-proxima) 1fr;
+  column-gap: var(--espaco-3); align-items: stretch;
+}
+.trilho-col {
+  display: grid; grid-template-rows: 1fr auto 1fr;
+  justify-items: center; align-content: stretch;
+}
+.trilho { width: var(--trilho); align-self: stretch; background: var(--cor-fraca); }
+.trilho-superior { grid-row: 1; }
+.trilho-inferior { grid-row: 3; }
 .trilho.percorrido { background: var(--cor); }
-.parada:first-child .trilho-superior, .parada:last-child .trilho-inferior { background: none; }
+/* Nas pontas o traço não existe: a linha começa no primeiro círculo e termina
+ * no último. `transparent` e não `none`, para o espaço continuar lá. */
+.parada:first-child .trilho-superior, .parada:last-child .trilho-inferior { background: transparent; }
 
 /* a forma do estado — a cor NUNCA é o único sinal: a forma e o rótulo dizem */
 .forma {
+  /* grid-row 2: o círculo mora na linha do MEIO da coluna (1fr auto 1fr).
+   * z-index 1 + miolo opaco: o traço passa POR BAIXO, nunca através. */
+  grid-row: 2; z-index: 1;
   width: var(--estacao); height: var(--estacao); border-radius: var(--raio-estacao);
   background: var(--superficie); position: relative; overflow: hidden;
   border: var(--anel-trancada) solid var(--trancada);   /* trancada: anel fino cinza */
@@ -132,11 +152,20 @@
   content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 50%;
   background: var(--cor);
 }
-.forma.proxima { animation: respirar var(--movimento-pulso) var(--curva-pulso) infinite; }
+/* FATIA 2b-1, item 2: SÓ a próxima é maior. O anel "você está aqui" pulsa
+ * devagar (--movimento-pulso, 2 s) e é um halo de box-shadow em --cor, não um
+ * scale — escalar a .forma faria o círculo da próxima sair da coluna de 22 px e
+ * o traço perder o centro outra vez. */
+.forma.proxima {
+  width: var(--estacao-proxima); height: var(--estacao-proxima);
+  border: var(--anel-disponivel) solid var(--cor);
+  animation: anelAqui var(--movimento-pulso) var(--curva-pulso) infinite;
+}
 .forma.desperta { animation: pulso var(--movimento-pulso-anel) var(--curva-mecanica); }
 
-@keyframes respirar {
-  50% { transform: scale(var(--pulso-escala)); }
+@keyframes anelAqui {
+  0%, 100% { box-shadow: 0 0 0 0 var(--cor); }
+  50% { box-shadow: 0 0 0 var(--espaco-2) var(--cor-fraca); }
 }
 @keyframes pulso {
   50% { transform: scale(var(--pulso-escala)); }
@@ -146,23 +175,29 @@
 .estacao {
   grid-column: 2; grid-row: 1; align-self: center;
   min-height: var(--alvo-toque); width: 100%;
-  display: flex; align-items: center; gap: var(--espaco-2);
+  display: flex; flex-direction: column; align-items: flex-start;
+  justify-content: center; gap: var(--espaco-1);
   margin: 0; padding: var(--espaco-2) 0; border: 0; background: none;
   color: inherit; font: inherit; text-align: left; cursor: pointer;
 }
 .estacao-nome { font-weight: var(--peso-forte); font-size: var(--tipo-corpo); }
+/* FATIA 2b-1, item 3: a etiqueta de estado mora DEBAIXO do nome, alinhada à
+ * esquerda e um degrau abaixo dele na escala (--tipo-nota, 12 px). Na crítica,
+ * "DISPONÍVEL" ao lado do nome competia com o nome e cortava em 375 px. */
 .estacao-estado {
   font-family: var(--fonte-placa); font-size: var(--tipo-nota);
+  font-weight: var(--peso-forte); line-height: var(--entrelinha-nota);
   letter-spacing: var(--espacamento-placa); text-transform: uppercase;
-  color: var(--fosca);
+  color: var(--fosca); align-self: flex-start; text-align: left;
 }
 .estacao.trancada .estacao-nome { color: var(--fosca); }
 .estacao.concluida .estacao-nome { color: var(--fosca); }
 .estacao[aria-expanded="true"] .estacao-nome { color: var(--cor); }
 
-/* o trilho fica na coluna 1, e a forma é desenhada DENTRO do botão:
- * .trilho-col carrega a forma para que o traço e o círculo alinhem */
-.trilho-col .forma { grid-row: 1; margin: var(--espaco-2) 0; }
+/* APAGADO na fatia 2b-1: havia um `.trilho-col .forma { grid-row: 1 }` que
+ * empurrava o círculo para a linha do traço de cima e fazia o traço sair do
+ * centro. A forma agora mora na linha do MEIO da coluna (1fr auto 1fr), e é o
+ * traço que corre atrás dela. */
 
 /* ── folha da estação: o que ela precisa ────────────────────────────────── */
 .detalhe {

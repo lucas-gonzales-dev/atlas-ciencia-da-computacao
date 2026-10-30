@@ -184,13 +184,18 @@ test('diagrama: 2 estações da linha, na ordem da fonte, com um trilho antes e 
 // { todo: 'fatia 2 do pedido 21: <o que falta>' } enquanto o desenho não existe,
 // e perde o todo no commit em que a tela a faz passar. São 12, medidas na suíte
 // de 29/10/2026 (284 testes: 271 pass, 12 fail, 1 todo).
-test('diagrama: a FORMA de cada estado é a que o design system manda', { todo: 'fatia 2 do pedido 21: miolo claro com background: var(--superficie) e a forma de cada estado no CSS' }, () => {
+test('diagrama: a FORMA de cada estado é a que o design system manda', () => {
   const css = readFileSync(fileURLToPath(new URL('../web/metro.css', import.meta.url)), 'utf8');
+  // A mira deste teste estava errada (fati 2b-1, 29/10/2026): `css.indexOf('.forma {')`
+  // achava primeiro `.trilho-col .forma { grid-row: 1 }`, um seletor que existia,
+  // e devolvia o bloco errado. Agora o seletor é ancorado no INÍCIO da linha —
+  // `.forma {` não casa com `.forma.concluida {`, e o miolo claro sempre esteve lá.
   const bloco = (seletor) => {
-    const i = css.indexOf(`${seletor} {`);
-    assert.ok(i >= 0, `o seletor ${seletor} existe no CSS`);
-    const fim = css.indexOf('}', i);
-    return css.slice(i, fim);
+    const re = new RegExp(`^${seletor.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\{`, 'm');
+    const m = re.exec(css);
+    assert.ok(m, `o seletor ${seletor} existe no CSS (no começo da linha)`);
+    const fim = css.indexOf('}', m.index);
+    return css.slice(m.index, fim);
   };
   // concluída = círculo cheio
   assert.match(bloco('.forma.concluida'), /background:\s*var\(--cor\)/);
@@ -205,13 +210,16 @@ test('diagrama: a FORMA de cada estado é a que o design system manda', { todo: 
   assert.match(bloco('.forma'), /border:\s*var\(--anel-trancada\)\s*solid\s*var\(--trancada\)/);
 });
 
-test('diagrama: cada estado recebe a classe certa na forma (e a palavra ao lado)', { todo: 'fatia 2 do pedido 21: o diagrama não desenha as formas dos 4 estados nem a palavra ao lado' }, () => {
+test('diagrama: cada estado recebe a classe certa na forma (e a palavra ao lado)', () => {
   const { root } = desenhar({ completed: ['l1a', 'l2a'], emCurso: ['l1b'], linha: 2 });
   const formas = comClasse(root, 'forma');
   // linha 2: l2a concluída (pré l1b em curso? não: l1b não está em completed →
   // l2a tem faltante, mas completed manda: concluída), l2b trancada (falta l1a? não: l1a concluída; falta l1b)
   const porId = new Map(comAttr(root, 'data-id').map((b) => [b.getAttribute('data-id'), b]));
-  const formaDe = (id) => porId.get(id).parent.children.find((c) => c.className.includes('forma'));
+  // Mira corrigida na fatia 2b-1: a forma não é filha direta da .parada, é da
+  // .trilho-col — procurar só nos filhos diretos dava undefined e o teste morria
+  // com TypeError em vez de dizer o que faltava.
+  const formaDe = (id) => comClasse(porId.get(id).parent, 'forma')[0];
   assert.ok(formaDe('l2a').className.includes('concluida'), 'concluída → círculo cheio');
   assert.ok(formaDe('l2b').className.includes('trancada'), 'trancada → anel fino');
   assert.equal(porId.get('l2b').children.find((c) => c.className.includes('estacao-estado')).textContent, 'trancada');
@@ -236,6 +244,72 @@ test('diagrama: a próxima estação é a única marcada como "você está aqui"
   const proximas = comClasse(root, 'proxima');
   assert.equal(proximas.length, 1, 'uma só estação pulsa: dois "você está aqui" é nenhum');
   assert.ok(proximas[0].className.includes('forma'));
+});
+
+// ── FATIA 2b-1 (pedido 21, 29/10/2026): os três itens da crítica visual que
+// abrem a tela no celular. Cada trava abaixo estava escrita como descrição do
+// defeito; aqui ela vira MEDIDA. O centro x não é medido no node (não há
+// layout), é garantido pela CONSTRUÇÃO: uma coluna só, da largura do maior
+// círculo, com tudo centralizado — e a trava da construção é o que quebra se
+// alguém voltar a dar altura ou largura fixa a um pedaço do traço.
+test('linha contínua: nenhum pedaço do traço tem altura fixa, e cada um se estica até o círculo vizinho', () => {
+  const css = readFileSync(fileURLToPath(new URL('../web/metro.css', import.meta.url)), 'utf8');
+  assert.match(css, /\.trilho-col \{[^}]*grid-template-rows:\s*1fr auto 1fr/,
+    'a coluna dá ao traço o espaço ENTRE dois círculos, não uma altura inventada');
+  assert.match(css, /\.trilho \{[^}]*align-self:\s*stretch/, 'cada pedaço enche a linha em que está');
+  assert.equal(/\.trilho-(?:superior|inferior)\s*\{[^}]*height:/.exec(css), null,
+    'altura fixa num pedaço é o buraco entre uma estação e a seguinte');
+});
+
+test('linha contínua: traço e círculo têm o mesmo centro x, e o círculo fica por cima', () => {
+  const css = readFileSync(fileURLToPath(new URL('../web/metro.css', import.meta.url)), 'utf8');
+  assert.match(css, /\.trilho-col \{[^}]*justify-items:\s*center/,
+    'traço de 6 px e círculo de 22 px partilham o centro da coluna');
+  assert.match(css, /\.parada \{[^}]*grid-template-columns:\s*var\(--estacao-proxima\) 1fr/,
+    'a coluna do traço tem a largura do MAIOR círculo: com `auto`, ela media 14 px e o centro mudava quando a próxima aparecia');
+  assert.match(css, /\.forma \{[^}]*z-index:\s*1/, 'o círculo vem por cima do traço');
+  assert.match(css, /\.forma \{[^}]*background:\s*var\(--superficie\)/, 'com miolo opaco, o traço não atravessa o círculo');
+  const { root } = desenhar({ completed: ['l1a'], linha: 1 });
+  for (const p of comClasse(root, 'parada')) {
+    const col = comClasse(p, 'trilho-col')[0];
+    assert.ok(col, 'cada parada tem a coluna do traço');
+    assert.deepEqual(col.children.map((c) => c.className.split(' ')[0]), ['trilho', 'forma', 'trilho'],
+      'a ordem na coluna é traço — círculo — traço, sem nó solto que abra vão');
+  }
+});
+
+test('a próxima é a única maior (22 px) com o anel "você está aqui" pulsando devagar', () => {
+  const css = readFileSync(fileURLToPath(new URL('../web/metro.css', import.meta.url)), 'utf8');
+  assert.match(css, /\.forma\.proxima \{[^}]*width:\s*var\(--estacao-proxima\)/, '22 px pelo token');
+  assert.match(css, /\.forma\.proxima \{[^}]*height:\s*var\(--estacao-proxima\)/);
+  assert.match(css, /\.forma\.proxima \{[^}]*animation:\s*anelAqui var\(--movimento-pulso\)/,
+    'a voz devagar (2 s) é a do "você está aqui"');
+  const ini = css.indexOf('@keyframes anelAqui');
+  assert.ok(ini >= 0, 'a animação do anel existe');
+  const corpo = css.slice(ini, css.indexOf('}', css.indexOf('50%', ini)));
+  assert.match(corpo, /box-shadow:/, 'o anel cresce por box-shadow');
+  assert.doesNotMatch(corpo, /transform:\s*scale/,
+    'escalar o círculo de 22 px tiraria o traço do centro outra vez');
+  assert.doesNotMatch(css, /\.forma\.disponivel \{[^}]*--estacao-proxima/,
+    'as outras disponíveis ficam no tamanho normal: só a próxima é maior');
+  const rm = css.slice(css.indexOf('@media (prefers-reduced-motion: reduce)'));
+  assert.match(rm, /\.metro \*[^{]*\{[^}]*animation:\s*none\s*!important/,
+    'com movimento reduzido, o anel da próxima fica parado');
+  const { root } = desenhar({ completed: ['l1a'], linha: 1 });
+  assert.equal(comClasse(root, 'proxima').length, 1, 'um só círculo de 22 px por linha');
+});
+
+test('a etiqueta de estado fica DEBAIXO do nome, à esquerda e um degrau menor', () => {
+  const css = readFileSync(fileURLToPath(new URL('../web/metro.css', import.meta.url)), 'utf8');
+  assert.match(css, /\.estacao \{[^}]*flex-direction:\s*column/, 'o botão empilha: nome em cima, etiqueta embaixo');
+  assert.match(css, /\.estacao \{[^}]*align-items:\s*flex-start/, 'e a etiqueta alinha à esquerda');
+  assert.match(css, /\.estacao-estado \{[^}]*align-self:\s*flex-start[^}]*text-align:\s*left/);
+  assert.match(css, /\.estacao-estado \{[^}]*font-size:\s*var\(--tipo-nota\)/, '12 px: --tipo-nota');
+  assert.match(css, /\.estacao-nome \{[^}]*font-size:\s*var\(--tipo-corpo\)/, 'o nome é 16 px — a etiqueta é menor que ele');
+  const { root } = desenhar({ linha: 1 });
+  const botao = comAttr(root, 'data-id').find((b) => b.getAttribute('data-id') === 'l1a');
+  assert.deepEqual(botao.children.map((c) => c.className), ['estacao-nome', 'estacao-estado'],
+    'no DOM a etiqueta vem depois do nome');
 });
 
 test('folha: aberta mostra o recurso, a bibliografia como LINK COM NOME e a anotação', () => {
