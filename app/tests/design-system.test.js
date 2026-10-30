@@ -416,6 +416,9 @@ test('textos: as funções com valor usam o valor que recebem', async () => {
     trancadaFaltam: ['Cálculo I e Cálculo II'],
     baldeacao: ['Algoritmos II', 4],
     destrancou: ['Algoritmos II'],
+    // 2d-2: o carimbo da folha concluída. O exemplo é uma data: se a função
+    // esquecer o parâmetro, "Concluída em" sozinho não cita o valor e isto quebra.
+    concluidaEm: ['2026-10-29'],
     buscaVazia: ['quântica'],
     viagem: [12, 35],
     progressoLinha: [2, 3, 5],

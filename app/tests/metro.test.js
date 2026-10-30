@@ -115,14 +115,16 @@ const CATALOGO = [
 
 function raiz(doc) { return doc.registrar('metro', doc.createElement('div')); }
 
-function desenhar({ completed = [], emCurso = [], linha = 1, aberta = null, despertas, embarqueAberto = false, notas = {}, catalogo: dado = CATALOGO }) {
+function desenhar({ completed = [], emCurso = [], linha = 1, aberta = null, despertas, embarqueAberto = false, conclusoes = {}, notas = {}, catalogo: dado = CATALOGO }) {
   const doc = criarDoc();
   const root = raiz(doc);
   // `dado` é o catálogo inteiro quando o teste precisa de um catálogo que não
   // seja o padrão (a 2d-1: um recurso com tipo e domínio QUE O CATÁLOGO REAL USA,
   // porque exemplo.org/video não existe em lugar nenhum e não ensinaria nada).
   const catalogo = dado.map((c) => (notas[c.id] ? { ...c, nota: notas[c.id] } : c));
-  const progresso = { completed, emCurso, conclusoes: {} };
+  // 2d-2: o carimbo da folha concluída lê a data que O NÚCLEO guarda, então o
+  // desenho de teste precisa poder dar uma data a uma estação concluída.
+  const progresso = { completed, emCurso, conclusoes };
   const nos = desenharMetro(doc, root, {
     catalogo, progresso, linha, aberta, despertas, embarqueAberto
   });
@@ -742,15 +744,21 @@ test('origem: a folha da estação do catálogo REAL tem origem (não é só o d
   }
 });
 
-test('chegada: o aviso diz o que a estação abriu, pelo nome', async () => {
+// MUTOU na fatia 2d-2 (30/10/2026), e a mutação tem motivo: em 2d-1 este teste
+// garantia que a linha NÃO era nomeada ("sem baldeação não se nomeia linha").
+// A JORNADA §2.5 pede o contrário no momento da abertura — quando a estação que
+// abriu está em OUTRA linha, isso É uma baldeação e a tela tem de dizer a linha
+// de destino. l2a (Estrutura de Dados) está na Linha 2: agora o aviso nomeia a
+// baldeação com a linha. O resto do teste continua firme, nada afrouxado.
+test('chegada: o aviso diz o que a estação abriu, pelo nome (e a linha, se for outra)', async () => {
   const { api, root } = await subirTela({ completed: [] });
-  api.acoes.concluir('l1b'); // abre l2a (Estrutura de Dados), sozinha
+  api.acoes.concluir('l1b'); // abre l2a (Estrutura de Dados), na Linha 2
   const aviso = textoDe(comClasse(root, 'aviso-chegada')[0]);
   assert.ok(aviso.includes(PLACAS.concluida), 'a palavra do núcleo continua');
   assert.ok(aviso.includes('Algoritmos I'), 'a estação que chegou, pelo nome');
-  assert.ok(aviso.includes(comValores.destrancou('Estrutura de Dados')), `tem de dizer o que abriu: «${aviso}»`);
+  assert.ok(aviso.includes(comValores.baldeacao('Estrutura de Dados', 2)),
+    `o que abriu em outra linha é baldeação nomeada, com a linha de destino: «${aviso}»`);
   assert.ok(aviso.includes(comValores.viagem(1, 6)), 'e o contador');
-  assert.ok(!aviso.includes('Linha'), 'sem baldeação não se nomeia linha');
   assert.ok(!aviso.includes('l2a'), 'nunca pelo id');
 });
 
@@ -823,6 +831,105 @@ test('contrato: com o main.js REAL o aviso nomeia a estação e a folha diz a or
   } finally {
     delete globalThis.localStorage;
   }
+});
+
+// ═══════════════════════════ 4b. FATIA 2d-2 ═══════════════════════════
+// A crítica visual no celular (30/10) achou duas mentiras de estado na folha:
+// a trancada oferecia "Começar a estudar" como se estivesse aberta, e a
+// concluída oferecia o mesmo verbo como se nada tivesse acontecido. E um
+// primário por folha: dois botões vermelhos cheios um sobre o outro são duas
+// decisões para a mesma pessoa.
+
+test('chegada: abrir estação de OUTRA linha nomeia a baldeação e a linha de destino (catálogo REAL)', async () => {
+  // O caso que o Claude viu na tela: Geometria Analítica (Linha 1) não abre
+  // nada na própria linha — abre Cálculo I e Álgebra Linear I (Linha 2) e
+  // Fundamentos de Computação Gráfica (Linha 5). No dublê de 6 estações isso
+  // não existe, e o defeito passou por ele.
+  const real = JSON.parse(readFileSync(fileURLToPath(new URL('../data/catalog.json', import.meta.url)), 'utf8'));
+  const courses = real.courses || real;
+  const ga = courses.find((c) => c.title === 'Geometria Analítica');
+  assert.ok(ga, 'o catálogo tem Geometria Analítica');
+  const { api, root } = await subirTela({ completed: [], catalogo: courses });
+  api.acoes.concluir(ga.id);
+  const aviso = textoDe(comClasse(root, 'aviso-chegada')[0]);
+  assert.ok(aviso.includes(comValores.baldeacao('Cálculo I, Álgebra Linear I', 2)),
+    `as duas estações da Linha 2 saem juntas, com a linha de destino: «${aviso}»`);
+  assert.ok(aviso.includes(comValores.baldeacao('Fundamentos de Computação Gráfica', 5)),
+    `e a da Linha 5 sai na sua: «${aviso}»`);
+  assert.ok(!aviso.includes('destrancou'),
+    'nada abriu na própria linha: o aviso não inventa um destrancou vazio');
+  assert.ok(!/ubl-core-/.test(aviso), 'nem uma estação pelo id');
+});
+
+test('aviso: o que abriu na MESMA linha segue pelo nome, sem linha', () => {
+  const mesmo = textoDaChegada({
+    titulo: 'Matemática Discreta', concluidas: 2, total: 6, linha: 1,
+    abre: [{ id: 'c1', titulo: 'Algoritmos I', linha: 1 }]
+  });
+  assert.ok(mesmo.includes(comValores.destrancou('Algoritmos I')), `mesma linha: nome só: «${mesmo}»`);
+  assert.ok(!mesmo.includes('Linha'), 'e nenhuma linha nomeada');
+  // Estação sem linha no catálogo não vira "Linha null".
+  const semLinha = textoDaChegada({
+    titulo: 'Matemática Discreta', concluidas: 2, total: 6, linha: 1,
+    abre: [{ id: 'x', titulo: 'Ramal', linha: null }]
+  });
+  assert.ok(semLinha.includes(comValores.destrancou('Ramal')), 'sem linha conhecida: pelo nome');
+  // A baldeação que SE FORMOU (par concluído, §3.2) não é escrita duas vezes.
+  const par = textoDaChegada({
+    titulo: 'Matemática Discreta', concluidas: 2, total: 6, linha: 1,
+    abre: [{ id: 'b2', titulo: 'Estrutura de Dados', linha: 2 }],
+    baldeacao: { para: { id: 'b2', titulo: 'Estrutura de Dados', linha: 2 } }
+  });
+  assert.equal(par.split('Estrutura de Dados').length - 1, 1, `nomeada uma vez só: «${par}»`);
+});
+
+test('folha: trancada diz o que falta e NÃO oferece "Começar a estudar"', () => {
+  // l2a do dublê de recurso é trancada E tem resourceUrl: é exatamente o caso
+  // que a crítica viu na tela — o botão vermelho pedindo para estudar o que
+  // ainda não está destrancado.
+  const { root } = desenhar({ completed: [], linha: 2, aberta: 'l2a', catalogo: CAT_RECURSO });
+  const folha = comClasse(root, 'detalhe').find((d) => d.getAttribute('hidden') === null);
+  assert.ok(folha, 'a trancada aberta tem folha');
+  assert.equal(comAttr(folha, 'data-recurso').length, 0, 'sem botão de recurso na trancada');
+  assert.equal(comClasse(folha, 'recurso-origem').length, 0, 'e nenhuma origem pendurada num botão que não existe');
+  assert.equal(comAttr(folha, 'data-concluir').length, 0, 'nem o concluir');
+  assert.ok(comClasse(folha, 'detalhe-falta')[0].textContent.includes('Algoritmos I'),
+    'o que falta continua dito pelo nome — é o que a trancada oferece');
+});
+
+test('folha: concluída carimba a data do núcleo e troca o verbo por "Rever o conteúdo"', () => {
+  const { root } = desenhar({
+    completed: ['l1a'], linha: 1, aberta: 'l1a',
+    conclusoes: { l1a: '2026-10-29' }, catalogo: CAT_RECURSO
+  });
+  const folha = comClasse(root, 'detalhe').find((d) => d.getAttribute('hidden') === null);
+  const carimbo = comClasse(folha, 'detalhe-carimbo')[0];
+  assert.ok(carimbo, 'a folha concluída carimba');
+  assert.equal(carimbo.textContent, comValores.concluidaEm('2026-10-29'), 'com a data que o núcleo guarda');
+  const recurso = comAttr(folha, 'data-recurso')[0];
+  assert.equal(recurso.textContent, PLACAS.reverConteudo, 'o verbo muda: aquilo já foi feito');
+  assert.equal(recurso.getAttribute('href'), 'https://www.youtube.com/playlist?list=PLx',
+    'e o recurso continua o do catálogo, apontando para o mesmo lugar');
+  assert.equal(comAttr(folha, 'data-concluir').length, 0, 'sem o que concluir');
+  assert.equal(comClasse(folha, 'detalhe-falta').length, 0, 'e sem falar do que falta a quem já concluiu');
+});
+
+test('folha: UM primário por folha — "Concluir estação" é contorno, não recheio', () => {
+  const css = readFileSync(fileURLToPath(new URL('../web/metro.css', import.meta.url)), 'utf8');
+  // O seletor é ancorado no início da linha (lição da 2b: sem âncora, ".forma"
+  // achava o bloco de ".forma.concluida" e o teste media o desenho errado).
+  const blocoDaFolha = (seletor) => {
+    const ini = css.indexOf(`\n${seletor} {`);
+    assert.ok(ini >= 0, `${seletor} não existe no CSS da folha`);
+    return css.slice(ini, css.indexOf('}', ini));
+  };
+  const concluir = blocoDaFolha('.botao-concluir');
+  assert.match(concluir, /background:\s*(none|var\(--superficie\)|var\(--fundo\))/,
+    'sem recheio: o concluir é o secundário da folha');
+  assert.match(concluir, /border[^;]*var\(--cor\)/, 'a cor da linha vira contorno');
+  assert.match(concluir, /color:\s*var\(--cor\)/, 'e vira texto, não fundo');
+  assert.match(blocoDaFolha('.recurso'), /background:\s*var\(--cor\)/,
+    'o primário da folha é o recurso — um só');
 });
 
 // ═══════════════════════════ 5. os dois estados ═══════════════════════════

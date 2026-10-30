@@ -237,6 +237,13 @@
 }
 .detalhe[hidden] { display: none; }
 .detalhe-falta { margin: 0; font-size: var(--tipo-corpo); color: var(--alerta); }
+/* FATIA 2d-2, item 3: o carimbo da folha concluída — a data que o núcleo guarda,
+ * na tipografia de placa (é um registro, não um texto corrido). */
+.detalhe-carimbo {
+  margin: 0; font-family: var(--fonte-placa); font-size: var(--tipo-placa);
+  font-weight: var(--peso-forte); letter-spacing: var(--espacamento-placa);
+  text-transform: uppercase; color: var(--cor);
+}
 .recurso {
   justify-self: start; min-height: var(--alvo-toque);
   padding: var(--espaco-3) var(--espaco-4); border-radius: var(--raio-placa);
@@ -274,7 +281,12 @@
 }
 .botao:active { transform: translateY(1px); }
 .botao[disabled] { cursor: not-allowed; opacity: 0.5; }
-.botao-concluir { background: var(--cor); border-color: var(--cor); color: var(--superficie); }
+/* FATIA 2d-2, item 4: UM primário por folha. Até aqui o concluir era recheado
+ * na cor da linha, e o recurso também — dois botões vermelhos cheios, um sobre
+ * o outro, duas decisões para a mesma pessoa. O primário da folha é o RECURSO
+ * (é o verbo do estudo); o concluir vira o secundário da família do design
+ * system: contorno na cor da linha, texto na cor da linha, sem recheio. */
+.botao-concluir { background: var(--superficie); border-color: var(--cor); color: var(--cor); }
 
 /* ── 4. a chegada: aviso com desfazer ───────────────────────────────────── */
 .aviso-chegada {

@@ -45,6 +45,10 @@ export const placa = {
   concluida: 'Concluída.',
   // Item 6 da crítica: o link tem NOME, nunca o caminho, e aponta para o
   // arquivo na fonte no SHA auditado (b995c11) — não para main, que muda.
+  // FATIA 2d-2 (JORNADA §3.1): o verbo de quem já passou por ali não pode ser
+  // "Começar a estudar" como se nada tivesse acontecido. Um verbo só por folha,
+  // e ele muda com o estado — como o "Continuar" da placa.
+  reverConteudo: 'Rever o conteúdo',
   bibliografiaNaFonte: 'Bibliografia na fonte',
   bibliografiaNota: 'A fonte publica esta bibliografia; o Atlas não conferiu se a página está no ar.',
   buscar: 'Buscar estação',
@@ -75,6 +79,14 @@ export const comValores = {
 
   /** FATIA 2d-1 (§2.5): o que o gesto de agora abriu, pelo nome. */
   destrancou: (nomes) => `destrancou ${nomes}`,
+
+  /**
+   * FATIA 2d-2 (§3.1): o carimbo da folha concluída. A data é a que O NÚCLEO
+   * guarda em `conclusoes` (AAAA-MM-DD) — a tela não inventa dia nem formata
+   * por conta própria; reimplementar calendário aqui é a receita para duas
+   * datas discordarem na mesma estação.
+   */
+  concluidaEm: (data) => `Concluída em ${data}`,
 
   /** Busca sem resultado: repete o termo, para provar que a busca ouviu. */
   buscaVazia: (termo) => `Nada encontrado para «${termo}».`,

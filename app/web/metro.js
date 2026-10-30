@@ -184,13 +184,34 @@ export function origemDoRecurso(curso) {
  * A tela não decide nada aqui — o que decide está em core/viagem.js, e o teste
  * de mutação não deixa o desenho chamar outra coisa.
  */
-export function textoDaChegada({ titulo, concluidas, total, abre = [], baldeacao = null }) {
+export function textoDaChegada({ titulo, concluidas, total, linha = null, abre = [], baldeacao = null }) {
   const partes = [`${placa.concluida} ${titulo}`];
-  const nomes = (Array.isArray(abre) ? abre : [])
-    .map((c) => c?.titulo)
-    .filter(Boolean);
-  if (nomes.length > 0) partes.push(comValores.destrancou(nomes.join(', ')));
-  if (baldeacao?.para) partes.push(comValores.baldeacao(baldeacao.para.titulo, baldeacao.para.linha));
+  const lista = (Array.isArray(abre) ? abre : []).filter((c) => c && c.titulo);
+  const n = Number(linha);
+  const propria = Number.isFinite(n) && n > 0 ? n : null;
+  // FATIA 2d-2, item 0 (JORNADA §2.5): abrir estação da MESMA linha é destrancar;
+  // abrir estação de OUTRA linha é BALDEAÇÃO, e a tela nomeia a linha de destino.
+  // Sem `linha` (a estação concluída não tem linha conhecida) a tela não afirma
+  // nenhuma travessia: tudo sai como destrancamento, como na 2d-1.
+  const aqui = [];
+  const la = new Map();
+  for (const c of lista) {
+    const destino = Number(c.linha);
+    const temNumero = Number.isFinite(destino) && destino > 0;
+    if (propria === null || !temNumero || destino === propria) { aqui.push(c.titulo); continue; }
+    if (!la.has(destino)) la.set(destino, []);
+    la.get(destino).push(c.titulo);
+  }
+  if (aqui.length > 0) partes.push(comValores.destrancou(aqui.join(', ')));
+  for (const [numero, nomes] of [...la.entries()].sort((a, b) => a[0] - b[0])) {
+    partes.push(comValores.baldeacao(nomes.join(', '), numero));
+  }
+  // O PAR de baldeação que se FORMOU (§3.2, já concluído dos dois lados) é a
+  // baldeação feita. Se a estação já saiu nomeada acima, não sai duas vezes.
+  const para = baldeacao?.para;
+  if (para?.titulo && !lista.some((c) => c.id === para.id)) {
+    partes.push(comValores.baldeacao(para.titulo, para.linha));
+  }
   partes.push(comValores.viagem(concluidas, total));
   return partes.join(' · ');
 }
@@ -487,6 +508,8 @@ export function desenharMetro(doc, root, estado) {
   // ── 2. a linha na vertical, como o diagrama da porta do trem ────────────
   const diagrama = el(doc, 'ol', 'diagrama');
   const paradas = estacoesDaLinha(catalogo, linha);
+  // 2d-2: o carimbo da folha lê a data que O NÚCLEO guarda em `conclusoes`.
+  const datas = lerProgresso(progresso).conclusoes;
   let percorrido = false; // o trecho ANTES desta estação já foi percorrido?
   for (const c of paradas) {
     const e = estadoDaEstacao(c.id, progresso, catalogo) || {
@@ -527,7 +550,7 @@ export function desenharMetro(doc, root, estado) {
     botao.append(el(doc, 'span', 'estacao-estado', { text: ESTADO_LEGIVEL[e.estado] }));
     parada.append(botao);
 
-    parada.append(folha(doc, c, e, idDetalhe, aberta, linha));
+    parada.append(folha(doc, c, e, idDetalhe, aberta, linha, datas));
     diagrama.append(parada);
     percorrido = feito;
   }
@@ -558,6 +581,7 @@ export function desenharMetro(doc, root, estado) {
         titulo: chegou?.titulo || '',
         concluidas: resumo.concluidas,
         total: resumo.estacoes,
+        linha: chegou?.linha,
         abre: estado.chegada.abre,
         baldeacao: estado.chegada.baldeacao
       })
@@ -576,7 +600,7 @@ export function desenharMetro(doc, root, estado) {
  * caminho cru como texto), a anotação com o nome da disciplina no rótulo, e o
  * concluir. Na trancada, o que falta — pelo nome.
  */
-function folha(doc, curso, e, id, aberta, linha) {
+function folha(doc, curso, e, id, aberta, linha, datas = {}) {
   const box = el(doc, 'div', `detalhe l${linha}`, { id });
   if (!aberta) box.setAttribute('hidden', '');
 
@@ -587,11 +611,25 @@ function folha(doc, curso, e, id, aberta, linha) {
     box.append(el(doc, 'p', 'detalhe-falta', { text: textoDoQueFalta(e) }));
   }
 
-  if (curso?.resourceUrl) {
+  // FATIA 2d-2 (JORNADA §3.1): o CARIMBO. É a data que o núcleo guardou em
+  // `conclusoes` quando a estação foi concluída — a tela nem formata nem inventa
+  // dia. Sem data (estação que chegou por importação antiga), o carimbo cala em
+  // vez de afirmar um dia em que ninguém estudou.
+  if (aberta && e.estado === ESTADOS.CONCLUIDA && datas[e.id]) {
+    box.append(el(doc, 'p', 'detalhe-carimbo', { text: comValores.concluidaEm(datas[e.id]) }));
+  }
+
+  // FATIA 2d-2 (§3.1): a TRANCADA não oferece o recurso. Oferecer "Começar a
+  // estudar" de uma estação que ainda não existe para a pessoa é a tela mentindo
+  // — o que ela precisa ali é o nome do que falta, e nada mais.
+  if (curso?.resourceUrl && e.estado !== ESTADOS.TRANCADA) {
     box.append(el(doc, 'a', 'recurso', {
       href: curso.resourceUrl, rel: 'noopener', target: '_blank',
       // UM verbo só na tela (item 5 da crítica): o mesmo texto da placa.
-      'data-recurso': curso.id, text: placa.comecarEstudar
+      // Concluída o verbo muda: quem já passou por ali não recebe "Começar a
+      // estudar" como se nada tivesse acontecido (§3.1).
+      'data-recurso': curso.id,
+      text: e.estado === ESTADOS.CONCLUIDA ? placa.reverConteudo : placa.comecarEstudar
     }));
     // FATIA 2d-1 (JORNADA §2.3): embaixo do botão, a origem que o CATÁLOGO diz.
     // Nada inventado: sem tipo conhecido e sem site conhecido, a linha não sai —
