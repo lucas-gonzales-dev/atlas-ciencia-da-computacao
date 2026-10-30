@@ -407,7 +407,11 @@ test('folha: tocar em \"Concluir estação\" conclui pelo núcleo e traz a chega
   assert.equal(comClasse(root, 'aviso-chegada').length, 1, 'e a tela respondeu com a chegada');
 });
 
-test('folha: fechada não mostra nada (hidden), e a trancada diz o que falta pelo NOME', { todo: 'fatia 2 do pedido 21: a folha trancada cita só um pré-requisito; tem de listar TODOS ("faltam Matemática Discreta, Algoritmos I")' }, () => {
+// FEITO na fatia 2c-2 (30/10/2026): perdeu o `todo` neste commit. A folha fecha
+// com hidden e não mostra texto nenhum, e a trancada aberta cita TODOS os
+// pré-requisitos pelo nome — o núcleo já devolvia a lista inteira (`faltam`);
+// a tela é que despejava só o primeiro.
+test('folha: fechada não mostra nada (hidden), e a trancada diz o que falta pelo NOME', () => {
   const fechada = desenhar({ linha: 1 });
   for (const d of comClasse(fechada.root, 'detalhe')) {
     assert.equal(d.getAttribute('hidden'), '', 'folha fechada é hidden');
@@ -630,7 +634,12 @@ test('embarque: com 0 concluídas, diz por onde começar e oferece marcar o que 
   assert.equal(comAttr(emb, 'data-marcar').length, 0);
 });
 
-test('embarque: aberto, lista as estações que dá para marcar de uma vez', { todo: 'fatia 2 do pedido 21: o embarque aberto não lista as estações marcáveis (devolve [])' }, async () => {
+// FEITO na fatia 2c-2 (30/10/2026): perdeu o `todo` neste commit. Marcável é a
+// PRIMEIRA estação ainda não concluída de cada linha, e pré-requisito não trava
+// a lista: o embarque é a palavra da pessoa sobre o que ela já estudou, e é o
+// núcleo quem reajusta a rede depois. Trancar a lista seria obrigar um clique
+// por disciplina — o terceiro clique em que o perfil B vai embora (JORNADA §2.2).
+test('embarque: aberto, lista as estações que dá para marcar de uma vez', () => {
   const { root } = desenhar({ completed: ['l1a'], linha: 1, embarqueAberto: true });
   const emb = comClasse(root, 'embarque')[0];
   const marcar = comAttr(emb, 'data-marcar');
@@ -639,7 +648,10 @@ test('embarque: aberto, lista as estações que dá para marcar de uma vez', { t
   for (const b of marcar) assert.equal(b.textContent, PLACAS.marcar);
 });
 
-test('embarque: marcar uma estação conclui pelo verbo do núcleo', { todo: 'fatia 2 do pedido 21: marcar no embarque não conclui pelo núcleo e o embarque não sai de cena' }, async () => {
+// FEITO na fatia 2c-2 (30/10/2026): perdeu o `todo` neste commit. `marcar` é
+// acoes.concluir pela porta do embarque — nunca uma segunda regra de conclusão
+// na tela — e a lista sai de cena com a primeira conclusão.
+test('embarque: marcar uma estação conclui pelo verbo do núcleo', async () => {
   const { api, root, modulos } = await subirTela({ completed: [] });
   api.acoes.embarque();
   assert.equal(comAttr(root, 'data-marcar').length > 0, true);

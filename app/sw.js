@@ -73,12 +73,16 @@
 // que a trava da v11 existe para pegar: sem subir a VERSAO, o navegador compara este
 // arquivo por bytes, nao instala, e quem ja abriu o app continua vendo a chegada
 // antiga para sempre.
-const VERSAO = 'atlas-v12';
+// atlas-v13: o EMBARQUE e a FOLHA TRANCADA da 2c-2 mudaram web/metro.js (lista
+// de marcar, uma estação por linha, e o "faltam X, Y" só na folha aberta) e o
+// teste do metrô ganhou corpo. A lista PRECACHE é a mesma de sempre; o que muda
+// é o conteúdo dela, e é exatamente isso que a trava da v11 obriga a declarar.
+const VERSAO = 'atlas-v13';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
 // deixa o cache antigo sem o nome novo. Recalcular: node tests/precache-hash.js.
-const PRECACHE_HASH = 'sha256-44fd1c05f0f238ec195eba28330167775b9728b9f703ea7c13f43b248dd68b58';
+const PRECACHE_HASH = 'sha256-b7e7b0d9a88a0291d48ea68c1583c8b6c894c33cbb17f0348e3adc64c27b7608';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.

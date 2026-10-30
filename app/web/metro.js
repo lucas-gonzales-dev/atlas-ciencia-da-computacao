@@ -129,6 +129,29 @@ export function estacoesDaLinha(catalogo, linha) {
   return lista.filter((c) => c && Number(c.stage) === Number(linha));
 }
 
+/**
+ * O que o embarque oferece marcar de uma vez: a primeira estação AINDA NÃO
+ * CONCLUÍDA de cada linha (JORNADA §2.2 — "marcar muita coisa rápido, sem um
+ * clique por estação"; "desiste se o modo em lote não existir").
+ *
+ * Pré-requisito NÃO trava aqui, de propósito: o embarque é a palavra da pessoa
+ * sobre o que ela já estudou, e é o núcleo quem reajusta a rede depois. Exigir
+ * estação destrancada obrigaria abrir uma disciplina por marcação — exatamente o
+ * terceiro clique que faz o perfil B ir embora. Linha toda concluída não oferece
+ * nada. Ordem do catálogo, uma estação por linha.
+ */
+function estacoesMarcaveis(catalogo, progresso) {
+  const feitas = new Set(progresso.completed);
+  const porLinha = new Map();
+  for (const c of catalogo) {
+    if (!c || typeof c.id !== 'string' || feitas.has(c.id)) continue;
+    const n = Number(c.stage);
+    if (!Number.isFinite(n)) continue; // estação sem linha não aparece
+    if (!porLinha.has(n)) porLinha.set(n, c);
+  }
+  return [...porLinha.values()];
+}
+
 /** As linhas que existem no catálogo, em ordem. */
 export function linhasDoCatalogo(catalogo) {
   const lista = Array.isArray(catalogo) ? catalogo : [];
@@ -294,8 +317,11 @@ export function desenharMetro(doc, root, estado) {
   root.append(cartao);
   nos.placas = cartao;
 
-  // ── 5b. embarque da primeira visita: 0 concluídas ───────────────────────
-  if (resumo.concluidas === 0 && catalogo.length > 0) {
+  // ── 5b. embarque (fatia 2c-2) ────────────────────────────────────────────
+  // Aparece sozinho na primeira visita (0 concluídas) e fica enquanto a lista
+  // estiver ABERTA: é o modo de marcação em lote, não um banner perpétuo.
+  // Fechar a lista — ou marcar, que fecha — devolve a tela a quem já viajou.
+  if (catalogo.length > 0 && (estado.embarqueAberto || resumo.concluidas === 0)) {
     const emb = el(doc, 'section', 'embarque');
     emb.append(el(doc, 'h2', 'embarque-titulo', { text: estados.primeiraVisita.titulo }));
     emb.append(el(doc, 'p', 'embarque-texto', { text: estados.primeiraVisita.descricao }));
@@ -307,16 +333,18 @@ export function desenharMetro(doc, root, estado) {
     emb.append(abrir);
 
     if (estado.embarqueAberto) {
-      // "Marcar de uma vez o que já estudei": as estações destrancadas agora,
-      // cada uma com o seu botão. Concluir é o verbo do núcleo, não daqui.
+      // "Marcar de uma vez o que já estudei": uma estação por linha, e o verbo
+      // de concluir é o do núcleo (datas, marcos, tudo) — aqui só o
+      // botão. Nunca um segundo jeito de concluir na tela.
       const lista = el(doc, 'ul', 'lista-marcar');
-      for (const c of catalogo) {
-        const e = estadoDaEstacao(c.id, progresso, catalogo);
-        if (!e || e.estado === ESTADOS.CONCLUIDA || e.estado === ESTADOS.TRANCADA) continue;
+      for (const c of estacoesMarcaveis(catalogo, progresso)) {
+        const nome = typeof c.title === 'string' ? c.title : c.id;
         const item = el(doc, 'li');
-        item.append(el(doc, 'span', null, { text: e.titulo }));
+        item.append(el(doc, 'span', 'marcar-nome', { text: nome }));
         item.append(el(doc, 'button', 'botao', {
-          type: 'button', 'data-marcar': c.id, text: placa.marcar
+          type: 'button', 'data-marcar': c.id,
+          'aria-label': `${placa.marcar} — ${nome}`,
+          text: placa.marcar
         }));
         lista.append(item);
       }
@@ -424,7 +452,10 @@ function folha(doc, curso, e, id, aberta, linha) {
   const box = el(doc, 'div', `detalhe l${linha}`, { id });
   if (!aberta) box.setAttribute('hidden', '');
 
-  if (e.estado === ESTADOS.TRANCADA) {
+  // 2c-2: "faltam X, Y" é a FOLHA, não a etiqueta. Com a folha fechada, nada é
+  // mostrado — e as 35 trancadas pintariam 35 folhas de falta antes de qualquer
+  // toque. O texto continua sendo o do núcleo, pelo nome, TODOS os pré-requisitos.
+  if (aberta && e.estado === ESTADOS.TRANCADA) {
     box.append(el(doc, 'p', 'detalhe-falta', { text: textoDoQueFalta(e) }));
   }
 
@@ -601,7 +632,10 @@ export async function subirMetro(deps = {}) {
       ui.despertas = [id];
       if (chegou) avisarChegada(id); else pintar();
     },
-    marcar(id) { acoes.concluir(id); },
+    // MARCAR é concluir pela porta do embarque: a lista fecha junto, porque o
+    // embarque é o momento de quem ainda não tem nada concluído (JORNADA §2.2).
+    // Fechar ANTES de concluir evita um segundo redesenho — o concluir já pinta.
+    marcar(id) { ui.embarqueAberto = false; acoes.concluir(id); },
     desfazer(id) {
       persistir(desfazerConclusao(progresso, id));
       ui.chegada = null; ui.despertas = [];
