@@ -21,7 +21,20 @@
 // AUDITADA e versionada no git. Ele so muda quando alguem roda o build e faz
 // commit. Servir o cache primeiro e mais rapido e mais honesto do que fingir
 // frescor num dado que muda uma vez por semana.
-// BUMP OBRIGATORIO quando o PRECACHE ou o catalog.json mudam:
+// BUMP OBRIGATORIO quando a lista PRECACHE muda, quando o catalog.json muda e
+// quando o CONTEUDO de QUALQUER arquivo ja listado muda. Os dois primeiros aparecem
+// no diff deste arquivo; o terceiro nao aparecia, e era esse o buraco (30/10/2026):
+// a fatia 2b do metro mexeu em web/metro.js, web/metro.css e core/textos.js sem
+// mexer em uma linha daqui. O navegador compara service worker por bytes: igual
+// significa NAO instala, e quem ja abriu o app continua vendo a tela velha para
+// sempre, em silencio, achando que a correcao nao chegou. Aconteceu de verdade: a
+// tela so mostrou a 2b-2 depois de desregistar o service worker na mao.
+// A TRAVA: PRECACHE_HASH guarda o sha256 do conteudo de todos os arquivos da lista,
+// na ordem da lista. Conteudo mudou e o hash anotado nao mudou, o teste
+// app/tests/sw-precache-hash.test.js falha dizendo "suba a VERSAO e atualize o
+// hash", e o valor a colar sai de node tests/precache-hash.js (roda da pasta app).
+// Como o hash mora AQUI, mexer em qualquer arquivo do precache passa a mexer neste
+// arquivo — que e o unico que o navegador re-busca — entao o install roda de novo.
 // a estrategia e cache-first, entao quem ja instalou o app com uma versao antiga
 // jamais re-buscaria o catalogo novo — veria a trilha antiga para sempre e
 // acharia que o Atlas nao tem eletivas. Versao nova = cache novo = install roda
@@ -48,7 +61,17 @@
 // A pagina ja esta no disco e ja e navegavel; sem os tres no precache quem
 // abriu o Atlas no onibus receberia o index.html novo e uma tela que pede
 // arquivo que o cache v9 nao tem. Mesmo motivo das nove anteriores.
-const VERSAO = 'atlas-v10';
+// atlas-v11: a TRAVA DO CACHE entrou neste arquivo. Motivo, em uma linha: o
+// conteudo do precache mudou na 2b do metro e este sw.js nao mudou com ele, entao
+// nenhuma correcao chegava a quem ja tinha o app instalado. v11 e a primeira
+// versao cujo hash esta anotado abaixo; a partir daqui, conteudo novo = sw.js novo
+// = install de verdade.
+const VERSAO = 'atlas-v11';
+
+// sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
+// caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
+// deixa o cache antigo sem o nome novo. Recalcular: node tests/precache-hash.js.
+const PRECACHE_HASH = 'sha256-41c24ca8c82e6fe653ea028947c54aa6cd18142fe0133c64bb6db5cd3a81d1db';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.
@@ -112,7 +135,12 @@ self.addEventListener('install', (evento) => {
       .open(VERSAO)
       // all() em vez de loop: se UM arquivo faltar, a instalacao falha inteira
       // e o sw nao ativa. Preferivel a ativar pela metade e fingir offline.
-      .then((cache) => cache.addAll(PRECACHE_URLS))
+      // cache: 'reload' e obrigatorio aqui (30/10/2026). Sem ele, o service worker
+      // NOVO pede os arquivos passando pelo cache HTTP do navegador, recebe a copia
+      // velha que o navegador ainda considera fresca e grava a versao antiga dentro
+      // do cache novo: a VERSAO sobe, o install roda, e a tela continua velha do
+      // mesmo jeito — a trava do hash nao serviria para nada.
+      .then((cache) => cache.addAll(PRECACHE_URLS.map((url) => new Request(url, { cache: 'reload' }))))
       .then(() => self.skipWaiting())
   );
 });
