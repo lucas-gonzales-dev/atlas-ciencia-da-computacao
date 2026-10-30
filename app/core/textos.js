@@ -26,7 +26,11 @@ export const placa = {
   viagem: 'Sua viagem',
   comoLerMapa: 'Como ler o mapa',
   sobre: 'Sobre',
-  embarcar: 'Começar a viagem',
+  // Item 5 da crítica (2b-2, 29/10/2026): a tela de metrô tem UM verbo só —
+  // "Começar a estudar". "Começar a viagem" morreu junto com a chave embarcar.
+  // Não volta como reserva: verbo duplicado na tela é duas decisões para a
+  // mesma pessoa. A chegada (concluir/desfazer) é da fatia 2c.
+  marcaLinha: 'Ciência da Computação · UBL',
   concluir: 'Concluir estação',
   desfazer: 'Desfazer',
   salvar: 'Salvar',
@@ -39,6 +43,9 @@ export const placa = {
   continuar: 'Continuar',
   marcar: 'Marcar',
   concluida: 'Concluída.',
+  // Item 6 da crítica: o link tem NOME, nunca o caminho, e aponta para o
+  // arquivo na fonte no SHA auditado (b995c11) — não para main, que muda.
+  bibliografiaNaFonte: 'Bibliografia na fonte',
   bibliografiaNota: 'A fonte publica esta bibliografia; o Atlas não conferiu se a página está no ar.',
   buscar: 'Buscar estação',
   exportar: 'Exportar progresso',

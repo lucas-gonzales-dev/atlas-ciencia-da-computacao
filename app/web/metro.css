@@ -30,6 +30,28 @@
 }
 .metro * { box-sizing: border-box; }
 
+/* ── 0. A MARCA "Atlas" ───────────────────────────────────────────────────
+ * Item 4 da crítica (2b-2): o nome da coisa e o do curso, ANTES da placa. É
+ * cabeçalho de tela, não competing com a próxima estação: o nome no degrau de
+ * corpo da escala e a linha do curso no degrau de nota — nada aqui é maior
+ * que o nome da estação, que continua sendo o maior tamanho da escala. */
+.marca {
+  display: grid; gap: var(--espaco-1);
+  padding-bottom: var(--espaco-3); margin-bottom: var(--espaco-4);
+  border-bottom: var(--anel-trancada) solid var(--borda);
+}
+.marca-nome {
+  margin: 0; font-family: var(--fonte-placa); font-size: var(--tipo-titulo);
+  font-weight: var(--peso-placa); line-height: var(--entrelinha-apertada);
+  letter-spacing: var(--espacamento-placa); color: var(--tinta);
+}
+.marca-linha {
+  margin: 0; font-family: var(--fonte-placa); font-size: var(--tipo-nota);
+  font-weight: var(--peso-forte); letter-spacing: var(--espacamento-placa);
+  text-transform: uppercase; color: var(--fosca);
+  line-height: var(--entrelinha-nota);
+}
+
 /* ── 1. A PLACA "Sua próxima estação" ─────────────────────────────────────
  * Placa de estação: rótulo serigrafado em caixa alta, selo da linha, o nome no
  * MAIOR tamanho da escala (--tipo-estacao) e UMA ação só. Nada mais compete. */

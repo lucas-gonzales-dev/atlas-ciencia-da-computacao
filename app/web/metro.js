@@ -101,6 +101,19 @@ export function acaoDaPlaca(estado) {
   return estado === ESTADOS.EM_CURSO ? placa.continuar : placa.comecarEstudar;
 }
 
+/**
+ * Item 6 da crítica (2b-2): o arquivo da bibliografia mora na FONTE, não aqui.
+ * O caminho é transcrito do snapshot (extras/bibliography/…), e o endereço que
+ * a pessoa abre é o daquele snapshot: b995c11, o SHA auditado em CREDITS.md.
+ * Nunca "main" — main muda embaixo do catálogo que o Atlas copiou, e a pessoa
+ * leria uma bibliografia que não é a que originou a grade dele.
+ */
+const FONTE_SHA = 'b995c11';
+const FONTE_REPO = 'https://github.com/Universidade-Livre/ciencia-da-computacao';
+export function naFonte(caminho) {
+  return `${FONTE_REPO}/blob/${FONTE_SHA}/${String(caminho).replace(/^\/+/, '')}`;
+}
+
 /** Texto do que falta, pelo NOME — nunca id, nunca caminho. */
 export function textoDoQueFalta(estacao) {
   const nomes = (estacao?.faltam || []).map((f) => f.titulo);
@@ -198,6 +211,15 @@ export function desenharMetro(doc, root, estado) {
   root.className = `metro l${linha}`;
 
   const nos = { linha, resumo, placas: null, seletor: null, diagrama: null, aviso: null, embarque: null };
+
+  // ── 0. a marca ──────────────────────────────────────────────────────────
+  // Item 4 da crítica (2b-2): antes de qualquer placa, quem é este lugar.
+  // "Atlas" + a linha do curso, nos dois degraus da escala tipográfica.
+  const marca = el(doc, 'header', 'marca');
+  marca.append(el(doc, 'p', 'marca-nome', { text: placa.titulo }));
+  marca.append(el(doc, 'p', 'marca-linha', { text: placa.marcaLinha }));
+  root.append(marca);
+  nos.marca = marca;
 
   // ── 1. a placa ──────────────────────────────────────────────────────────
   const proxima = resumo.proximaEstacao
@@ -364,7 +386,8 @@ function folha(doc, curso, e, id, aberta, linha) {
   if (curso?.resourceUrl) {
     box.append(el(doc, 'a', 'recurso', {
       href: curso.resourceUrl, rel: 'noopener', target: '_blank',
-      'data-recurso': curso.id, text: placa.embarcar
+      // UM verbo só na tela (item 5 da crítica): o mesmo texto da placa.
+      'data-recurso': curso.id, text: placa.comecarEstudar
     }));
   }
 
@@ -373,9 +396,11 @@ function folha(doc, curso, e, id, aberta, linha) {
     // O TEXTO é o nome (linkBibliografia); o HREF é o caminho real da fonte.
     // Caminho como texto na tela está na lista do proibido — como endereço, não.
     const link = el(doc, 'a', 'biblio-link', {
-      href: curso.bibliography, rel: 'noopener', target: '_blank',
+      href: naFonte(curso.bibliography), rel: 'noopener', target: '_blank',
       'data-bibliografia': curso.id,
-      text: comValores.linkBibliografia(e.titulo)
+      // Item 6: o NOME é fixo — "Bibliografia na fonte". O caminho vira
+      // endereço, nunca texto na tela (a lista do proibido continua de pé).
+      text: placa.bibliografiaNaFonte
     });
     biblio.append(link);
     biblio.append(el(doc, 'p', 'biblio-nota', { text: placa.bibliografiaNota }));
@@ -396,11 +421,10 @@ function folha(doc, curso, e, id, aberta, linha) {
   rotulo.append(area);
   box.append(rotulo);
 
-  if (e.estado !== ESTADOS.CONCLUIDA) {
-    box.append(el(doc, 'button', 'botao botao-concluir', {
-      type: 'button', 'data-concluir': e.id, text: placa.concluir
-    }));
-  }
+  // Item 7 da crítica: "Concluir estação" aqui não fazia nada — a CHEGADA com
+  // o círculo enchendo e o desfazer é a fatia 2c. Botão morto na tela é uma
+  // promessa falsa, então ele sai; a ação acoes.concluir fica no código,
+  // esperando a fatia que a desenha e a desfaz.
   return box;
 }
 

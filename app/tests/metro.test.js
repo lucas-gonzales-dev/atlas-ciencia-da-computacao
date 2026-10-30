@@ -312,17 +312,75 @@ test('a etiqueta de estado fica DEBAIXO do nome, à esquerda e um degrau menor',
     'no DOM a etiqueta vem depois do nome');
 });
 
-test('folha: aberta mostra o recurso, a bibliografia como LINK COM NOME e a anotação', () => {
+// ─── FATIA 2b-2 DO PEDIDO 21 (itens 4 a 7 da crítica do Claude, 29/10/2026) ───
+// A marca no topo, UM verbo só, a bibliografia como link com nome para o arquivo
+// NA FONTE no SHA auditado, e o botão de concluir fora desta tela (a chegada com
+// desfazer é da fatia 2c). Os testes abaixo substituem os que mediam o desenho
+// antigo — nenhum foi afrouxado: o href relativo que existia virou URL absoluta.
+
+test('marca: "Atlas" e a linha do curso vêm ANTES da placa, no topo da tela', () => {
+  const { root } = desenhar({ completed: ['l1a'] });
+  const marca = comClasse(root, 'marca')[0];
+  assert.ok(marca, 'a marca existe');
+  assert.equal(root.children.indexOf(marca), 0, 'é o primeiro nó: vem antes da placa');
+  assert.equal(comClasse(marca, 'marca-nome')[0].textContent, PLACAS.titulo);
+  assert.equal(comClasse(marca, 'marca-linha')[0].textContent, PLACAS.marcaLinha,
+    'a segunda linha diz o curso e a universidade, vinda de textos.js');
+});
+
+test('marca: o desenho sai dos tokens, com o nome maior que a linha do curso', () => {
+  const css = readFileSync(fileURLToPath(new URL('../web/metro.css', import.meta.url)), 'utf8');
+  assert.match(css, /\.marca-nome \{[^}]*font-size: var\(--tipo-/, 'o nome usa a escala tipográfica');
+  assert.match(css, /\.marca-linha \{[^}]*font-size: var\(--tipo-/, 'e a linha do curso também');
+  const nome = css.match(/\.marca-nome \{[^}]*font-size: var\((--tipo-[a-z]+)\)/)[1];
+  const linhaTexto = css.match(/\.marca-linha \{[^}]*font-size: var\((--tipo-[a-z]+)\)/)[1];
+  assert.notEqual(nome, linhaTexto, 'são degraus diferentes da escala: a marca não é um bloco só');
+});
+
+test('folha: o recurso abre com o VERBO ÚNICO da tela, nunca "Começar a viagem"', () => {
   const { root } = desenhar({ linha: 1, aberta: 'l1a' });
   const folha = comClasse(root, 'detalhe').find((d) => !d.attrs.hidden && d.getAttribute('hidden') === null);
   assert.ok(folha, 'a folha aberta existe');
+  const recurso = comAttr(folha, 'data-recurso')[0];
+  assert.equal(recurso.textContent, PLACAS.comecarEstudar,
+    'o mesmo texto da placa: UM verbo só na tela (item 5 da crítica)');
+  assert.equal(recurso.getAttribute('href'), 'https://exemplo.org/l1a');
+  assert.equal(todos(root, (n) => n.textContent === 'Começar a viagem').length, 0,
+    'nenhum "Começar a viagem" em lugar nenhum da tela');
+});
+
+test('textos: a chave embarcar morreu — o verbo único não fica de reserva', () => {
+  assert.equal(PLACAS.embarcar, undefined, 'placa.embarcar não existe mais em textos.js');
+  assert.equal(Object.values(PLACAS).includes('Começar a viagem'), false,
+    'e a frase não está guardada em nenhuma outra chave');
+});
+
+test('folha: a bibliografia é "Bibliografia na fonte" e aponta para o arquivo no SHA auditado', () => {
+  const { root } = desenhar({ linha: 1, aberta: 'l1a' });
+  const folha = comClasse(root, 'detalhe').find((d) => !d.attrs.hidden && d.getAttribute('hidden') === null);
   const link = comAttr(folha, 'data-bibliografia')[0];
-  assert.equal(link.getAttribute('href'), 'extras/bibliography/01_digital_circuits.md',
-    'o endereço é o caminho real da fonte');
-  assert.equal(link.textContent, comValores.linkBibliografia('Matemática Discreta'),
-    'o TEXTO é o nome — caminho cru na tela está na lista do proibido');
+  assert.equal(link.textContent, PLACAS.bibliografiaNaFonte, 'o NOME, nunca o caminho');
+  assert.equal(link.getAttribute('href'),
+    'https://github.com/Universidade-Livre/ciencia-da-computacao/blob/b995c11/extras/bibliography/01_digital_circuits.md',
+    'a fonte, no commit em que a grade foi auditada — nem main (muda), nem relativo (não existe no app)');
   assert.ok(!link.textContent.includes('extras/'), 'nenhum caminho aparece como texto');
-  assert.equal(comAttr(folha, 'data-recurso')[0].getAttribute('href'), 'https://exemplo.org/l1a');
+  assert.equal(link.getAttribute('rel'), 'noopener');
+});
+
+test('folha: a bibliografia de toda estação trancada que tem fonte sai no mesmo SHA', () => {
+  const { root } = desenhar({ completed: [], linha: 2, aberta: 'l2a' });
+  const folha = comClasse(root, 'detalhe').find((d) => !d.attrs.hidden && d.getAttribute('hidden') === null);
+  const link = comAttr(folha, 'data-bibliografia')[0];
+  assert.equal(link.getAttribute('href'),
+    'https://github.com/Universidade-Livre/ciencia-da-computacao/blob/b995c11/extras/bibliography/02_data_structures.md');
+});
+
+test('fatia 2b: nenhum botão de concluir na tela — a chegada é da fatia 2c', () => {
+  const disponivel = desenhar({ linha: 1, aberta: 'l1a' });
+  assert.equal(comAttr(disponivel.root, 'data-concluir').length, 0, 'a estação disponível não mostra botão morto');
+  assert.equal(todos(disponivel.root, (n) => (n.className || '').includes('botao-concluir')).length, 0);
+  const emCurso = desenhar({ completed: ['l1a'], emCurso: ['l1b'], linha: 1, aberta: 'l1b' });
+  assert.equal(comAttr(emCurso.root, 'data-concluir').length, 0, 'nem a estação em curso');
 });
 
 test('folha: fechada não mostra nada (hidden), e a trancada diz o que falta pelo NOME', { todo: 'fatia 2 do pedido 21: a folha trancada cita só um pré-requisito; tem de listar TODOS ("faltam Matemática Discreta, Algoritmos I")' }, () => {
