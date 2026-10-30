@@ -25,6 +25,8 @@ import {
 } from '../web/metro.js';
 import { ESTADOS, resumoDaViagem, estadoDaEstacao } from '../core/viagem.js';
 import { placa as PLACAS, comValores, estados as TEXTOS_ESTADOS } from '../core/textos.js';
+import { setNota } from '../core/notes.js';
+import * as mainReal from '../web/main.js';
 
 // ─────────────────────────────── mini-DOM ───────────────────────────────
 // Só o que a tela usa: createElement, append, className, setAttribute, textContent,
@@ -479,16 +481,37 @@ test('MUTAÇÃO: selo sem aria-current deixa de marcar a linha atual', () => {
 });
 
 // ═══════════════════════════ 4. a chegada e o desfazer ═══════════════════════════
+// O DUBLÊ NÃO PODE MENTIR (30/10/2026): ele tinha `applyNote(notas, id, texto)` e
+// `saveNotas(storage, notas)` — nome e assinatura que o main.js real nunca teve.
+// O teste mediu o dublê, não a tela, e a anotação quebrou no navegador. Agora as
+// assinaturas são as de lá (o teste de contrato confere as duas pontas) e o que
+// se guarda no aparelho é o que o main.js guarda: JSON numa chave, escrito com a
+// regra do núcleo (setNota corta em 280 e apaga no texto vazio), não um dicionário
+// à mão em memória.
+const CHAVE_NOTAS = 'atlas.anotacoes.v1';
+const CHAVE_PROGRESSO = 'atlas.progresso.v1';
+
 function modulosFake({ completed = [] } = {}) {
-  const guardado = { completed: [...completed], notas: {} };
+  const aparelho = criarStorage();
+  const guardado = { completed: [...completed], notas: {}, aparelho };
+  const lerNotas = () => {
+    try { return JSON.parse(aparelho.getItem(CHAVE_NOTAS)) || {}; } catch { return {}; }
+  };
   return {
     guardado,
     loadCatalog: async () => ({ courses: CATALOGO, origem: 'teste' }),
     loadCompleted: () => [...guardado.completed],
-    saveCompleted: (_s, lista) => { guardado.completed = [...lista]; },
-    loadNotas: () => ({ ...guardado.notas }),
-    saveNotas: (_s, notas) => { guardado.notas = { ...notas }; },
-    applyNote: (notas, id, texto) => ({ ...notas, [id]: texto })
+    saveCompleted: (lista) => {
+      guardado.completed = [...lista];
+      aparelho.setItem(CHAVE_PROGRESSO, JSON.stringify(lista));
+    },
+    loadNotas: () => ({ ...lerNotas() }),
+    saveNotas: (notas) => {
+      guardado.notas = { ...notas };
+      aparelho.setItem(CHAVE_NOTAS, JSON.stringify(notas));
+      return true;
+    },
+    aplicarNota: (state = {}, id, texto) => ({ ...state, anotacoes: setNota(state.anotacoes, id, texto) })
   };
 }
 
@@ -497,11 +520,19 @@ async function subirTela({ completed = [], timers = [] } = {}) {
   const root = raiz(doc);
   const storage = criarStorage();
   const modulos = modulosFake({ completed });
-  const api = await subirMetro({
-    document: doc, root, storage, modulos,
-    setTimeout: (fn, ms) => { const t = { fn, ms }; timers.push(t); return t; },
-    hoje: '2026-10-29'
-  });
+  // O main.js real escreve no localStorage GLOBAL, nunca recebe storage. O dublê
+  // faz o mesmo: fazer diferente seria continuar testando uma tela que não existe.
+  globalThis.localStorage = modulos.guardado.aparelho;
+  let api;
+  try {
+    api = await subirMetro({
+      document: doc, root, storage, modulos,
+      setTimeout: (fn, ms) => { const t = { fn, ms }; timers.push(t); return t; },
+      hoje: '2026-10-29'
+    });
+  } finally {
+    delete globalThis.localStorage;
+  }
   return { api, doc, root, storage, modulos, timers };
 }
 
@@ -801,4 +832,159 @@ test('estrelas: linhas e estações saem do catálogo, sem número fixo', () => 
   assert.deepEqual(linhasDoCatalogo(CATALOGO), [1, 2, 3]);
   assert.deepEqual(estacoesDaLinha(CATALOGO, 2).map((c) => c.id), ['l2a', 'l2b']);
   assert.deepEqual(estacoesDaLinha(CATALOGO, 9), []);
+});
+
+// ═══════════════════ 7. O CONTRATO com o main.js de verdade ═══════════════════
+// Por que isto existe: o metro.js pedia `applyNote` ao main.js e chamava
+// `saveNotas(storage, notas)`. Nenhum dos dois nomes/assinaturas existe lá — no
+// navegador dava "applyNote is not a function" a cada tecla e a anotação sumia no
+// redesenho, enquanto o metrô ficava verde porque o dublê tinha os nomes que o
+// metro.js inventou. Teste que mede o dublê não mede a tela. Estes três testes
+// medem as duas pontas: a lista que o metro.js pede, as funções que o main.js
+// exporta, e uma subida da tela com o main.js REAL.
+const fonteMetro = readFileSync(fileURLToPath(new URL('../web/metro.js', import.meta.url)), 'utf8');
+
+/** Nomes que o metro.js tira de `deps.modulos || await import('./main.js')`. */
+function nomesPedidosPeloMetro() {
+  const m = semComentarios(fonteMetro).match(/const \{([^}]*)\}[\s\S]{0,80}?deps\.modulos \|\| await import\('\.\/main\.js'\)/);
+  assert.ok(m, 'a desestruturação do main.js mudou de forma — atualize este teste e o contrato junto');
+  return m[1].split(',').map((s) => s.trim()).filter(Boolean);
+}
+
+/** Argumentos de uma chamada `nome(...)` na fonte do metro.js, no nível de fora. */
+/** Tira comentários da fonte: o contrato é sobre código, não sobre prosa. */
+function semComentarios(texto) {
+  let saida = '', i = 0, cite = null;
+  while (i < texto.length) {
+    const c = texto[i], d = texto[i + 1];
+    if (cite) {
+      if (c === '\\') { saida += c + (d ?? ''); i += 2; continue; }
+      if (c === cite) { cite = null; }
+      saida += c; i++; continue;
+    }
+    if (c === '"' || c === "'" || c === '`') { cite = c; saida += c; i++; continue; }
+    if (c === '/' && d === '/') { while (i < texto.length && texto[i] !== '\n') i++; continue; }
+    if (c === '/' && d === '*') { i += 2; while (i < texto.length && !(texto[i] === '*' && texto[i + 1] === '/')) i++; i += 2; continue; }
+    saida += c; i++;
+  }
+  return saida;
+}
+
+function argumentosNaFonte(nome) {
+  const re = new RegExp('\\b' + nome + '\\(((?:[^()]|\\([^()]*\\))*)\\)', 'g');
+  const achados = [];
+  let m;
+  while ((m = re.exec(semComentarios(fonteMetro)))) {
+    const dentro = m[1].trim();
+    if (!dentro) { achados.push(0); continue; }
+    let nivel = 0, atual = '', partes = 0;
+    for (const c of dentro) {
+      if (c === '(' || c === '[' || c === '{') nivel++;
+      else if (c === ')' || c === ']' || c === '}') nivel--;
+      if (c === ',' && nivel === 0) { partes++; atual = ''; continue; }
+      atual += c;
+    }
+    achados.push(partes + 1);
+  }
+  return achados;
+}
+
+/** Quantos parâmetros a função real declara — incluindo os que têm valor padrão. */
+function parametrosReais(fn) {
+  const src = Function.prototype.toString.call(fn);
+  const abre = src.indexOf('(');
+  if (abre < 0) return 0;
+  let nivel = 0, partes = 1, viuAlgum = false;
+  for (let i = abre + 1; i < src.length; i++) {
+    const c = src[i];
+    if (c === '(' || c === '[' || c === '{') { nivel++; }
+    else if (c === ')' || c === ']' || c === '}') { if (nivel === 0) break; nivel--; }
+    if (nivel === 0 && c === ',') { partes++; continue; }
+    if (nivel === 0 && !/\s/.test(c)) viuAlgum = true;
+  }
+  return viuAlgum ? partes : 0;
+}
+
+test('contrato: todo nome que o metro.js tira do main.js existe como export real', () => {
+  const pedidos = nomesPedidosPeloMetro();
+  assert.ok(pedidos.length >= 5, 'o contrato é a desestruturação inteira, não uma amostra');
+  for (const nome of pedidos) {
+    assert.equal(typeof mainReal[nome], 'function',
+      `main.js não exporta "${nome}" — é exatamente o "applyNote is not a function" da fatia 2c-3`);
+  }
+});
+
+test('contrato: o metro.js chama cada função com os parâmetros que o main.js declara', () => {
+  for (const nome of nomesPedidosPeloMetro()) {
+    const reais = parametrosReais(mainReal[nome]);
+    const chamadas = argumentosNaFonte(nome);
+    assert.ok(chamadas.length > 0, `o metro.js nunca chama ${nome}? retire da desestruturação`);
+    for (const dados of chamadas) {
+      assert.equal(dados, reais,
+        `${nome}: o metro.js chama com ${dados} e o main.js declara ${reais} — saveNotas(storage, notas) foi assim que quebrou`);
+    }
+  }
+});
+
+test('contrato: o dublê do teste tem as MESMAS assinaturas do main.js real', () => {
+  const fake = modulosFake();
+  for (const nome of nomesPedidosPeloMetro()) {
+    assert.equal(typeof fake[nome], 'function', `o dublê não tem ${nome}`);
+    assert.equal(parametrosReais(fake[nome]), parametrosReais(mainReal[nome]),
+      `${nome}: dublê com assinatura diferente é o teste medindo outra tela`);
+  }
+});
+
+test('contrato: a tela sobe com o main.js REAL, anota, e o texto volta depois do redesenho', async () => {
+  const gravado = new Map();
+  const aparelho = {
+    getItem: (k) => (gravado.has(String(k)) ? gravado.get(String(k)) : null),
+    setItem: (k, v) => { gravado.set(String(k), String(v)); },
+    removeItem: (k) => { gravado.delete(String(k)); }
+  };
+  globalThis.localStorage = aparelho;
+  try {
+    // main.js REAL em tudo que toca o aparelho: aplicarNota, loadNotas, saveNotas,
+    // loadCompleted, saveCompleted. Só loadCatalog é o dublê — no node não há
+    // fetch de data/catalog.json, e o que se prova aqui é a anotação, não o dado.
+    const modulos = { ...mainReal, loadCatalog: async () => ({ courses: CATALOGO, origem: 'teste' }) };
+    const doc = criarDoc();
+    const root = raiz(doc);
+    const api = await subirMetro({
+      document: doc, root, storage: criarStorage(), modulos,
+      setTimeout: () => ({}), hoje: '2026-10-29'
+    });
+    api.acoes.abrirEstacao('l1a');
+    const area = comClasse(root, 'anotacao')[0];
+    assert.ok(area, 'a folha aberta desenha o campo');
+    area.value = 'faz até o 9';
+    disparar(root, 'input', area);
+
+    assert.ok([...gravado.keys()].some((k) => k.includes('anotacoes')),
+      'escrever grava no aparelho PELA MÃO DO main.js, com a chave dele');
+    api.acoes.abrirEstacao('l1a'); // fecha
+    api.acoes.abrirEstacao('l1a'); // reabre
+    assert.equal(comClasse(root, 'anotacao')[0].value, 'faz até o 9',
+      'o texto volta no campo — era aqui que ele sumia');
+
+    // Sobreviver ao redesenho não basta: a prova é uma tela NOVA lendo o aparelho.
+    const doc2 = criarDoc();
+    const root2 = raiz(doc2);
+    const segunda = await subirMetro({
+      document: doc2, root: root2, storage: criarStorage(), modulos,
+      setTimeout: () => ({}), hoje: '2026-10-30'
+    });
+    segunda.acoes.abrirEstacao('l1a');
+    assert.equal(comClasse(root2, 'anotacao')[0].value, 'faz até o 9',
+      'fechar o navegador e voltar não apaga a anotação');
+
+    // E a regra do núcleo vale na tela: texto vazio APAGA, não deixa chave órfã.
+    const campo = comClasse(root2, 'anotacao')[0];
+    campo.value = '';
+    disparar(root2, 'input', campo);
+    assert.equal(JSON.stringify(gravado.get('atlas.anotacoes.v1')).includes('l1a'), false,
+      'apagar o texto apaga a chave — é o setNota do core/notes.js, não um dicionário à mão');
+  } finally {
+    delete globalThis.localStorage;
+  }
 });

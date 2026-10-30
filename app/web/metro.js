@@ -588,7 +588,12 @@ export function bindMetro(doc, root, handlers) {
  * localStorage de verdade e o catálogo da fonte.
  */
 export async function subirMetro(deps = {}) {
-  const { loadCatalog, loadCompleted, saveCompleted, applyNote, loadNotas, saveNotas } =
+  // A lista é o CONTRATO com o main.js de verdade (30/10/2026): o metro.js pedia
+  // applyNote e passava o storage na frente do saveNotas — nomes que o main.js
+  // nunca exportou. No navegador dava TypeError a cada tecla; no teste passava
+  // porque o dublê tinha os nomes inventados. metro.test.js agora confere esta
+  // linha contra os exports reais, e o dublê é obrigado a ter as assinaturas de lá.
+  const { loadCatalog, loadCompleted, saveCompleted, aplicarNota, loadNotas, saveNotas } =
     deps.modulos || await import('./main.js');
   const doc = deps.document || document;
   const storage = deps.storage || (typeof localStorage !== 'undefined' ? localStorage : null);
@@ -598,13 +603,13 @@ export async function subirMetro(deps = {}) {
   const ui = {
     // O catálogo é GUARDADO já com as anotações dentro: é a única forma de o
     // redesenho achar o texto que a pessoa escreveu (fatia 2c-3).
-    catalogo: comNotas([], loadNotas(storage) || {}),
-    notas: loadNotas(storage) || {}, linha: null, aberta: null,
+    catalogo: comNotas([], loadNotas() || {}),
+    notas: loadNotas() || {}, linha: null, aberta: null,
     embarqueAberto: false, chegada: null, despertas: [], carregando: true
   };
   // O esqueleto é a PRIMEIRA PINTURA — ele é chamado logo abaixo, onde `pintar`
   // passa a existir, e antes de qualquer `await`.
-  let progresso = carregarViagem(storage, loadCompleted(storage));
+  let progresso = carregarViagem(storage, loadCompleted());
   let janela = null; // o temporizador do "desfazer"
 
   // PINTAR NÃO LIGA (2c-1): o bind é UMA vez por root, antes da primeira
@@ -624,7 +629,9 @@ export async function subirMetro(deps = {}) {
 
   const persistir = (novo) => {
     progresso = lerProgresso(novo);
-    saveCompleted(storage, progresso.completed);
+    // A chave do progresso é do main.js, e ele não recebe storage: quem passa o
+    // storage é ele. Enganar o storage aqui é ter duas chaves de "concluído".
+    saveCompleted(progresso.completed);
     salvarViagem(storage, progresso);
   };
 
@@ -652,8 +659,12 @@ export async function subirMetro(deps = {}) {
     abrirEstacao(id) { ui.aberta = ui.aberta === id ? null : id; pintar(); },
     embarque() { ui.embarqueAberto = !ui.embarqueAberto; pintar(); },
     anotar(id, texto) {
-      ui.notas = applyNote(ui.notas, id, texto, ui.catalogo);
-      saveNotas(storage, ui.notas);
+      // aplicarNota é a função do NÚCLEO de anotação, a mesma da tela principal:
+      // o estado dela é { anotacoes }, e é ela (via setNota) que corta em 280 e
+      // apaga a chave no texto vazio. Inventar applyNote aqui foi o defeito que
+      // fez a anotação sumir no navegador.
+      ui.notas = aplicarNota({ anotacoes: ui.notas }, id, texto).anotacoes;
+      saveNotas(ui.notas);
       // E o catálogo carrega o texto: é de lá que a folha desenhada lê o campo.
       // Gravar no storage sem atualizar ui.catalogo é ter a anotação salva e
       // apagada da tela ao mesmo tempo (fatia 2c-3).

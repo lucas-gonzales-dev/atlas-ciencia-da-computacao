@@ -86,12 +86,20 @@
 // obriga a declarar — sem subir a VERSAO o navegador compara este arquivo por
 // bytes, nao instala, e quem ja abriu o app continua vendo o rotulo e a espera
 // antigos.
-const VERSAO = 'atlas-v14';
+// atlas-v15: a ANOTACAO QUEBRAVA NO NAVEGADOR e o metro.js mudou no conteudo para
+// usar a API real do main.js. O metro.js pedia applyNote e chamava
+// saveNotas(storage, notas) — nomes que o main.js nunca exportou — entao cada
+// tecla no campo dava TypeError e o texto sumia no redesenho. Estava no ar desde
+// a fatia 1 (32469d9): quem tem v14 no cache continua anotando em um app que nao
+// salva nada, e e exatamente o cache-first da regra antiga que a trava da v11
+// obriga a declarar. Sem subir a VERSAO, o navegador compara este arquivo por
+// bytes, nao instala, e a pessoa anota, fecha e perde a anotacao para sempre.
+const VERSAO = 'atlas-v15';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
 // deixa o cache antigo sem o nome novo. Recalcular: node tests/precache-hash.js.
-const PRECACHE_HASH = 'sha256-ffdce8606ecb3fb4f9909c8a9e9efaacb86cab8407441f271f22784ab7f68b61';
+const PRECACHE_HASH = 'sha256-5152409826e046dc36542f4d6169b90f5a3761b4b0e5ba4394f37ab49b22357b';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.
