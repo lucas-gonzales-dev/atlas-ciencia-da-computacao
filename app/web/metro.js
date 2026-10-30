@@ -150,6 +150,20 @@ function el(doc, tag, className, attrs) {
   return no;
 }
 
+/**
+ * Tira um nó do pai. No navegador é o `remove()` nativo; no mini-DOM do teste
+ * é desmontar a lista de filhos — as duas rotas, porque a chegada tem de sair
+ * do ar sem redesenhar a linha inteira.
+ */
+function remover(no) {
+  if (typeof no.remove === 'function') { no.remove(); return; }
+  const pai = no.parent;
+  if (!pai) return;
+  const i = pai.children.indexOf(no);
+  if (i >= 0) pai.children.splice(i, 1);
+  no.parent = null;
+}
+
 /** Selo da linha: o número dentro do círculo, na cor da linha. */
 export function selo(doc, linha, attrs) {
   const n = Number(linha);
@@ -181,7 +195,12 @@ export function desenharEsqueleto(doc, root) {
 }
 
 function limpar(doc, root) {
-  root.textContent = '';
+  // `textContent = ''` esvazia o root de VERDADE só no navegador. No mini-DOM
+  // do teste é um setter simples, que deixa os filhos órfãos pendurados no nó:
+  // o aviso velho continuava dentro do root e a linha saía com 4 nós depois do
+  // temporizador (o defeito que a fatia 2c tinha de resolver). Desmontar é o
+  // jeito honesto em qualquer um dos dois mundos.
+  for (const filho of [...root.children]) remover(filho);
   root.setAttribute('aria-busy', 'false');
 }
 
@@ -211,6 +230,16 @@ export function desenharMetro(doc, root, estado) {
   root.className = `metro l${linha}`;
 
   const nos = { linha, resumo, placas: null, seletor: null, diagrama: null, aviso: null, embarque: null };
+
+  // CHEGADA SEM RESENHO (fatia 2c-1, item 3 da crítica): o círculo que enche e o
+  // trecho que marca recebem a classe `chegada` no desenho NORMAL — a cor cheia
+  // que o estado deles já dá — e o temporizador só TIRA essa classe, mexendo
+  // nestes nós no lugar. Guardo os nós para o boot ter o que esconder.
+  const chegadaId = estado.chegada?.id ?? null;
+  const formasDeChegada = [];
+  const tracosDeChegada = [];
+  let aviso = null;
+  let desfazer = null;
 
   // ── 0. a marca ──────────────────────────────────────────────────────────
   // Item 4 da crítica (2b-2): antes de qualquer placa, quem é este lugar.
@@ -324,13 +353,21 @@ export function desenharMetro(doc, root, estado) {
     };
     const parada = el(doc, 'li', `parada l${linha}`);
 
+    const chegouAgora = chegadaId === e.id;
     const coluna = el(doc, 'div', 'trilho-col');
-    coluna.append(el(doc, 'span', `trilho trilho-superior${percorrido ? ' percorrido' : ''}`));
+    // O trecho que a chegada marca é o que LEVA até ela: o superior. Na primeira
+    // estação da linha ele é transparente por regra do CSS (não há nada acima),
+    // e a classe chegada não inventa um traço que não existe.
+    const superior = el(doc, 'span', `trilho trilho-superior${percorrido ? ' percorrido' : ''}${chegouAgora ? ' chegada' : ''}`);
+    if (chegouAgora) tracosDeChegada.push(superior);
+    coluna.append(superior);
     const ehProxima = proxima && proxima.id === e.id;
     const forma = el(doc, 'span', [
       'forma', e.estado.replace('_', '-'),
-      ehProxima ? 'proxima' : '', despertas.has(e.id) ? 'desperta' : ''
+      ehProxima ? 'proxima' : '', despertas.has(e.id) ? 'desperta' : '',
+      chegouAgora ? 'chegada' : ''
     ].filter(Boolean).join(' '));
+    if (chegouAgora) formasDeChegada.push(forma);
     coluna.append(forma);
     const feito = e.estado === ESTADOS.CONCLUIDA;
     coluna.append(el(doc, 'span', `trilho trilho-inferior${feito ? ' percorrido' : ''}`));
@@ -357,15 +394,23 @@ export function desenharMetro(doc, root, estado) {
   nos.diagrama = diagrama;
 
   // ── 4. o aviso da chegada, com o desfazer ───────────────────────────────
-  if (estado.chegada) {
-    const aviso = el(doc, 'div', 'aviso-chegada', { role: 'status' });
-    aviso.append(el(doc, 'span', null, { text: placa.concluida }));
-    aviso.append(el(doc, 'button', 'desfazer', {
-      type: 'button', 'data-desfazer': estado.chegada.id, text: placa.desfazer
-    }));
+  //
+  // CHEGADA (fatia 2c-1). O aviso só existe enquanto a chegada está visível, e
+  // quando a janela vence ele sai SEM redesenhar a linha: esconderAviso() mexe
+  // neste nó no lugar. As duas travas estão em metro.test.js: dois nós dentro do
+  // aviso (texto + desfazer) e a linha com exatamente dois `data-id` depois do
+  // desfazer — um aviso que se empilha a cada pintura faria quatro.
+  if (chegadaId) {
+    aviso = el(doc, 'div', 'aviso-chegada', { role: 'status' });
+    desfazer = el(doc, 'button', 'desfazer', {
+      type: 'button', 'data-desfazer': chegadaId, text: placa.desfazer
+    });
+    aviso.append(el(doc, 'span', 'aviso-texto', { text: placa.concluida }));
+    aviso.append(desfazer);
     root.append(aviso);
     nos.aviso = aviso;
   }
+  nos.chegada = { aviso, desfazer, formas: formasDeChegada, tracos: tracosDeChegada };
 
   return nos;
 }
@@ -421,10 +466,17 @@ function folha(doc, curso, e, id, aberta, linha) {
   rotulo.append(area);
   box.append(rotulo);
 
-  // Item 7 da crítica: "Concluir estação" aqui não fazia nada — a CHEGADA com
-  // o círculo enchendo e o desfazer é a fatia 2c. Botão morto na tela é uma
-  // promessa falsa, então ele sai; a ação acoes.concluir fica no código,
-  // esperando a fatia que a desenha e a desfaz.
+  // FATIA 2c-1 (item 7 da crítica): o botão volta PORQUE AGORA ELE FAZ ALGO.
+  // Em 2b-2 ele foi tirado por ser promessa falsa — mexer nele não desenhava
+  // chegada nenhuma. Com o círculo enchendo, o trecho marcando e o aviso com
+  // desfazer no ar, "Concluir estação" é o verbo do núcleo na folha, e só aparece
+  // na estação aberta, disponível ou em curso: trancada e concluída não têm o
+  // que concluir.
+  if (aberta && (e.estado === ESTADOS.DISPONIVEL || e.estado === ESTADOS.EM_CURSO)) {
+    box.append(el(doc, 'button', 'botao botao-concluir', {
+      type: 'button', 'data-concluir': curso.id, text: placa.concluir
+    }));
+  }
   return box;
 }
 
@@ -493,13 +545,19 @@ export async function subirMetro(deps = {}) {
   let progresso = carregarViagem(storage, loadCompleted(storage));
   let janela = null; // o temporizador do "desfazer"
 
+  // PINTAR NÃO LIGA (2c-1): o bind é UMA vez por root, antes da primeira
+  // pintura, e `acoes` é um objeto estável. Chamar bindMetro dentro do pintar
+  // empilhava um listener de clique por redesenho: no navegador o dispatch
+  // ignora quem foi adicionado durante a própria rodada, então era um defeito
+  // invisível; no mini-DOM do teste o `for…of` percorria a lista que crescia
+  // dentro dele e o clique que redesenha nunca terminava. Delegação por
+  // `closest` no root sobrevive ao redesenho dos filhos.
   const pintar = () => {
     if (ui.carregando) { desenharEsqueleto(doc, root); return; }
     desenharMetro(doc, root, {
       catalogo: ui.catalogo, progresso, linha: ui.linha, aberta: ui.aberta,
       chegada: ui.chegada, despertas: ui.despertas, embarqueAberto: ui.embarqueAberto
     });
-    bindMetro(doc, root, acoes);
   };
 
   const persistir = (novo) => {
@@ -511,6 +569,9 @@ export async function subirMetro(deps = {}) {
   const avisarChegada = (id) => {
     ui.chegada = { id };
     if (janela) clearTimeout(janela);
+    // A chegada é o momento em que o esforço vira visível (JORNADA §2.4/§4.6):
+    // sem pintar aqui, o círculo enchia no estado e a tela não mostrava nada.
+    pintar();
     // --janela-desfazer é 6000 ms no CSS; o relógio aqui tem de ser o mesmo
     // número, e por isso ele vem do token lido do documento — não de um 6000
     // escrito à mão que um dia diverge do que a animação mostra.
@@ -569,6 +630,7 @@ export async function subirMetro(deps = {}) {
   }
 
   ui.carregando = false;
+  bindMetro(doc, root, acoes);
   pintar();
   return { ok: true, pintar, acoes, ui, progresso: () => progresso };
 }

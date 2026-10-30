@@ -151,6 +151,12 @@
 .trilho-superior { grid-row: 1; }
 .trilho-inferior { grid-row: 3; }
 .trilho.percorrido { background: var(--cor); }
+/* CHEGADA (fatia 2c-1): o trecho que LEVA até a estação recém-concluída sobe à
+ * cor cheia enquanto o aviso está no ar. Não é um estado do núcleo — é a
+ * memória dos últimos 6 s, e some com o aviso. O movimento é a transição que
+ * `.forma` já declara (--movimento-chegada); com prefers-reduced-motion o
+ * bloco do fim do arquivo zera tudo e a cor continua dizendo a mesma coisa. */
+.trilho.chegada { background: var(--cor); transition: background var(--movimento-chegada) var(--curva-chegada); }
 /* Nas pontas o traço não existe: a linha começa no primeiro círculo e termina
  * no último. `transparent` e não `none`, para o espaço continuar lá. */
 .parada:first-child .trilho-superior, .parada:last-child .trilho-inferior { background: transparent; }

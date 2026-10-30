@@ -375,12 +375,36 @@ test('folha: a bibliografia de toda estação trancada que tem fonte sai no mesm
     'https://github.com/Universidade-Livre/ciencia-da-computacao/blob/b995c11/extras/bibliography/02_data_structures.md');
 });
 
-test('fatia 2b: nenhum botão de concluir na tela — a chegada é da fatia 2c', () => {
+// MUTOU na fatia 2c-1 (30/10/2026), e a mutação é o ponto todo: em 2b-2 este
+// teste garantia a AUSÊNCIA do botão porque mexer nele não desenhava chegada
+// nenhuma — botão morto é promessa falsa. Com a chegada no ar, o botão volta e
+// agora é MEdIDO: aparece na estação aberta quando há o que concluir, e não
+// aparece na trancada nem na concluída.
+test('folha: \"Concluir estação\" existe e só onde há o que concluir', () => {
   const disponivel = desenhar({ linha: 1, aberta: 'l1a' });
-  assert.equal(comAttr(disponivel.root, 'data-concluir').length, 0, 'a estação disponível não mostra botão morto');
-  assert.equal(todos(disponivel.root, (n) => (n.className || '').includes('botao-concluir')).length, 0);
+  assert.equal(comAttr(disponivel.root, 'data-concluir').length, 1, 'a estação disponível aberta tem o botão');
+  assert.equal(comAttr(disponivel.root, 'data-concluir')[0].getAttribute('data-concluir'), 'l1a');
+  assert.equal(textoDe(comAttr(disponivel.root, 'data-concluir')[0]), PLACAS.concluir, 'e o verbo do núcleo');
   const emCurso = desenhar({ completed: ['l1a'], emCurso: ['l1b'], linha: 1, aberta: 'l1b' });
-  assert.equal(comAttr(emCurso.root, 'data-concluir').length, 0, 'nem a estação em curso');
+  assert.equal(comAttr(emCurso.root, 'data-concluir').length, 1, 'a em curso também');
+  const trancada = desenhar({ linha: 2, aberta: 'l2a' });
+  assert.equal(comAttr(trancada.root, 'data-concluir').length, 0, 'trancada não tem o que concluir');
+  const concluida = desenhar({ completed: ['l1a'], linha: 1, aberta: 'l1a' });
+  assert.equal(comAttr(concluida.root, 'data-concluir').length, 0, 'concluída também não');
+  const fechada = desenhar({ linha: 1 });
+  assert.equal(comAttr(fechada.root, 'data-concluir').length, 0, 'e folha fechada não esconde botão vivo');
+});
+
+test('folha: tocar em \"Concluir estação\" conclui pelo núcleo e traz a chegada', async () => {
+  const { api, root } = await subirTela({ completed: [] });
+  api.acoes.abrirEstacao('l1a');
+  const botao = comAttr(root, 'data-concluir')[0];
+  assert.ok(botao, 'o botão está desenhado na folha aberta');
+  // UM disparo só: o bind já está ligado pelo subirTela, e repetir o bind
+  // empilharia listeners no root — o teste mediria a pilha, não o toque.
+  disparar(root, 'click', botao);
+  assert.deepEqual(api.progresso().completed, ['l1a'], 'o toque no botão chegou ao núcleo');
+  assert.equal(comClasse(root, 'aviso-chegada').length, 1, 'e a tela respondeu com a chegada');
 });
 
 test('folha: fechada não mostra nada (hidden), e a trancada diz o que falta pelo NOME', { todo: 'fatia 2 do pedido 21: a folha trancada cita só um pré-requisito; tem de listar TODOS ("faltam Matemática Discreta, Algoritmos I")' }, () => {
@@ -477,14 +501,28 @@ async function subirTela({ completed = [], timers = [] } = {}) {
   return { api, doc, root, storage, modulos, timers };
 }
 
-test('chegada: concluir enche o círculo, marca o trecho e avisa com desfazer', { todo: 'fatia 2 do pedido 21: chegada — o círculo não enche, o trecho não marca e o aviso com desfazer não aparece' }, async () => {
+// FEITO na fatia 2c-1 (30/10/2026): perdeu o `todo` neste commit. O círculo
+// enche (classe concluída, cor do estado do núcleo), o trecho que leva até a
+// estação sobe à cor cheia com a classe `chegada`, e o aviso com desfazer sai
+// do desenho — sem nós a mais na linha e sem redesenho para sumir.
+test('chegada: concluir enche o círculo, marca o trecho e avisa com desfazer', async () => {
   const { api, root, modulos, timers } = await subirTela({ completed: [] });
   api.acoes.concluir('l1a');
   assert.deepEqual(modulos.guardado.completed, ['l1a'], 'o progresso foi gravado');
   assert.deepEqual(api.progresso().conclusoes, { l1a: '2026-10-29' }, 'e a data da viagem também');
-  const forma = comAttr(root, 'data-id').find((b) => b.getAttribute('data-id') === 'l1a')
-    .parent.children.find((c) => c.className.includes('forma'));
+  // Mira: a forma NÃO é filha direta da .parada, é da .trilho-col (lição da
+  // 2b-1, a mesma correção do teste dos estados). Percorrer é o jeito certo.
+  const paradaL1a = comAttr(root, 'data-id').find((b) => b.getAttribute('data-id') === 'l1a').parent;
+  const forma = comClasse(paradaL1a, 'forma')[0];
   assert.ok(forma.className.includes('concluida'), 'o círculo encheu');
+  assert.ok(forma.className.includes('chegada'), 'e a forma da estação que chegou é a da chegada');
+  // O trecho que LEVA até ela: o trilho superior da parada, à cor cheia.
+  const superior = comClasse(forma.parent, 'trilho')[0];
+  assert.ok(superior.className.includes('chegada'), 'o trecho até a estação marca a chegada');
+  const cssChegada = readFileSync(fileURLToPath(new URL('../web/metro.css', import.meta.url)), 'utf8');
+  assert.match(cssChegada, /\.trilho\.chegada \{[^}]*background:\s*var\(--cor\)/,
+    'e a cor cheia do trecho vem do CSS, com o token de movimento da chegada');
+  assert.match(cssChegada, /\.trilho\.chegada \{[^}]*var\(--movimento-chegada\)/);
   assert.ok(comClasse(root, 'desperta').length === 1, 'a estação que chegou recebe o pulso curto');
   const aviso = comClasse(root, 'aviso-chegada')[0];
   assert.ok(aviso, 'o aviso apareceu');
@@ -496,13 +534,19 @@ test('chegada: concluir enche o círculo, marca o trecho e avisa com desfazer', 
   assert.equal(timers[0].ms, 6000, '--janela-desfazer é 6000 ms no token, e o relógio usa o mesmo número');
 });
 
-test('chegada: depois da janela, o aviso some sozinho', { todo: 'fatia 2 do pedido 21: chegada — a linha redesenha com 4 nós em vez de 2 e o aviso não some sozinho' }, async () => {
+// FEITO na fatia 2c-1 (30/10/2026): perdeu o `todo` neste commit. A causa dos
+// "4 nós em vez de 2" era `root.textContent = ''`: no mini-DOM do teste é um
+// setter que deixa os filhos pendurados, então o aviso velho sobrevivia ao
+// redesenho. `limpar` agora desmonta os filhos de verdade, nos dois mundos.
+test('chegada: depois da janela, o aviso some sozinho', async () => {
   const { api, root, timers } = await subirTela({ completed: [] });
   api.acoes.concluir('l1a');
   timers[0].fn();
   assert.equal(comClasse(root, 'aviso-chegada').length, 0, 'o aviso não fica para sempre');
   assert.equal(comClasse(root, 'desperta').length, 0, 'e o pulso também não');
   assert.equal(comAttr(root, 'data-id').length, 2, 'a linha continua desenhada');
+  assert.equal(comClasse(root, 'trilho').filter((t) => t.className.includes('chegada')).length, 0,
+    'e o trecho volta à cor fraca: chegada não fica pendurada no desenho');
 });
 
 test('desfazer: devolve EXATAMENTE o estado anterior, inclusive a data', async () => {
