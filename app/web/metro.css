@@ -297,8 +297,11 @@
 }
 
 /* ── 5. os dois estados ─────────────────────────────────────────────────── */
-/* Esqueleto: PARADO e só depois de --atraso-esqueleto. Sem brilho correndo:
- * shimmer é spinner disfarçado, e spinner está na lista do proibido. */
+/* Esqueleto: PARADO e só depois de --atraso-esqueleto (150 ms) — o atraso mora
+ * AQUI, não no JS, para a tela não ter dois relógios para a mesma espera. Nada
+ * de brilho correndo: um gradiente varrendo o cinza é spinner disfarçado, e
+ * spinner está na lista do proibido. Com prefers-reduced-motion o bloco do fim
+ * do arquivo corta a animação e o esqueleto aparece de uma vez, opaco. */
 .esqueleto { display: grid; gap: var(--espaco-3); opacity: 0;
   animation: surgir var(--movimento-toque) var(--atraso-esqueleto) both; }
 @keyframes surgir { to { opacity: 1; } }

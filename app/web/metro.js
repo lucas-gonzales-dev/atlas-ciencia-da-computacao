@@ -91,7 +91,11 @@ export const ESTADO_LEGIVEL = Object.freeze({
  */
 export function rotuloEstacao(estacao, linha) {
   const nome = estacao && typeof estacao.titulo === 'string' ? estacao.titulo : '';
-  const l = Number.isFinite(Number(linha)) ? Number(linha) : null;
+  // FATIA 2c-3: sem linha não se INVENTA linha. `Number(null)` é 0 e 0 é finito,
+  // então o rótulo saía "X, Linha 0, trancada" — e Linha 0 não existe em lugar
+  // nenhum do catálogo. Quando o número não vem, a parte da linha sai da frase.
+  const n = Number(linha);
+  const l = Number.isFinite(n) && n > 0 ? n : null;
   const estado = ESTADO_LEGIVEL[estacao?.estado] || ESTADO_LEGIVEL[ESTADOS.TRANCADA];
   return l === null ? `${nome}, ${estado}` : `${nome}, ${comValores.linha(l)}, ${estado}`;
 }
@@ -121,6 +125,18 @@ export function textoDoQueFalta(estacao) {
   if (nomes.length === 0) return '';
   if (nomes.length === 1) return comValores.trancadaFalta(nomes[0]);
   return comValores.trancadaFaltam(nomes.join(', '));
+}
+
+/**
+ * O catálogo com a anotação da pessoa dentro de cada disciplina. É a ÚNICA
+ * ponte entre `ui.notas` (onde o texto mora) e `folha` (onde o campo é desenhado):
+ * sem ela, o que foi escrito voltava vazio no redesenho seguinte — a pessoa
+ * digitava, a tela apagava (fatia 2c-3, item 5 da crítica).
+ */
+export function comNotas(catalogo, notas) {
+  const lista = Array.isArray(catalogo) ? catalogo : [];
+  const porId = new Map(Object.entries(notas || {}));
+  return lista.map((c) => (c && porId.has(c.id) ? { ...c, nota: porId.get(c.id) } : c));
 }
 
 /** Estações de uma linha, na ordem da fonte. */
@@ -483,19 +499,29 @@ function folha(doc, curso, e, id, aberta, linha) {
     box.append(biblio);
   }
 
-  const rotulo = el(doc, 'label', 'anotacao-rotulo', { for: `nota-${e.id}` });
+  // FATIA 2c-3 (item 5 da crítica): o campo mora SÓ na folha ABERTA. Com uma
+  // anotação desenhada em cada uma das 35 folhas, a tela tinha 35 rótulos
+  // "Anotação" na fila do leitor de tela — duas em vez de uma já era o defeito
+  // medido. Folha fechada é hidden, e campo escondido ainda é campo no DOM.
+  //
   // O rótulo leva o NOME DA DISCIPLINA: é isso que acaba com o
   // "Anotação, Anotação, Anotação" que o pedido 15 achou.
-  rotulo.append(el(doc, 'span', null, { text: `Anotação — ${e.titulo}` }));
-  const area = el(doc, 'textarea', 'anotacao', {
-    id: `nota-${e.id}`,
-    'data-nota': e.id,
-    'aria-label': `Anotação de ${e.titulo}`,
-    rows: '3'
-  });
-  area.value = typeof curso?.nota === 'string' ? curso.nota : '';
-  rotulo.append(area);
-  box.append(rotulo);
+  if (aberta) {
+    const rotulo = el(doc, 'label', 'anotacao-rotulo', { for: `nota-${e.id}` });
+    rotulo.append(el(doc, 'span', null, { text: `Anotação — ${e.titulo}` }));
+    const area = el(doc, 'textarea', 'anotacao', {
+      id: `nota-${e.id}`,
+      'data-nota': e.id,
+      'aria-label': `Anotação de ${e.titulo}`,
+      rows: '3'
+    });
+    // O que a pessoa escreveu VOLTA no campo: `curso.nota` vem de comNotas, que
+    // é quem liga ui.notas ao catálogo. Sem isso, todo redesenho apagava a
+    // anotação na cara de quem estava digitando.
+    area.value = typeof curso?.nota === 'string' ? curso.nota : '';
+    rotulo.append(area);
+    box.append(rotulo);
+  }
 
   // FATIA 2c-1 (item 7 da crítica): o botão volta PORQUE AGORA ELE FAZ ALGO.
   // Em 2b-2 ele foi tirado por ser promessa falsa — mexer nele não desenhava
@@ -570,9 +596,14 @@ export async function subirMetro(deps = {}) {
   const relogio = deps.setTimeout || setTimeout;
 
   const ui = {
-    catalogo: [], notas: loadNotas(storage) || {}, linha: null, aberta: null,
+    // O catálogo é GUARDADO já com as anotações dentro: é a única forma de o
+    // redesenho achar o texto que a pessoa escreveu (fatia 2c-3).
+    catalogo: comNotas([], loadNotas(storage) || {}),
+    notas: loadNotas(storage) || {}, linha: null, aberta: null,
     embarqueAberto: false, chegada: null, despertas: [], carregando: true
   };
+  // O esqueleto é a PRIMEIRA PINTURA — ele é chamado logo abaixo, onde `pintar`
+  // passa a existir, e antes de qualquer `await`.
   let progresso = carregarViagem(storage, loadCompleted(storage));
   let janela = null; // o temporizador do "desfazer"
 
@@ -597,6 +628,13 @@ export async function subirMetro(deps = {}) {
     salvarViagem(storage, progresso);
   };
 
+  // PRIMEIRA PINTURA, SYNCRONOUS, antes do primeiro `await` (fatia 2c-3, item 2
+  // dos dois estados): enquanto o catálogo não chega, a tela tem UM esqueleto e
+  // ZERO placas. Ficar em `carregando` e não pintar nada é deixar a pessoa diante
+  // de um vazio branco — e pintar depois do `await` do loadCatalog faria o
+  // esqueleto nascer já junto com a placa, sem nunca ter mostrado a espera.
+  pintar();
+
   const avisarChegada = (id) => {
     ui.chegada = { id };
     if (janela) clearTimeout(janela);
@@ -616,6 +654,10 @@ export async function subirMetro(deps = {}) {
     anotar(id, texto) {
       ui.notas = applyNote(ui.notas, id, texto, ui.catalogo);
       saveNotas(storage, ui.notas);
+      // E o catálogo carrega o texto: é de lá que a folha desenhada lê o campo.
+      // Gravar no storage sem atualizar ui.catalogo é ter a anotação salva e
+      // apagada da tela ao mesmo tempo (fatia 2c-3).
+      ui.catalogo = comNotas(ui.catalogo, ui.notas);
     },
     iniciar(id) {
       persistir(iniciarEstacao(progresso, id, ui.catalogo));
@@ -646,9 +688,7 @@ export async function subirMetro(deps = {}) {
 
   try {
     const carregado = await loadCatalog();
-    ui.catalogo = carregado?.courses || [];
-    const comNota = new Map(Object.entries(ui.notas));
-    ui.catalogo = ui.catalogo.map((c) => (comNota.has(c.id) ? { ...c, nota: comNota.get(c.id) } : c));
+    ui.catalogo = comNotas(carregado?.courses || [], ui.notas);
     const resumo = resumoDaViagem(progresso, ui.catalogo);
     ui.linha = resumo.proximaEstacao?.linha ?? linhasDoCatalogo(ui.catalogo)[0] ?? 1;
   } catch (erro) {

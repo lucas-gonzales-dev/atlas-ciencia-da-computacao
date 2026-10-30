@@ -77,12 +77,21 @@
 // de marcar, uma estação por linha, e o "faltam X, Y" só na folha aberta) e o
 // teste do metrô ganhou corpo. A lista PRECACHE é a mesma de sempre; o que muda
 // é o conteúdo dela, e é exatamente isso que a trava da v11 obriga a declarar.
-const VERSAO = 'atlas-v13';
+// atlas-v14: o FECHAMENTO da 2c (2c-3) mudou web/metro.js e web/metro.css no
+// conteudo — o esqueleto vira a primeira pintura sincrona (carregando tem 1
+// esqueleto e 0 placas), o rotulo do leitor de tela omite a linha quando ela nao
+// existe (antes saia "Linha 0", um nome que nao existe no catalogo), e a anotacao
+// passa a morar so na folha aberta e a voltar no campo depois do redesenho.
+// A lista PRECACHE nao muda; muda o conteudo dela, que e o que a trava da v11
+// obriga a declarar — sem subir a VERSAO o navegador compara este arquivo por
+// bytes, nao instala, e quem ja abriu o app continua vendo o rotulo e a espera
+// antigos.
+const VERSAO = 'atlas-v14';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
 // deixa o cache antigo sem o nome novo. Recalcular: node tests/precache-hash.js.
-const PRECACHE_HASH = 'sha256-b7e7b0d9a88a0291d48ea68c1583c8b6c894c33cbb17f0348e3adc64c27b7608';
+const PRECACHE_HASH = 'sha256-ffdce8606ecb3fb4f9909c8a9e9efaacb86cab8407441f271f22784ab7f68b61';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.

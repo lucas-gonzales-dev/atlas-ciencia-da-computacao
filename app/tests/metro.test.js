@@ -588,7 +588,10 @@ test('chegada: os marcos vêm do núcleo — a tela não calcula o que destranco
 });
 
 // ═══════════════════════════ 5. os dois estados ═══════════════════════════
-test('esqueleto: parado, sem brilho correndo, e o atraso mora no CSS', { todo: 'fatia 2 do pedido 21: esqueleto parado, sem shimmer, com o atraso declarado no CSS' }, () => {
+// FEITO na fatia 2c-3 (30/10/2026): perdeu o `todo` neste commit. O atraso é
+// `var(--atraso-esqueleto)` no CSS (o JS não tem relógio nenhum para a espera) e
+// a palavra "shimmer" saiu até do comentário — o teste lê o arquivo inteiro.
+test('esqueleto: parado, sem brilho correndo, e o atraso mora no CSS', () => {
   const doc = criarDoc();
   const root = raiz(doc);
   const box = desenharEsqueleto(doc, root);
@@ -601,7 +604,10 @@ test('esqueleto: parado, sem brilho correndo, e o atraso mora no CSS', { todo: '
   assert.ok(!/animation:[^;]*infinite[^;]*esqueleto/.test(css), 'e nada gira para sempre');
 });
 
-test('esqueleto: a tela carregando não mostra placa nenhuma', { todo: 'fatia 2 do pedido 21: a tela carregando não mostra o esqueleto (0 em vez de 1)' }, async () => {
+// FEITO na fatia 2c-3 (30/10/2026): perdeu o `todo` neste commit. `subirMetro`
+// pinta o esqueleto SYNCHRONOUS antes do primeiro `await` do loadCatalog: quem
+// chega primeiro é a espera, nunca uma placa pela metade.
+test('esqueleto: a tela carregando não mostra placa nenhuma', async () => {
   const doc = criarDoc();
   const root = raiz(doc);
   let soltar;
@@ -681,7 +687,10 @@ test('cada estação é um botão cujo rótulo o leitor de tela lê inteiro', ()
   }
 });
 
-test('rótulo: os 4 estados têm palavra legível, e a linha entra quando existe', { todo: 'fatia 2 do pedido 21: sem linha o rótulo inventa "Linha 0" em vez de omitir a linha' }, () => {
+// FEITO na fatia 2c-3 (30/10/2026): perdeu o `todo` neste commit. `Number(null)`
+// é 0 e 0 é finito — sem linha o rótulo dizia "Linha 0", um nome que não existe
+// em lugar nenhum do catálogo. Agora a parte da linha sai da frase.
+test('rótulo: os 4 estados têm palavra legível, e a linha entra quando existe', () => {
   assert.equal(
     rotuloEstacao({ titulo: 'Matemática Discreta', estado: ESTADOS.DISPONIVEL }, 2),
     'Matemática Discreta, Linha 2, disponível'
@@ -694,7 +703,10 @@ test('rótulo: os 4 estados têm palavra legível, e a linha entra quando existe
     'os 4 estados do núcleo têm palavra');
 });
 
-test('anotação: o rótulo leva o nome da disciplina (o "Anotação, Anotação" morre)', { todo: 'fatia 2 do pedido 21: o rótulo da anotação repete a palavra "Anotação" (2 em vez de 1)' }, () => {
+// FEITO na fatia 2c-3 (30/10/2026): perdeu o `todo` neste commit. O campo mora
+// SÓ na folha aberta: com ele desenhado nas 35 folhas fechadas, o leitor de tela
+// lia "Anotação" em fila — e hidden não tira ninguém da fila.
+test('anotação: o rótulo leva o nome da disciplina (o "Anotação, Anotação" morre)', () => {
   const { root } = desenhar({ linha: 1, aberta: 'l1a' });
   const areas = comClasse(root, 'anotacao');
   assert.equal(areas.length, 1);
@@ -710,14 +722,31 @@ test('anotação: o rótulo leva o nome da disciplina (o "Anotação, Anotação
     'duas disciplinas, dois rótulos diferentes — nunca "Anotação" três vezes');
 });
 
-test('anotação: o que a pessoa escreveu volta no campo, e o input salva', { todo: 'fatia 2 do pedido 21: a anotação não sobrevive ao redesenho — o campo volta vazio' }, async () => {
+// FEITO na fatia 2c-3 (30/10/2026): perdeu o `todo` neste commit. `anotar` agora
+// Devolve o texto para o catálogo (comNotas), e é de lá que a folha desenhada lê
+// o campo — antes, salvar no storage sem atualizar ui.catalogo gravava e apagava
+// ao mesmo tempo.
+//
+// O corpo foi corrigido junto, e a correção é a regra da casa (afrouxar não): o
+// original chamava `abrirEstacao` duas vezes contando que a segunda reabria, mas
+// abrir é um TOGGLE — a segunda chamada FECHAVA a folha, e com o campo morando
+// só na folha aberta ele não existia mais (TypeError em vez de assert). Agora o
+// teste fecha e reabre de verdade, e a metade "o input salva" é medida pelo
+// evento `input` que o dedo produz, não pela ação chamada à mão.
+test('anotação: o que a pessoa escreveu volta no campo, e o input salva', async () => {
   const { api, root, modulos } = await subirTela({ completed: ['l1a'] });
   api.acoes.abrirEstacao('l1a');
-  api.acoes.anotar('l1a', 'exercícios 1 a 9');
-  assert.deepEqual(modulos.guardado.notas, { l1a: 'exercícios 1 a 9' });
-  api.acoes.abrirEstacao('l1a');
   const area = comClasse(root, 'anotacao')[0];
-  assert.equal(area.value, 'exercícios 1 a 9', 'a anotação sobrevive ao redesenho');
+  assert.ok(area, 'a folha aberta desenha o campo');
+  area.value = 'exercícios 1 a 9';
+  disparar(root, 'input', area);
+  assert.deepEqual(modulos.guardado.notas, { l1a: 'exercícios 1 a 9' }, 'o input salva');
+  api.acoes.abrirEstacao('l1a'); // fecha
+  assert.equal(comClasse(root, 'anotacao').length, 0, 'folha fechada não deixa campo na fila do leitor de tela');
+  api.acoes.abrirEstacao('l1a'); // reabre
+  const deVolta = comClasse(root, 'anotacao')[0];
+  assert.equal(deVolta.getAttribute('id'), 'nota-l1a');
+  assert.equal(deVolta.value, 'exercícios 1 a 9', 'a anotação sobrevive ao redesenho');
 });
 
 test('ação da placa: a palavra certa para cada estado, vinda de textos.js', () => {
