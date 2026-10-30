@@ -32,7 +32,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { TEXTOS, placa, comValores, estados, legenda, proibido } from '../core/textos.js';
+import { TEXTOS, placa, comValores, estados, legenda, proibido, dataDeCalendario } from '../core/textos.js';
 
 const RAIZ = fileURLToPath(new URL('..', import.meta.url)); // app/
 const REPO = fileURLToPath(new URL('../..', import.meta.url)); // raiz do repositório
@@ -416,9 +416,13 @@ test('textos: as funções com valor usam o valor que recebem', async () => {
     trancadaFaltam: ['Cálculo I e Cálculo II'],
     baldeacao: ['Algoritmos II', 4],
     destrancou: ['Algoritmos II'],
-    // 2d-2: o carimbo da folha concluída. O exemplo é uma data: se a função
-    // esquecer o parâmetro, "Concluída em" sozinho não cita o valor e isto quebra.
-    concluidaEm: ['2026-10-29'],
+    // 2d-2: o carimbo da folha concluída. MUTOU no ajuste do Claude (30/10/2026):
+    // o exemplo era '2026-10-29' cru, e a função passou a renderizar a data
+    // (dd/mm/aaaa). Cobrar que a SAÍDA contenha o valor de entrada não pode mais
+    // ser feito com a string ISO; aqui o valor que a pessoa lê é '29/10/2026'.
+    // Quem garante que a data de verdade entrou na frase é o teste do carimbo no
+    // metro.test.js, e quem garante que não há fuso no meio é dataDeCalendario.
+    concluidaEm: [dataDeCalendario('2026-10-29')],
     buscaVazia: ['quântica'],
     viagem: [12, 35],
     progressoLinha: [2, 3, 5],
@@ -442,6 +446,25 @@ test('textos: as funções com valor usam o valor que recebem', async () => {
       );
     }
   }
+});
+
+test('textos: data de calendário vira dd/mm/aaaa sem fuso no meio', async () => {
+  // O ajuste do Claude na 2d-2: "CONCLUÍDA EM 2026-10-30" é ISO, e ninguém lê
+  // ISO na tela. A tentação é `new Date(iso).toLocaleDateString('pt-BR')` — que
+  // trata a data como UTC meia-noite e, num fuso negativo, devolve o dia
+  // ANTERIOR: a pessoa veria a estação concluída ontem. Os casos abaixo só
+  // pegam isso se houver um `new Date` no caminho, porque a saída esperada é
+  // sempre o MESMO dia que entrou.
+  assert.equal(dataDeCalendario('2026-10-30'), '30/10/2026');
+  assert.equal(dataDeCalendario('2026-01-05'), '05/01/2026', 'dia e mês de dois dígitos, sem encolher');
+  assert.equal(dataDeCalendario('1999-12-31'), '31/12/1999');
+  // O que não é calendário a função não adivinha: devolve como recebeu, em vez
+  // de montar uma data inventada ou "Invalid Date" na tela.
+  assert.equal(dataDeCalendario('30/10/2026'), '30/10/2026');
+  assert.equal(dataDeCalendario(''), '');
+  assert.equal(dataDeCalendario(undefined), '');
+  // E a frase do carimbo, que é o que a pessoa lê.
+  assert.equal(comValores.concluidaEm('2026-10-30'), 'Concluída em 30/10/2026');
 });
 
 test('textos: os oito estados obrigatórios existem, e o erro tem as três partes', async () => {

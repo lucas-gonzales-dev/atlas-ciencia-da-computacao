@@ -905,7 +905,11 @@ test('folha: concluída carimba a data do núcleo e troca o verbo por "Rever o c
   const folha = comClasse(root, 'detalhe').find((d) => d.getAttribute('hidden') === null);
   const carimbo = comClasse(folha, 'detalhe-carimbo')[0];
   assert.ok(carimbo, 'a folha concluída carimba');
-  assert.equal(carimbo.textContent, comValores.concluidaEm('2026-10-29'), 'com a data que o núcleo guarda');
+  // MUTOU na 2d-2 (30/10/2026), ajuste do Claude: o carimbo comparava com a
+  // MESMA função que o desenha — se ela escrevesse ISO na tela, o teste ficava
+  // verde. A frase passa a ser coberta como a pessoa a lê: dia/mês/ano.
+  assert.equal(carimbo.textContent, 'Concluída em 29/10/2026', 'a data do núcleo, no formato do Brasil');
+  assert.doesNotMatch(carimbo.textContent, /\d{4}-\d{2}-\d{2}/, 'ISO não é para ser lido na tela');
   const recurso = comAttr(folha, 'data-recurso')[0];
   assert.equal(recurso.textContent, PLACAS.reverConteudo, 'o verbo muda: aquilo já foi feito');
   assert.equal(recurso.getAttribute('href'), 'https://www.youtube.com/playlist?list=PLx',

@@ -107,12 +107,19 @@
 // nucleo com o verbo "Rever o conteudo", o botao de concluir virou contorno e o
 // aviso da chegada passou a nomear a linha de destino quando o que abre esta em
 // outra linha. E a regra da trava da v11 que obriga a declarar.
-const VERSAO = 'atlas-v17';
+// atlas-v18: o AJUSTE da 2d-2 mudou core/textos.js no conteudo: o carimbo da
+// folha concluida saia com a data crua do nucleo (\"CONCLUÍDA EM 2026-10-30\"),
+// que ninguem le, e passou a sair em dd/mm/aaaa formatado pela propria string —
+// sem new Date no meio, porque uma data de calendario sem hora e lida como UTC
+// meia-noite e num fuso negativo devolveria o dia anterior na tela. Quem tem v17
+// no cache continua lendo ISO ate a proxima atualizacao, entao e a regra da trava
+// da v11 que obriga a declarar.
+const VERSAO = 'atlas-v18';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
 // deixa o cache antigo sem o nome novo. Recalcular: node tests/precache-hash.js.
-const PRECACHE_HASH = 'sha256-72f9da317c6d96b16fd42d622d93c963ddb389f1fdd7e5a7c733a7205b7e648e';
+const PRECACHE_HASH = 'sha256-61039738474cebc148e64c5cde3f8a319a821b688fef324a14e5c60d4b387336';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.

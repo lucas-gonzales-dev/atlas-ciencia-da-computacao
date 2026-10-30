@@ -60,6 +60,26 @@ export const placa = {
 };
 
 /**
+ * Data de CALENDÁRIO (AAAA-MM-DD) no formato que a pessoa lê: dd/mm/aaaa.
+ *
+ * FATIA 2d-2, ajuste do Claude (30/10/2026): "CONCLUÍDA EM 2026-10-30" era ISO
+ * na tela. E não se resolve com `new Date(iso).toLocaleDateString()`: uma data
+ * sem hora é lida como UTC meia-noite, e num fuso negativo (Brasil, UTC−3)
+ * isso devolve o dia ANTERIOR — a pessoa veria a estação concluída ontem. Por
+ * isso os três pedaços são lidos da própria string: nenhum fuso entra no
+ * caminho, porque calendário não tem fuso.
+ *
+ * O que não é AAAA-MM-DD sai como entrou: texto que a tela não sabe ler não é
+ * motivo para ela inventar uma data.
+ */
+export function dataDeCalendario(iso) {
+  const bruto = String(iso ?? '');
+  const peca = /^(\d{4})-(\d{2})-(\d{2})$/.exec(bruto);
+  if (!peca) return bruto;
+  return `${peca[3]}/${peca[2]}/${peca[1]}`;
+}
+
+/**
  * Textos com substituição. São FUNÇÕES de propósito: o teste confere que cada
  * uma devolve texto não vazio com um valor de exemplo, o que pega a função que
  * esqueceu de usar o parâmetro (devolve "Linha " ou "trancada: falta ").
@@ -82,11 +102,11 @@ export const comValores = {
 
   /**
    * FATIA 2d-2 (§3.1): o carimbo da folha concluída. A data é a que O NÚCLEO
-   * guarda em `conclusoes` (AAAA-MM-DD) — a tela não inventa dia nem formata
-   * por conta própria; reimplementar calendário aqui é a receita para duas
-   * datas discordarem na mesma estação.
+   * guarda em `conclusoes` (AAAA-MM-DD), mas ISO não é para ser lido por
+   * ninguém — sai no formato do Brasil. Quem converte é `dataDeCalendario`,
+   * aqui embaixo: a tela continua sem reimplementar calendário, só lê.
    */
-  concluidaEm: (data) => `Concluída em ${data}`,
+  concluidaEm: (data) => `Concluída em ${dataDeCalendario(data)}`,
 
   /** Busca sem resultado: repete o termo, para provar que a busca ouviu. */
   buscaVazia: (termo) => `Nada encontrado para «${termo}».`,
