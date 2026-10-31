@@ -19,6 +19,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { request } from 'node:http';
+import { existsSync } from 'node:fs';
 import { readdir, readFile } from 'node:fs/promises';
 import { join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -54,7 +55,10 @@ async function arquivosDaApp(pasta = RAIZ, base = RAIZ, saida = []) {
     // system, e asset de cara é asset que o navegador baixa. Sem a extensão aqui,
     // o teste dizia que os dois woff2 do sw.js "não existem" — a lista de extensões
     // é o que define o que conta como arquivo do app, então a fonte pertence a ela.
-    } else if (/\.(js|json|html|svg|css|webmanifest|woff2)$/.test(entrada.name)) {
+    // S1 (30/10/2026): a marca definitiva entra no precache como PNG, e o
+    // favicon.ico também. Sem as duas extensões aqui, a trava de sincronia
+    // chamaria os 9 arquivos de "sobrando" no cache.
+    } else if (/\.(js|json|html|svg|css|webmanifest|woff2|png|ico)$/.test(entrada.name)) {
       // sw.js nao se precacheia: o navegador busca a versao nova sozinho.
       if (entrada.name === 'sw.js') continue;
       // Sem '/' na frente: caminho absoluto e a raiz do dominio, e o Pages
@@ -151,6 +155,107 @@ test('PWA: navegacao offline cai no index.html e nao em pagina de erro', () => {
   // O fallback resolve o index contra o diretorio do sw (BASE), nunca '/index.html'.
   assert.match(swTexto, /fetch\([\s\S]*?\)\.catch\([\s\S]*?caches\.match\(\s*new URL\(\s*['"]index\.html['"]/,
     'sem fallback para index.html a navegacao offline morre em pagina de erro');
+});
+
+// ─── PEDIDO 21, FATIA S1 (30/10/2026): A MARCA DEFINITIVA ───────────────────
+// O logo definitivo (design/marca/gerar-marca.py, a partir de atlas-logo.png)
+// entrou no disco como PNG; o ícone azul-marinho em SVG morre. Estes casos não
+// conferem gosto nem pixels: conferem que o app APONTA para os arquivos certos e
+// que eles existem. Um manifesto que cita um ícone ausente instala sem ícone, e
+// nenhum teste de código percebe — só quem abre no aparelho.
+const MARCA = {
+  icones: ['icons/icone-192.png', 'icons/icone-512.png', 'icons/icone-maskable-512.png', 'icons/apple-touch-icon.png', 'icons/favicon-32.png', 'icons/favicon-16.png'],
+  favicon: 'favicon.ico',
+  topo: ['marca/simbolo.png', 'marca/palavra.png'],
+};
+const PAPEL = '#fbf7f0';
+const CARVAO = '#17181a';
+
+/** <link>/<meta> como o navegador lê: atributo por atributo, sem regex de uma linha. */
+function tagsDe(html, nome) {
+  return [...html.matchAll(new RegExp(`<${nome}\\b[^>]*>`, 'gi'))].map((m) => m[0]);
+}
+function atributo(tag, nome) {
+  const m = new RegExp(`\\b${nome}\\s*=\\s*"([^"]*)"`).exec(tag);
+  return m ? m[1] : '';
+}
+/** O PRECACHE do sw.js sem eval: os caminhos entre aspas, todos relativos à BASE. */
+function listaDoSw(texto) {
+  const bloco = texto.match(/PRECACHE\s*=\s*\[([\s\S]*?)\n\]/);
+  assert.ok(bloco, 'sw.js precisa de um array PRECACHE explícito');
+  return [...bloco[1].matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1].replace(/^\.\//, ''));
+}
+
+test('marca: o manifesto tem 192, 512 e um maskable, PNG que existem no disco', async () => {
+  const icones = manifest.icons || [];
+  const tem = (sizes, purpose) => icones.some((i) => i.sizes === sizes && (i.purpose || 'any') === purpose);
+  assert.ok(tem('192x192', 'any'), 'falta o PNG 192x192 purpose any');
+  assert.ok(tem('512x512', 'any'), 'falta o PNG 512x512 purpose any');
+  assert.ok(tem('512x512', 'maskable'), 'sem maskable o launcher recorta o ícone como quer');
+
+  const base = new URL(`http://127.0.0.1:${PORT}/manifest.webmanifest`);
+  for (const i of icones) {
+    const caminho = join(RAIZ, resolver(i.src, base.href).replace(/^\/+/, ''));
+    assert.ok(existsSync(caminho), `o manifesto aponta para ${i.src}, que não existe em app/`);
+    const bytes = await readFile(caminho);
+    // 89 50 4E 47: os 4 primeiros bytes de todo PNG. Se for SVG renomeado, pega aqui.
+    assert.deepEqual([...bytes.subarray(0, 4)], [0x89, 0x50, 0x4e, 0x47], `${i.src} não é PNG`);
+  }
+});
+
+test('marca: o ícone azul-marinho não volta', async () => {
+  assert.equal(existsSync(join(RAIZ, 'icons', 'icone.svg')), false, 'icons/icone.svg ainda no disco');
+  const citando = [];
+  for (const c of await arquivosDaApp()) {
+    if (!/\.(html|webmanifest|js)$/.test(c)) continue;
+    const texto = await readFile(join(RAIZ, c), 'utf8');
+    if (texto.includes('icone.svg')) citando.push(c);
+  }
+  assert.deepEqual(citando, [], 'algum arquivo ainda chama o ícone velho');
+});
+
+test('marca: o manifesto pinta papel', () => {
+  assert.equal(manifest.background_color, PAPEL, 'splash de instalação ainda na cor antiga');
+  assert.equal(manifest.theme_color, PAPEL, 'a barra do navegador ainda herda a cor antiga');
+});
+
+test('marca: as páginas apontam os ícones novos', async () => {
+  for (const nome of ['metro.html', 'index.html']) {
+    const html = await readFile(join(RAIZ, nome), 'utf8');
+    const links = tagsDe(html, 'link');
+    for (const [arq, sizes] of [['icons/favicon-32.png', '32x32'], ['icons/favicon-16.png', '16x16']]) {
+      const tag = links.find((l) => atributo(l, 'rel') === 'icon' && atributo(l, 'href') === arq);
+      assert.ok(tag, `${nome}: falta <link rel="icon" href="${arq}">`);
+      assert.equal(atributo(tag, 'sizes'), sizes, `${nome}: ${arq} com sizes errado`);
+      assert.equal(atributo(tag, 'type'), 'image/png', `${nome}: ${arq} sem type image/png`);
+    }
+    const apple = links.find((l) => atributo(l, 'rel') === 'apple-touch-icon');
+    assert.ok(apple, `${nome}: sem <link rel="apple-touch-icon"> o iOS usa screenshot`);
+    assert.equal(atributo(apple, 'href'), 'icons/apple-touch-icon.png', `${nome}: apple-touch-icon fora da marca nova`);
+  }
+
+  const html = await readFile(join(RAIZ, 'metro.html'), 'utf8');
+  const metas = tagsDe(html, 'meta').filter((m) => atributo(m, 'name') === 'theme-color');
+  const claro = metas.find((m) => /light/.test(atributo(m, 'media')));
+  const escuro = metas.find((m) => /dark/.test(atributo(m, 'media')));
+  assert.ok(claro, 'metro.html sem theme-color de claro por media');
+  assert.ok(escuro, 'metro.html sem theme-color de escuro por media');
+  assert.equal(atributo(claro, 'content'), PAPEL);
+  assert.equal(atributo(escuro, 'content'), CARVAO);
+
+  // index.html MANTÉM o theme-color dele até a S3b: quem trocar agora pinta uma
+  // tela que ainda é azul-marinho por dentro com papel por fora.
+  const ainda = tagsDe(await readFile(join(RAIZ, 'index.html'), 'utf8'), 'meta').filter((m) => atributo(m, 'name') === 'theme-color');
+  assert.equal(ainda.length, 1, 'index.html deve ter UM theme-color até a S3b');
+  assert.equal(atributo(ainda[0], 'media'), '', 'index.html ainda não divide theme-color por tema');
+});
+
+test('marca: o precache leva os ícones e a marca', async () => {
+  const lista = listaDoSw(swTexto);
+  const esperados = [...MARCA.icones, MARCA.favicon, ...MARCA.topo];
+  const faltando = esperados.filter((a) => !lista.includes(a));
+  assert.deepEqual(faltando, [], `fora do offline: ${faltando.join(', ')} — no ônibus, a marca não carrega`);
+  assert.equal(lista.includes('icons/icone.svg'), false, 'o ícone morto ainda puxa cache');
 });
 
 test('PWA: fecha o servidor para a suite terminar', async () => {

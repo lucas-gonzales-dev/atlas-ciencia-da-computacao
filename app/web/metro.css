@@ -30,6 +30,32 @@
 }
 .metro * { box-sizing: border-box; }
 
+/* ── 0'. O TOPO DA MARCA (S1, 30/10/2026) ─────────────────────────────────
+ * O logo definitivo vive no HTML, fora do <main>: é cabeçalho do app, fica no
+ * lugar enquanto o metro.js desenha a placa. Os seletores são qualificados por
+ * `.topo` de propósito — `.marca` sozinho já é o cabeçalho desenhado pelo JS
+ * (2b-2, item 4) e redefini-lo aqui empurraria o nome e a linha do curso para
+ * o lado um do outro. A palavra é máscara: a cor vem de --tinta e troca sozinha
+ * no escuro; o símbolo ganha fundo de papel pelo token, só no escuro. */
+.topo {
+  display: flex; align-items: center; padding: var(--espaco-3) var(--espaco-4);
+  padding-top: calc(var(--espaco-3) + var(--margem-segura-topo));
+}
+.topo .marca {
+  display: inline-flex; align-items: center; gap: var(--espaco-2);
+  min-height: var(--alvo-toque); text-decoration: none;
+}
+.marca-simbolo {
+  height: var(--marca-altura); width: auto; padding: var(--espaco-1);
+  border-radius: var(--raio-placa); background: var(--marca-simbolo-fundo);
+}
+.marca-palavra {
+  display: block; height: var(--marca-altura); aspect-ratio: 449 / 192;
+  background: var(--tinta);
+  -webkit-mask: url("../marca/palavra.png") center / contain no-repeat;
+  mask: url("../marca/palavra.png") center / contain no-repeat;
+}
+
 /* ── 0. A MARCA "Atlas" ───────────────────────────────────────────────────
  * Item 4 da crítica (2b-2): o nome da coisa e o do curso, ANTES da placa. É
  * cabeçalho de tela, não competing com a próxima estação: o nome no degrau de

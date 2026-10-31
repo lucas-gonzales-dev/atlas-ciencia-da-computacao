@@ -83,6 +83,14 @@
   --peso-placa: 900;
   --espacamento-placa: 0.08em; /* só com --tipo-placa, em caixa alta */
 
+  /* MARCA · o logo definitivo (S1, 30/10/2026)
+   * --marca-fundo é PAPEL FIXO, não --fundo: a cúpula do símbolo é preta e
+   * sumiria no carvão do tema escuro, então o símbolo recebe um fundo de papel
+   * só no escuro. É o único token da marca que troca de tema. */
+  --marca-fundo: #fbf7f0;
+  --marca-simbolo-fundo: transparent;
+  --marca-altura: 24px;
+
   /* ── ESPAÇO · escala de 4 em 4 px ──────────────────────────────────────
    * Não existe 5, 7, 13 nem 18 px. Se o valor não está aqui, está errado. */
   --espaco-1: 4px;
@@ -155,6 +163,8 @@
     --trancada: #7c7d81;       /* 4,32:1 (1.4.11) */
     --alerta: #e0a94a;         /* 8,41:1 AA */
     --alerta-fundo: #2a2313;
+
+    --marca-simbolo-fundo: var(--marca-fundo);
 
     --linha-1: #ff6b6b;        /* 6,40:1 */
     --linha-2: #ff9a4d;        /* 8,44:1 */

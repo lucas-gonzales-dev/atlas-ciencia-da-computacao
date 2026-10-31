@@ -114,12 +114,19 @@
 // meia-noite e num fuso negativo devolveria o dia anterior na tela. Quem tem v17
 // no cache continua lendo ISO ate a proxima atualizacao, entao e a regra da trava
 // da v11 que obriga a declarar.
-const VERSAO = 'atlas-v18';
+// atlas-v19: a S1 mudou o CONTEUDO do cache, nao so a aparencia. A marca
+// definitiva entrou como PNG (icones do manifesto, favicon, simbolo e palavra
+// do topo), o icons/icone.svg azul-marinho morreu do disco, o manifesto passou
+// a pintar papel (#fbf7f0) e o metro.html ganhou o <header class="topo">. Quem
+// tem v18 no cache continuaria installando o app com o icone velho e a splash
+// escura, e nao ha teste de codigo que veja isso — entao a regra da trava da
+// v11 obriga a declarar.
+const VERSAO = 'atlas-v19';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
 // deixa o cache antigo sem o nome novo. Recalcular: node tests/precache-hash.js.
-const PRECACHE_HASH = 'sha256-61039738474cebc148e64c5cde3f8a319a821b688fef324a14e5c60d4b387336';
+const PRECACHE_HASH = 'sha256-5c92432684e923712fad94b15d67876d0125c8c29b745a21502f366ec409fa41';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.
@@ -132,7 +139,19 @@ const PRECACHE = [
   // array: o teste le o que esta entre aspas e nao sabe o que e comentario.
   'index.html',
   'manifest.webmanifest',
-  'icons/icone.svg',
+  // A marca definitiva (S1, 30/10/2026): o icone svg azul-marinho morreu e
+  // entrou PNG em seis tamanhos, mais o favicon.ico e os dois arquivos do topo
+  // (simbolo + palavra, esta como mascara de CSS). Estao aqui porque senao a
+  // marca nao carrega no onibus, que e justamente onde o app existe.
+  'icons/icone-192.png',
+  'icons/icone-512.png',
+  'icons/icone-maskable-512.png',
+  'icons/apple-touch-icon.png',
+  'icons/favicon-32.png',
+  'icons/favicon-16.png',
+  'favicon.ico',
+  'marca/simbolo.png',
+  'marca/palavra.png',
   'web/boot.js',
   'web/main.js',
   // Tela do metrô (29/10/2026): a página nova e os dois arquivos dela. Entra
