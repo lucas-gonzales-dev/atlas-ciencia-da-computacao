@@ -910,9 +910,20 @@ export const JANELA_DESFAZER_MS = 6000;
 // O boot roda SÓ no navegador. `document.getElementById` é a pergunta: o teste
 // instala um document mínimo sem ele, e por isso importar este módulo no node
 // não sobe tela nenhuma (a mesma regra que boot.test.js cobra do boot.js).
-export const inicio =
+// O boot roda SÓ na página que tem a raiz dele. Em 31/10 (S3a-2a) a pergunta
+// deixou de ser "existe document?": o metro.js passou a ser importado também
+// pelo casco do index.html, onde a raiz é outra e #metro não existe — ali o
+// auto-boot chamava getElementById('metro'), recebia null e derrubava a
+// primeira pintura no console, além de buscar o catálogo uma segunda vez por
+// trás do casco. Quem abre o metrô dentro do casco chama subirMetro de
+// propósito (web/telas/jornada.js); o auto-boot fica só para o metro.html.
+const raizDoMetro =
   typeof document !== 'undefined' && typeof document.getElementById === 'function'
-    ? subirMetro().catch((erro) => {
+    ? document.getElementById('metro')
+    : null;
+
+export const inicio = raizDoMetro
+  ? subirMetro({ root: raizDoMetro }).catch((erro) => {
         // eslint-disable-next-line no-console
         console.error('[atlas] a tela de metrô não subiu:', erro);
         return { ok: false, erro };

@@ -29,7 +29,6 @@
 // dentro do index.html. node nao e navegador: layout e PWA instalada continuam
 // sendo assunto do testar_pagina.
 import {
-  loadCatalog,
   loadCompleted,
   saveCompleted,
   render,
@@ -227,24 +226,9 @@ export async function registrarSW(win, avisar) {
   }
 }
 
-/**
- * Sobe a pagina como ela se abre hoje: a grade no `#app`, a busca no slot, o
- * service worker atras de tudo. A S3a-2 e quem vai trocar isto por um casco que
- * escolhe a rota e a raiz — por isso o corpo esta aqui, fino, e a montagem esta
- * em montarGrade.
- */
-async function subir() {
-  const r = await montarGrade({
-    raiz: document.getElementById('app'),
-    slotBusca: document.getElementById('busca-slot'),
-    catalogo: await loadCatalog()
-  });
-  const sw = await registrarSW(globalThis.window ?? globalThis, aviso);
-  return { ...r, sw };
-}
-
-// O boot roda sozinho: a pagina carrega este modulo e espera que ele faca tudo.
-// Erro aqui vira {ok:false, motivo} em vez de rejeitar a promise — uma rejeicao
-// nao tratada no navegador e um console vermelho que o aluno nunca le; o teste,
-// por outro lado, precisa do motivo escrito para dizer o que falhou.
-export const inicio = subir().catch((e) => ({ ok: false, motivo: `${e.name}: ${e.message}` }));
+// O boot NAO sobe mais sozinho (S3a-2a, 31/10/2026). Quem decide quando a tela
+// sobe e o casco (web/casco.js): ele escolhe a rota, guarda o catalogo UMA VEZ
+// e chama montarGrade com a raiz da aba Explorar. Enquanto este modulo subia
+// sozinho ao ser importado, o index.html novo — que nao tem #app no topo, o
+// #app agora nasce dentro da tela — abria duas telas e duas buscas. O
+// `export const inicio` saiu junto; pages.test.js cobra a saida.

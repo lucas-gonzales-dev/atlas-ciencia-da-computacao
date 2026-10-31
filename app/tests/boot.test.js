@@ -178,9 +178,18 @@ globalThis.fetch = async () => { throw new Error('sem rede no teste: cai no cata
 
 const boot = await import('../web/boot.js');
 
-test('boot: o modulo sobe no navegador de mentira, sem ReferenceError', async () => {
-  const inicio = await boot.inicio;
-  assert.ok(inicio, 'boot.js nao se auto-executou num ambiente com document+window');
+test('boot: o modulo monta quando chamado, e nao sobe sozinho (S3a-2a)', async () => {
+  // O `inicio` saiu de proposito: pages.test.js cobra que importar boot.js nao
+  // busca catalogo nenhum. O boot do teste passa a ser explicito — que e
+  // exatamente o que o casco faz ao ligar o fio rota -> tela.
+  assert.ok(!('inicio' in boot), 'inicio voltou: boot.js sobe sozinho de novo');
+  const { loadCatalog } = await import('../web/main.js');
+  const inicio = await boot.montarGrade({
+    raiz: root,
+    slotBusca: buscaSlot,
+    catalogo: await loadCatalog()
+  });
+  assert.ok(inicio, 'montarGrade nao devolveu nada');
   assert.equal(inicio.ok, true, `boot falhou: ${inicio.motivo}`);
   // Estado montado e catalogo carregado (aqui, o minimo embutido — o que importa
   // e que loadCatalog() foi chamado e o resultado chegou ao estado).
@@ -303,11 +312,11 @@ test('boot: com SW ja no controle, a versao nova que ativa avisa o aluno', async
   assert.match(avisos[0], /Nova versão instalada/);
 });
 
-test('index.html: sem <script> inline com codigo, e o boot entra como modulo', async () => {
+test('index.html: sem <script> inline com codigo, e o casco entra como modulo', async () => {
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
 
-  assert.match(html, /<script[^>]+type=["']module["'][^>]+src=["']\.\/web\/boot\.js["']/,
-    'a pagina precisa carregar web/boot.js como modulo — e o modulo e o que o teste cobre');
+  assert.match(html, /<script[^>]+type=["']module["'][^>]+src=["']\.\/web\/casco\.js["']/,
+    'a pagina precisa carregar web/casco.js como modulo — e o modulo e o que o teste cobre');
 
   const inline = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)];
   for (const [, attrs, corpo] of inline) {

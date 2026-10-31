@@ -100,10 +100,13 @@ test('PWA: index.html liga o manifest E o modulo que registra o service worker',
   const html = await readFile(join(RAIZ, 'index.html'), 'utf8');
   assert.match(html, /rel="manifest"/, 'sem <link rel=manifest> o Android nem ve o app');
   assert.match(html, /manifest\.webmanifest/);
-  // 27/10/2026: o registro do sw saiu do script inline da pagina e foi para
-  // web/boot.js (modulo testavel). Cobrar `serviceWorker` no HTML virou cobrar
-  // o vazio; agora a pagina precisa CARREGAR o boot, e o boot precisa registrar.
-  assert.match(html, /<script[^>]+src=["']\.\/web\/boot\.js["']/, 'index.html precisa carregar web/boot.js');
+  // 27/10/2026: o registro saiu do script inline e virou modulo testavel.
+  // 31/10/2026 (S3a-2a): o modulo que a pagina carrega e o casco, que chama o
+  // registrarSW do boot.js. Cobrar boot.js no HTML virou cobrar o vazio outra
+  // vez — a regra e a mesma de 27/10: cobrar ONDE o codigo esta agora.
+  assert.match(html, /<script[^>]+src=["']\.\/web\/casco\.js["']/, 'index.html precisa carregar web/casco.js');
+  const casco = await readFile(join(RAIZ, 'web', 'casco.js'), 'utf8');
+  assert.match(casco, /registrarSW/, 'o casco nao registra o service worker: nao ha offline');
   const boot = await readFile(join(RAIZ, 'web', 'boot.js'), 'utf8');
   assert.match(boot, /serviceWorker/, 'sem registro de sw.js nao ha offline');
   assert.match(boot, /sw\.js/);

@@ -132,12 +132,15 @@
 // rotas do quadro e a grade compartilhada). Quem tem v20 no cache receberia o
 // index.html novo com a grade desmontada e a rota sem arquivo — o caso que a
 // regra da trava da v11 existe para pegar.
-const VERSAO = 'atlas-v21';
+// atlas-v22: o index.html virou CASCO (S3a-2a) — entrou web/casco.js e as duas
+// telas no precache, e o boot.js deixou de subir sozinho. Quem tem v21 no cache
+// receberia o HTML novo sem o modulo que o montava: a pagina abre em branco.
+const VERSAO = 'atlas-v22';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
 // deixa o cache antigo sem o nome novo. Recalcular: node tests/precache-hash.js.
-const PRECACHE_HASH = 'sha256-7f7ab9f78c94fc82f799b2d60a633057a6939d8025d95bf25351219995ac98da';
+const PRECACHE_HASH = 'sha256-d76fb62b53ff4106792714b80fee9969de4d93b2f342a27d9554145924700332';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.
@@ -181,6 +184,13 @@ const PRECACHE = [
   // A grade compartilhada (S3a-1, 31/10/2026): celulas e lacunas do quadro.
   // Sem ela, quem tem v20 no cache recebe o HTML novo e a grade desmontada.
   'web/grade.css',
+  // O CASCO (S3a-2a, 31/10/2026): o index.html passou a carregar cascos.js e as
+  // duas telas sao importadas por dinamica. Sem estes tres no cache, quem tem
+  // v21 recebe o HTML novo e a tela nunca monta — a pagina abre em branco no
+  // onibus, e o branco nao da erro nenhum na rede.
+  'web/casco.js',
+  'web/telas/jornada.js',
+  'web/telas/explorar.js',
   'web/fontes.css',
   'fonts/overpass-latin-var.woff2',
   'fonts/overpass-mono-latin-var.woff2',

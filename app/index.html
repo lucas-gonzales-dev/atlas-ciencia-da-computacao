@@ -4,44 +4,44 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b1020">
-<meta name="description" content="Trilha de Ciência da Computação da Universidade Brasileira Livre, com pré-requisitos e progresso.">
+<meta name="description" content="A sua próxima estação na trilha de Ciência da Computação da Universidade Brasileira Livre.">
 <title>Projeto Atlas — Ciência da Computação</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png">
 <link rel="icon" href="icons/favicon-16.png" sizes="16x16" type="image/png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-<!-- DESIGN SYSTEM (29/10/2026): tokens.css e a UNICA fonte de cor, tipo,
-     espaco, raio, duracao e ponto de quebra do app; fontes.css declara a
-     Overpass (SIL OFL 1.1, woff2 local em app/fonts/). Os dois vem ANTES da
-     grade.css para que ela possa usar var(--*): abaixo dos tokens, a variavel
-     ainda nao existe e a tela abre sem cor. Nao ha build: o que esta no disco e
-     o que o navegador usa. -->
+<!-- DESIGN SYSTEM (S1/S2, 31/10/2026): tokens.css é a única fonte de valor;
+     fontes.css declara a Overpass; base.css é o chão que toda página herda
+     (fundo, anel de foco de 3 px, .so-leitor). Depois vêm as telas: metro.css
+     desenha a Jornada, grade.css desenha a Explorar — as duas escopadas nas
+     suas classes, nenhum valor à mão aqui. O casco.css (cara das abas) entra na
+     S3a-2b. Não há build: o que está no disco é o que o navegador usa. -->
 <link rel="stylesheet" href="./web/tokens.css">
 <link rel="stylesheet" href="./web/fontes.css">
-<!-- GRADE (31/10/2026, S3a-1): o layout da tela saiu do estilo inline
-     do index.html e virou web/grade.css, escopado em .grade. Motivo: CSS dentro
-     da pagina nao entra em teste nenhum — tests/grid-celulas.test.js le as
-     regras de posicao do cartao de um ARQUIVO, e foi assim que a sobreposicao do
-     botao Concluir sobre a nota da bibliografia sobreviveu a 153 testes verdes.
-     Paleta provisoria (--p-*) NAO migrou aqui: a migracao e a S3b. -->
+<link rel="stylesheet" href="./web/base.css">
+<link rel="stylesheet" href="./web/metro.css">
 <link rel="stylesheet" href="./web/grade.css">
 </head>
-<body class="grade">
-<!-- BUSCA (27/10/2026): slot FORA do #app — render() limpa o root a cada
-     redesenho, e um input la dentro perderia o foco a cada tecla. Fica
-     escondido ate o catalogo carregar (sem dados, busca nao faz sentido). -->
-<div id="busca-slot" class="busca-slot" hidden></div>
-<main id="app" class="app" aria-live="polite">
-  <p class="carregando">Carregando a trilha…</p>
-</main>
-
-<!-- BOOT (27/10/2026): a logica de abrir a pagina mora em web/boot.js, um
-     MODULO — com teste no node (tests/boot.test.js). Aqui so fica a tag.
-     Motivo, e nao arrumacao: o que estava inline NAO entrava em teste nenhum
-     (o node importa modulos, nao HTML), e foi assim que um ReferenceError no
-     fio `avisar` do importador de progresso chegou ao navegador sem que a
-     suite visse. tests/boot.test.js tambem falha se codigo voltar para dentro
-     desta pagina. -->
-<script type="module" src="./web/boot.js"></script>
+<body>
+<!-- CASCO (S3a-2a, 31/10/2026): esta página é a SHELL, não uma tela. O que há
+     aqui é fixo: o pular (primeiro focável, para o Tab não percorrer as abas
+     antes do conteúdo), o topo com a marca, as abas, o main onde o casco monta
+     a tela da rota, e o anúncio — a ÚNICA região aria-live do app, uma frase
+     curta por troca de aba. Código inline nunca entrou em teste nenhum (foi
+     assim que o `avisar` escapou em 27/10); a lógica inteira é web/casco.js. -->
+<a class="pular" href="#conteudo">Pular para o conteúdo</a>
+<header class="topo">
+  <a class="topo-marca" href="#/" aria-label="Atlas, início">
+    <img class="marca-simbolo" src="marca/simbolo.png" alt="" width="42" height="24">
+    <span class="marca-palavra" aria-hidden="true"></span>
+  </a>
+  <nav class="abas" aria-label="Principal">
+    <a href="#/" data-tela="jornada"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 12h16"/><circle cx="5" cy="12" r="2.5" fill="currentColor"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/><circle cx="19" cy="12" r="2.5" fill="currentColor"/></svg><span>Jornada</span></a>
+    <a href="#/explorar" data-tela="explorar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="M16 16l4 4"/></svg><span>Explorar</span></a>
+  </nav>
+</header>
+<main id="conteudo" tabindex="-1"></main>
+<p id="anuncio" class="so-leitor" aria-live="polite"></p>
+<script type="module" src="./web/casco.js"></script>
 </body>
 </html>
