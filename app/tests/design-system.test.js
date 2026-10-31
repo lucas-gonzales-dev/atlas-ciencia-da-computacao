@@ -526,6 +526,98 @@ function linhasDaTabela(secao) {
     .map((l) => l.split('|').slice(1, -1).map((c) => c.trim()));
 }
 
+// ---------------------------------------------------------------------------
+// 6. TOKENS DA v2 E A BASE QUE TODA PÁGINA HERDA (design/v2/S2-base.md)
+// ---------------------------------------------------------------------------
+// Os cinco casos abaixo existem porque cinco defeitos foram VISTOS na tela
+// publicada (o juiz, 30/10/2026): calhas brancas no escuro, fonte do sistema no
+// corpo, foco de 2 px, pulso que não para, e um `infinite` que fere a WCAG
+// 2.2.2. Cada teste nomeia o defeito que ele impede de voltar.
+
+test('movimento: nenhuma animação infinita no CSS do app', async () => {
+  // Repete para sempre = não para = não dá para ler. A WCAG 2.2.2 exige que o
+  // movimento automático tenha fim; o anel "você está aqui" pulsa --pulso-repeticoes
+  // (2) e fica parado e visível.
+  const achados = [];
+  for (const c of (await daApp()).map(norm).filter((x) => x.startsWith('web/') && x.endsWith('.css'))) {
+    const texto = await ler(c);
+    for (const m of texto.matchAll(/animation[^;{}]*infinite/g)) {
+      achados.push(`${c}:${texto.slice(0, m.index).split('\n').length} → ${m[0]}`);
+    }
+  }
+  assert.deepEqual(achados, [], 'animação infinita na tela: use var(--pulso-repeticoes) e pare (WCAG 2.2.2)');
+});
+
+test('tema: o html e o body pintam --fundo', async () => {
+  // Defeito 1 da v2: o fundo estava só no contêiner .metro. Fora dele — o
+  // padding do body, a rolagem elástica, a faixa sob a placa — aparecia o
+  // branco do navegador no tema escuro. Quem pintou a calha de papel achou
+  // que tinha pintado a tela.
+  const base = await ler('web/base.css');
+  for (const alvo of ['html', 'body']) {
+    const ini = base.indexOf(`\n${alvo} {`);
+    assert.ok(ini >= 0, `web/base.css não declara "${alvo} {" no começo da linha`);
+    const bloco = base.slice(ini, base.indexOf('}', ini));
+    assert.match(bloco, /background:\s*var\(--fundo\)/, `${alvo} não pinta --fundo: calha branca no escuro`);
+  }
+  const html = await ler('metro.html');
+  const lig = [...html.matchAll(/<link\b[^>]*>/g)].map((m) => m[0]);
+  const iBase = lig.findIndex((l) => /href="\.\/web\/base\.css"/.test(l) && /stylesheet/.test(l));
+  assert.ok(iBase >= 0, 'metro.html não carrega web/base.css');
+  const iTokens = lig.findIndex((l) => /href="\.\/web\/tokens\.css"/.test(l));
+  assert.ok(iTokens >= 0, 'metro.html perdeu o tokens.css');
+  assert.equal(iBase, iTokens + 1, 'base.css deve vir LOGO DEPOIS do tokens.css: antes, a base não vê os tokens');
+});
+
+test('tipo: o corpo usa a Overpass', async () => {
+  // Defeito 4: --fonte-corpo ainda era a pilha do sistema (system-ui), que o
+  // design system proíbe como fonte principal. A Overpass estava declarada,
+  // no cache, e não era usada por nada do corpo.
+  const tokens = await ler('web/tokens.css');
+  const corpo = /--fonte-corpo:\s*([^;]+);/.exec(tokens);
+  assert.ok(corpo, '--fonte-corpo sumiu do tokens.css');
+  assert.ok(corpo[1].trim().startsWith('var(--fonte-placa)'),
+    `corpo em "${corpo[1].trim()}": a família do texto é a da placa (design/README.md §3)`);
+});
+
+test('foco: 3 px de anel e 3 px de afastamento, no base.css', async () => {
+  // Defeito 5: o anel de foco tinha 2 px e colava no botão. A v2 usa 3 e 3.
+  const tokens = await ler('web/tokens.css');
+  assert.match(tokens, /--anel-foco:\s*3px/, '--anel-foco ainda não é 3px');
+  assert.match(tokens, /--afastamento-foco:\s*3px/, 'falta o token --afastamento-foco');
+  const base = await ler('web/base.css');
+  const ini = base.indexOf(':focus-visible');
+  assert.ok(ini >= 0, 'web/base.css não tem a regra :focus-visible');
+  const bloco = base.slice(ini, base.indexOf('}', ini));
+  assert.match(bloco, /outline:\s*var\(--anel-foco\)/, 'o anel não vem do token');
+  assert.match(bloco, /outline-offset:\s*var\(--afastamento-foco\)/, 'o afastamento não vem do token');
+});
+
+test('tokens: os de movimento da v2 existem e zeram com movimento reduzido', async () => {
+  // A cascata (uma lista entrando item a item) e a entrada da tela precisam de
+  // duração PRÓPRIA: se forem escritos à mão, o prefers-reduced-motion não os
+  // alcança e a regra 11 da v2 quebra.
+  const tokens = await ler('web/tokens.css');
+  const ini = tokens.indexOf(':root {');
+  const raiz = tokens.slice(ini, tokens.indexOf('@media', ini));
+  const zerado = /--movimento-selecao:\s*(\S+)/;
+  for (const nome of ['--movimento-selecao', '--movimento-abrir', '--atraso-cascata', '--deslocamento-entrada']) {
+    assert.ok(new RegExp(`${nome}:\\s*[^;]+;`).test(raiz), `${nome} não existe em :root`);
+  }
+  const redu = /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{([\s\S]*)/m.exec(tokens);
+  assert.ok(redu, 'tokens.css sem o bloco prefers-reduced-motion');
+  for (const [nome, zero] of [['--movimento-selecao', '0ms'], ['--movimento-abrir', '0ms'],
+    ['--atraso-cascata', '0ms'], ['--deslocamento-entrada', '0px']]) {
+    const m = new RegExp(`${nome}:\\s*([^;]+);`).exec(redu[1]);
+    assert.ok(m, `${nome} não zera com movimento reduzido`);
+    assert.equal(m[1].trim(), zero, `${nome} com movimento reduzido deve ser ${zero}`);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// 7. HEURÍSTICAS (design/README.md §8)
+// ---------------------------------------------------------------------------
+
 test('heurísticas: as 10 na tabela, numeradas, cada uma com onde se confere', async () => {
   const doc = await readFile(join(REPO, 'design/README.md'), 'utf8');
   const linhas = linhasDaTabela(secaoDe(doc, '## 8. As 10 heurísticas'));

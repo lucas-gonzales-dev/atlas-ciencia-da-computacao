@@ -121,12 +121,19 @@
 // tem v18 no cache continuaria installando o app com o icone velho e a splash
 // escura, e nao ha teste de codigo que veja isso — entao a regra da trava da
 // v11 obriga a declarar.
-const VERSAO = 'atlas-v19';
+// atlas-v20: a S2 mudou o CONTEUDO do cache de verdade — web/base.css entrou na
+// lista (html e body pintando --fundo, corpo em Overpass, foco de 3 px), e
+// web/metro.css, web/metro.js e web/tokens.css mudaram por dentro: o seletor das
+// 7 linhas virou <button>, o anel \"voce esta aqui\" pulsa 2 vezes e para, e o nome
+// \"Atlas\" saiu do cabecalho desenhado. Quem tem v19 no cache continuaria vendo a
+// calha branca no escuro e o pulso infinito, entao a regra da trava da v11 obriga
+// a declarar.
+const VERSAO = 'atlas-v20';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
 // deixa o cache antigo sem o nome novo. Recalcular: node tests/precache-hash.js.
-const PRECACHE_HASH = 'sha256-5c92432684e923712fad94b15d67876d0125c8c29b745a21502f366ec409fa41';
+const PRECACHE_HASH = 'sha256-775ba386cc53150ca39ff0bab4c3d7201880955833b27bcc0d4c5ca8e33e5f95';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.
@@ -162,7 +169,11 @@ const PRECACHE = [
   'web/metro.css',
   // Design system (29/10/2026): tokens e @font-face. A fonte e asset de cara —
   // sem ela o app volta a ter fonte do sistema, que e o que o DS proibe.
+  // A base da v2 (S2, 31/10/2026): html e body pintando --fundo, a fonte do
+  // corpo e o anel de foco de 3 px. Sem ela no cache, o offline volta a ter
+  // calha branca no escuro — o defeito que a S2 matou.
   'web/tokens.css',
+  'web/base.css',
   'web/fontes.css',
   'fonts/overpass-latin-var.woff2',
   'fonts/overpass-mono-latin-var.woff2',

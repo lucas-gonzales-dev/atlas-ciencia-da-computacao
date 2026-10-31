@@ -314,10 +314,16 @@ function remover(no) {
   no.parent = null;
 }
 
-/** Selo da linha: o número dentro do círculo, na cor da linha. */
-export function selo(doc, linha, attrs) {
+/** Selo da linha: o número dentro do círculo, na cor da linha.
+ *
+ * `tag` existe por causa da S2 da v2 (31/10/2026, defeito 2): o seletor das 7
+ * linhas era `<span type="button">` — um `span` aceita qualquer atributo,
+ * inclusive os de botão, e isso engana quem lê o HTML e não engana o navegador
+ * nenhum. O alvo aqui é clicável de verdade, então é `<button>`; o selo da
+ * placa, que é só desenho ao lado do nome, continua `span`. */
+export function selo(doc, linha, attrs, tag = 'span') {
   const n = Number(linha);
-  return el(doc, 'span', `selo l${n}`, {
+  return el(doc, tag, `selo l${n}`, {
     text: Number.isFinite(n) ? String(n) : '—',
     ...attrs
   });
@@ -394,8 +400,10 @@ export function desenharMetro(doc, root, estado) {
   // ── 0. a marca ──────────────────────────────────────────────────────────
   // Item 4 da crítica (2b-2): antes de qualquer placa, quem é este lugar.
   // "Atlas" + a linha do curso, nos dois degraus da escala tipográfica.
-  const marca = el(doc, 'header', 'marca');
-  marca.append(el(doc, 'p', 'marca-nome', { text: placa.titulo }));
+  // S2, item 7: DIV, não HEADER — o cabeçalho do app é o <header class="topo"> do
+  // HTML, e um segundo header é a tela se apresentando duas vezes. E o nome "Atlas"
+  // sai: ele já está no logo do topo; fica só a linha do curso, que rotula a tela.
+  const marca = el(doc, 'div', 'marca');
   marca.append(el(doc, 'p', 'marca-linha', { text: placa.marcaLinha }));
   root.append(marca);
   nos.marca = marca;
@@ -493,13 +501,23 @@ export function desenharMetro(doc, root, estado) {
   nav.setAttribute('aria-label', 'Linhas');
   for (const n of linhas) {
     const atual = n === linha;
+    // S2 da v2 (31/10/2026), defeito 2: isto era um <span type="button">. Um
+    // span aceita o atributo e o navegador ignora: o Tab passava por cima das
+    // 7 linhas, Enter e Espaço não faziam nada e o leitor de tela não anunciava
+    // nada. É <button> de verdade agora — e o click continua chegando pela
+    // mesma delegação de antes, porque um botão gera click sozinho.
+    //
+    // aria-current saiu: ele diz "este link é a página atual" num caminho de
+    // navegação. Aqui a pessoa ESCOLHE qual linha ver, e o atributo de um botão
+    // que se liga é aria-pressed — com "false" nas outras 6, para o leitor de
+    // tela dizer que são alternáveis e qual está ligada.
     const botao = selo(doc, n, {
       type: 'button',
       'data-linha': String(n),
       'aria-label': comValores.linha(n),
-      'aria-current': atual ? 'true' : null,
+      'aria-pressed': atual ? 'true' : 'false',
       title: comValores.linha(n)
-    });
+    }, 'button');
     nav.append(botao);
   }
   root.append(nav);

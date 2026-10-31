@@ -18,6 +18,11 @@
      navegador usa. O app antigo (index.html) continua intacto enquanto a
      migração dos --p-* restantes não termina. -->
 <link rel="stylesheet" href="./web/tokens.css">
+<!-- S2 da v2 (31/10/2026): base.css é a base que toda página herda — o fundo
+     no html e no body (não só no contêiner), o anel de foco de 3 px e a classe
+     .so-leitor. Vem LOGO DEPOIS do tokens.css: antes dele, as variáveis ainda
+     não existem e o fundo volta a ser branco no escuro. -->
+<link rel="stylesheet" href="./web/base.css">
 <link rel="stylesheet" href="./web/fontes.css">
 <link rel="stylesheet" href="./web/metro.css">
 </head>
@@ -27,7 +32,7 @@
      um segundo arquivo. Fica FORA do main: é o cabeçalho do app, não conteúdo
      da tela, e continua no lugar enquanto o metro.js desenha a placa. -->
 <header class="topo">
-  <a class="marca" href="./metro.html" aria-label="Atlas, início">
+  <a class="topo-marca" href="./metro.html" aria-label="Atlas, início">
     <img class="marca-simbolo" src="marca/simbolo.png" alt="" width="42" height="24">
     <span class="marca-palavra" aria-hidden="true"></span>
   </a>

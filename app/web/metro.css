@@ -33,15 +33,18 @@
 /* ── 0'. O TOPO DA MARCA (S1, 30/10/2026) ─────────────────────────────────
  * O logo definitivo vive no HTML, fora do <main>: é cabeçalho do app, fica no
  * lugar enquanto o metro.js desenha a placa. Os seletores são qualificados por
- * `.topo` de propósito — `.marca` sozinho já é o cabeçalho desenhado pelo JS
- * (2b-2, item 4) e redefini-lo aqui empurraria o nome e a linha do curso para
- * o lado um do outro. A palavra é máscara: a cor vem de --tinta e troca sozinha
- * no escuro; o símbolo ganha fundo de papel pelo token, só no escuro. */
+ * (2b-2, item 4). S2 da v2 (31/10/2026): o link passou a ser `.topo-marca`, e
+ * não mais `.marca`. Defeito 6 da crítica: os dois tinham a MESMA classe, e o
+ * link herdava do cabeçalho desenhado pelo JS a borda de baixo e a margem —
+ * era essa a linha curta sob o logo. Classe própria, sem qualificação, resolve
+ * a colisão na origem em vez de sobrescrever metade dela. A palavra é máscara:
+ * a cor vem de --tinta e troca sozinha no escuro; o símbolo ganha fundo de
+ * papel pelo token, só no escuro. */
 .topo {
   display: flex; align-items: center; padding: var(--espaco-3) var(--espaco-4);
   padding-top: calc(var(--espaco-3) + var(--margem-segura-topo));
 }
-.topo .marca {
+.topo-marca {
   display: inline-flex; align-items: center; gap: var(--espaco-2);
   min-height: var(--alvo-toque); text-decoration: none;
 }
@@ -56,20 +59,19 @@
   mask: url("../marca/palavra.png") center / contain no-repeat;
 }
 
-/* ── 0. A MARCA "Atlas" ───────────────────────────────────────────────────
- * Item 4 da crítica (2b-2): o nome da coisa e o do curso, ANTES da placa. É
- * cabeçalho de tela, não competing com a próxima estação: o nome no degrau de
- * corpo da escala e a linha do curso no degrau de nota — nada aqui é maior
- * que o nome da estação, que continua sendo o maior tamanho da escala. */
+/* ── 0. O RÓTULO DO CURSO ─────────────────────────────────────────────────
+ * Item 4 da crítica (2b-2): o nome da coisa e o do curso, ANTES da placa.
+ * S2 da v2 (31/10/2026), defeito 7: o nome "Atlas" aparecia DUAS VEZES — no
+ * logo do topo e aqui embaixo. Duas faixas de cabeçalho seguidas é a tela se
+ * apresentando duas vezes, e a placa perdia o degrau mais alto da hierarquia
+ * para um segundo título. O nome sai do <main> (fica só no logo, que é o
+ * cabeçalho do app) e sobra a linha do curso, que passa a ser o rótulo da
+ * tela. A regra .marca-nome morre junto: deixar CSS de elemento que não é
+ * mais desenhado é esconder o elemento para o próximo desenvolvedor. */
 .marca {
   display: grid; gap: var(--espaco-1);
   padding-bottom: var(--espaco-3); margin-bottom: var(--espaco-4);
   border-bottom: var(--anel-trancada) solid var(--borda);
-}
-.marca-nome {
-  margin: 0; font-family: var(--fonte-placa); font-size: var(--tipo-titulo);
-  font-weight: var(--peso-placa); line-height: var(--entrelinha-apertada);
-  letter-spacing: var(--espacamento-placa); color: var(--tinta);
 }
 .marca-linha {
   margin: 0; font-family: var(--fonte-placa); font-size: var(--tipo-nota);
@@ -119,10 +121,11 @@
   transition: transform var(--movimento-toque) var(--curva-mecanica);
 }
 .placa-acao:active { transform: translateY(1px); }
-.placa-acao:focus-visible, .estacao:focus-visible, .selo:focus-visible,
-.anotacao:focus-visible, .botao:focus-visible {
-  outline: var(--anel-foco) solid var(--tinta); outline-offset: var(--espaco-1);
-}
+/* O anel de foco mora em web/base.css agora (S2 da v2, defeito 5: eram 2 px
+ * colados no elemento). Este bloco existia só para reescrever a mesma regra
+ * com outro afastamento — dois lugares para o mesmo anel é como ele virou 2 px
+ * numa tela e 4 px em outra. Sai; quem define foco é a base, e a página não
+ * discute com ela. */
 .placa-vazia { margin: 0; color: var(--fosca); font-size: var(--tipo-corpo); }
 
 /* ── selo da linha: o número dentro do círculo, na cor da linha ─────────── */
@@ -143,11 +146,28 @@
   overflow-x: auto; padding-bottom: var(--espaco-2);
   scrollbar-width: thin; -webkit-overflow-scrolling: touch;
 }
-.linhas .selo { width: var(--espaco-6); height: var(--espaco-6); font-size: var(--tipo-placa); }
-.linhas .selo[aria-current="true"] {
+/* S2 da v2 (31/10/2026), defeito 2: o seletor era sete `<span type="button">`
+ * — pareciam botões, tinham atributo de botão e NÃO ERAM botões: o Tab passava
+ * por cima, o Enter não fazia nada e o leitor de tela não anunciava. Agora são
+ * <button>, e o CSS zera a aparência que o navegador traz (borda, recheio,
+ * fundo, fonte de formulário) sem escrever um valor que não seja token.
+ *
+ * O diâmetro era --espaco-6 (24 px): abaixo do piso de toque de --alvo-toque
+ * (44 px) que a regra 12 exige. O número da linha, que era --tipo-placa, volta
+ * a --tipo-corpo — dentro de um alvo de 44 px, 13 px era pequeno demais.
+ * O que continua sendo a marca da linha atual é o anel de tinta, agora ligado
+ * ao estado real do botão (aria-pressed) e não ao aria-current de navegação. */
+.linhas .selo {
+  appearance: none; -webkit-appearance: none;
+  min-width: var(--alvo-toque); min-height: var(--alvo-toque);
+  border: 0; padding: 0; border-radius: var(--raio-estacao);
+  background: var(--cor, var(--trancada)); color: var(--superficie);
+  font-family: var(--fonte-mono); font-size: var(--tipo-corpo);
+  font-weight: var(--peso-placa); line-height: 1;
+}
+.linhas .selo[aria-pressed="true"] {
   box-shadow: 0 0 0 var(--anel-foco) var(--tinta);
 }
-.linhas .selo[aria-current="true"]::after { content: ""; }
 
 /* ── 2. a linha desenhada na VERTICAL, como o diagrama da porta do trem ───
  * FATIA 2b-1 (pedido 21, 29/10/2026) — UM TRAÇO SÓ, CONTÍNUO. A crítica do
@@ -209,11 +229,19 @@
 /* FATIA 2b-1, item 2: SÓ a próxima é maior. O anel "você está aqui" pulsa
  * devagar (--movimento-pulso, 2 s) e é um halo de box-shadow em --cor, não um
  * scale — escalar a .forma faria o círculo da próxima sair da coluna de 22 px e
- * o traço perder o centro outra vez. */
+ * o traço perder o centro outra vez.
+ *
+ * S2 da v2 (31/10/2026), defeito 3: `infinite`. Um anel que pulsa para sempre
+ * é movimento automático sem fim nem pausa — a WCAG 2.2.2 pede que ele pare.
+ * Pulsa --pulso-repeticoes (2) e para; o 100% da keyframe é o anel parado e
+ * visível, então o estado final é exatamente o de quem nunca viu movimento, e
+ * com prefers-reduced-motion a duração vai a zero e ele nem pulsa. Nada de
+ * informação se perdeu: "você está aqui" é o anel, não o tremor. */
 .forma.proxima {
   width: var(--estacao-proxima); height: var(--estacao-proxima);
   border: var(--anel-disponivel) solid var(--cor);
-  animation: anelAqui var(--movimento-pulso) var(--curva-pulso) infinite;
+  animation: anelAqui var(--movimento-pulso) var(--curva-pulso)
+    var(--pulso-repeticoes) both;
 }
 .forma.desperta { animation: pulso var(--movimento-pulso-anel) var(--curva-mecanica); }
 

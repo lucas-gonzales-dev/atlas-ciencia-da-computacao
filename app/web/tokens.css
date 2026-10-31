@@ -57,12 +57,14 @@
    * Uma família só, de placa de sinalização: Overpass (SIL OFL 1.1), pesos
    * 400/700/900, mais a Mono para números. Os woff2 variáveis estão em
    * app/fonts/, declarados em app/web/fontes.css e no precache do sw.js.
-   * --fonte-corpo ainda é a pilha do sistema: a Overpass está declarada e
-   * pronta, mas a tela só troca no pedido que redesenha (design/README.md,
-   * "Migração"). */
+   * S2 da v2 (31/10/2026): o corpo passou a usar a Overpass. Defeito 4 da
+   * crítica — a fonte do sistema era a principal, que o DS proíbe, e a
+   * Overpass estava declarada, no cache e não usada por nada. A pilha do
+   * sistema sai; --fonte-corpo É --fonte-placa, para haver uma família só e
+   * um lugar só para mexer nela. */
   --fonte-placa: "Overpass", "Overpass Local", sans-serif;
   --fonte-mono: "Overpass Mono", ui-monospace, monospace;
-  --fonte-corpo: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --fonte-corpo: var(--fonte-placa);
 
   /* Escala de 5 tamanhos, e só 5. --tipo-estacao é o MAIOR texto da tela:
    * nada pode passar dele, ou a hierarquia mente. */
@@ -111,8 +113,12 @@
   --raio-selo: 2px;            /* selo e etiqueta */
   --anel-disponivel: 3px;      /* anel grosso com miolo claro */
   --anel-trancada: 1.5px;      /* anel fino, cinza */
-  --anel-foco: 2px;            /* :focus-visible, em cor de tinta */
+  /* S2 da v2: 2 px colava no elemento e, sobre a cor da linha, sumia. 3 px de
+   * anel com 3 px de ar são o que a pessoa vê quando bate o Tab. */
+  --anel-foco: 3px;            /* :focus-visible, em cor de tinta */
+  --afastamento-foco: 3px;     /* o ar entre o anel e o elemento */
   --alvo-toque: 44px;          /* piso de qualquer área tocável */
+  --sombra-placa: 4px 4px 0 var(--tinta); /* a ÚNICA sombra: a placa da próxima estação */
 
   /* ── MOVIMENTO · três vozes ────────────────────────────────────────────
    * Duração diz o que o movimento SIGNIFICA: curto é máquina respondendo,
@@ -123,6 +129,28 @@
   --movimento-pulso-anel: 400ms; /* o pulso curto das que destrancaram */
   --atraso-esqueleto: 150ms;   /* antes disso, nenhum esqueleto aparece */
   --janela-desfazer: 6000ms;   /* quanto tempo o "desfazer" fica disponível */
+
+  /* MOVIMENTO v2 (Lovable, 30/10/2026): selecionar, abrir, cascata.
+   * As três vozes acima já existiam; estas três mandam nas trocas de estado
+   * que não são a chegada. Cada uma tem um lugar: --movimento-selecao é o
+   * instante em que uma aba, uma linha ou um filtro é escolhido;
+   * --movimento-abrir é a folha, o painel, a troca de tela; --atraso-cascata
+   * espaça os itens de uma lista que entra (até o 6º — depois disso a lista
+   * inteira chega junta, senão a pessoa espera a tela acabar de aparecer).
+   * Nenhum deles é escrito à mão na tela: com movimento reduzido os quatro
+   * zeram no bloco do fim do arquivo, e é isso que faz a regra 11 da v2
+   * valer sem ninguém lembrar de cortar duração por duração. */
+  --movimento-selecao: 200ms;  /* aba, linha, filtro */
+  --movimento-abrir: 320ms;    /* folha, painel, troca de tela */
+  --atraso-cascata: 50ms;      /* entre itens de uma lista que entra, até o 6º */
+  --deslocamento-entrada: 8px; /* a tela entra subindo 8 px */
+  --curva-atlas: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* O anel "você está aqui" pulsa DUAS vezes e para (WCAG 2.2.2: nada de
+   * movimento automático infinito). Era `infinite` na v1 — a crítica da v2
+   * contou como o terceiro defeito da tela. Depois de pulsar, o anel fica
+   * parado e visível: o estado final é o anel, não a ausência dele. */
+  --pulso-repeticoes: 2;
 
   --curva-mecanica: cubic-bezier(0, 0, 0.2, 1);
   --curva-chegada: cubic-bezier(0.16, 1, 0.3, 1); /* saída suave */
@@ -194,6 +222,13 @@
     --movimento-chegada: 0ms;
     --movimento-pulso: 0ms;
     --movimento-pulso-anel: 0ms;
+    /* S2 da v2: os quatro novos zeram junto. Se um deles não zerasse, a tela
+     * com movimento reduzido ainda animaria aquela coisa específica, e a
+     * regra 11 viraria promessa escrita e não cumprida. */
+    --movimento-selecao: 0ms;
+    --movimento-abrir: 0ms;
+    --atraso-cascata: 0ms;
+    --deslocamento-entrada: 0px;
   }
 
   *,

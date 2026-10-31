@@ -1,0 +1,50 @@
+/* Projeto Atlas — a BASE que toda página da v2 herda (design/v2/S2-base.md).
+ *
+ * Por que existe um arquivo separado: até aqui, cada página repetia o fundo, a
+ * tinta e a família do texto no seu próprio CSS. O defeito 1 da crítica da v2
+ * é exatamente isso aplicado pela metade — o fundo estava no contêiner `.metro`
+ * e não no `html` nem no `body`, então no tema escuro as calhas da página
+ * (a rolagem elástica, a faixa sob a placa, o espaço além do conteúdo)
+ * apareciam BRANCAS. A tela parecia escura e o navegador não.
+ *
+ * A regra da casa continua: nada de cor, duração, raio ou tamanho à mão aqui.
+ * Tudo vem de web/tokens.css, por isso este arquivo é carregado LOGO DEPOIS
+ * dele — antes, as variáveis ainda não existem e o fundo volta a ser branco.
+ *
+ * Só `html`, `body`, o anel de foco e a utilidade de leitor. Quem precisar de
+ * mais do que isso na página própria, escreve na página própria. */
+
+html {
+  background: var(--fundo);
+  color: var(--tinta);
+  font-family: var(--fonte-corpo);
+  /* O esquema do navegador (barra de rolagem, formulário, tema do meta) segue
+   * o tema: sem isto, o Android desenha uma barra de rolagem clara sobre o
+   * carvão e a calha branca volta pela janela. */
+  color-scheme: light dark;
+}
+
+body {
+  margin: 0;
+  background: var(--fundo);
+  min-height: 100dvh;
+}
+
+/* Foco visível para quem navega sem mouse. O anel é grosso (3 px) e tem ar
+ * (3 px de afastamento): colado no elemento, sobre a cor da linha, ele não se
+ * via. Só :focus-visible — o toque não herda anel, o teclado sim. */
+:focus-visible {
+  outline: var(--anel-foco) solid var(--tinta);
+  outline-offset: var(--afastamento-foco);
+}
+
+/* Fora da tela, dentro do leitor de tela. Um texto que só explica o estado de
+ * um controle não precisa ocupar uma linha da placa. */
+.so-leitor {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

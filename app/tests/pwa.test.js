@@ -258,6 +258,19 @@ test('marca: o precache leva os ícones e a marca', async () => {
   assert.equal(lista.includes('icons/icone.svg'), false, 'o ícone morto ainda puxa cache');
 });
 
+test('marca: o link do topo tem classe própria', async () => {
+  // S2, item 6 da crítica: o link usava a classe `marca` — a MESMA classe do
+  // cabeçalho que o metro.js desenha dentro do <main>. Ele herdava de lá a
+  // borda de baixo e a margem, e era essa a linha curta sob o logo. A classe
+  // do topo agora é `topo-marca`, e nenhuma página do app usa `class="marca"`.
+  const html = await readFile(join(RAIZ, 'metro.html'), 'utf8');
+  assert.ok(/<a class="topo-marca"/.test(html), 'o link do topo voltou a ser class="marca"');
+  assert.equal(/\sclass="marca"/.test(html), false, 'ainda existe class="marca" no metro.html');
+  const css = await readFile(join(RAIZ, 'web/metro.css'), 'utf8');
+  assert.ok(/\.topo-marca\s*\{/.test(css), 'o CSS não tem o bloco .topo-marca');
+  assert.equal(/^\.topo \.marca\s*\{/m.test(css), false, 'a regra .topo .marca voltou');
+});
+
 test('PWA: fecha o servidor para a suite terminar', async () => {
   await stop();
   assert.ok(true);

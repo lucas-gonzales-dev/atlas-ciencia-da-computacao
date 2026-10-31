@@ -334,23 +334,30 @@ test('a etiqueta de estado fica DEBAIXO do nome, à esquerda e um degrau menor',
 // desfazer é da fatia 2c). Os testes abaixo substituem os que mediam o desenho
 // antigo — nenhum foi afrouxado: o href relativo que existia virou URL absoluta.
 
-test('marca: "Atlas" e a linha do curso vêm ANTES da placa, no topo da tela', () => {
+// S2 (31/10/2026), item 7 da crítica do Lovable: o nome "Atlas" aparecia
+// DUAS VEZES — no logo do topo (HTML) e no cabeçalho desenhado aqui embaixo.
+// Duas faixas de cabeçalho seguidas é a tela se apresentando duas vezes. O
+// cabeçalho desenhado perde o nome e fica só a linha do curso, que passa a
+// ser o rótulo da tela. O teste mudou de alvo, não de força: continua
+// exigindo que a marca seja o PRIMEIRO nó, antes da placa.
+test('marca: o nome "Atlas" não se repete embaixo do logo', () => {
   const { root } = desenhar({ completed: ['l1a'] });
-  const marca = comClasse(root, 'marca')[0];
-  assert.ok(marca, 'a marca existe');
-  assert.equal(root.children.indexOf(marca), 0, 'é o primeiro nó: vem antes da placa');
-  assert.equal(comClasse(marca, 'marca-nome')[0].textContent, PLACAS.titulo);
+  const marca = root.children[0];
+  assert.ok(marca, 'existe um primeiro nó antes da placa');
+  assert.equal(marca.className.split(/\s+/).includes('marca'), true, 'a marca é o primeiro nó');
+  assert.equal(marca.tag, 'div',
+    'é DIV, não HEADER: o cabeçalho do app é o <header class="topo"> do HTML, e um segundo header na tela é duas faixas');
+  assert.equal(comClasse(marca, 'marca-nome').length, 0,
+    'o nome não volta: ele já está no logo do topo');
   assert.equal(comClasse(marca, 'marca-linha')[0].textContent, PLACAS.marcaLinha,
-    'a segunda linha diz o curso e a universidade, vinda de textos.js');
+    'a linha do curso continua, vinda de textos.js');
 });
 
-test('marca: o desenho sai dos tokens, com o nome maior que a linha do curso', () => {
+test('marca: o desenho sai dos tokens, e a regra do nome que morreu não volta', () => {
   const css = readFileSync(fileURLToPath(new URL('../web/metro.css', import.meta.url)), 'utf8');
-  assert.match(css, /\.marca-nome \{[^}]*font-size: var\(--tipo-/, 'o nome usa a escala tipográfica');
-  assert.match(css, /\.marca-linha \{[^}]*font-size: var\(--tipo-/, 'e a linha do curso também');
-  const nome = css.match(/\.marca-nome \{[^}]*font-size: var\((--tipo-[a-z]+)\)/)[1];
-  const linhaTexto = css.match(/\.marca-linha \{[^}]*font-size: var\((--tipo-[a-z]+)\)/)[1];
-  assert.notEqual(nome, linhaTexto, 'são degraus diferentes da escala: a marca não é um bloco só');
+  assert.match(css, /\.marca-linha \{[^}]*font-size: var\(--tipo-/, 'a linha do curso usa a escala tipográfica');
+  assert.equal(/^\.marca-nome\s*\{/m.test(css), false,
+    'a regra .marca-nome sobrou no CSS: o elemento não é mais desenhado');
 });
 
 test('folha: o recurso abre com o VERBO ÚNICO da tela, nunca "Começar a viagem"', () => {
@@ -452,9 +459,11 @@ test('seletor: um selo por linha do catálogo, com a atual marcada', () => {
   const { root, nos } = desenhar({ linha: 2 });
   const selos = comClasse(root, 'selo').filter((s) => s.getAttribute('data-linha'));
   assert.deepEqual(selos.map((s) => s.getAttribute('data-linha')), ['1', '2', '3']);
-  assert.equal(selos.filter((s) => s.getAttribute('aria-current') === 'true').length, 1,
+  // S2: aria-current saiu do seletor. Ele é um grupo de botões de estado, não
+  // um link de navegação — aria-pressed é o atributo de "este está ligado".
+  assert.equal(selos.filter((s) => s.getAttribute('aria-pressed') === 'true').length, 1,
     'uma linha atual, não duas');
-  assert.equal(selos[1].getAttribute('aria-current'), 'true');
+  assert.equal(selos[1].getAttribute('aria-pressed'), 'true');
   assert.equal(selos[1].getAttribute('aria-label'), comValores.linha(2));
   assert.equal(nos.linha, 2);
 });
@@ -488,10 +497,10 @@ test('seletor: tocar numa estação abre e fecha a folha dela', () => {
   assert.deepEqual(abertos, ['l1a']);
 });
 
-test('MUTAÇÃO: selo sem aria-current deixa de marcar a linha atual', () => {
+test('MUTAÇÃO: selo sem aria-pressed deixa de marcar a linha atual', () => {
   const fonte = desenharMetro.toString();
-  assert.ok(fonte.includes("'aria-current': atual ? 'true' : null"),
-    'a linha atual é marcada com aria-current, não só com cor');
+  assert.ok(fonte.includes("'aria-pressed': atual ? 'true' : 'false'"),
+    'a linha atual é marcada com aria-pressed, não só com cor');
 });
 
 // ═══════════════════════════ 4. a chegada e o desfazer ═══════════════════════════
@@ -1305,4 +1314,72 @@ test('contrato: a tela sobe com o main.js REAL, anota, e o texto volta depois do
   } finally {
     delete globalThis.localStorage;
   }
+});
+
+// ══════════════════════ ATLAS v2, FATIA S2 (31/10/2026) ══════════════════════
+// Dois defeitos que o juiz viu na tela PUBLICADA: o seletor das 7 linhas era
+// `<span type="button">` — uma coisa que parece botão, tem atributo de botão e
+// NÃO É botão: o Tab passa por cima, o Enter não faz nada, e o leitor de tela
+// não anuncia. E o nome "Atlas" aparecia duas vezes na mesma tela.
+
+test('seletor: as 7 linhas são <button type="button">, com aria-pressed na atual', () => {
+  // Sete linhas de verdade, uma por linha: o catálogo de teste tem só 3, e o
+  // defeito descrito é da faixa inteira.
+  const sete = [];
+  for (let n = 1; n <= 7; n++) {
+    sete.push({ id: `l${n}a`, title: `Estação da linha ${n}`, stage: n, prerequisites: [],
+      resourceUrl: null, resourceType: null, bibliography: null });
+  }
+  const { root } = desenhar({ catalogo: sete, linha: 4 });
+  // O mini-DOM guarda a tag como foi escrita ('button'); o navegador devolve
+  // 'BUTTON'. Comparar em caixa alta vale nos dois.
+  const tag = (no) => String(no.tag).toUpperCase();
+  const nav = todos(root, (no) => tag(no) === 'NAV' && no.className.split(/\s+/).includes('linhas'))[0];
+  assert.ok(nav, 'o seletor é um <nav> (ainda é)');
+  const botoes = nav.children.filter((c) => tag(c) === 'BUTTON');
+  assert.equal(botoes.length, 7, `7 linhas desenhadas como BUTTON; vieram ${botoes.length} de tag ${nav.children.map(tag).join(',')}`);
+  assert.equal(nav.children.every((c) => tag(c) === 'BUTTON'), true, 'nada no seletor é span: span com type=button é o defeito que a S2 matou');
+  for (const b of nav.children) {
+    assert.equal(b.getAttribute('type'), 'button', 'type="button" dentro de um form não seria um botão de linha');
+    assert.equal(b.getAttribute('data-linha'), b.className.match(/l(\d)/)[1], 'o selo sabe a linha que é');
+  }
+  const pressionados = nav.children.filter((b) => b.getAttribute('aria-pressed') === 'true');
+  assert.equal(pressionados.length, 1, 'uma linha pressionada, não duas');
+  assert.equal(pressionados[0].getAttribute('data-linha'), '4');
+  assert.equal(nav.children.filter((b) => b.getAttribute('aria-pressed') === 'false').length, 6,
+    'as outras 6 dizem aria-pressed=false: sem isso o leitor de tela não sabe que são alternáveis');
+  assert.equal(nav.children.some((b) => b.getAttribute('aria-current') !== null), false,
+    'aria-current saiu: é estado de botão, não posição num caminho de navegação');
+});
+
+test('seletor: o botão de linha obedece ao teclado (Enter e Espaço vêm de graça)', () => {
+  // Não se testa o navegador: se testa que QUEM CLICA é o botão, e que a
+  // delegação continua alcançando o alvo. Com <button>, Enter e Espaço geram
+  // o mesmo evento click que o toque gera — é o que o span não fazia.
+  const doc = criarDoc();
+  const root = raiz(doc);
+  desenharMetro(doc, root, { catalogo: CATALOGO, progresso: { completed: [], emCurso: [], conclusoes: {} }, linha: 1 });
+  let linhaPedida = null;
+  bindMetro(doc, root, { abrirLinha: (n) => { linhaPedida = n; } });
+  const selos = comClasse(root, 'selo').filter((s) => s.getAttribute('data-linha'));
+  assert.equal(String(selos[0].tag).toUpperCase(), 'BUTTON',
+    'o selo da linha é BUTTON (tagName de verdade, em maiúsculo): span com type=button é o defeito que a S2 matou');
+  disparar(root, 'click', selos[0]);
+  assert.equal(linhaPedida, 1, 'o clique no botão troca a linha');
+});
+
+test('marca: a tela não desenha o nome "Atlas" (o logo do topo já diz)', () => {
+  const { root } = desenhar({ completed: [] });
+  assert.equal(todos(root, (no) => no.className.split(/\s+/).includes('marca-nome')).length, 0,
+    'marca-nome voltou: duas faixas de cabeçalho seguidas');
+  const marca = root.children[0];
+  // O alvo é a FAIXA da marca, não a tela inteira: a palavra "Atlas" continua
+  // legítima na nota da bibliografia (textos.js), e varrer o <main> inteiro
+  // proibiria uma frase que o item 7 não proíbe. O que morreu é o nome como
+  // apresentação, desenhado debaixo do logo do topo.
+  assert.equal(textoDe(marca).includes(PLACAS.titulo), false,
+    `o nome "${PLACAS.titulo}" voltou à faixa da marca: ele já está no logo do topo`);
+  assert.equal(marca.tag, 'div', 'div, não header: o cabeçalho do app é o do HTML');
+  assert.equal(comClasse(marca, 'marca-linha')[0].textContent, PLACAS.marcaLinha,
+    'a linha do curso fica: é ela que rotula a tela');
 });
