@@ -29,7 +29,8 @@ pare e diga o que falta, em vez de adivinhar. Quem completa o arquivo é o juiz.
 | S3a-2a | `S3a2a-casco.md` | uma casa só: rotas, abas, anúncio e foco, Jornada e Explorar montadas | B |
 | S3a-2b | `S3a2b-casco-cara.md` | o `casco.css`: abas embaixo no celular, no topo no computador | B |
 | S3b | `S3b-paleta.md` | a paleta azul-marinho (`--p-*`) morre; o `metro.html` vira redirecionamento | B |
-| S4 | `S4-jornada.md` | a Jornada no layout do Lovable, com dado real | C |
+| S4a | `S4a-jornada-dados.md` | a Jornada responde: abertura, três números, próxima conexão | C |
+| S4b | `S4b-jornada-layout.md` | a Jornada no layout do Lovable: cartões, duas colunas, cascata | C |
 | S5 | `S5-estacao.md` | a folha da estação, com rota própria | C |
 | S6 | `S6-chegada.md` | concluir vira momento: "Conexão criada" e "Desfazer" | C |
 | S7 | `S7-explorar.md` | a rede inteira com busca, filtro de linha, ramais e eletivas | D |

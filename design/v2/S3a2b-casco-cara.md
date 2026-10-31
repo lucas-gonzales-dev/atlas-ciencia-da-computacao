@@ -55,7 +55,7 @@ Com movimento reduzido os tokens zeram a duração e o deslocamento: nada a faze
 **`sw.js`**: `web/casco.css` no precache; `VERSAO` sobe 1 e `PRECACHE_HASH` acompanha.
 
 ## `testar_pagina`
-Abra `index.html`. Passos: esperar 500; clicar "Explorar"; esperar 500; tab 3; clicar
+Abra `index.html`. Passos: esperar 500; clicar "Explorar"; esperar 500; clicar
 "Jornada"; esperar 500. Confira nos 4 tamanhos: zero erro; no celular e no tablet as abas
 estão embaixo e não cobrem o último item da tela; no computador e no monitor estão no topo;
 depois de "Jornada", "Sua próxima estação" aparece.
