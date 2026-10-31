@@ -1,45 +1,39 @@
-# S3a — uma casa só: rotas, topo, abas e as duas telas montadas
+# S3a-2 — o casco: topo, abas, anúncio, foco e as duas telas montadas
 
 **Objetivo.** O `index.html` vira o **casco** do app: o topo com a marca, as abas, o "Pular
 para o conteúdo", o anúncio para o leitor de tela e as rotas por hash. Duas telas entram:
-**Jornada** (a tela do metrô de hoje) e **Explorar** (a página antiga, ainda com o visual
+**Jornada** (a tela do metrô de hoje) e **Explorar** (a grade antiga, ainda com o visual
 antigo, que morre na S3b). Revisar e Perfil entram nas S8 e S9.
 
+**O que a S3a-1 já deixou pronto** (não refaça): `core/rotas.js` (`ABAS`, `lerRota`,
+`hrefDe`) com `tests/rotas.test.js`; a seção `casco` do `textos.js`; o `web/grade.css`
+escopado em `.grade`; e o `boot.js` exportando `montarGrade({ raiz, slotBusca, catalogo })`
+e `registrarSW`, ainda subindo sozinho pelo `export const inicio`.
+
 ## Arquivos
-Novos: `app/core/rotas.js`, `app/web/casco.js`, `app/web/casco.css`,
-`app/web/telas/jornada.js`, `app/web/telas/explorar.js`, `app/web/grade.css`,
-`app/tests/rotas.test.js`.
+Novos: `app/web/casco.js`, `app/web/casco.css`, `app/web/telas/jornada.js`,
+`app/web/telas/explorar.js`.
 Mudam: `app/index.html` (reescrito), `app/web/boot.js` (deixa de subir sozinho),
-`app/core/textos.js`, `app/sw.js`, `app/package.json` (o teste novo na lista),
-e os testes que procuravam `#app` ou `boot.js` no `index.html` (`pages`, `boot`,
-`e2e-serve`; ache-os com `buscar_arquivos`).
+`app/sw.js`, e os testes que procuravam `#app` ou `boot.js` no `index.html` (`pages`,
+`boot`, `pwa`, `fonte-nome`; ache-os com `buscar_arquivos`).
 Não mudam: `metro.html` (segue de pé até a S3b), `web/metro.js` (o `subirMetro` já aceita
-`deps.root`).
+`deps.root`), `core/rotas.js`, `web/grade.css`.
 
 ## Testes primeiro
-**`tests/rotas.test.js`** (novo; ponha na lista do `npm test`), para `core/rotas.js`:
-1. `''`, `'#'` e `'#/'` dão `{ tela: 'jornada' }`; `'#/explorar'` dá `{ tela: 'explorar' }`.
-2. `'#/estacao/calculo-i'` dá `{ tela: 'estacao', slug: 'calculo-i' }` (a S5 usa).
-3. Âncora que não começa por `#/` (`'#conteudo'`, o "Pular para o conteúdo") dá `null`: **não
-   é rota**, e o casco a ignora. Sem isso, o link de pular trocaria de tela e perderia o foco.
-4. Rota desconhecida (`'#/xyz'`) dá `{ tela: 'jornada', desconhecida: true }`.
-5. `hrefDe({ tela: 'explorar' })` é `'#/explorar'`, e `lerRota(hrefDe(r))` devolve `r` para
-   as telas de `ABAS`.
-6. `ABAS` tem exatamente Jornada e Explorar, nessa ordem, cada uma com `tela`, `rotulo` e
-   `href`.
-
-**Testes de página** (onde hoje se testa o `index.html`):
-7. O primeiro elemento focável do `<body>` é `<a class="pular" href="#conteudo">`.
-8. Há um `<main id="conteudo" tabindex="-1">`, **um** `<nav aria-label="Principal">` com um
-   link por aba, e um `<p id="anuncio" class="so-leitor" aria-live="polite">`.
-9. O `index.html` não tem `<style>` nem código inline: só `<link>` e o
+**Testes de página** (onde hoje se testa o `index.html`, em `tests/pages.test.js`):
+1. O primeiro elemento focável do `<body>` é `<a class="pular" href="#conteudo">`.
+2. Há um `<main id="conteudo" tabindex="-1">`, **um** `<nav aria-label="Principal">` com um
+   link por aba de `ABAS` (o `href` e o rótulo batendo com `core/rotas.js`), e um
+   `<p id="anuncio" class="so-leitor" aria-live="polite">`.
+3. O `index.html` não tem `<style>` nem código inline: só `<link>` e o
    `<script type="module" src="./web/casco.js">`.
+4. `boot.js` não sobe sozinho: importá-lo num documento sem `#app` não lança e não chama
+   `loadCatalog` (o `inicio` sai).
+5. `web/telas/jornada.js` e `web/telas/explorar.js` exportam `montar`.
 
 ## Implementação
-**`core/rotas.js`** (puro, sem DOM): `ABAS`, `lerRota(hash)`, `hrefDe(rota)`.
-
 **`index.html`** (o `<head>` mantém o que a S1 deixou; carregue `tokens.css`, `fontes.css`,
-`base.css`, `casco.css`, `metro.css` e `grade.css`):
+`base.css`, `casco.css`, `metro.css` e `grade.css`, nessa ordem):
 ```html
 <body>
 <a class="pular" href="#conteudo">Pular para o conteúdo</a>
@@ -82,14 +76,10 @@ Os ícones das abas são desenho próprio, em SVG de linha, `aria-hidden="true"`
 com `modulos` sendo os do `main.js` e o `loadCatalog` trocado pela promessa do casco.
 **`web/telas/explorar.js`**: `montar(raiz, ctx)` cria, dentro da raiz,
 `<div class="grade"><div id="busca-slot" class="busca-slot" hidden></div><div id="app" class="app"></div></div>`
-e chama `montarGrade({ raiz, slotBusca, catalogo })`, exportado do `boot.js`. O `boot.js`
-**deixa de subir sozinho ao ser importado**: o que hoje roda no topo do módulo (o
-`getElementById('app')` e o `subir()`) vira esse `montarGrade`. O `#app` perde o
-`aria-live` (o anúncio agora é do casco: uma região viva do tamanho da página anuncia tudo).
-
-**`web/grade.css`**: o `<style>` inline do `index.html` antigo, **escopado**: todo seletor
-ganha `.grade ` na frente, e as regras de `html` e `body` passam a valer para `.grade`. Ele
-ainda usa os `--p-*` (a S3b troca). Sem o escopo, o azul-marinho vazaria para o casco.
+e chama `montarGrade({ raiz: <o #app>, slotBusca: <o #busca-slot>, catalogo: await ctx.catalogo })`,
+exportado do `boot.js`. O `boot.js` **deixa de subir sozinho ao ser importado**: tire o
+`subir()` e o `export const inicio`. O `#app` não tem `aria-live` (o anúncio agora é do
+casco: uma região viva do tamanho da página anunciaria tudo).
 
 **`web/casco.css`**:
 ```css
@@ -125,12 +115,11 @@ regra em `tests/design-system.test.js`, teste "largura"). O `box-shadow` da aba 
 uma barra de 3 px, não sombra: se a trava de sombra acusar, troque por
 `border-top: 3px solid` com `padding` compensado.
 
-**Textos** (`core/textos.js`, seção `casco`): `pular: 'Pular para o conteúdo'`,
-`navegacao: 'Principal'`, `anuncio: (rotulo) => \`Você está em ${rotulo}.\``, e os rótulos
-das abas. O HTML pode repetir os rótulos estáticos, desde que um teste confira que batem
-com o `textos.js`.
+**Textos**: os do casco já estão em `core/textos.js` (seção `casco`, da S3a-1). O HTML pode
+repetir os rótulos estáticos, porque o teste 2 confere que batem com `ABAS`.
 
-**`sw.js`**: os 6 arquivos novos no precache; `VERSAO` e `PRECACHE_HASH`.
+**`sw.js`**: os 4 arquivos novos no precache (`casco.js`, `casco.css`, `telas/jornada.js`,
+`telas/explorar.js`); `VERSAO` sobe 1 e `PRECACHE_HASH` acompanha.
 
 ## `testar_pagina`
 Abra `index.html`. Passos: esperar 500; clicar "Explorar"; esperar 500; clicar "Jornada";
