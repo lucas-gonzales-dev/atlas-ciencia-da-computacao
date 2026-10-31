@@ -1,0 +1,197 @@
+/* Projeto Atlas — o layout da GRADE obrigatória, em arquivo (S3a-1, 31/10/2026).
+
+   POR QUE UM ARQUIVO: até aqui estas regras viviam num <style> dentro do
+   index.html. CSS ali dentro não entra em teste nenhum do mesmo modo que o
+   <script> inline de 27/10 não entrava — e foi assim que um ReferenceError
+   chegou ao navegador sem que a suíte visse. tests/grid-celulas.test.js lê
+   este arquivo e confere a POSIÇÃO de cada filho do cartão; a regra nasceu de
+   um defeito real (o botão Concluir por cima da nota da bibliografia no
+   celular, 28/10) e só continua existindo porque é lida de um arquivo.
+
+   POR QUE TUDO COMEÇA COM .grade: o casco da S3a-2 monta a barra de baixo e a
+   folha em volta desta tela. Sem escopo, o azul-marinho provisório da grade
+   vazaria para o casco e as duas telas brigariam pela mesma cor. O escopo é a
+   classe do <body> (index.html), então a página inteira — fundo, texto, cartões
+   — está dentro dele, e o que o casco trouxer depois fica fora.
+
+   PALETA (dívida conhecida, NÃO resolvida aqui): nenhum --p-* foi migrado.
+   Estes nomes continuam APELIDOS para a paleta provisória do tokens.css, e a
+   tela tem a mesma aparência de ontem, de propósito. Esta fatia entrega rota +
+   arquivo; a migração para --fundo/--tinta/--linha-N é a S3b, e a trava que a
+   anuncia está em tests/design-system.test.js como `todo`. */
+
+/* Mobile-first de verdade: o padrão É o celular. Tela grande só ganha largura e
+   colunas, nunca outra estrutura. */
+.grade {
+  /* Apelidos provisórios (29/10/2026): definidos AQUI, e não em :root, para que
+     o escopo .grade carregue a paleta dele e não a do resto do app. */
+  --fundo: var(--p-fundo); --cartao: var(--p-cartao); --borda: var(--p-borda);
+  --texto: var(--p-texto); --fosco: var(--p-fosco);
+  --aberto: var(--p-aberto); --feito: var(--p-feito);
+  --trancado: var(--p-trancado); --alerta: var(--p-alerta);
+
+  margin: 0;
+  min-height: 100dvh;
+  background: var(--fundo);
+  color: var(--texto);
+  font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-text-size-adjust: 100%;
+}
+
+.grade, .grade * { box-sizing: border-box; }
+
+.grade .app { max-width: 720px; margin: 0 auto; padding: 16px 14px 48px; }
+.grade h1 { font-size: 1.5rem; margin: 4px 0 2px; letter-spacing: -.02em; }
+.grade .sub, .grade .fonte { margin: 2px 0; color: var(--fosco); font-size: .84rem; }
+.grade .fonte { font-size: .76rem; opacity: .85; word-break: break-word; }
+.grade .alerta {
+  margin: 12px 0; padding: 10px 12px; border-radius: 10px; font-size: .86rem;
+  background: var(--p-alerta-fundo); border: 1px solid var(--p-alerta-borda); color: var(--alerta);
+}
+.grade .carregando { color: var(--fosco); }
+.grade .trilha { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: 10px; }
+.grade .item {
+  display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center;
+  background: var(--cartao); border: 1px solid var(--borda); border-left: 4px solid var(--trancado);
+  border-radius: 12px; padding: 12px 14px;
+}
+.grade .item .titulo { grid-column: 1; font-weight: 600; }
+.grade .item .status { grid-column: 2; grid-row: 1; font-size: .74rem; color: var(--fosco); text-align: right; }
+
+/* CÉLULA PRÓPRIA (28/10/2026): cada filho de coluna cheia tem a sua linha —
+   recurso=2, biblio=3, marca=4. Antes .marca e .biblio declaravam a MESMA
+   célula (grid-row: 3) e o botão Concluir/Desfazer caía por cima da nota da
+   bibliografia. No desktop ninguém via: o media query abaixo move o botão para
+   grid-row 1, então a sobreposição só existia no celular. Regra: se um filho
+   novo entra na grade do .item, ele ganha uma linha própria — dois filhos na
+   mesma linha só com grid-column diferente. É o que tests/grid-celulas.test.js
+   lê daqui. */
+.grade .item .marca { grid-column: 1 / -1; grid-row: 4; justify-self: start; }
+.grade .item .recurso { grid-column: 1 / -1; grid-row: 2; justify-self: start; }
+
+.grade a.recurso {
+  margin-top: 8px; min-height: 40px; padding: 8px 14px; border-radius: 9px;
+  border: 1px solid var(--borda); background: var(--p-recurso-fundo); color: var(--feito);
+  font-size: .86rem; font-weight: 600; text-decoration: none;
+  display: inline-flex; align-items: center;
+}
+.grade a.recurso:active { transform: translateY(1px); }
+
+/* BIBLIOGRAFIA (item 3): caminho da fonte, não conteúdo do Atlas. Entra na
+   mesma grade do item, abaixo do recurso, e a nota de não-verificado fica em
+   texto menor — é aviso, não rodapé decorativo. */
+.grade .item .biblio { grid-column: 1 / -1; grid-row: 3; display: flex; flex-direction: column; gap: 2px; margin-top: 6px; }
+.grade a.biblio-link {
+  color: var(--p-link-biblio); font-size: 0.82rem; text-decoration: none;
+  border-bottom: 1px dashed var(--p-link-biblio-borda); align-self: flex-start;
+  word-break: break-all;
+}
+.grade a.biblio-link:hover, .grade a.biblio-link:focus-visible { color: var(--p-link-biblio-forte); border-bottom-style: solid; }
+.grade .biblio-nota { color: var(--p-nota); font-size: 0.72rem; line-height: 1.35; }
+
+/* NOTA ÚNICA (28/10/2026): o aviso saiu dos 35 cartões e virou um <p> antes da
+   lista. Sem margin ele colava no destaque de "próxima matéria"; 60ch é a
+   medida em que a linha ainda se lê de um fôlego no celular e no desktop. */
+.grade p.biblio-nota { margin: 14px 0 0; max-width: 60ch; }
+
+/* Alvo de toque mínimo de 44px no celular: o padding acima já garante. */
+.grade .item.disponivel { border-left-color: var(--aberto); }
+.grade .item.disponivel .status { color: var(--aberto); }
+.grade .item.concluida { border-left-color: var(--feito); opacity: .82; }
+.grade .item.concluida .status { color: var(--feito); }
+.grade .item.concluida .titulo { text-decoration: line-through; text-decoration-color: var(--p-riscado); }
+.grade .item.trancada, .grade .item.ciclo { opacity: .62; }
+.grade .item.ciclo .status { color: var(--alerta); }
+
+.grade button.marca {
+  margin-top: 8px; min-height: 40px; padding: 8px 16px; border-radius: 9px;
+  border: 1px solid var(--borda); background: var(--p-botao-fundo); color: var(--texto);
+  font: inherit; font-size: .88rem; font-weight: 600; cursor: pointer;
+}
+.grade button.marca:active { transform: translateY(1px); }
+.grade button.marca:disabled { cursor: not-allowed; opacity: .45; }
+.grade .item.disponivel button.marca { background: var(--p-aberto-fundo); border-color: var(--p-aberto-borda); color: var(--aberto); }
+.grade .item.concluida button.marca { background: var(--p-feito-fundo); border-color: var(--p-feito-borda); color: var(--feito); }
+
+/* ELETIVAS ARQUIVADAS (24/10/2026): mesma linguagem visual da grade, mas com
+   borda esquerda cinza e opacidade menor — o olho tem de entender em meio
+   segundo que isto NÃO é o caminho obrigatório. Sem cor de "disponível", porque
+   disponível aqui só existe para a grade. */
+.grade section.eletivas { margin-top: 34px; }
+.grade section.eletivas h2 { font-size: 1.15rem; margin: 0 0 4px; letter-spacing: -.01em; }
+.grade .aviso-eletivas {
+  margin: 0 0 10px; padding: 10px 12px; border-radius: 10px; font-size: .84rem;
+  background: var(--p-aviso-fundo); border: 1px solid var(--borda); color: var(--fosco);
+}
+.grade .eletivas-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.grade .item.eletiva {
+  grid-template-columns: 1fr; opacity: .78;
+  border-left-color: var(--trancado);
+}
+.grade .item.eletiva .titulo { grid-column: 1; font-weight: 600; }
+.grade .item.eletiva .prereq-texto { grid-column: 1; color: var(--fosco); font-size: .8rem; }
+.grade .item.eletiva .topicos { grid-column: 1; color: var(--fosco); font-size: .8rem; margin-top: 4px; }
+.grade .item.eletiva .recurso { grid-column: 1; }
+
+/* ESPECIALIZAÇÕES (24/10/2026): são conteúdo de aprofundamento, não a grade.
+   Ficam entre a trilha e as eletivas, com recursos em lista aninhada — no
+   celular cada linha de recurso precisa de área de toque inteira (min-height),
+   porque link pequeno em lista longa é link que o dedo erra. */
+.grade section.especializacoes { margin-top: 34px; }
+.grade section.especializacoes h2 { font-size: 1.15rem; margin: 0 0 4px; letter-spacing: -.01em; }
+.grade .esp-lista { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 12px; }
+.grade .item.esp { grid-template-columns: 1fr; align-items: start; }
+.grade .item.esp .titulo { grid-column: 1; font-weight: 600; }
+.grade .item.esp .status { grid-column: 1; color: var(--fosco); font-size: .78rem; }
+.grade .item.esp.aguardando { border-left-color: var(--p-obras-borda); background: var(--p-obras-fundo); }
+.grade .aviso-esp {
+  grid-column: 1; margin: 6px 0 0; padding: 9px 11px; border-radius: 9px;
+  font-size: .82rem; line-height: 1.45; color: var(--p-obras-texto);
+  background: var(--p-obras-caixa); border: 1px solid var(--p-obras-caixa-borda);
+}
+.grade .esp-recursos { list-style: none; grid-column: 1; margin: 8px 0 0; padding: 0; display: grid; gap: 2px; }
+.grade .esp-recursos li { padding: 7px 0; border-bottom: 1px solid var(--borda); font-size: .9rem; line-height: 1.4; }
+.grade .esp-recursos li:last-child { border-bottom: 0; }
+.grade .esp-recursos a { min-height: 44px; display: inline-flex; align-items: center; }
+.grade .esp-meta { color: var(--fosco); font-size: .8rem; }
+.grade .esp-nota { color: var(--p-esp-nota); font-size: .78rem; }
+
+/* PROGRESSO PORTÁTIL (27/10/2026): exportar/importar. Os dois botões cabem lado
+   a lado em tela larga e empilham no celular — flex-wrap, sem media query
+   própria. Alvo de toque mínimo de 44px vem do button.marca. */
+.grade section.progresso-io { margin-top: 34px; }
+.grade section.progresso-io h2 { font-size: 1.15rem; margin: 0 0 4px; letter-spacing: -.01em; }
+.grade .io-acoes { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+.grade .io-acoes .marca { flex: 1 1 auto; }
+.grade .importar-arquivo { display: none; }
+.grade .io-recado { margin: 10px 0 0; color: var(--fosco); font-size: .84rem; min-height: 1.2em; }
+
+/* BUSCA (27/10/2026): campo fora do #app, mesma paleta, alvo de toque de 44px.
+   .busca-vazia é o "nada encontrado" que render() desenha — mesma linguagem do
+   .alerta: aviso, não enfeite. */
+.grade .busca-slot { max-width: 720px; margin: 0 auto; padding: 14px 14px 0; }
+.grade .busca-slot[hidden] { display: none; }
+.grade input.busca {
+  width: 100%; min-height: 44px; padding: 10px 14px; border-radius: 12px;
+  border: 1px solid var(--borda); background: var(--cartao); color: var(--texto);
+  font: inherit; font-size: 1rem;
+}
+.grade input.busca::placeholder { color: var(--fosco); }
+.grade input.busca:focus-visible { outline: 2px solid var(--feito); outline-offset: 1px; }
+.grade p.busca-vazia {
+  margin: 14px 0 0; padding: 10px 12px; border-radius: 10px; font-size: .88rem;
+  background: var(--p-alerta-fundo); border: 1px solid var(--p-alerta-borda); color: var(--alerta);
+}
+
+/* PONTO DE QUEBRA (29/10/2026): era 620px, número escrito à mão que não era
+   nenhum dos 4 do DS. O tablet começa em 600px (--bp-tablet), então entre 600 e
+   619px o respiro largo chega 20px antes. Nenhuma estrutura muda aqui — e é a
+   trava do DS que exige: @media só usa número que existe nos tokens. */
+@media (min-width: 600px) {
+  .grade .app { padding: 28px 20px 64px; }
+  .grade h1 { font-size: 1.9rem; }
+  .grade .item { grid-template-columns: 1fr auto auto; }
+  .grade .item .status { grid-row: 1; }
+  .grade .item .marca { grid-column: 3; grid-row: 1; justify-self: end; margin-top: 0; }
+  .grade .item .recurso { grid-column: 1 / -1; grid-row: 2; justify-self: start; margin-top: 0; }
+}

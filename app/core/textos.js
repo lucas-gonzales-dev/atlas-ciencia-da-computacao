@@ -294,7 +294,26 @@ export const proibido = [
   'nome de estágio inventado',
 ];
 
+/**
+ * O CASCO (S3a-1, 31/10/2026): as frases do invólucro que a tela monta em
+ * volta do conteúdo — o link de pular, o rótulo da região de navegação, o
+ * anúncio de qual aba está ativa e os nomes das abas.
+ *
+ * Vive aqui e não em core/rotas.js porque é texto de tela, e a regra 7 diz que
+ * toda frase da tela mora neste arquivo. ABAS, em rotas.js, lê o rotulo daqui:
+ * a rota sabe PARA ONDE se vai, o texto sabe COMO se chama.
+ *
+ * `anuncio` é a frase que o leitor de tela fala quando a pessoa troca de aba.
+ * Sem ela, a troca é visual e ninguém mais fica sabendo em que tela está.
+ */
+export const casco = {
+  pular: 'Pular para o conteúdo',
+  navegacao: 'Principal',
+  anuncio: (rotulo) => `Você está em ${rotulo}.`,
+  abas: { jornada: 'Jornada', explorar: 'Explorar' },
+};
+
 /** Tudo junto, para quem precisa percorrer (o teste percorre). */
-export const TEXTOS = { placa, comValores, estados, legenda, proibido, ORIGEM, TIPO_DE_ORIGEM };
+export const TEXTOS = { placa, comValores, estados, legenda, proibido, ORIGEM, TIPO_DE_ORIGEM, casco };
 
 export default TEXTOS;

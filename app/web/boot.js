@@ -13,11 +13,20 @@
 // de core/search.js. Este arquivo so liga estado -> tela e captura eventos.
 // Se aparecer um `if` de pre-requisito aqui, esta errado.
 //
+// S3a-1 (31/10/2026): a montagem da grade virou FUNCAO EXPORTADA,
+// `montarGrade({ raiz, slotBusca, catalogo })`. Motivo: o casco da S3a-2 precisa
+// montar a grade dentro de uma raiz que NAO e o document inteiro — a mesma tela
+// mora agora numa aba, e `document.getElementById('app')` no topo do modulo nao
+// da para o casco escolher onde pintar. O boot continua subindo sozinho
+// (`inicio`): quem desliga isso e a S3a-2, e enquanto ele sobe esta pagina abre
+// exatamente como abria.
+//
 // TESTABILIDADE: duas funcoes exportadas, e `inicio` e a promise do boot que
 // roda sozinho quando a pagina abre. app/tests/boot.test.js instala um
 // document/window/localStorage de mentira e prova que (a) sobe sem
 // ReferenceError, (b) o fio `avisar` existe de verdade, (c) o escopo do service
-// worker e relativo. node nao e navegador: layout e PWA instalada continuam
+// worker e relativo, (d) montarGrade e exportada e (e) o layout nao voltou para
+// dentro do index.html. node nao e navegador: layout e PWA instalada continuam
 // sendo assunto do testar_pagina.
 import {
   loadCatalog,
@@ -36,7 +45,11 @@ import {
   bindNotas
 } from './main.js';
 
-const root = document.getElementById('app');
+// A raiz da grade, guardada por montarGrade. Antes era uma constante lida do
+// document no topo do modulo; agora e o que quem chamou a montagem escolheu.
+// `paint`, `aviso` e os binds leem daqui — um so lugar, senao a tela e o recado
+// podem acabar em raizes diferentes quando o casco pintar a grade dentro de si.
+let raiz = null;
 
 let state = {
   courses: [],
@@ -49,7 +62,7 @@ let state = {
 };
 
 function paint() {
-  render(root, state);
+  render(raiz, state);
 }
 
 /**
@@ -58,11 +71,11 @@ function paint() {
  * empilhar — tres alertas liguais sobrepostos nao se leem.
  */
 function aviso(texto) {
-  root.querySelector('p.aviso-save')?.remove();
+  raiz?.querySelector('p.aviso-save')?.remove();
   const p = document.createElement('p');
   p.className = 'alerta aviso-save';
   p.textContent = texto;
-  root.prepend(p);
+  raiz?.prepend(p);
 }
 
 // Unico lugar que muda `completed`. Regra de negocio fica em core/progress.js.
@@ -76,6 +89,79 @@ function toggle(id) {
     aviso('Não consegui salvar neste navegador: o progresso vale só enquanto esta aba estiver aberta.');
   }
   paint();
+}
+
+/**
+ * Monta a GRADE numa raiz escolhida por quem chama. Exportada para a S3a-2: o
+ * casco vai pintar isto dentro de uma aba, e nao no document inteiro.
+ *
+ * NAO carrega o catalogo: recebe `catalogo` pronto. Quem decide quando buscar
+ * (e o que mostrar enquanto nao chegou) e de quem monta, e a funcao tem de ser
+ * chamavel de novo com outro catalogo sem nenhum fetch no meio.
+ *
+ * @param {{raiz: Element, slotBusca?: Element|null, catalogo: object}} alvo
+ * @returns {Promise<{ok: true, state: object, raiz: Element}>}
+ */
+export async function montarGrade({ raiz: novaRaiz, slotBusca, catalogo }) {
+  raiz = novaRaiz;
+  const {
+    courses, origem, electives, origemEletivas, specializations, origemEspecializacoes
+  } = catalogo;
+  state = { ...state, courses, origem, electives, origemEletivas, specializations, origemEspecializacoes };
+
+  // BUSCA (27/10/2026): montarBusca cria o campo no slot externo e liga o
+  // evento 'input' ao estado -> redesenho. A regra de filtrar (sem acento, sem
+  // caixa, nas tres listas) mora em core/search.js, com teste no node; aqui nao
+  // ha regra nenhuma. Sem debounce de proposito: 35 linhas redesenham mais
+  // rapido do que se digita, e debounce so atrasaria o eco sem ganhar nada.
+  // O slot vive FORA do root (ver index.html): dentro, render() o apagaria e o
+  // campo perderia o foco a cada tecla.
+  montarBusca(slotBusca, {
+    onChange: (q) => { state = { ...state, busca: q }; paint(); }
+  });
+  if (slotBusca) slotBusca.hidden = false;
+
+  paint();
+  bind(raiz, state, toggle);
+
+  // ANOTACOES (28/10/2026). Delegacao na raiz, pelo mesmo motivo de bind():
+  // render() reconstrói o DOM a cada pintura. Redesenhar depois de salvar e o
+  // que mantem estado, storage e tela dizendo a mesma coisa.
+  bindNotas(raiz, {
+    salvar: (id, texto) => {
+      state = aplicarNota(state, id, texto);
+      if (!saveNotas(state.anotacoes)) {
+        aviso('Não consegui salvar a anotação neste navegador: ela vale só enquanto esta aba estiver aberta.');
+      }
+      paint();
+    }
+  });
+
+  // EXPORTAR/IMPORTAR PROGRESSO (27/10/2026). A validacao mora em
+  // core/progress-io.js (com teste); aqui so ha estado e recado na tela.
+  // `estado` e uma FUNCAO de proposito: `state` e substituido a cada paint, e um
+  // valor capturado aqui envelheceria na primeira interacao — o importador
+  // validaria contra um catalogo vazio e recusaria arquivo bom.
+  // `avisar: aviso` e explicito, NAO shorthand: foi o shorthand `avisar` (nome
+  // de uma variavel que nunca existiu) que matou o recado do importador em 27/10.
+  bindProgressIO(raiz, {
+    estado: () => state,
+    aplicar: (ids, anotacoes) => {
+      state = { ...state, completed: ids, anotacoes: anotacoes ?? state.anotacoes };
+      if (!saveCompleted(ids)) {
+        aviso('Importei, mas não consegui salvar neste navegador: o progresso vale só enquanto esta aba estiver aberta.');
+      }
+      // As anotacoes tambem vao para o storage: o arquivo importado e o novo
+      // estado do aluno, e estado que nao e salvo some no primeiro reload.
+      if (!saveNotas(state.anotacoes)) {
+        aviso('Importei, mas não consegui salvar as anotações neste navegador.');
+      }
+      paint();
+    },
+    avisar: aviso
+  });
+
+  return { ok: true, state, raiz };
 }
 
 /**
@@ -142,70 +228,19 @@ export async function registrarSW(win, avisar) {
 }
 
 /**
- * Sobe a pagina. Exportada (e nao so executada) porque o teste precisa do
- * resultado: `{ok, state}` diz se carregou, com que dados e com que progresso.
+ * Sobe a pagina como ela se abre hoje: a grade no `#app`, a busca no slot, o
+ * service worker atras de tudo. A S3a-2 e quem vai trocar isto por um casco que
+ * escolhe a rota e a raiz — por isso o corpo esta aqui, fino, e a montagem esta
+ * em montarGrade.
  */
 async function subir() {
-  const {
-    courses, origem, electives, origemEletivas, specializations, origemEspecializacoes
-  } = await loadCatalog();
-  state = { ...state, courses, origem, electives, origemEletivas, specializations, origemEspecializacoes };
-
-  // BUSCA (27/10/2026): montarBusca cria o campo no slot externo e liga o
-  // evento 'input' ao estado -> redesenho. A regra de filtrar (sem acento, sem
-  // caixa, nas tres listas) mora em core/search.js, com teste no node; aqui nao
-  // ha regra nenhuma. Sem debounce de proposito: 35 linhas redesenham mais
-  // rapido do que se digita, e debounce so atrasaria o eco sem ganhar nada.
-  // O slot vive FORA do root (ver index.html): dentro, render() o apagaria e o
-  // campo perderia o foco a cada tecla.
-  const buscaSlot = document.getElementById('busca-slot');
-  montarBusca(buscaSlot, {
-    onChange: (q) => { state = { ...state, busca: q }; paint(); }
+  const r = await montarGrade({
+    raiz: document.getElementById('app'),
+    slotBusca: document.getElementById('busca-slot'),
+    catalogo: await loadCatalog()
   });
-  if (buscaSlot) buscaSlot.hidden = false;
-
-  paint();
-  bind(root, state, toggle);
-
-  // ANOTACOES (28/10/2026). Delegacao na raiz, pelo mesmo motivo de bind():
-  // render() reconstrói o DOM a cada pintura. Redesenhar depois de salvar e o
-  // que mantem estado, storage e tela dizendo a mesma coisa.
-  bindNotas(root, {
-    salvar: (id, texto) => {
-      state = aplicarNota(state, id, texto);
-      if (!saveNotas(state.anotacoes)) {
-        aviso('Não consegui salvar a anotação neste navegador: ela vale só enquanto esta aba estiver aberta.');
-      }
-      paint();
-    }
-  });
-
-  // EXPORTAR/IMPORTAR PROGRESSO (27/10/2026). A validacao mora em
-  // core/progress-io.js (com teste); aqui so ha estado e recado na tela.
-  // `estado` e uma FUNCAO de proposito: `state` e substituido a cada paint, e um
-  // valor capturado aqui envelheceria na primeira interacao — o importador
-  // validaria contra um catalogo vazio e recusaria arquivo bom.
-  // `avisar: aviso` e explicito, NAO shorthand: foi o shorthand `avisar` (nome
-  // de uma variavel que nunca existiu) que matou o recado do importador em 27/10.
-  bindProgressIO(root, {
-    estado: () => state,
-    aplicar: (ids, anotacoes) => {
-      state = { ...state, completed: ids, anotacoes: anotacoes ?? state.anotacoes };
-      if (!saveCompleted(ids)) {
-        aviso('Importei, mas não consegui salvar neste navegador: o progresso vale só enquanto esta aba estiver aberta.');
-      }
-      // As anotacoes tambem vao para o storage: o arquivo importado e o novo
-      // estado do aluno, e estado que nao e salvo some no primeiro reload.
-      if (!saveNotas(state.anotacoes)) {
-        aviso('Importei, mas não consegui salvar as anotações neste navegador.');
-      }
-      paint();
-    },
-    avisar: aviso
-  });
-
   const sw = await registrarSW(globalThis.window ?? globalThis, aviso);
-  return { ok: true, state, root, sw };
+  return { ...r, sw };
 }
 
 // O boot roda sozinho: a pagina carrega este modulo e espera que ele faca tudo.

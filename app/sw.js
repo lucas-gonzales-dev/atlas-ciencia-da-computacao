@@ -128,12 +128,16 @@
 // \"Atlas\" saiu do cabecalho desenhado. Quem tem v19 no cache continuaria vendo a
 // calha branca no escuro e o pulso infinito, entao a regra da trava da v11 obriga
 // a declarar.
-const VERSAO = 'atlas-v20';
+// atlas-v21: entrou core/rotas.js e web/grade.css no precache (S3a-1, as
+// rotas do quadro e a grade compartilhada). Quem tem v20 no cache receberia o
+// index.html novo com a grade desmontada e a rota sem arquivo — o caso que a
+// regra da trava da v11 existe para pegar.
+const VERSAO = 'atlas-v21';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
 // deixa o cache antigo sem o nome novo. Recalcular: node tests/precache-hash.js.
-const PRECACHE_HASH = 'sha256-775ba386cc53150ca39ff0bab4c3d7201880955833b27bcc0d4c5ca8e33e5f95';
+const PRECACHE_HASH = 'sha256-7f7ab9f78c94fc82f799b2d60a633057a6939d8025d95bf25351219995ac98da';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.
@@ -174,6 +178,9 @@ const PRECACHE = [
   // calha branca no escuro — o defeito que a S2 matou.
   'web/tokens.css',
   'web/base.css',
+  // A grade compartilhada (S3a-1, 31/10/2026): celulas e lacunas do quadro.
+  // Sem ela, quem tem v20 no cache recebe o HTML novo e a grade desmontada.
+  'web/grade.css',
   'web/fontes.css',
   'fonts/overpass-latin-var.woff2',
   'fonts/overpass-mono-latin-var.woff2',
@@ -185,6 +192,9 @@ const PRECACHE = [
   'core/viagem.js',
   'core/notes.js',
   'core/search.js',
+  // Rotas da grade (S3a-1, 31/10/2026): as abas que o boot.js resolve. Sem
+  // ela no cache, abrir a linha no onibus cai na rede e quebra em silencio.
+  'core/rotas.js',
   // Os textos da tela, num lugar so (design/README.md §6). Ainda nao importado
   // pela tela — entra aqui pelo mesmo motivo do viagem.js: o precache cobre o
   // disco, e quando a tela redesenhada importar, o cache ja tem.

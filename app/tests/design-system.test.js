@@ -361,12 +361,14 @@ for (const tema of ['claro', 'escuro']) {
   });
 }
 
-// DÍVIDA CONHECIDA (29/10/2026): o index.html ainda pinta com os tokens --p-*,
-// a paleta de protótipo que o design system substituiu. A trava está escrita e
-// certa — 31 usos no index.html é o que falta migrar. Fica como `todo` para não
-// esconder a dívida atrás de um verde falso: quando a migração acontecer, tira-se
-// o todo e ela passa a reprovar quem voltar para a paleta antiga.
-test('a paleta antiga (--p-*) não pinta mais nenhuma tela', { todo: 'migrar os 31 usos de --p-* no index.html para os tokens do DS' }, async () => {
+// DÍVIDA CONHECIDA (29/10/2026, realizada em 31/10/2026 na S3a-1): a grade ainda
+// pinta com os tokens --p-*, a paleta de protótipo que o design system substituiu.
+// O `<style>` do index.html saiu para web/grade.css nesta fatia — o arquivo mudou
+// de nome, a dívida não: 31 usos continuam lá. A trava está escrita e certa. Fica
+// como `todo` para não esconder a dívida atrás de um verde falso: quando a
+// migração acontecer (S3b), tira-se o todo e ela passa a reprovar quem voltar para
+// a paleta antiga.
+test('a paleta antiga (--p-*) não pinta mais nenhuma tela', { todo: 'migrar os 31 usos de --p-* no web/grade.css para os tokens do DS' }, async () => {
   // Os tokens --p-* existem no tokens.css marcados como PROVISÓRIO: são a paleta
   // de protótipo que o design system substituiu. Enquanto alguma regra da tela
   // os usar, o DS não está aplicado de verdade.

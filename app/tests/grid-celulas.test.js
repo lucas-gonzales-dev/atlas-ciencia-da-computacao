@@ -23,11 +23,13 @@ import { fileURLToPath } from 'node:url';
 const raizDoApp = fileURLToPath(new URL('..', import.meta.url));
 
 function cssDaPagina() {
-  const html = readFileSync(`${raizDoApp}index.html`, 'utf8');
-  const blocos = [...html.matchAll(/<style>([\s\S]*?)<\/style>/g)].map((m) => m[1]);
-  assert.ok(blocos.length, 'index.html perdeu o <style>: não há o que conferir');
+  // 31/10/2026 (S3a-1): as regras do cartão saíram do <style> inline do
+  // index.html para web/grade.css. O que este teste confere é a POSIÇÃO na
+  // grade, e ela mora onde o CSS mora — mudou o arquivo, não a regra.
+  const css = readFileSync(`${raizDoApp}web/grade.css`, 'utf8');
+  assert.ok(css.trim().length, 'web/grade.css sumiu do disco: não há o que conferir');
   // Comentários fora: o comentário desta causa cita "grid-row: 3" e não é regra.
-  return blocos.join('\n').replace(/\/\*[\s\S]*?\*\//g, '');
+  return css.replace(/\/\*[\s\S]*?\*\//g, '');
 }
 
 /** O CSS base (antes de qualquer @media) e cada bloco @media, separados. */

@@ -318,3 +318,44 @@ test('index.html: sem <script> inline com codigo, e o boot entra como modulo', a
       'codigo voltou para dentro do index.html: ali ele nao tem teste nenhum (foi assim que o `avisar` escapou)');
   }
 });
+
+// ── S3a-1 (31/10/2026): o CASCO vem depois, e precisa chamar a grade com uma
+// raiz que não é o document inteiro. tres casos:
+//   7. boot.js exporta montarGrade (a montagem vira função chamada, não feitiço
+//      que roda na importação) e registrarSW;
+//   8. o <style> do index.html saiu para web/grade.css — CSS inline na página não
+//      tem teste nenhum, do mesmo modo que o <script> inline de 27/10;
+//   9. todo seletor de grade.css começa por .grade. Sem o escopo, o azul-marinho
+//      provisório da grade vazaria para o casco novo da S3a-2 e as duas telas
+//      brigariam pela mesma cor.
+test('boot.js: montarGrade e registrarSW sao exportados como funcoes', () => {
+  assert.equal(typeof boot.montarGrade, 'function',
+    'montarGrade nao e exportada: o casco da S3a-2 nao tem como montar a grade');
+  assert.equal(typeof boot.registrarSW, 'function',
+    'registrarSW sumiu das exportacoes');
+});
+
+test('index.html: nenhum <style> inline, e a grade vem de web/grade.css', async () => {
+  const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+  assert.equal(/<style\b/i.test(html), false,
+    'voltou <style> para dentro do index.html: ali a CSS nao entra em teste nenhum');
+  assert.match(html, /<link[^>]+rel=["']stylesheet["'][^>]+href=["']\.\/web\/grade\.css["']/,
+    'index.html nao carrega ./web/grade.css: a tela abre sem layout nenhum');
+});
+
+test('web/grade.css: todo seletor comeca por .grade (o escopo que impede o vazamento)', async () => {
+  const css = await readFile(new URL('../web/grade.css', import.meta.url), 'utf8');
+  const semComentario = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  const soltos = [];
+  // Cada bloco «seletor {». O preludio de @media (que nao contem '{') e pulado:
+  // o que vale e o seletor DENTRO dele, e esse vem no lote seguinte.
+  for (const bloco of semComentario.matchAll(/([^{}]*)\{/g)) {
+    for (const parte of bloco[1].split(',')) {
+      const sel = parte.trim();
+      if (!sel || sel.startsWith('@')) continue;
+      if (!/^\.grade(?![\w-])/.test(sel)) soltos.push(sel);
+    }
+  }
+  assert.deepEqual(soltos, [],
+    `seletor sem o escopo .grade vaza para o casco inteiro: ${soltos.join(' | ')}`);
+});
