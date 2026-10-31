@@ -44,7 +44,7 @@ Não mudam: `metro.html` (segue de pé até a S3b), `web/metro.js` (o `subirMetr
 <body>
 <a class="pular" href="#conteudo">Pular para o conteúdo</a>
 <header class="topo">
-  <a class="marca" href="#/" aria-label="Atlas, início"> (o mesmo miolo da S1) </a>
+  <a class="topo-marca" href="#/" aria-label="Atlas, início"> (o mesmo miolo da S1) </a>
   <nav class="abas" aria-label="Principal">
     <a href="#/" data-tela="jornada"><svg …></svg><span>Jornada</span></a>
     <a href="#/explorar" data-tela="explorar"><svg …></svg><span>Explorar</span></a>
