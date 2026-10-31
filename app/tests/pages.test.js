@@ -214,3 +214,36 @@ test('casco: as duas telas exportam montar', async () => {
     assert.equal(typeof mod.montar, 'function', `web/telas/${tela}.js não exporta montar(raiz, ctx)`);
   }
 });
+
+// ── A CARA DO CASCO (S3a-2b) ─────────────────────────────────────────────────
+//
+// O CSS vem escrito na fatia; o que a trava design-system NÃO cobre e estas
+// duas cobranças sim: a ORDEM dos <link> (casco.css depois de base.css e antes
+// de metro.css — o chão vem primeiro, e a tela pode sobrescrever o casco) e o
+// @media que leva a barra de abas do pé do celular para o topo do computador.
+// Cor, tempo, largura e sombra continuam sendo da trava, que lê todo .css.
+test('casco.css: o index.html carrega ./web/casco.css depois de base.css e antes de metro.css', async () => {
+  const html = await ler('index.html');
+  const ordem = [...html.matchAll(/<link[^>]+href="\.\/web\/([a-z-]+\.css)"/g)].map((m) => m[1]);
+  assert.ok(ordem.includes('casco.css'), `index.html não carrega ./web/casco.css; ordem: ${ordem.join(', ')}`);
+  assert.ok(
+    ordem.indexOf('base.css') < ordem.indexOf('casco.css'),
+    `casco.css vem antes de base.css (${ordem.join(', ')}): o casco perderia o chão que herda`
+  );
+  assert.ok(
+    ordem.indexOf('casco.css') < ordem.indexOf('metro.css'),
+    `casco.css vem depois de metro.css (${ordem.join(', ')}): as telas deixariam de poder sobrescrever o casco`
+  );
+});
+
+test('casco.css: a aba ativa tem regra própria sem box-shadow, e o @media de 1024px tira as abas do fixed', async () => {
+  const css = await ler('web/casco.css');
+  const ativa = css.match(/\.abas a\[aria-current="page"\]\s*\{([^}]*)\}/);
+  assert.ok(ativa, 'sem a regra .abas a[aria-current="page"] a aba escolhida não se distingue das outras');
+  assert.ok(!/box-shadow/.test(ativa[1]), 'a aba ativa usa box-shadow: sombra é proibida fora de --sombra-placa (regra 9)');
+  const media = css.match(/@media\s*\(\s*min-width:\s*1024px\s*\)\s*\{([\s\S]*?)\n\}/);
+  assert.ok(media, 'sem @media (min-width: 1024px) as abas ficam fixas no pé da tela também no computador');
+  const abasNoMedia = media[1].match(/\.abas\s*\{([^}]*)\}/);
+  assert.ok(abasNoMedia, 'o @media de 1024px não toca em .abas');
+  assert.ok(!/position:\s*fixed/.test(abasNoMedia[1]), `o @media manteve .abas em fixed: ${abasNoMedia[1].trim()}`);
+});

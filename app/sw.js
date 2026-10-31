@@ -135,12 +135,17 @@
 // atlas-v22: o index.html virou CASCO (S3a-2a) — entrou web/casco.js e as duas
 // telas no precache, e o boot.js deixou de subir sozinho. Quem tem v21 no cache
 // receberia o HTML novo sem o modulo que o montava: a pagina abre em branco.
-const VERSAO = 'atlas-v22';
+// atlas-v23: entrou web/casco.css no precache (S3a-2b, a cara do casco — barra
+// de abas no pe no celular e no topo no computador, o pular que so aparece no
+// foco, a tela que entra subindo). Sem ele, quem tem v22 no cache recebe o
+// index.html com o link novo apontando para um arquivo que nao esta offline:
+// no onibus a barra de abas perde o estilo e vira lista solta no fim da pagina.
+const VERSAO = 'atlas-v23';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
 // deixa o cache antigo sem o nome novo. Recalcular: node tests/precache-hash.js.
-const PRECACHE_HASH = 'sha256-d76fb62b53ff4106792714b80fee9969de4d93b2f342a27d9554145924700332';
+const PRECACHE_HASH = 'sha256-2794e8539114611fc16d436bba7e205d257f6eb70ae6955da424dc7f50a9f683';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.
@@ -189,6 +194,7 @@ const PRECACHE = [
   // v21 recebe o HTML novo e a tela nunca monta — a pagina abre em branco no
   // onibus, e o branco nao da erro nenhum na rede.
   'web/casco.js',
+  'web/casco.css',
   'web/telas/jornada.js',
   'web/telas/explorar.js',
   'web/fontes.css',
