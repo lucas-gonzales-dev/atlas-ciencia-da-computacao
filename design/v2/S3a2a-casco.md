@@ -1,6 +1,8 @@
-# S3a-2 — o casco: topo, abas, anúncio, foco e as duas telas montadas
+# S3a-2a — o casco funciona: rotas, abas, anúncio, foco e as duas telas montadas
 
-**Objetivo.** O `index.html` vira o **casco** do app: o topo com a marca, as abas, o "Pular
+**Objetivo.** Esta é a primeira metade da S3a-2 (dividida pelo juiz em 31/10: a S3a-1 já
+bateu no teto de um turno). Aqui o casco **funciona**; a S3a-2b dá a ele a cara
+(`casco.css`). O `index.html` vira o **casco** do app: o topo com a marca, as abas, o "Pular
 para o conteúdo", o anúncio para o leitor de tela e as rotas por hash. Duas telas entram:
 **Jornada** (a tela do metrô de hoje) e **Explorar** (a grade antiga, ainda com o visual
 antigo, que morre na S3b). Revisar e Perfil entram nas S8 e S9.
@@ -11,7 +13,7 @@ escopado em `.grade`; e o `boot.js` exportando `montarGrade({ raiz, slotBusca, c
 e `registrarSW`, ainda subindo sozinho pelo `export const inicio`.
 
 ## Arquivos
-Novos: `app/web/casco.js`, `app/web/casco.css`, `app/web/telas/jornada.js`,
+Novos: `app/web/casco.js`, `app/web/telas/jornada.js`,
 `app/web/telas/explorar.js`.
 Mudam: `app/index.html` (reescrito), `app/web/boot.js` (deixa de subir sozinho),
 `app/sw.js`, e os testes que procuravam `#app` ou `boot.js` no `index.html` (`pages`,
@@ -33,7 +35,7 @@ Não mudam: `metro.html` (segue de pé até a S3b), `web/metro.js` (o `subirMetr
 
 ## Implementação
 **`index.html`** (o `<head>` mantém o que a S1 deixou; carregue `tokens.css`, `fontes.css`,
-`base.css`, `casco.css`, `metro.css` e `grade.css`, nessa ordem):
+`base.css`, `metro.css` e `grade.css`, nessa ordem; o `casco.css` entra na S3a-2b):
 ```html
 <body>
 <a class="pular" href="#conteudo">Pular para o conteúdo</a>
@@ -70,7 +72,7 @@ Os ícones das abas são desenho próprio, em SVG de linha, `aria-hidden="true"`
   pintura não move o foco nem anuncia**: quem abriu o app não pediu para ser levado;
 - rota `null` (âncora comum) é ignorada; rota desconhecida troca o hash por `#/` com
   `history.replaceState` e monta a Jornada;
-- a tela que entra ganha a classe `tela-entra` (animação abaixo).
+- a tela que entra ganha a classe `tela-entra` (a animação dela é do `casco.css`, na S3a-2b).
 
 **`web/telas/jornada.js`**: `montar(raiz, ctx)` chama `subirMetro({ root: raiz, modulos })`,
 com `modulos` sendo os do `main.js` e o `loadCatalog` trocado pela promessa do casco.
@@ -81,48 +83,14 @@ exportado do `boot.js`. O `boot.js` **deixa de subir sozinho ao ser importado**:
 `subir()` e o `export const inicio`. O `#app` não tem `aria-live` (o anúncio agora é do
 casco: uma região viva do tamanho da página anunciaria tudo).
 
-**`web/casco.css`**:
-```css
-.pular { position: absolute; left: var(--espaco-4); top: calc(-1 * var(--alvo-toque) * 2); }
-.pular:focus { top: var(--espaco-2); background: var(--superficie); color: var(--tinta);
-               padding: var(--espaco-3) var(--espaco-4); border-radius: var(--raio-placa); z-index: 3; }
-.topo { position: sticky; top: 0; z-index: 2; background: var(--fundo);
-        border-bottom: 1px solid var(--borda); justify-content: space-between; }
-.abas a { display: flex; flex-direction: column; align-items: center; justify-content: center;
-          gap: var(--espaco-1); min-height: var(--alvo-toque); padding: 0 var(--espaco-3);
-          color: var(--fosca); text-decoration: none; font-size: var(--tipo-nota);
-          font-weight: var(--peso-forte);
-          transition: color var(--movimento-selecao) var(--curva-atlas); }
-.abas a svg { width: 22px; height: 22px; }
-.abas a[aria-current="page"] { color: var(--tinta); font-weight: var(--peso-placa);
-                               box-shadow: inset 0 3px 0 var(--tinta); }
-/* celular e tablet: a barra embaixo, com o respiro do aparelho */
-@media (max-width: <--bp-computador menos 1>) {
-  .abas { position: fixed; left: 0; right: 0; bottom: 0; display: grid;
-          grid-auto-flow: column; grid-auto-columns: 1fr; background: var(--fundo);
-          border-top: 1px solid var(--borda); padding-bottom: var(--margem-segura-baixo); }
-  main { padding-bottom: calc(var(--alvo-toque) + var(--espaco-6) + var(--margem-segura-baixo)); }
-}
-/* computador: as abas no topo, em linha */
-@media (min-width: <--bp-computador>) { .abas { display: flex; gap: var(--espaco-2); }
-  .abas a { flex-direction: row; font-size: var(--tipo-corpo); } }
-.tela-entra { animation: entrar var(--movimento-abrir) var(--curva-atlas) both; }
-@keyframes entrar { from { opacity: 0; transform: translateY(var(--deslocamento-entrada)); }
-                    to { opacity: 1; transform: none; } }
-```
-Os números das `@media` são os que a trava aceita (os `--bp-*` do `tokens.css`; confira a
-regra em `tests/design-system.test.js`, teste "largura"). O `box-shadow` da aba ativa é
-uma barra de 3 px, não sombra: se a trava de sombra acusar, troque por
-`border-top: 3px solid` com `padding` compensado.
-
 **Textos**: os do casco já estão em `core/textos.js` (seção `casco`, da S3a-1). O HTML pode
 repetir os rótulos estáticos, porque o teste 2 confere que batem com `ABAS`.
 
-**`sw.js`**: os 4 arquivos novos no precache (`casco.js`, `casco.css`, `telas/jornada.js`,
+**`sw.js`**: os 3 arquivos novos no precache (`casco.js`, `telas/jornada.js`,
 `telas/explorar.js`); `VERSAO` sobe 1 e `PRECACHE_HASH` acompanha.
 
 ## `testar_pagina`
 Abra `index.html`. Passos: esperar 500; clicar "Explorar"; esperar 500; clicar "Jornada";
 esperar 500. Confira nos 4 tamanhos: zero erro; depois de "Explorar", o texto da grade
 antiga (por exemplo "Cálculo I") aparece; depois de "Jornada", "Sua próxima estação"
-aparece; no celular, as abas estão embaixo e não cobrem o último item da tela.
+aparece. (As abas ainda sem estilo próprio: a cara vem na S3a-2b.)

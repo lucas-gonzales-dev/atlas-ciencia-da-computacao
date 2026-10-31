@@ -26,7 +26,8 @@ pare e diga o que falta, em vez de adivinhar. Quem completa o arquivo é o juiz.
 | S1 | `S1-marca.md` | ícones, favicon, manifesto e a marca no topo | A |
 | S2 | `S2-base.md` | tokens novos, fundo do escuro, foco, Overpass, pulso finito, seletor de linhas em `<button>` | A |
 | S3a-1 | `S3a1-rotas-grade.md` | rotas por hash, textos do casco, o `<style>` do index em `grade.css` escopado; a tela não muda | B |
-| S3a-2 | `S3a2-casco.md` | uma casa só: topo, abas, anúncio e foco, Jornada e Explorar montadas | B |
+| S3a-2a | `S3a2a-casco.md` | uma casa só: rotas, abas, anúncio e foco, Jornada e Explorar montadas | B |
+| S3a-2b | `S3a2b-casco-cara.md` | o `casco.css`: abas embaixo no celular, no topo no computador | B |
 | S3b | `S3b-paleta.md` | a paleta azul-marinho (`--p-*`) morre; o `metro.html` vira redirecionamento | B |
 | S4 | `S4-jornada.md` | a Jornada no layout do Lovable, com dado real | C |
 | S5 | `S5-estacao.md` | a folha da estação, com rota própria | C |
