@@ -21,6 +21,18 @@ tokens do DS, e o teste que hoje é `todo` vira teste de verdade.
    `media="(prefers-color-scheme: light)"` e `#17181a` com
    `media="(prefers-color-scheme: dark)"`.
 
+4. Os testes que leem o `metro.html` como página mudam para o `index.html`, ou saem com o
+   motivo escrito no lugar (o `metro.html` deixa de ser página):
+   - `tests/design-system.test.js` (~linha 563, "metro.html carrega base.css e tokens.css"):
+     passa a conferir o `index.html`;
+   - `tests/links-repo.test.js` (~linha 101, a lista `['index.html', 'metro.html']`): fica só
+     `index.html`;
+   - `tests/pwa.test.js` (~linha 223, o laço em `['metro.html', 'index.html']`): só
+     `index.html`; (~linhas 237 a 242, `theme-color` por media no `metro.html`): passa a ser
+     o teste 3 acima, no `index.html`; (~linha 266, `class="marca"` no `metro.html`): sai,
+     porque o redirecionamento não tem marca.
+   Ache cada um com `buscar_arquivos` por `metro.html`; as linhas mudam com as fatias.
+
 ## A troca (o mapa está nos comentários de cada `--p-*`)
 | provisório | vira |
 |---|---|
@@ -33,13 +45,13 @@ tokens do DS, e o teste que hoje é `todo` vira teste de verdade.
 | `--p-alerta`, `--p-obras-borda`, `--p-obras-texto`, `--p-obras-caixa-borda`, `--p-alerta-borda` | `--alerta` |
 | `--p-alerta-fundo`, `--p-obras-fundo`, `--p-obras-caixa` | `--alerta-fundo` |
 | `--p-link-biblio`, `--p-link-biblio-borda` | `--linha-6` |
-| `--p-aberto`, `--p-feito`, `--p-aberto-borda`, `--p-feito-borda` | a cor da linha da disciplina: `var(--cor-linha)` |
-| `--p-aberto-fundo`, `--p-feito-fundo` | `color-mix(in srgb, var(--cor-linha) 25%, var(--fundo))` |
+| `--p-aberto`, `--p-feito`, `--p-aberto-borda`, `--p-feito-borda` | a cor da linha da disciplina: `var(--cor)` |
+| `--p-aberto-fundo`, `--p-feito-fundo` | `var(--cor-fraca)` |
 
-Para `--cor-linha` existir em cada cartão: o cartão da grade ganha a classe `l<stage>`, e
-o `grade.css` declara `.grade .l1 { --cor-linha: var(--linha-1); }` até `.l7`. Se o
-`metro.css` já tiver essas classes com outra variável, use a dele em vez de criar outra
-(procure por `.l1` com `buscar_arquivos`).
+Para `--cor` e `--cor-fraca` existirem em cada cartão: o cartão da grade ganha a classe
+`l<stage>` (`l1` a `l7`). O `metro.css` (carregado pelo casco desde a S3a-2) já declara
+`.l1 { --cor: var(--linha-1); --cor-fraca: var(--trilho-falta-1); }` até `.l7`: **use essas
+duas variáveis, não crie outra.** (Conferido pelo juiz em 31/10.)
 
 O estado da grade antiga ainda é mostrado pela cor; a forma certa chega na S7. Não
 redesenhe nada aqui: é troca de token.
