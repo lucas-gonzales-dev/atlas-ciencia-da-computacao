@@ -1,43 +1,48 @@
-// Projeto Atlas — a CARA do casco (S3a-2b, 31/10/2026).
-//
-// O casco.js (S3a-2a) montou as abas, o topo e o pular sem estilo nenhum: a
-// barra de navegação ficava onde o fluxo a empurrasse. Este arquivo é a única
-// casa dessas regras. Nada de valor à mão: toda cor, espaço, tempo, peso e
-// largura vem de web/tokens.css, e a trava tests/design-system.test.js lê este
-// arquivo e quebra se não for assim.
-//
-// Mobile-first: a base é a barra FIXA NO PÉ (é o alcance do polegar no celular
-// e no tablet); a media query dos --bp-* devolve as abas ao topo, no fluxo,
-// para quem tem mouse. Não há max-width abaixo do breakpoint: a trava de
-// largura só aceita os números declarados como token em --bp-*.
-// (Cuidado ao comentar este arquivo: a trava varre o texto cru, e a palavra
-// de regra de mídia escrita em comentário faz o regex engolir tudo até a
-// próxima chave de abertura — números com px soltos em prosa viram acusação
-// de breakpoint fora do token.)
-//
-// A aba ativa se marca por BORDA de 3 px, não por sombra: sombra está proibida
-// fora de --sombra-placa (regra 9 do 00-regras). Com prefers-reduced-motion os
-// tokens --movimento-* zeram a duração e --deslocamento-entrada vira 0: a
-// .tela-entra chega no estado final sem animação, e não há nada a escrever aqui.
+/* Projeto Atlas — a CARA do casco (S3a-2b, 31/10/2026).
 
-// O "Pular para o conteúdo": existe para o Tab, não para o olho. Mora acima da
-// tela até receber foco; focado, desce para o topo e vira o primeiro alvo.
+   O casco.js (S3a-2a) montou as abas, o topo e o pular sem estilo nenhum: a
+   barra de navegação ficava onde o fluxo a empurrasse. Este arquivo é a única
+   casa dessas regras. Nada de valor à mão: toda cor, espaço, tempo, peso e
+   largura vem de web/tokens.css, e a trava tests/design-system.test.js lê este
+   arquivo e quebra se não for assim.
+
+   Mobile-first: a base é a barra FIXA NO PÉ (é o alcance do polegar no celular
+   e no tablet); a media query dos --bp-* devolve as abas ao topo, no fluxo,
+   para quem tem mouse. Não há max-width abaixo do breakpoint: a trava de
+   largura só aceita os números declarados como token em --bp-*.
+   (Cuidado ao comentar este arquivo: a trava varre o texto cru, e a palavra
+   de regra de mídia escrita em comentário faz o regex engolir tudo até a
+   próxima chave de abertura — números com px soltos em prosa viram acusação
+   de breakpoint fora do token.)
+
+   A aba ativa se marca por BORDA de 3 px, não por sombra: sombra está proibida
+   fora de --sombra-placa (regra 9 do 00-regras). Com prefers-reduced-motion os
+   tokens --movimento-* zeram a duração e --deslocamento-entrada vira 0: a
+   .tela-entra chega no estado final sem animação, e não há nada a escrever aqui.
+
+   E não se comenta com as duas barras de início de linha: CSS não tem
+   comentário de linha, e o navegador não ignora nada — ele junta as barras ao
+   seletor da linha seguinte e descarta a regra inteira. Foi assim que esta
+   folha saiu da tela com a suíte verde (31/10/2026); a trava agora reprova. */
+
+/* O "Pular para o conteúdo": existe para o Tab, não para o olho. Mora acima da
+   tela até receber foco; focado, desce para o topo e vira o primeiro alvo. */
 .pular { position: absolute; left: var(--espaco-4); top: calc(-1 * var(--alvo-toque) * 2); }
 .pular:focus { top: var(--espaco-2); background: var(--superficie); color: var(--tinta);
                padding: var(--espaco-3) var(--espaco-4); border-radius: var(--raio-placa); z-index: 3; }
 
-// O topo com a marca: fica colado no alto enquanto a tela rola.
+/* O topo com a marca: fica colado no alto enquanto a tela rola. */
 .topo { position: sticky; top: 0; z-index: 2; display: flex; align-items: center;
         justify-content: space-between; background: var(--fundo); border-bottom: 1px solid var(--borda); }
 
-// As abas: no pé no celular e no tablet, uma coluna por aba, com a margem
-// segura do iPhone (home indicator) respeitada.
+/* As abas: no pé no celular e no tablet, uma coluna por aba, com a margem
+   segura do iPhone (home indicator) respeitada. */
 .abas { position: fixed; left: 0; right: 0; bottom: 0; z-index: 2; display: grid;
         grid-auto-flow: column; grid-auto-columns: 1fr; background: var(--fundo);
         border-top: 1px solid var(--borda); padding-bottom: var(--margem-segura-baixo); }
 
-// A barra fixa no pé cobre o fim da tela: o main ganha exatamente a altura
-// dela + o espaço de respiro, para o último item nunca ficar escondido atrás.
+/* A barra fixa no pé cobre o fim da tela: o main ganha exatamente a altura
+   dela + o espaço de respiro, para o último item nunca ficar escondido atrás. */
 main { padding-bottom: calc(var(--alvo-toque) + var(--espaco-6) + var(--margem-segura-baixo)); }
 
 .abas a { display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -47,21 +52,21 @@ main { padding-bottom: calc(var(--alvo-toque) + var(--espaco-6) + var(--margem-s
           transition: color var(--movimento-selecao) var(--curva-atlas); }
 .abas a svg { width: 22px; height: 22px; }
 
-// A aba escolhida: nome mais pesado, tinta cheia e a borda de 3 px em cima —
-// sem sombra, sem box-shadow. É a única marca de estado; quem não vê cor ainda
-// tem o aria-current, que o casco.js põe no <a>.
+/* A aba escolhida: nome mais pesado, tinta cheia e a borda de 3 px em cima —
+   sem sombra, sem box-shadow. É a única marca de estado; quem não vê cor ainda
+   tem o aria-current, que o casco.js põe no <a>. */
 .abas a[aria-current="page"] { color: var(--tinta); font-weight: var(--peso-placa);
                                border-top-color: var(--tinta); }
 
-// Computador (a largura do --bp-4): a barra sobe para o topo e entra no fluxo.
+/* Computador (a largura do --bp-4): a barra sobe para o topo e entra no fluxo. */
 @media (min-width: 1024px) {
   .abas { position: static; display: flex; gap: var(--espaco-2); border-top: 0; padding-bottom: 0; }
   .abas a { flex-direction: row; font-size: var(--tipo-corpo); }
   main { padding-bottom: var(--espaco-6); }
 }
 
-// A tela que entra sobe e aparece — --deslocamento-entrada é o único dono
-// desse número, e com movimento reduzido ele é 0 e a duração é 0s.
+/* A tela que entra sobe e aparece — --deslocamento-entrada é o único dono
+   desse número, e com movimento reduzido ele é 0 e a duração é 0s. */
 .tela-entra { animation: entrar var(--movimento-abrir) var(--curva-atlas) both; }
 @keyframes entrar { from { opacity: 0; transform: translateY(var(--deslocamento-entrada)); }
                     to { opacity: 1; transform: none; } }

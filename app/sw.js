@@ -140,12 +140,21 @@
 // foco, a tela que entra subindo). Sem ele, quem tem v22 no cache recebe o
 // index.html com o link novo apontando para um arquivo que nao esta offline:
 // no onibus a barra de abas perde o estilo e vira lista solta no fim da pagina.
-const VERSAO = 'atlas-v23';
+// atlas-v24: o CONSERTE do web/casco.css mudou o conteudo do arquivo que entrou
+// na v23. O motivo nao e cosmetico: o comentario daquele arquivo era escrito com
+// //, que CSS nao tem — o navegador juntava as duas barras ao seletor da linha
+// seguinte e descartava a regra inteira. .pular, .topo, .abas e main valiam
+// zero: no celular (375px) a barra de abas ficava no topo, no fluxo, em vez de
+// presa no pe. A suite estava verde porque nenhuma trava lia o css como o
+// navegador le. Agora le: tests/design-system.test.js reprova linha que comeca
+// com // em arquivo de estilo.
+// Sem subir a VERSAO, quem tem v23 no cache continua com a folha quebrada.
+const VERSAO = 'atlas-v24';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
 // deixa o cache antigo sem o nome novo. Recalcular: node tests/precache-hash.js.
-const PRECACHE_HASH = 'sha256-2794e8539114611fc16d436bba7e205d257f6eb70ae6955da424dc7f50a9f683';
+const PRECACHE_HASH = 'sha256-d35ad1ed5ef8b5022b1097e3a04bb57d038fe3ebdf4d9556e84ae6d24f08ce6e';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.

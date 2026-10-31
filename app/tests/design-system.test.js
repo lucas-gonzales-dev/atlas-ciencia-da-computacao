@@ -616,6 +616,41 @@ test('tokens: os de movimento da v2 existem e zeram com movimento reduzido', asy
   }
 });
 
+test('css: nenhuma folha de estilo começa linha com // — comentário em CSS é /* */', async () => {
+  // Defeito VISTO NA TELA em 31/10/2026, com a suíte toda verde: o web/casco.css
+  // foi escrito com // no lugar de comentário. CSS não tem comentário de linha,
+  // e o navegador não ignora nada: ele junta cada // ao seletor da linha
+  // seguinte e descarta a regra inteira. .pular, .topo, .abas e main deixaram de
+  // valer — a barra de abas, que no celular deveria estar presa no pé, ficou
+  // static no topo da tela. Uma trava que lê o texto como texto não vê isso;
+  // esta vê, porque pergunta a única coisa que separa comentário de sintaxe: se
+  // a linha começa com as duas barras.
+  const achados = [];
+  for (const c of (await daApp()).map(norm).filter((x) => x.endsWith('.css'))) {
+    const texto = await ler(c);
+    let antes = '';
+    texto.split(/\r?\n/).forEach((linha, i) => {
+      if (/^\s*\/\//.test(linha)) {
+        // Dentro de url(...) ou de uma aspa aberta, // é conteúdo legítimo
+        // (uma url quebrada em mais de uma linha). Fora deles, é comentário.
+        const iUrl = antes.lastIndexOf('url(');
+        const dentroDeUrl = iUrl >= 0 && !antes.slice(iUrl).includes(')');
+        const dentroDeString = ((antes.match(/["']/g) ?? []).length) % 2 === 1;
+        if (!dentroDeUrl && !dentroDeString) {
+          achados.push(`${c}:${i + 1} → ${linha.trim().slice(0, 60)}`);
+        }
+      }
+      antes += linha + '\n';
+    });
+  }
+  assert.deepEqual(
+    achados,
+    [],
+    `linha começando com // em CSS: o navegador junta as barras ao seletor da `
+      + `linha seguinte e joga a regra fora. Use /* */.\n${achados.join('\n')}`,
+  );
+});
+
 // ---------------------------------------------------------------------------
 // 7. HEURÍSTICAS (design/README.md §8)
 // ---------------------------------------------------------------------------
