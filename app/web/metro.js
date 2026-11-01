@@ -17,6 +17,14 @@
 
 import { placa, comValores, estados, ORIGEM, TIPO_DE_ORIGEM } from '../core/textos.js';
 import { abertura, tresNumeros, conexao, totalDeLinhas } from './telas/jornada-blocos.js';
+// S5 parte 2: a FOLHA saiu deste arquivo (ela é web/folha.js) e passou a ter
+// rota própria (#/estacao/<slug>). O ciclo de imports é deliberado: o metro.js
+// chama `desenharFolha` ao pintar e o folha.js lê `naFonte`/`origemDoRecurso`
+// daqui — os dois só usam a referência dentro de função, nunca na avaliação do
+// módulo, e por isso o ciclo importa sem estourar. Reimplementar a origem na
+// folha era a segunda palavra para a mesma coisa que a crítica da v1 contou.
+import { desenharFolha } from './folha.js';
+import { hrefDe, lerRota } from '../core/rotas.js';
 import {
   ESTADOS,
   numerosDaJornada,
@@ -414,7 +422,7 @@ function limpar(doc, root) {
  * @param {Document} doc
  * @param {HTMLElement} root
  * @param {{catalogo:Array, completed:string[], progresso:object, linha:number,
- *          aberta:string|null, despertas?:string[]}} estado
+ *          folha:string|null, despertas?:string[]}} estado
  * @returns {object} os nós que o teste e o bind procuram
  */
 export function desenharMetro(doc, root, estado) {
@@ -432,8 +440,13 @@ export function desenharMetro(doc, root, estado) {
   // está aberta, é ela que tem o botão cheio — o recurso — e a ação da placa
   // cede o recheio pelo estado da raiz. O CSS decide a forma; aqui só se declara
   // "existe folha aberta NESTA linha", que é o que a pessoa está vendo.
-  const folhaAberta = estacoesDaLinha(catalogo, linha).some((c) => c && c.id === estado.aberta);
-  root.className = `metro l${linha}${folhaAberta ? ' com-folha' : ''}`;
+  // S5 parte 2: a folha não mora mais NESTE diagrama — ela é rota
+  // (#/estacao/<slug>) e o casco entrega o slug pedido. «Existe folha aberta»
+  // deixou de ser uma pergunta sobre a linha desenhada e passou a ser sobre a
+  // tela inteira, que é o que a pessoa vê: com o painel à direita no
+  // computador, a folha pode ser de outra linha sem sumir do mapa.
+  const slugDaFolha = typeof estado.folha === 'string' && estado.folha ? estado.folha : null;
+  root.className = `metro l${linha}${slugDaFolha ? ' com-folha' : ''}`;
 
   const nos = { linha, resumo, placas: null, seletor: null, diagrama: null, aviso: null, embarque: null };
 
@@ -668,13 +681,15 @@ export function desenharMetro(doc, root, estado) {
     coluna.append(el(doc, 'span', `trilho trilho-inferior${feito ? ' percorrido' : ''}`));
     parada.append(coluna);
 
-    const idDetalhe = `estacao-${e.id}`;
-    const aberta = estado.aberta === e.id;
-    const botao = el(doc, 'button', `estacao ${e.estado}`, {
-      type: 'button',
+    // S5 parte 2: o cartão é LINK, não botão. Abrir uma estação é IR A uma
+    // rota (#/estacao/<slug>), e um link já faz isso sozinho — com histórico
+    // para o "voltar" do navegador, com "abrir em outra aba" e com a palavra
+    // certa no leitor de tela. O `aria-expanded`/`aria-controls` de antes
+    // descrevia um painel dentro da lista; a folha agora é `role="dialog"`
+    // fora dela, e o botão do trilho não promete expandir nada.
+    const botao = el(doc, 'a', `estacao ${e.estado}`, {
+      href: hrefDe({ tela: 'estacao', slug: c.slug || c.id }),
       'data-id': e.id,
-      'aria-expanded': aberta ? 'true' : 'false',
-      'aria-controls': idDetalhe,
       'aria-label': rotuloEstacao(e, linha)
     });
     botao.append(el(doc, 'span', 'estacao-nome', { text: e.titulo }));
@@ -685,8 +700,6 @@ export function desenharMetro(doc, root, estado) {
     const apoio = apoioDoCartao(e, datas);
     if (apoio) botao.append(el(doc, 'span', 'estacao-apoio', { text: apoio }));
     parada.append(botao);
-
-    parada.append(folha(doc, c, e, idDetalhe, aberta, linha, datas));
     diagrama.append(parada);
     percorrido = feito;
   }
@@ -731,109 +744,20 @@ export function desenharMetro(doc, root, estado) {
   }
   nos.chegada = { aviso, desfazer, formas: formasDeChegada, tracos: tracosDeChegada };
 
+  // ── 4. a FOLHA (S5 parte 2): o painel da rota, irmão do mapa ────────────
+  // Ela é desenhada AQUI porque é a tela da Jornada que a mostra, e o desenho
+  // inteiro vem de web/folha.js — este arquivo não sabe o que há numa folha,
+  // só onde ela entra. Sem rota de estação, nada de painel: a jornada é o mapa.
+  if (slugDaFolha) {
+    const desenhada = desenharFolha(doc, {
+      catalogo, progresso, slug: slugDaFolha, notas: estado.notas || {}
+    });
+    root.append(desenhada.root);
+    nos.folha = desenhada.root;
+    nos.estacaoId = desenhada.estacaoId;
+  }
+
   return nos;
-}
-
-/**
- * A folha da estação: o recurso, a bibliografia como LINK COM NOME (nunca o
- * caminho cru como texto), a anotação com o nome da disciplina no rótulo, e o
- * concluir. Na trancada, o que falta — pelo nome.
- */
-function folha(doc, curso, e, id, aberta, linha, datas = {}) {
-  const box = el(doc, 'div', `detalhe l${linha}`, { id });
-  if (!aberta) box.setAttribute('hidden', '');
-
-  // 2c-2: "faltam X, Y" é a FOLHA, não a etiqueta. Com a folha fechada, nada é
-  // mostrado — e as 35 trancadas pintariam 35 folhas de falta antes de qualquer
-  // toque. O texto continua sendo o do núcleo, pelo nome, TODOS os pré-requisitos.
-  if (aberta && e.estado === ESTADOS.TRANCADA) {
-    box.append(el(doc, 'p', 'detalhe-falta', { text: textoDoQueFalta(e) }));
-  }
-
-  // FATIA 2d-2 (JORNADA §3.1): o CARIMBO. É a data que o núcleo guardou em
-  // `conclusoes` quando a estação foi concluída — a tela nem formata nem inventa
-  // dia. Sem data (estação que chegou por importação antiga), o carimbo cala em
-  // vez de afirmar um dia em que ninguém estudou.
-  if (aberta && e.estado === ESTADOS.CONCLUIDA && datas[e.id]) {
-    box.append(el(doc, 'p', 'detalhe-carimbo', { text: comValores.concluidaEm(datas[e.id]) }));
-  }
-
-  // FATIA 2d-2 (§3.1): a TRANCADA não oferece o recurso. Oferecer "Começar a
-  // estudar" de uma estação que ainda não existe para a pessoa é a tela mentindo
-  // — o que ela precisa ali é o nome do que falta, e nada mais.
-  // S4b (um primário por TELA): o recurso só sai na folha ABERTA. Folha fechada
-  // é hidden, e link escondido continua na fila do leitor de tela — com o
-  // catálogo inteiro desenhado, a tela punha 35 "Começar a estudar" antes de
-  // qualquer toque. É a mesma regra que a 2c-3 deu à anotação, e é o que deixa
-  // exatamente um botão cheio na tela quando uma folha está aberta.
-  if (aberta && curso?.resourceUrl && e.estado !== ESTADOS.TRANCADA) {
-    box.append(el(doc, 'a', 'recurso', {
-      href: curso.resourceUrl, rel: 'noopener', target: '_blank',
-      // UM verbo só na tela (item 5 da crítica): o mesmo texto da placa.
-      // Concluída o verbo muda: quem já passou por ali não recebe "Começar a
-      // estudar" como se nada tivesse acontecido (§3.1).
-      'data-recurso': curso.id,
-      text: e.estado === ESTADOS.CONCLUIDA ? placa.reverConteudo : placa.comecarEstudar
-    }));
-    // FATIA 2d-1 (JORNADA §2.3): embaixo do botão, a origem que o CATÁLOGO diz.
-    // Nada inventado: sem tipo conhecido e sem site conhecido, a linha não sai —
-    // a tela cala em vez de adivinhar. É a palavra da placa, na mesma folha.
-    const origem = origemDoRecurso(curso);
-    if (origem) box.append(el(doc, 'p', 'recurso-origem', { text: origem }));
-  }
-
-  if (aberta && curso?.bibliography) {
-    const biblio = el(doc, 'div', 'biblio');
-    // O TEXTO é o nome (linkBibliografia); o HREF é o caminho real da fonte.
-    // Caminho como texto na tela está na lista do proibido — como endereço, não.
-    const link = el(doc, 'a', 'biblio-link', {
-      href: naFonte(curso.bibliography), rel: 'noopener', target: '_blank',
-      'data-bibliografia': curso.id,
-      // Item 6: o NOME é fixo — "Bibliografia na fonte". O caminho vira
-      // endereço, nunca texto na tela (a lista do proibido continua de pé).
-      text: placa.bibliografiaNaFonte
-    });
-    biblio.append(link);
-    biblio.append(el(doc, 'p', 'biblio-nota', { text: placa.bibliografiaNota }));
-    box.append(biblio);
-  }
-
-  // FATIA 2c-3 (item 5 da crítica): o campo mora SÓ na folha ABERTA. Com uma
-  // anotação desenhada em cada uma das 35 folhas, a tela tinha 35 rótulos
-  // "Anotação" na fila do leitor de tela — duas em vez de uma já era o defeito
-  // medido. Folha fechada é hidden, e campo escondido ainda é campo no DOM.
-  //
-  // O rótulo leva o NOME DA DISCIPLINA: é isso que acaba com o
-  // "Anotação, Anotação, Anotação" que o pedido 15 achou.
-  if (aberta) {
-    const rotulo = el(doc, 'label', 'anotacao-rotulo', { for: `nota-${e.id}` });
-    rotulo.append(el(doc, 'span', null, { text: `Anotação — ${e.titulo}` }));
-    const area = el(doc, 'textarea', 'anotacao', {
-      id: `nota-${e.id}`,
-      'data-nota': e.id,
-      'aria-label': `Anotação de ${e.titulo}`,
-      rows: '3'
-    });
-    // O que a pessoa escreveu VOLTA no campo: `curso.nota` vem de comNotas, que
-    // é quem liga ui.notas ao catálogo. Sem isso, todo redesenho apagava a
-    // anotação na cara de quem estava digitando.
-    area.value = typeof curso?.nota === 'string' ? curso.nota : '';
-    rotulo.append(area);
-    box.append(rotulo);
-  }
-
-  // FATIA 2c-1 (item 7 da crítica): o botão volta PORQUE AGORA ELE FAZ ALGO.
-  // Em 2b-2 ele foi tirado por ser promessa falsa — mexer nele não desenhava
-  // chegada nenhuma. Com o círculo enchendo, o trecho marcando e o aviso com
-  // desfazer no ar, "Concluir estação" é o verbo do núcleo na folha, e só aparece
-  // na estação aberta, disponível ou em curso: trancada e concluída não têm o
-  // que concluir.
-  if (aberta && (e.estado === ESTADOS.DISPONIVEL || e.estado === ESTADOS.EM_CURSO)) {
-    box.append(el(doc, 'button', 'botao botao-concluir', {
-      type: 'button', 'data-concluir': curso.id, text: placa.concluir
-    }));
-  }
-  return box;
 }
 
 // ─────────────────────────────── comportamento ───────────────────────────────
@@ -868,8 +792,13 @@ export function bindMetro(doc, root, handlers) {
     const seloLinha = alvo.closest('[data-linha]');
     if (seloLinha) { h.abrirLinha?.(Number(seloLinha.getAttribute('data-linha'))); return; }
 
-    const estacao = alvo.closest('[data-id]');
-    if (estacao) { h.abrirEstacao?.(estacao.getAttribute('data-id')); return; }
+    // S5 parte 2: o `[data-id]` de antes chamava `abrirEstacao`, que mudava um
+    // estado interno e redesenhava. Agora abrir é IR A uma rota, e o `<a
+    // href="#/estacao/…">` do cartão já faz isso sozinho — um segundo caminho
+    // para o mesmo gesto seria duas telas possíveis para o mesmo endereço.
+    // Fica o FECHAR do véu, que não é link (div sem href): ele navega para '#/'.
+    const fechar = alvo.closest('[data-fechar]');
+    if (fechar) { evento.preventDefault?.(); h.fechar?.(); return; }
   });
 
   root.addEventListener('input', (evento) => {
@@ -898,13 +827,26 @@ export async function subirMetro(deps = {}) {
   const storage = deps.storage || (typeof localStorage !== 'undefined' ? localStorage : null);
   const root = deps.root || doc.getElementById('metro');
   const relogio = deps.setTimeout || setTimeout;
+  // S5 parte 2: a FOLHA É ROTA, não estado interno da tela. Quem lê o endereço
+  // é o casco (web/casco.js), que já observa o `hashchange` e remonta a tela
+  // com o slug no contexto — por isso o metro.js NÃO liga um segundo listener:
+  // dois donos do `hashchange` é a mesma regra que tirou o `aria-pressed` do
+  // seletor (dois caminhos para o mesmo gesto). O `window` entra por deps só
+  // para o FECHAR do véu navegar: um `<div>` não tem href, e fingir clique com
+  // history.pushState criaria entrada fantasma no histórico.
+  const win = deps.window || (typeof window !== 'undefined' ? window : null);
 
   const ui = {
     // O catálogo é GUARDADO já com as anotações dentro: é a única forma de o
     // redesenho achar o texto que a pessoa escreveu (fatia 2c-3).
     catalogo: comNotas([], loadNotas() || {}),
-    notas: loadNotas() || {}, linha: null, aberta: null,
-    embarqueAberto: false, chegada: null, despertas: [], carregando: true
+    notas: loadNotas() || {}, linha: null,
+    embarqueAberto: false, chegada: null, despertas: [], carregando: true,
+    // S5 parte 2: `aberta` saiu junto com a folha, que agora é ROTA. O que a
+    // pessoa está vendo vem do endereço e entra por `deps.folha` (o casco lê o
+    // hash e entrega o slug). Guardar um `aberta` próprio seria ter duas fontes
+    // para a mesma rota — e o "voltar" do navegador mostraria outra coisa.
+    folha: typeof deps.folha === 'string' && deps.folha ? deps.folha : null
   };
   // O esqueleto é a PRIMEIRA PINTURA — ele é chamado logo abaixo, onde `pintar`
   // passa a existir, e antes de qualquer `await`.
@@ -921,7 +863,8 @@ export async function subirMetro(deps = {}) {
   const pintar = () => {
     if (ui.carregando) { desenharEsqueleto(doc, root); return; }
     desenharMetro(doc, root, {
-      catalogo: ui.catalogo, progresso, linha: ui.linha, aberta: ui.aberta,
+      catalogo: ui.catalogo, progresso, linha: ui.linha, folha: ui.folha,
+      notas: ui.notas,
       chegada: ui.chegada, despertas: ui.despertas, embarqueAberto: ui.embarqueAberto
     });
   };
@@ -956,9 +899,20 @@ export async function subirMetro(deps = {}) {
     janela = relogio(() => { ui.chegada = null; ui.despertas = []; pintar(); }, JANELA_DESFAZER_MS);
   };
 
+  // NAVEGAR, não mutar: o `hashchange` do casco (web/casco.js) é quem remonta
+  // a tela. Um `pushState` aqui criaria uma entrada de história que nenhum
+  // endereço do app sabe ler. Sem `win.location` (node), nada acontece — é o
+  // mesmo silêncio protetor do modo privado do `carregarViagem`.
+  const irPara = (hash) => { if (win && win.location) win.location.hash = hash; };
+
   const acoes = {
-    abrirLinha(n) { ui.linha = n; ui.aberta = null; ui.chegada = null; pintar(); },
-    abrirEstacao(id) { ui.aberta = ui.aberta === id ? null : id; pintar(); },
+    abrirLinha(n) { ui.linha = n; ui.chegada = null; pintar(); },
+    // S5 parte 2: `abrirEstacao` saiu — o cartão é `<a href="#/estacao/…">` e o
+    // navegador faz o gesto sozinho. Duas rotas para a mesma tela é a regra que
+    // já tirou o `aria-pressed` do seletor. FECHAR, em vez de apagar um estado,
+    // navega para `#/`: o mesmo href do botão da folha, e o "voltar" devolve a
+    // pessoa à estação de onde ela veio.
+    fechar() { irPara('#/'); },
     embarque() { ui.embarqueAberto = !ui.embarqueAberto; pintar(); },
     anotar(id, texto) {
       // aplicarNota é a função do NÚCLEO de anotação, a mesma da tela principal:

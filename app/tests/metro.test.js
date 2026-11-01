@@ -102,6 +102,16 @@ const comAttr = (raiz, nome) => todos(raiz, (n) => n.getAttribute && n.getAttrib
 const porTag = (raiz, tag) => todos(raiz, (n) => n.tag === tag);
 const textoDe = (raiz) => [raiz.textContent, ...raiz.children.map(textoDe)].filter(Boolean).join(' ');
 
+// S5 parte 2: a folha deixou de ser o `detalhe` escondido atrás de cada
+// cartão. O painel é um só (.folha, de web/folha.js) e existe quando a rota
+// #/estacao/<slug> existe. Este ajudante substitui o `find(d => !hidden)` que
+// os 18 casos de dentro usavam.
+function abrirFolha(raiz) {
+  const f = comClasse(raiz, 'folha')[0];
+  assert.ok(f, 'a rota da estação desenha o painel .folha');
+  return f;
+}
+
 // ─────────────────────────── o catálogo de teste ───────────────────────────
 // 3 linhas × 2 estações, com pré-requisito entre linhas (baldeação) e com
 // bibliografia + recurso, para a folha ser exercida de verdade.
@@ -116,7 +126,7 @@ const CATALOGO = [
 
 function raiz(doc) { return doc.registrar('metro', doc.createElement('div')); }
 
-function desenhar({ completed = [], emCurso = [], linha = 1, aberta = null, despertas, embarqueAberto = false, conclusoes = {}, notas = {}, catalogo: dado = CATALOGO }) {
+function desenhar({ completed = [], emCurso = [], linha = 1, folha = null, despertas, embarqueAberto = false, conclusoes = {}, notas = {}, catalogo: dado = CATALOGO }) {
   const doc = criarDoc();
   const root = raiz(doc);
   // `dado` é o catálogo inteiro quando o teste precisa de um catálogo que não
@@ -127,7 +137,7 @@ function desenhar({ completed = [], emCurso = [], linha = 1, aberta = null, desp
   // desenho de teste precisa poder dar uma data a uma estação concluída.
   const progresso = { completed, emCurso, conclusoes };
   const nos = desenharMetro(doc, root, {
-    catalogo, progresso, linha, aberta, despertas, embarqueAberto
+    catalogo, progresso, linha, folha, despertas, embarqueAberto
   });
   return { doc, root, nos, catalogo, progresso };
 }
@@ -361,10 +371,15 @@ test('marca: o desenho sai dos tokens, e a regra do nome que morreu não volta',
     'a regra .marca-nome sobrou no CSS: o elemento não é mais desenhado');
 });
 
+// ═══════════ A FOLHA (S5 parte 2): o painel da rota, não do cartão ═══════════
+// Até aqui a folha morava DENTRO da linha (o `detalhe` com aria-expanded) e
+// estes casos a provavam de dentro. A S5 parte 2 deu a ela uma rota própria
+// (#/estacao/<slug>) e o desenho veio de web/folha.js. O que cada caso cobra
+// é o MESMO comportamento, medido no painel da vez.
+
 test('folha: o recurso abre com o VERBO ÚNICO da tela, nunca "Começar a viagem"', () => {
-  const { root } = desenhar({ linha: 1, aberta: 'l1a' });
-  const folha = comClasse(root, 'detalhe').find((d) => !d.attrs.hidden && d.getAttribute('hidden') === null);
-  assert.ok(folha, 'a folha aberta existe');
+  const { root } = desenhar({ linha: 1, folha: 'l1a' });
+  const folha = abrirFolha(root);
   const recurso = comAttr(folha, 'data-recurso')[0];
   assert.equal(recurso.textContent, PLACAS.comecarEstudar,
     'o mesmo texto da placa: UM verbo só na tela (item 5 da crítica)');
@@ -380,9 +395,8 @@ test('textos: a chave embarcar morreu — o verbo único não fica de reserva', 
 });
 
 test('folha: a bibliografia é "Bibliografia na fonte" e aponta para o arquivo no SHA auditado', () => {
-  const { root } = desenhar({ linha: 1, aberta: 'l1a' });
-  const folha = comClasse(root, 'detalhe').find((d) => !d.attrs.hidden && d.getAttribute('hidden') === null);
-  const link = comAttr(folha, 'data-bibliografia')[0];
+  const { root } = desenhar({ linha: 1, folha: 'l1a' });
+  const link = comAttr(abrirFolha(root), 'data-bibliografia')[0];
   assert.equal(link.textContent, PLACAS.bibliografiaNaFonte, 'o NOME, nunca o caminho');
   assert.equal(link.getAttribute('href'),
     'https://github.com/Universidade-Livre/ciencia-da-computacao/blob/b995c11/extras/bibliography/01_digital_circuits.md',
@@ -392,9 +406,8 @@ test('folha: a bibliografia é "Bibliografia na fonte" e aponta para o arquivo n
 });
 
 test('folha: a bibliografia de toda estação trancada que tem fonte sai no mesmo SHA', () => {
-  const { root } = desenhar({ completed: [], linha: 2, aberta: 'l2a' });
-  const folha = comClasse(root, 'detalhe').find((d) => !d.attrs.hidden && d.getAttribute('hidden') === null);
-  const link = comAttr(folha, 'data-bibliografia')[0];
+  const { root } = desenhar({ completed: [], linha: 2, folha: 'l2a' });
+  const link = comAttr(abrirFolha(root), 'data-bibliografia')[0];
   assert.equal(link.getAttribute('href'),
     'https://github.com/Universidade-Livre/ciencia-da-computacao/blob/b995c11/extras/bibliography/02_data_structures.md');
 });
@@ -403,27 +416,28 @@ test('folha: a bibliografia de toda estação trancada que tem fonte sai no mesm
 // teste garantia a AUSÊNCIA do botão porque mexer nele não desenhava chegada
 // nenhuma — botão morto é promessa falsa. Com a chegada no ar, o botão volta e
 // agora é MEdIDO: aparece na estação aberta quando há o que concluir, e não
-// aparece na trancada nem na concluída.
-test('folha: \"Concluir estação\" existe e só onde há o que concluir', () => {
-  const disponivel = desenhar({ linha: 1, aberta: 'l1a' });
+// aparece na trancada nem na concluída. S5 parte 2: "folha aberta" passou a ser
+// a ROTA, e o painel é um só — o botão existe onde o estado tem o que concluir.
+test('folha: "Concluir estação" existe e só onde há o que concluir', () => {
+  const disponivel = desenhar({ linha: 1, folha: 'l1a' });
   assert.equal(comAttr(disponivel.root, 'data-concluir').length, 1, 'a estação disponível aberta tem o botão');
   assert.equal(comAttr(disponivel.root, 'data-concluir')[0].getAttribute('data-concluir'), 'l1a');
   assert.equal(textoDe(comAttr(disponivel.root, 'data-concluir')[0]), PLACAS.concluir, 'e o verbo do núcleo');
-  const emCurso = desenhar({ completed: ['l1a'], emCurso: ['l1b'], linha: 1, aberta: 'l1b' });
+  const emCurso = desenhar({ completed: ['l1a'], emCurso: ['l1b'], linha: 1, folha: 'l1b' });
   assert.equal(comAttr(emCurso.root, 'data-concluir').length, 1, 'a em curso também');
-  const trancada = desenhar({ linha: 2, aberta: 'l2a' });
+  const trancada = desenhar({ linha: 2, folha: 'l2a' });
   assert.equal(comAttr(trancada.root, 'data-concluir').length, 0, 'trancada não tem o que concluir');
-  const concluida = desenhar({ completed: ['l1a'], linha: 1, aberta: 'l1a' });
+  const concluida = desenhar({ completed: ['l1a'], linha: 1, folha: 'l1a' });
   assert.equal(comAttr(concluida.root, 'data-concluir').length, 0, 'concluída também não');
-  const fechada = desenhar({ linha: 1 });
-  assert.equal(comAttr(fechada.root, 'data-concluir').length, 0, 'e folha fechada não esconde botão vivo');
+  const semRota = desenhar({ linha: 1 });
+  assert.equal(comAttr(semRota.root, 'data-concluir').length, 0, 'e sem rota de estação não há painel nenhum');
 });
 
-test('folha: tocar em \"Concluir estação\" conclui pelo núcleo e traz a chegada', async () => {
-  const { api, root } = await subirTela({ completed: [] });
-  api.acoes.abrirEstacao('l1a');
+test('folha: tocar em "Concluir estação" conclui pelo núcleo e traz a chegada', async () => {
+  const { api, root, voltarFolha } = await subirTela({ completed: [] });
+  voltarFolha('l1a');
   const botao = comAttr(root, 'data-concluir')[0];
-  assert.ok(botao, 'o botão está desenhado na folha aberta');
+  assert.ok(botao, 'o botão está desenhado na folha da rota');
   // UM disparo só: o bind já está ligado pelo subirTela, e repetir o bind
   // empilharia listeners no root — o teste mediria a pilha, não o toque.
   disparar(root, 'click', botao);
@@ -431,19 +445,19 @@ test('folha: tocar em \"Concluir estação\" conclui pelo núcleo e traz a chega
   assert.equal(comClasse(root, 'aviso-chegada').length, 1, 'e a tela respondeu com a chegada');
 });
 
-// FEITO na fatia 2c-2 (30/10/2026): perdeu o `todo` neste commit. A folha fecha
-// com hidden e não mostra texto nenhum, e a trancada aberta cita TODOS os
-// pré-requisitos pelo nome — o núcleo já devolvia a lista inteira (`faltam`);
-// a tela é que despejava só o primeiro.
-test('folha: fechada não mostra nada (hidden), e a trancada diz o que falta pelo NOME', () => {
-  const fechada = desenhar({ linha: 1 });
-  for (const d of comClasse(fechada.root, 'detalhe')) {
-    assert.equal(d.getAttribute('hidden'), '', 'folha fechada é hidden');
-  }
-  const { root } = desenhar({ completed: [], linha: 2, aberta: 'l2b' });
-  const falta = comClasse(root, 'detalhe-falta')[0];
-  assert.equal(falta.textContent, comValores.trancadaFaltam('Matemática Discreta, Algoritmos I'));
-  assert.ok(!falta.textContent.includes('l1a'), 'o que falta é dito pelo nome, nunca pelo id');
+// FEITO na fatia 2c-2 (30/10/2026) e MUTOU na S5 parte 2: a folha fechada deixou
+// de existir no DOM (era `hidden`; agora não há painel sem rota — nada a
+// esconder), e a trancada aberta cita TODOS os pré-requisitos pelo nome.
+test('folha: sem rota não há painel, e a trancada diz o que falta pelo NOME', () => {
+  const semRota = desenhar({ linha: 1 });
+  assert.equal(comClasse(semRota.root, 'folha').length, 0,
+    'sem #/estacao/<slug> não há diálogo na fila do leitor de tela');
+  const { root } = desenhar({ completed: [], linha: 2, folha: 'l2b' });
+  const falta = comClasse(abrirFolha(root), 'folha-falta')[0];
+  assert.ok(falta, 'a trancada lista as conexões que faltam');
+  assert.ok(textoDe(falta).includes('Matemática Discreta') && textoDe(falta).includes('Algoritmos I'),
+    'TODOS os pré-requisitos, pelo nome');
+  assert.ok(!textoDe(falta).includes('l1a'), 'o que falta é dito pelo nome, nunca pelo id');
 });
 
 test('MUTAÇÃO: forma de estado que some do CSS é forma que a tela não desenha', () => {
@@ -488,15 +502,6 @@ test('seletor: tocar num selo troca o diagrama (bindMetro → abrirLinha)', () =
     'e o diagrama passa a ser o da linha pedida');
 });
 
-test('seletor: tocar numa estação abre e fecha a folha dela', () => {
-  const doc = criarDoc();
-  const root = raiz(doc);
-  desenharMetro(doc, root, { catalogo: CATALOGO, progresso: { completed: [], emCurso: [], conclusoes: {} }, linha: 1 });
-  const abertos = [];
-  bindMetro(doc, root, { abrirEstacao: (id) => abertos.push(id) });
-  disparar(root, 'click', comAttr(root, 'data-id')[0]);
-  assert.deepEqual(abertos, ['l1a']);
-});
 
 test('MUTAÇÃO: selo sem aria-pressed deixa de marcar a linha atual', () => {
   const fonte = desenharMetro.toString();
@@ -557,7 +562,13 @@ async function subirTela({ completed = [], timers = [], catalogo = CATALOGO } = 
   } finally {
     delete globalThis.localStorage;
   }
-  return { api, doc, root, storage, modulos, timers };
+  return {
+    api, doc, root, storage, modulos, timers,
+    // S5 parte 2: quem liga hash → tela é o casco (web/casco.js), que não
+    // existe no node. O ajudante faz o que o casco faria: entrega o slug à
+    // tela e redesenha. O `pintar` é o mesmo do subirMetro.
+    voltarFolha: (slug) => { api.ui.folha = slug; api.pintar(); }
+  };
 }
 
 // FEITO na fatia 2c-1 (30/10/2026): perdeu o `todo` neste commit. O círculo
@@ -707,26 +718,6 @@ test('origem: o que o catálogo diz vira palavra, e o que ele não diz vira nada
     'o tipo que a fonte publica (35 registros) tem palavra');
 });
 
-test('folha: embaixo do botão, a origem tirada do próprio catálogo', () => {
-  const { root } = desenhar({ linha: 1, aberta: 'l1a', catalogo: CAT_RECURSO });
-  const folha = comClasse(root, 'detalhe').find((d) => d.getAttribute('hidden') === null);
-  const recurso = comAttr(folha, 'data-recurso')[0];
-  assert.equal(recurso.getAttribute('href'), 'https://www.youtube.com/playlist?list=PLx',
-    'o endereço continua sendo o do catálogo');
-  assert.equal(recurso.textContent, PLACAS.comecarEstudar, 'e o verbo único não mudou');
-  const origem = comClasse(folha, 'recurso-origem')[0];
-  assert.ok(origem, 'a folha diz de onde o recurso veio');
-  assert.equal(origem.textContent, ORIGEM.cursoOuPlaylist('YouTube'));
-  assert.ok(!origem.textContent.includes('http'), 'a origem é palavra, nunca URL crua');
-  assert.ok(folha.children.indexOf(origem) > folha.children.indexOf(recurso),
-    'a origem fica DEBAIXO do botão (JORNADA item 2)');
-  // Sem recurso, nenhum aviso de recurso: \"não temos fonte\" é o núcleo que diz,
-  // e isso é a fatia 3 — aqui a tela não inventa nem apaga.
-  const semRecurso = desenhar({ linha: 2, aberta: 'l2b', catalogo: CAT_RECURSO });
-  const f2 = comClasse(semRecurso.root, 'detalhe').find((d) => d.getAttribute('hidden') === null);
-  assert.equal(comAttr(f2, 'data-recurso').length, 0, 'sem resourceUrl não há botão de recurso');
-  assert.equal(comClasse(f2, 'recurso-origem').length, 0, 'e sem botão não há origem pendurada');
-});
 
 test('placa: a ação da próxima estação também diz de onde veio, com a MESMA palavra', () => {
   const { root } = desenhar({ completed: [], catalogo: CAT_RECURSO });
@@ -893,58 +884,7 @@ test('aviso: o que abriu na MESMA linha segue pelo nome, sem linha', () => {
   assert.equal(par.split('Estrutura de Dados').length - 1, 1, `nomeada uma vez só: «${par}»`);
 });
 
-test('folha: trancada diz o que falta e NÃO oferece "Começar a estudar"', () => {
-  // l2a do dublê de recurso é trancada E tem resourceUrl: é exatamente o caso
-  // que a crítica viu na tela — o botão vermelho pedindo para estudar o que
-  // ainda não está destrancado.
-  const { root } = desenhar({ completed: [], linha: 2, aberta: 'l2a', catalogo: CAT_RECURSO });
-  const folha = comClasse(root, 'detalhe').find((d) => d.getAttribute('hidden') === null);
-  assert.ok(folha, 'a trancada aberta tem folha');
-  assert.equal(comAttr(folha, 'data-recurso').length, 0, 'sem botão de recurso na trancada');
-  assert.equal(comClasse(folha, 'recurso-origem').length, 0, 'e nenhuma origem pendurada num botão que não existe');
-  assert.equal(comAttr(folha, 'data-concluir').length, 0, 'nem o concluir');
-  assert.ok(comClasse(folha, 'detalhe-falta')[0].textContent.includes('Algoritmos I'),
-    'o que falta continua dito pelo nome — é o que a trancada oferece');
-});
 
-test('folha: concluída carimba a data do núcleo e troca o verbo por "Rever o conteúdo"', () => {
-  const { root } = desenhar({
-    completed: ['l1a'], linha: 1, aberta: 'l1a',
-    conclusoes: { l1a: '2026-10-29' }, catalogo: CAT_RECURSO
-  });
-  const folha = comClasse(root, 'detalhe').find((d) => d.getAttribute('hidden') === null);
-  const carimbo = comClasse(folha, 'detalhe-carimbo')[0];
-  assert.ok(carimbo, 'a folha concluída carimba');
-  // MUTOU na 2d-2 (30/10/2026), ajuste do Claude: o carimbo comparava com a
-  // MESMA função que o desenha — se ela escrevesse ISO na tela, o teste ficava
-  // verde. A frase passa a ser coberta como a pessoa a lê: dia/mês/ano.
-  assert.equal(carimbo.textContent, 'Concluída em 29/10/2026', 'a data do núcleo, no formato do Brasil');
-  assert.doesNotMatch(carimbo.textContent, /\d{4}-\d{2}-\d{2}/, 'ISO não é para ser lido na tela');
-  const recurso = comAttr(folha, 'data-recurso')[0];
-  assert.equal(recurso.textContent, PLACAS.reverConteudo, 'o verbo muda: aquilo já foi feito');
-  assert.equal(recurso.getAttribute('href'), 'https://www.youtube.com/playlist?list=PLx',
-    'e o recurso continua o do catálogo, apontando para o mesmo lugar');
-  assert.equal(comAttr(folha, 'data-concluir').length, 0, 'sem o que concluir');
-  assert.equal(comClasse(folha, 'detalhe-falta').length, 0, 'e sem falar do que falta a quem já concluiu');
-});
-
-test('folha: UM primário por folha — "Concluir estação" é contorno, não recheio', () => {
-  const css = readFileSync(fileURLToPath(new URL('../web/metro.css', import.meta.url)), 'utf8');
-  // O seletor é ancorado no início da linha (lição da 2b: sem âncora, ".forma"
-  // achava o bloco de ".forma.concluida" e o teste media o desenho errado).
-  const blocoDaFolha = (seletor) => {
-    const ini = css.indexOf(`\n${seletor} {`);
-    assert.ok(ini >= 0, `${seletor} não existe no CSS da folha`);
-    return css.slice(ini, css.indexOf('}', ini));
-  };
-  const concluir = blocoDaFolha('.botao-concluir');
-  assert.match(concluir, /background:\s*(none|var\(--superficie\)|var\(--fundo\))/,
-    'sem recheio: o concluir é o secundário da folha');
-  assert.match(concluir, /border[^;]*var\(--cor\)/, 'a cor da linha vira contorno');
-  assert.match(concluir, /color:\s*var\(--cor\)/, 'e vira texto, não fundo');
-  assert.match(blocoDaFolha('.recurso'), /background:\s*var\(--cor\)/,
-    'o primário da folha é o recurso — um só');
-});
 
 // ═══════════════════════════ 5. os dois estados ═══════════════════════════
 // FEITO na fatia 2c-3 (30/10/2026): perdeu o `todo` neste commit. O atraso é
@@ -1033,18 +973,6 @@ test('MUTAÇÃO: embarque aparecendo para quem já concluiu algo é mentira', as
 });
 
 // ═══════════════════════════ 6. acessibilidade ═══════════════════════════
-test('cada estação é um botão cujo rótulo o leitor de tela lê inteiro', () => {
-  const { root } = desenhar({ completed: ['l1a'], linha: 1 });
-  const botoes = comAttr(root, 'data-id');
-  assert.equal(botoes.length, 2);
-  assert.equal(botoes[1].getAttribute('aria-label'), 'Algoritmos I, Linha 1, disponível');
-  assert.equal(botoes[0].getAttribute('aria-label'), 'Matemática Discreta, Linha 1, concluída');
-  for (const b of botoes) {
-    assert.equal(b.tag, 'button', 'estação é botão, não div clicável');
-    assert.ok(b.getAttribute('aria-controls'), 'e aponta para a folha que abre');
-    assert.ok(['true', 'false'].includes(b.getAttribute('aria-expanded')), 'com aria-expanded');
-  }
-});
 
 // FEITO na fatia 2c-3 (30/10/2026): perdeu o `todo` neste commit. `Number(null)`
 // é 0 e 0 é finito — sem linha o rótulo dizia "Linha 0", um nome que não existe
@@ -1065,21 +993,6 @@ test('rótulo: os 4 estados têm palavra legível, e a linha entra quando existe
 // FEITO na fatia 2c-3 (30/10/2026): perdeu o `todo` neste commit. O campo mora
 // SÓ na folha aberta: com ele desenhado nas 35 folhas fechadas, o leitor de tela
 // lia "Anotação" em fila — e hidden não tira ninguém da fila.
-test('anotação: o rótulo leva o nome da disciplina (o "Anotação, Anotação" morre)', () => {
-  const { root } = desenhar({ linha: 1, aberta: 'l1a' });
-  const areas = comClasse(root, 'anotacao');
-  assert.equal(areas.length, 1);
-  assert.equal(areas[0].getAttribute('aria-label'), 'Anotação de Matemática Discreta');
-  const rotulo = areas[0].parent;
-  assert.equal(rotulo.tag, 'label', 'é um label de verdade');
-  assert.equal(rotulo.getAttribute('for'), areas[0].getAttribute('id'), 'label aponta para o campo');
-  assert.equal(rotulo.children[0].textContent, 'Anotação — Matemática Discreta');
-
-  const duas = desenhar({ linha: 2, aberta: 'l2a' });
-  const a2 = comClasse(duas.root, 'anotacao')[0];
-  assert.notEqual(a2.getAttribute('aria-label'), areas[0].getAttribute('aria-label'),
-    'duas disciplinas, dois rótulos diferentes — nunca "Anotação" três vezes');
-});
 
 // FEITO na fatia 2c-3 (30/10/2026): perdeu o `todo` neste commit. `anotar` agora
 // Devolve o texto para o catálogo (comNotas), e é de lá que a folha desenhada lê
@@ -1092,21 +1005,6 @@ test('anotação: o rótulo leva o nome da disciplina (o "Anotação, Anotação
 // só na folha aberta ele não existia mais (TypeError em vez de assert). Agora o
 // teste fecha e reabre de verdade, e a metade "o input salva" é medida pelo
 // evento `input` que o dedo produz, não pela ação chamada à mão.
-test('anotação: o que a pessoa escreveu volta no campo, e o input salva', async () => {
-  const { api, root, modulos } = await subirTela({ completed: ['l1a'] });
-  api.acoes.abrirEstacao('l1a');
-  const area = comClasse(root, 'anotacao')[0];
-  assert.ok(area, 'a folha aberta desenha o campo');
-  area.value = 'exercícios 1 a 9';
-  disparar(root, 'input', area);
-  assert.deepEqual(modulos.guardado.notas, { l1a: 'exercícios 1 a 9' }, 'o input salva');
-  api.acoes.abrirEstacao('l1a'); // fecha
-  assert.equal(comClasse(root, 'anotacao').length, 0, 'folha fechada não deixa campo na fila do leitor de tela');
-  api.acoes.abrirEstacao('l1a'); // reabre
-  const deVolta = comClasse(root, 'anotacao')[0];
-  assert.equal(deVolta.getAttribute('id'), 'nota-l1a');
-  assert.equal(deVolta.value, 'exercícios 1 a 9', 'a anotação sobrevive ao redesenho');
-});
 
 test('ação da placa: a palavra certa para cada estado, vinda de textos.js', () => {
   assert.equal(acaoDaPlaca(ESTADOS.EM_CURSO), PLACAS.continuar);
@@ -1278,11 +1176,22 @@ test('contrato: a tela sobe com o main.js REAL, anota, e o texto volta depois do
     const modulos = { ...mainReal, loadCatalog: async () => ({ courses: CATALOGO, origem: 'teste' }) };
     const doc = criarDoc();
     const root = raiz(doc);
+    const aparelho = { hash: '' }; // o `location` do casco, em node
     const api = await subirMetro({
       document: doc, root, storage: criarStorage(), modulos,
-      setTimeout: () => ({}), hoje: '2026-10-29'
+      setTimeout: () => ({}), hoje: '2026-10-29', window: { location: aparelho }
     });
-    api.acoes.abrirEstacao('l1a');
+    // S5 parte 2: abrir passou a ser IR A uma rota, e quem faz o gesto é o
+    // navegador — o cartão já é <a href="#/estacao/...">. Em node não há
+    // navegador, então este ajudante É o casco: escreve o hash que o clique
+    // escreveria e entrega à tela o slug que ele lê. `abrirEstacao` sumiu, e
+    // duas rotas para a mesma tela seria a regra do aria-pressed.
+    const irAEstacao = (tela) => {
+      aparelho.hash = '#/estacao/l1a';
+      tela.ui.folha = 'l1a';
+      tela.pintar();
+    };
+    irAEstacao(api);
     const area = comClasse(root, 'anotacao')[0];
     assert.ok(area, 'a folha aberta desenha o campo');
     area.value = 'faz até o 9';
@@ -1290,8 +1199,12 @@ test('contrato: a tela sobe com o main.js REAL, anota, e o texto volta depois do
 
     assert.ok([...gravado.keys()].some((k) => k.includes('anotacoes')),
       'escrever grava no aparelho PELA MÃO DO main.js, com a chave dele');
-    api.acoes.abrirEstacao('l1a'); // fecha
-    api.acoes.abrirEstacao('l1a'); // reabre
+    api.acoes.fechar();
+    assert.equal(aparelho.hash, '#/', 'fechar NAVEGA para #/: apagar um estado interno deixaria o voltar do navegador sem nada a fazer');
+    api.ui.folha = null;
+    api.pintar();
+    assert.equal(comClasse(root, 'anotacao').length, 0, 'sem rota, nenhum campo na fila do leitor de tela');
+    irAEstacao(api); // reabre
     assert.equal(comClasse(root, 'anotacao')[0].value, 'faz até o 9',
       'o texto volta no campo — era aqui que ele sumia');
 
@@ -1300,9 +1213,9 @@ test('contrato: a tela sobe com o main.js REAL, anota, e o texto volta depois do
     const root2 = raiz(doc2);
     const segunda = await subirMetro({
       document: doc2, root: root2, storage: criarStorage(), modulos,
-      setTimeout: () => ({}), hoje: '2026-10-30'
+      setTimeout: () => ({}), hoje: '2026-10-30', window: { location: aparelho }
     });
-    segunda.acoes.abrirEstacao('l1a');
+    irAEstacao(segunda);
     assert.equal(comClasse(root2, 'anotacao')[0].value, 'faz até o 9',
       'fechar o navegador e voltar não apaga a anotação');
 
@@ -1618,7 +1531,9 @@ test('jornada: um primário só na tela', () => {
   assert.match(css, /\.metro\.com-folha \.placa-acao \{[^}]*background:\s*(none|var\(--superficie\)|var\(--fundo\))/,
     'com uma folha aberta, a ação da placa não pode continuar recheada: um primário por tela');
 
-  const comFolha = desenhar({ completed: [], linha: 1, aberta: 'l1a', catalogo: CAT_RECURSO });
+  // S5 parte 2: "há folha aberta" não é mais estado interno da tela — vem da
+  // rota, e por isso a chave do desenho é `folha` (o slug que o casco entrega).
+  const comFolha = desenhar({ completed: [], linha: 1, folha: 'l1a', catalogo: CAT_RECURSO });
   assert.ok(comFolha.root.className.split(/\s+/).includes('com-folha'),
     `a tela com folha aberta tem className "${comFolha.root.className}": o CSS não tem como saber`);
   assert.equal(comClasse(comFolha.root, 'placa-acao').length, 1, 'a placa segue com a sua ação');
@@ -1674,9 +1589,12 @@ test('jornada: a estação trancada diz o que falta e a concluída diz a data, n
   assert.equal(feita.textContent, comValores.concluidaEm('2026-10-29'));
   assert.equal(feita.textContent, 'Concluída em 29/10/2026', 'dd/mm/aaaa, nunca ISO na tela');
 
-  // O cartão é o botão que abre a folha: o toque não pode ter mudado de dono.
-  const botaoDaFeita = comAttr(r1.root, 'data-id').find((n) => n.getAttribute('data-id') === 'l1a');
-  assert.equal(botaoDaFeita.tag, 'button', 'o cartão saiu do botão e o toque deixou de abrir a folha');
+  // S5 parte 2: o cartão deixou de ser botão e passou a ser LINK para a rota da
+  // estação. Quem abre a folha é o navegador, não um handler — o toque mudou de
+  // dono de propósito, e `<a>` é o que dá histórico, voltar e abrir em outra aba.
+  const linkDaFeita = comAttr(r1.root, 'data-id').find((n) => n.getAttribute('data-id') === 'l1a');
+  assert.equal(linkDaFeita.tag, 'a', 'o cartão precisa ser âncora, não botão');
+  assert.match(String(linkDaFeita.getAttribute('href')), /^#\/estacao\//, 'e aponta a rota da estação');
 });
 
 test('jornada: só a placa tem sombra', () => {
