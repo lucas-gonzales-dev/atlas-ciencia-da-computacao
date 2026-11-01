@@ -15,8 +15,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { fatosDaEstacao, ESTADOS } from '../core/viagem.js';
-import { folha as FOLHA, comValores, placa as PLACAS, jornada as JORNADA } from '../core/textos.js';
+import { fatosDaEstacao, ESTADOS, MARCOS, momentoDaChegada, concluirEstacao, desfazerConclusao } from '../core/viagem.js';
+import { folha as FOLHA, comValores, placa as PLACAS, jornada as JORNADA, chegada as CHEGADA } from '../core/textos.js';
 import { desenharFolha } from '../web/folha.js';
 import { desenharMetro } from '../web/metro.js';
 import { lerRota } from '../core/rotas.js';
@@ -85,10 +85,16 @@ const CATALOGO = [
   { id: 'l3a', slug: 'so', title: 'Sistemas Operacionais', stage: 3, prerequisites: ['l2b'], resourceUrl: null, resourceType: null, bibliography: null }
 ];
 
-function abrir(slug, { completed = [], emCurso = [], conclusoes = {}, notas = {} } = {}) {
+function abrir(slug, { completed = [], emCurso = [], conclusoes = {}, notas = {} } = {}, extras = {}) {
   const doc = criarDoc();
-  const catalogo = CATALOGO.map((c) => (notas[c.id] ? { ...c, nota: notas[c.id] } : c));
-  const nos = desenharFolha(doc, { catalogo, progresso: { completed, emCurso, conclusoes }, slug, notas });
+  const base = extras.catalogo || CATALOGO;
+  const catalogo = base.map((c) => (notas[c.id] ? { ...c, nota: notas[c.id] } : c));
+  const nos = desenharFolha(doc, {
+    catalogo, progresso: { completed, emCurso, conclusoes }, slug, notas,
+    // S6: o MOMENTO da chegada entra pela mesma porta do slug — a folha não
+    // calcula nada, recebe o que o núcleo comparou.
+    momento: extras.momento ?? null
+  });
   return { doc, ...nos };
 }
 
@@ -297,4 +303,174 @@ test('folha.css: botão de fechar com o piso de toque e sem cor à mão', () => 
   assert.doesNotMatch(CSS, /#[0-9a-f]{3,8}\b/i, 'nenhum hex fora do tokens.css');
   assert.doesNotMatch(CSS, /\d+m?s\b/, 'nenhuma duração à mão');
   assert.doesNotMatch(CSS, /^.*\s\/\/|^\s*\/\//m, 'comentário em CSS é /* */');
+});
+
+// ═══════════ S6 — concluir vira MOMENTO (a folha troca de corpo) ═══════════
+//
+// Os testes da S6 moram AQUI e não em `viagem.test.js`, como a fatia lista, por
+// um motivo que é de fixture: `momentoDaChegada` precisa de um catálogo com
+// baldeação, última estação de linha e Terminal, e é este `CATALOGO` que tem as
+// três formas (e o mesmo arquivo já é dono dos testes `viagem:` do núcleo, como
+// `fatosDaEstacao`). A fatia foi lida como intenção — o núcleo testado no nome
+// `viagem:` — não como o arquivo.
+//
+// O catálogo de 35 da caso Terminal é gerado (7 linhas × 5, cadeia linear e a
+// última de cada linha abrindo a primeira da seguinte, como o dado real da UBL).
+function catalogoDe35() {
+  const out = [];
+  for (let l = 1; l <= 7; l++) {
+    for (let i = 1; i <= 5; i++) {
+      const id = `l${l}s${i}`;
+      const pede = [];
+      if (i > 1) pede.push(`l${l}s${i - 1}`);
+      if (i === 1 && l > 1) pede.push(`l${l - 1}s5`);
+      out.push({ id, slug: id, title: `Estação ${l}.${i}`, stage: l, prerequisites: pede, resourceUrl: null, resourceType: null, bibliography: null });
+    }
+  }
+  return out;
+}
+
+test('viagem: momentoDaChegada devolve o título, a data e o que o gesto abriu', () => {
+  const antes = { completed: [], emCurso: ['l1b'], conclusoes: {} };
+  const depois = concluirEstacao(antes, 'l1b', '2026-10-30', CATALOGO);
+  const m = momentoDaChegada(antes, depois, CATALOGO, 'l1b');
+
+  assert.equal(m.id, 'l1b');
+  assert.equal(m.titulo, 'Algoritmos I', 'o título vem do catálogo, nunca da tela');
+  assert.equal(m.data, '2026-10-30', 'a data é a que o núcleo guardou em conclusões');
+  // Arquitetura pede l1a E l1b: concluir só Algoritmos I não a abre. Uma
+  // estação aberta, e ela é travessia (Linha 1 → Linha 2).
+  assert.equal(m.abertas.length, 1, 'abre Estruturas; Arquitetura ainda pede Matemática Discreta');
+  assert.deepEqual(m.abertas.map((a) => a.titulo), ['Estruturas de Dados']);
+  assert.equal(m.fechouLinha, null, 'a Linha 1 não fechou: falta Matemática Discreta');
+  assert.equal(m.marcos.at(-1).tipo, 'estacao');
+  assert.equal(m.proxima.id, 'l1a', 'a próxima é a que ainda está disponível');
+});
+
+test('viagem: momentoDaChegada marca a baldeação e a linha de destino', () => {
+  // Matemática Discreta (Linha 1) é pré-requisito de Arquitetura (Linha 2): é
+  // travessia, e a fatia quer isso dito pelo nome da linha.
+  const antes = { completed: ['l1b'], emCurso: ['l1a'], conclusoes: { l1b: '2026-10-29' } };
+  const depois = concluirEstacao(antes, 'l1a', '2026-10-30', CATALOGO);
+  const m = momentoDaChegada(antes, depois, CATALOGO, 'l1a');
+
+  assert.equal(m.abertas.length, 1, 'abre Arquitetura');
+  assert.equal(m.abertas[0].titulo, 'Arquitetura de Computadores');
+  assert.equal(m.abertas[0].linha, 2);
+  assert.equal(m.abertas[0].baldeacao, true, 'linha de quem abre ≠ linha da estação: é baldeação');
+});
+
+test('viagem: momentoDaChegada diz quando a estação fecha a linha', () => {
+  // Estruturas é a primeira das duas da Linha 2; fechar a linha exige as duas.
+  const antes = { completed: ['l1a', 'l1b', 'l2a'], emCurso: ['l2b'], conclusoes: {} };
+  const depois = concluirEstacao(antes, 'l2b', '2026-10-30', CATALOGO);
+  const m = momentoDaChegada(antes, depois, CATALOGO, 'l2b');
+
+  assert.equal(m.fechouLinha, 2, 'as duas estações da Linha 2 estão concluídas');
+  assert.equal(m.marcos.some((x) => x.tipo === 'fim_da_linha'), true, 'o marco de fim de linha veio junto');
+  assert.equal(m.abertas.length, 1, 'e abre Sistemas Operacionais');
+  assert.equal(m.abertas[0].baldeacao, true);
+});
+
+test('viagem: momentoDaChegada na 35ª estação traz o marco Terminal', () => {
+  const catalogo = catalogoDe35();
+  const faltando = catalogo.at(-1).id;
+  const antes = {
+    completed: catalogo.filter((c) => c.id !== faltando).map((c) => c.id),
+    emCurso: [faltando],
+    conclusoes: Object.fromEntries(catalogo.filter((c) => c.id !== faltando).map((c) => [c.id, '2026-10-29']))
+  };
+  const depois = concluirEstacao(antes, faltando, '2026-10-30', catalogo);
+  const m = momentoDaChegada(antes, depois, catalogo, faltando);
+
+  assert.equal(m.abertas.length, 0, 'não há mais nada a abrir');
+  assert.equal(m.marcos.at(-1).tipo, 'terminal');
+  assert.equal(m.proxima, null, 'sem próxima: a pessoa terminou');
+});
+
+test('viagem: momentoDaChegada é honesta quando o id não chegou agora', () => {
+  const p = { completed: ['l1b'], emCurso: [], conclusoes: { l1b: '2026-10-28' } };
+  assert.equal(momentoDaChegada(p, p, CATALOGO, 'l1b'), null, 'concluir duas vezes não cria dois momentos');
+  assert.equal(momentoDaChegada(p, p, CATALOGO, 'nao-existe'), null, 'id fora do catálogo não inventa chegada');
+});
+
+test('textos: todo marco tem nome e critério, e nenhum fala em pontos', () => {
+  for (const tipo of Object.values(MARCOS)) {
+    const nome = CHEGADA.nomeDoMarco[tipo];
+    const criterio = CHEGADA.criterioDoMarco[tipo];
+    assert.ok(typeof nome === 'string' && nome.trim() !== '', `marco ${tipo} tem nome`);
+    assert.ok(typeof criterio === 'string' && criterio.trim() !== '', `marco ${tipo} tem critério`);
+  }
+  const palavras = JSON.stringify(CHEGADA).toLowerCase();
+  for (const proibida of ['ponto', 'xp', 'pontua', 'conquiste', 'rank', 'confete']) {
+    assert.equal(palavras.includes(proibida), false, `a chegada não fala em «${proibida}»`);
+  }
+});
+
+test('folha: depois de concluir, o miolo vira o momento — um primário só', () => {
+  const antes = { completed: [], emCurso: ['l1b'], conclusoes: {} };
+  const depois = concluirEstacao(antes, 'l1b', '2026-10-30', CATALOGO);
+  const momento = momentoDaChegada(antes, depois, CATALOGO, 'l1b');
+  const { root } = abrir('algoritmos-i', { completed: depois.completed, conclusoes: depois.conclusoes }, { momento });
+
+  const todo = textoDe(root);
+  assert.match(todo, /Conexão criada/, 'o rótulo do momento');
+  assert.match(todo, /Algoritmos I entrou no seu bilhete\./, 'o h2 do momento');
+  assert.match(todo, /Carimbo de 30\/10\/2026\./, 'a data lida como pessoa lê');
+  assert.match(todo, /Novo caminho/, 'o bloco do que abriu');
+  assert.match(todo, /Estruturas de Dados está disponível, na Linha 2/, 'a estação aberta mora na Linha 2 e o momento nomeia a travessia');
+  assert.equal(todo.includes('Arquitetura de Computadores está disponível'), false, 'o momento não abre o que o núcleo não abriu');
+
+  const primarios = comClasse(root, 'botao-primario');
+  assert.equal(primarios.length, 1, 'um primário por folha — a regra da 2d-2 vale no momento');
+  assert.equal(textoDe(primarios[0]), 'Ver próxima estação');
+  assert.equal(primarios[0].getAttribute('href'), '#/estacao/matematica-discreta', 'a próxima é a que o núcleo apontou (l1a), pelo slug');
+  assert.equal(comClasse(root, 'botao-secundario').length, 1);
+  assert.equal(textoDe(comClasse(root, 'botao-secundario')[0]), 'Voltar ao mapa');
+  assert.equal(comClasse(root, 'folha-recurso').length, 0, 'o momento não oferece "Começar a estudar"');
+  assert.equal(comClasse(root, 'folha-anotacao').length, 0, 'nem a anotação: o momento é do gesto, não do texto');
+});
+
+test('folha: o momento anuncia para o leitor de tela e mostra o marco', () => {
+  const catalogo = catalogoDe35();
+  const faltando = catalogo.at(-1).id;
+  const antes = { completed: catalogo.filter((c) => c.id !== faltando).map((c) => c.id), emCurso: [], conclusoes: {} };
+  const depois = concluirEstacao(antes, faltando, '2026-10-30', catalogo);
+  const momento = momentoDaChegada(antes, depois, catalogo, faltando);
+  const { root } = abrir(faltando, { completed: depois.completed, conclusoes: depois.conclusoes }, { momento, catalogo });
+
+  const status = todos(root, (n) => n.getAttribute && n.getAttribute('role') === 'status');
+  assert.ok(status.length >= 1, 'role="status" existe para anunciar');
+  assert.match(textoDe(status[0]), /Conexão criada: Estação 7\.5\. 0 estações abertas\./);
+  assert.match(textoDe(root), /Fim da linha/, 'a linha 7 fechou com ela');
+  assert.match(textoDe(root), /Terminal/, 'e o maior marco aparece');
+});
+
+test('folha: desfazer volta a folha para o estado calculado e tira o carimbo', () => {
+  // l1b também está concluída de propósito: é o pré-requisito de Estruturas.
+  // Sem ela, desfazer tira a estação do mapa (Trancada some, vira "não está
+  // no mapa") e o teste não prova a volta ao estado calculado.
+  const concluida = { completed: ['l1b', 'l2a'], emCurso: [], conclusoes: { l2a: '2026-10-30' } };
+  const comCarimbo = abrir('estruturas-de-dados', concluida);
+  assert.match(textoDe(comCarimbo.root), /Concluída em 30\/10\/2026/);
+
+  // O desfazer do metro.js é persistir(desfazerConclusao(…)) + ui.momento = null
+  // + pintar. Desenhado sem o momento, o carimbo tem de sumir sozinho.
+  const desfeita = desfazerConclusao(concluida, 'l2a');
+  const depois = abrir('estruturas-de-dados', desfeita);
+  assert.equal(textoDe(depois.root).includes('Concluída em'), false, 'o carimbo saiu');
+  assert.match(textoDe(depois.root), /Disponível/, 'e a folha volta ao estado calculado');
+
+  // E quem estava em curso volta a estar: é o "em curso" que a fatia promete.
+  const emCurso = abrir('estruturas-de-dados', { completed: [], emCurso: ['l2a'], conclusoes: {} });
+  assert.match(textoDe(emCurso.root), /Em curso/);
+  assert.equal(textoDe(emCurso.root).includes('Concluída em'), false);
+});
+
+test('folha.css: o traço do selo se desenha com stroke-dashoffset no token de chegada', () => {
+  assert.match(CSS, /stroke-dashoffset/, 'o "feito" é desenhado, não aparecido');
+  assert.match(CSS, /@keyframes folha-tra/, 'o nome da animação é da folha');
+  assert.match(CSS, /var\(--movimento-chegada\)/, 'a duração vem do token da chegada');
+  assert.match(CSS, /prefers-reduced-motion/, 'com movimento reduzido o selo chega cheio');
+  assert.doesNotMatch(CSS, /\d+m?s\b/, 'nenhuma duração à mão, nem aqui');
 });

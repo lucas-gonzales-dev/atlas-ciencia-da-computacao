@@ -643,6 +643,78 @@ export function fatosDaEstacao(catalogo, id, progresso) {
 }
 
 /**
+ * O MOMENTO DA CHEGADA (S6) — o que a folha mostra nos 6 segundos depois de
+ * um concluir: o nome, o dia, o que o gesto abriu, a linha que fechou, os
+ * marcos novos e a próxima estação.
+ *
+ * Pura e comparativa, como `marcosNovos`: ela recebe o `antes` e o `depois`,
+ * porque depois de pintar o "antes" se perde. Devolve `null` quando o id não
+ * concluiu AGORA (já estava, não existe no catálogo, ou o chamado não é um
+ * concluir) — a tela não tem como inventar uma chegada que não aconteceu, e um
+ * segundo toque no botão não pode criar um segundo momento.
+ *
+ * Nada aqui formata data, escreve frase ou escolhe cor: `data` é a que o núcleo
+ * guarda em `conclusoes` e quem lê dd/mm/aaaa é core/textos.js.
+ *
+ * @param {unknown} antes   progresso antes do gesto
+ * @param {unknown} depois  progresso depois do gesto
+ * @param {Array} catalogo
+ * @param {string} id
+ * @returns {object|null} {id,titulo,data,abertas:[{id,slug,titulo,linha,baldeacao}],fechouLinha,marcos,proxima}
+ */
+export function momentoDaChegada(antes, depois, catalogo, id) {
+  const { lista, byId, porLinha } = malha(catalogo);
+  if (typeof id !== 'string' || !byId.has(id)) return null;
+
+  const pa = lerProgresso(antes);
+  const pb = lerProgresso(depois);
+  if (!pb.completed.includes(id) || pa.completed.includes(id)) return null;
+
+  const course = byId.get(id);
+  const linha = Number.isFinite(Number(course.stage)) ? Number(course.stage) : null;
+
+  // O que passou a estar disponível com este gesto — a diferença entre as duas
+  // portas, calculada com a MESMA função do mapa (unlockedCourses), nunca uma
+  // regra própria daqui.
+  const jaAbertas = new Set(unlockedCourses(lista, pa.completed));
+  const abertas = unlockedCourses(lista, pb.completed)
+    .filter((abertoId) => !jaAbertas.has(abertoId))
+    .map((abertoId) => {
+      const c = byId.get(abertoId);
+      const linhaDestino = Number.isFinite(Number(c?.stage)) ? Number(c.stage) : null;
+      return {
+        id: abertoId,
+        slug: c?.slug,
+        titulo: typeof c?.title === 'string' ? c.title : abertoId,
+        linha: linhaDestino,
+        // Baldeação é travessia: linha de destino diferente da estação concluída.
+        baldeacao: linhaDestino !== null && linha !== null && linhaDestino !== linha
+      };
+    });
+
+  // Fechou a linha AGORA: todas as estações dela em `depois`, sem estar todas em
+  // `antes`. É a mesma conta do resumo (fechada), só que comparativa.
+  const naLinha = porLinha.get(linha) || [];
+  const todas = naLinha.length > 0 && naLinha.every((c) => pb.completed.includes(c.id));
+  const todasAntes = naLinha.length > 0 && naLinha.every((c) => pa.completed.includes(c.id));
+  const fechouLinha = todas && !todasAntes ? linha : null;
+
+  const resumo = resumoDaViagem(pb, lista);
+
+  return {
+    id,
+    titulo: typeof course.title === 'string' ? course.title : id,
+    data: ehData(pb.conclusoes[id]) ? pb.conclusoes[id] : null,
+    abertas,
+    fechouLinha,
+    marcos: marcosNovos(antes, depois, catalogo),
+    proxima: resumo.proximaEstacao
+      ? { ...resumo.proximaEstacao, slug: (byId.get(resumo.proximaEstacao.id) || {}).slug }
+      : null
+  };
+}
+
+/**
  * `resourceType` + domínio do `resourceUrl`, lidos do catálogo. Sem recurso,
  * `{ tipo: null, dominio: null }`: a folha cala em vez de inventar origem.
  */

@@ -17,7 +17,7 @@
 // token (web/folha.css não escreve um número); frase à mão — tudo é
 // core/textos.js; um segundo botão primário — disponível tem UM (o curso), em
 // curso tem UM (concluir), trancada e concluída não têm nenhum.
-import { comValores, folha as F, jornada as J, placa } from '../core/textos.js';
+import { comValores, dataDeCalendario, estados, folha as F, jornada as J, placa, chegada as C } from '../core/textos.js';
 import { ESTADOS, fatosDaEstacao } from '../core/viagem.js';
 // `origemDoRecurso` e `naFonte` já existem no metro.js e já têm testes. A folha
 // IMPORTA, em vez de reimplementar: reimplementar é como nasce a segunda palavra
@@ -156,6 +156,103 @@ function fato(doc, rotuloTxt, valor) {
 }
 
 /**
+ * O selo do momento: o círculo cheio na cor da linha, com o traço de "feito"
+ * desenhado por `stroke-dashoffset` (folha.css, na duração --movimento-chegada).
+ * É SVG montado em código — e por isso a cor não pode ser literal aqui: vem do
+ * `currentColor`, que a classe da linha resolve no CSS.
+ */
+function seloMomento(doc, linha) {
+  const n = Number(linha);
+  const svg = doc.createElementNS ? doc.createElementNS('http://www.w3.org/2000/svg', 'svg') : doc.createElement('svg');
+  svg.setAttribute('class', `folha-tra ${Number.isFinite(n) && n > 0 ? `l${n}` : ''}`);
+  svg.setAttribute('viewBox', '0 0 44 44');
+  svg.setAttribute('aria-hidden', 'true');
+  const circulo = doc.createElement('circle');
+  circulo.setAttribute('cx', '22');
+  circulo.setAttribute('cy', '22');
+  circulo.setAttribute('r', '19');
+  circulo.setAttribute('class', 'folha-tra-fundo');
+  const traco = doc.createElement('path');
+  traco.setAttribute('d', 'M13 23 L19 29 L31 16');
+  traco.setAttribute('class', 'folha-tra-traco');
+  traco.setAttribute('fill', 'none');
+  svg.append(circulo, traco);
+  return svg;
+}
+
+/**
+ * O MOMENTO (S6): o miolo da folha nos segundos depois de um concluir.
+ *
+ * O `momento` vem do núcleo (`momentoDaChegada`, que comparou antes e depois no
+ * gesto) — esta função não deduz nada: o que ela lista é o que o núcleo disse
+ * que abriu, o que ele disse que fechou e o marco que ele reconheceu. Sem
+ * confete, sem XP, sem número de pontos (regra 9).
+ */
+function blocoMomento(doc, corpo, momento, f) {
+  corpo.classList.add('folha-momento');
+
+  // O anúncio: o leitor de tela fala o momento inteiro (heurística 9).
+  const anuncio = no(doc, 'p', 'folha-anuncio', { role: 'status', 'aria-live': 'polite' });
+  anuncio.textContent = C.anuncia(momento.titulo, momento.abertas.length);
+
+  corpo.append(no(doc, 'p', 'folha-rotulo-momento', { text: C.rotulo }));
+  corpo.append(no(doc, 'h2', 'folha-titulo-momento', { id: 'folha-titulo', text: C.entrouNoBilhete(momento.titulo) }));
+  if (momento.data) {
+    corpo.append(no(doc, 'p', 'folha-carimbo-momento', { text: C.carimbo(dataDeCalendario(momento.data)) }));
+  }
+  corpo.append(anuncio);
+
+  // NOVO CAMINHO — uma linha por estação que o gesto abriu.
+  const caminho = no(doc, 'div', 'folha-caminho');
+  caminho.append(no(doc, 'p', 'folha-caminho-rotulo', { text: C.novoCaminho }));
+  if (momento.abertas.length > 0) {
+    const lista = no(doc, 'ul', 'folha-caminho-lista');
+    for (const a of momento.abertas) {
+      const texto = a.baldeacao ? C.disponivelNaLinha(a.titulo, a.linha) : `${C.estaDisponivel(a.titulo)}.`;
+      const item = no(doc, 'li');
+      item.append(no(doc, 'a', 'folha-caminho-link', { href: `#/estacao/${a.slug || a.id}`, text: texto }));
+      lista.append(item);
+    }
+    caminho.append(lista);
+  } else {
+    // Nada abriu: ou é fim de linha, ou é estação sem sucessor — e as duas
+    // frases já existem na placa, nunca uma invenção daqui.
+    caminho.append(no(doc, 'p', 'folha-caminho-fecha', { text: J.conexao.fecha(f.linha) }));
+  }
+  corpo.append(caminho);
+
+  // Fim de linha: o texto é o MESMO estado da placa (estados.fimDaLinha), e não
+  // uma segunda palavra para o mesmo feito.
+  if (momento.fechouLinha !== null && momento.fechouLinha !== undefined) {
+    corpo.append(no(doc, 'p', 'folha-momento-estado', {
+      text: `${estados.fimDaLinha.titulo}. ${estados.fimDaLinha.descricao}`
+    }));
+  }
+
+  // Marcos: nome + critério, do maior (a tela celebra o último da lista).
+  for (const m of momento.marcos.slice(-1)) {
+    const box = no(doc, 'div', 'folha-marco');
+    box.append(no(doc, 'p', 'folha-marco-rotulo', { text: C.marco }));
+    box.append(no(doc, 'p', 'folha-marco-nome', { text: C.nomeDoMarco[m.tipo] || '' }));
+    box.append(no(doc, 'p', 'folha-marco-criterio', { text: C.criterioDoMarco[m.tipo] || '' }));
+    corpo.append(box);
+  }
+
+  // Um primário: a próxima. Sem próxima (Terminal), o mapa é o único destino.
+  const acoes = no(doc, 'div', 'folha-acoes folha-momento-acoes');
+  if (momento.proxima) {
+    acoes.append(no(doc, 'a', 'botao botao-primario', {
+      href: `#/estacao/${momento.proxima.slug || momento.proxima.id}`, text: C.verProxima
+    }));
+    acoes.append(no(doc, 'a', 'botao botao-secundario', { href: '#/', text: C.voltarAoMapa }));
+  } else {
+    acoes.append(no(doc, 'a', 'botao botao-primario', { href: '#/', text: C.voltarAoMapa }));
+  }
+  corpo.append(acoes);
+  corpo.append(seloMomento(doc, f.linha));
+}
+
+/**
  * Desenha a folha da estação `slug`.
  *
  * A raiz é o INVÓLUCRO do diálogo (`.folha`, cheia na tela, e só aqui o véu
@@ -167,7 +264,7 @@ function fato(doc, rotuloTxt, valor) {
  * @returns {{root: Element, estacaoId: string|null}}
  */
 export function desenharFolha(doc, estado) {
-  const { catalogo = [], progresso = {}, slug, notas = {} } = estado || {};
+  const { catalogo = [], progresso = {}, slug, notas = {}, momento = null } = estado || {};
   const curso = catalogo.find((c) => c && (c.slug === slug || c.id === slug));
 
   const raiz = no(doc, 'div', 'folha', {
@@ -206,6 +303,16 @@ export function desenharFolha(doc, estado) {
     : comValores.viagem(0, f.total);
   cabecalho.append(rotulo);
   corpo.append(cabecalho);
+
+  // S6 — o MOMENTO. Ele troca só o MIOLO: o selo da linha e o rótulo de posição
+  // ficam, porque a pessoa acabou de concluir exatamente aquela estação, e o
+  // mapa atrás continua desenhado pelo metro.js. O que sai é o corpo normal
+  // (fatos, anotação, ações): um primário por folha vale também aqui, e a
+  // anotação volta quando o aviso passa.
+  if (momento && momento.id === curso.id) {
+    blocoMomento(doc, corpo, momento, f);
+    return { root: raiz, estacaoId: curso.id };
+  }
 
   // 2. o nome, no maior tamanho da escala (e para ele que o diálogo aponta).
   corpo.append(no(doc, 'h2', 'folha-titulo', { id: 'folha-titulo', text: f.titulo }));

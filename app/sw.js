@@ -193,12 +193,17 @@
 // com afastamento — os dois moram FORA da caixa do selo. Sem ar em volta, o 1,
 // que e o primeiro da fileira, perdia o pedaco esquerdo do anel no desktop e no
 // celular. Mudou conteudo do precache (metro.css), entao VERSAO e hash.
-const VERSAO = 'atlas-v31';
+// atlas-v32: a CHEGADA da S6 mudou core/viagem.js (momentoDaChegada), core/textos.js
+// (o bloco do momento e a travessia dita "esta disponivel, na Linha N"), web/folha.js
+// e web/folha.css (o miolo vira o momento, com um primario so) e web/metro.js (o
+// handler passa o momento pela porta do nucleo). Conteudo do precache mudou, entao
+// VERSAO e hash.
+const VERSAO = 'atlas-v32';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
 // deixa o cache antigo sem o nome novo. Recalcular: node tests/precache-hash.js.
-const PRECACHE_HASH = 'sha256-b7bc4487100f609f6184f30866685c35f32dd89bbd4ed9a0201ec2e6ba8918be';
+const PRECACHE_HASH = 'sha256-ec877bd0f9c19ce13dc532e72e0574c5c2d4d2c6ce499f48c175dd19fc785359';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.

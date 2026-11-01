@@ -35,7 +35,8 @@ import {
   iniciarEstacao,
   desfazerConclusao,
   marcosNovos,
-  abreComBaldeacao
+  abreComBaldeacao,
+  momentoDaChegada
 } from '../core/viagem.js';
 
 // ─────────────────────────── progresso em curso / datas ───────────────────────────
@@ -750,7 +751,9 @@ export function desenharMetro(doc, root, estado) {
   // só onde ela entra. Sem rota de estação, nada de painel: a jornada é o mapa.
   if (slugDaFolha) {
     const desenhada = desenharFolha(doc, {
-      catalogo, progresso, slug: slugDaFolha, notas: estado.notas || {}
+      catalogo, progresso, slug: slugDaFolha, notas: estado.notas || {},
+      // S6: o miolo da folha troca pelo momento enquanto ele está de pé.
+      momento: estado.momento || null
     });
     root.append(desenhada.root);
     nos.folha = desenhada.root;
@@ -849,7 +852,7 @@ export async function subirMetro(deps = {}) {
     // redesenho achar o texto que a pessoa escreveu (fatia 2c-3).
     catalogo: comNotas([], loadNotas() || {}),
     notas: loadNotas() || {}, linha: null,
-    embarqueAberto: false, chegada: null, despertas: [], carregando: true,
+    embarqueAberto: false, chegada: null, momento: null, despertas: [], carregando: true,
     // S5 parte 2: `aberta` saiu junto com a folha, que agora é ROTA. O que a
     // pessoa está vendo vem do endereço e entra por `deps.folha` (o casco lê o
     // hash e entrega o slug). Guardar um `aberta` próprio seria ter duas fontes
@@ -873,7 +876,10 @@ export async function subirMetro(deps = {}) {
     desenharMetro(doc, root, {
       catalogo: ui.catalogo, progresso, linha: ui.linha, folha: ui.folha,
       notas: ui.notas,
-      chegada: ui.chegada, despertas: ui.despertas, embarqueAberto: ui.embarqueAberto
+      chegada: ui.chegada, despertas: ui.despertas, embarqueAberto: ui.embarqueAberto,
+      // S6: o momento da chegada entra na folha pelo mesmo caminho do que a
+      // chegada entra no mapa. Sem isto a folha conclui e não mostra nada.
+      momento: ui.momento
     });
   };
 
@@ -892,11 +898,12 @@ export async function subirMetro(deps = {}) {
   // esqueleto nascer já junto com a placa, sem nunca ter mostrado a espera.
   pintar();
 
-  const avisarChegada = (id, abriu) => {
+  const avisarChegada = (id, abriu, momento) => {
     // 2d-1: além do id, a chegada carrega O QUE O GESTO ABRIU — calculado pelo
     // núcleo no momento do concluir, porque a pintura não pode recomparar antes
     // e depois (depois de pintar, o "antes" já se perdeu).
     ui.chegada = { id, abre: abriu?.destravadas || [], baldeacao: abriu?.baldeacao || null };
+    ui.momento = momento || null;
     if (janela) clearTimeout(janela);
     // A chegada é o momento em que o esforço vira visível (JORNADA §2.4/§4.6):
     // sem pintar aqui, o círculo enchia no estado e a tela não mostrava nada.
@@ -904,7 +911,7 @@ export async function subirMetro(deps = {}) {
     // --janela-desfazer é 6000 ms no CSS; o relógio aqui tem de ser o mesmo
     // número, e por isso ele vem do token lido do documento — não de um 6000
     // escrito à mão que um dia diverge do que a animação mostra.
-    janela = relogio(() => { ui.chegada = null; ui.despertas = []; pintar(); }, JANELA_DESFAZER_MS);
+    janela = relogio(() => { ui.chegada = null; ui.momento = null; ui.despertas = []; pintar(); }, JANELA_DESFAZER_MS);
   };
 
   // NAVEGAR, não mutar: o `hashchange` do casco (web/casco.js) é quem remonta
@@ -914,7 +921,7 @@ export async function subirMetro(deps = {}) {
   const irPara = (hash) => { if (win && win.location) win.location.hash = hash; };
 
   const acoes = {
-    abrirLinha(n) { ui.linha = n; ui.chegada = null; pintar(); },
+    abrirLinha(n) { ui.linha = n; ui.chegada = null; ui.momento = null; pintar(); },
     // S5 parte 2: `abrirEstacao` saiu — o cartão é `<a href="#/estacao/…">` e o
     // navegador faz o gesto sozinho. Duas rotas para a mesma tela é a regra que
     // já tirou o `aria-pressed` do seletor. FECHAR, em vez de apagar um estado,
@@ -952,7 +959,7 @@ export async function subirMetro(deps = {}) {
       // O que o gesto abriu, perguntado ao núcleo ANTES de pintar: a tela não
       // reimplementa pré-requisito (regra 1 do arquivo), e a pintura sozinha não
       // tem como saber o "antes".
-      if (chegou) avisarChegada(id, abreComBaldeacao(antes, depois, ui.catalogo));
+      if (chegou) avisarChegada(id, abreComBaldeacao(antes, depois, ui.catalogo), momentoDaChegada(antes, depois, ui.catalogo, id));
       else pintar();
     },
     // MARCAR é concluir pela porta do embarque: a lista fecha junto, porque o
@@ -961,7 +968,7 @@ export async function subirMetro(deps = {}) {
     marcar(id) { ui.embarqueAberto = false; acoes.concluir(id); },
     desfazer(id) {
       persistir(desfazerConclusao(progresso, id));
-      ui.chegada = null; ui.despertas = [];
+      ui.chegada = null; ui.momento = null; ui.despertas = [];
       if (janela) { clearTimeout(janela); janela = null; }
       pintar();
     }

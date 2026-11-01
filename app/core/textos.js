@@ -422,7 +422,49 @@ export const jornada = {
   },
 };
 
+/**
+ * A CHEGADA (S6, 01/11/2026): o momento em que concluir vira coisa visível.
+ *
+ * O Lovable fez disso uma tela inteira; aqui o miolo da folha troca de corpo
+ * por `--janela-desfazer` e o mapa muda por trás. Nenhuma destas frases fala em
+ * ponto, XP, sequência ou conquista — a lista do proibido (§9) não é decoro, é
+ * teste, e `marcos` existe para nomear o feito em vez de pontuá-lo.
+ *
+ * `criterioDoMarco` diz O QUE a pessoa fez de concreto: o marco explica-se, não
+ * se comemora com número.
+ */
+export const chegada = Object.freeze({
+  rotulo: 'Conexão criada',
+  entrouNoBilhete: (nome) => `${nome} entrou no seu bilhete.`,
+  carimbo: (data) => `Carimbo de ${data}.`,
+  novoCaminho: 'Novo caminho',
+  estaDisponivel: (nome) => `${nome} está disponível`,
+  // Baldeação é travessia: além do nome, a linha de destino (§3.2).
+  disponivelNaLinha: (nome, linha) => `${nome} está disponível, na Linha ${linha}`,
+  naLinha: (nome, linha) => `${nome}, na Linha ${linha}`,
+  // O "fecha a Linha n" é o MESMO texto da placa (jornada.conexao.fecha): duas
+  // palavras para o mesmo fato é o defeito que a crítica da v1 contou.
+  nadaAbriu: 'Nada se abre com esta estação.',
+  marco: 'Marco',
+  verProxima: 'Ver próxima estação',
+  voltarAoMapa: 'Voltar ao mapa',
+  // O leitor de tela fala o momento inteiro numa frase só (heurística 9).
+  anuncia: (nome, abertas) => `Conexão criada: ${nome}. ${abertas} ${abertas === 1 ? 'estação aberta' : 'estações abertas'}.`,
+  nomeDoMarco: Object.freeze({
+    estacao: 'Estação concluída',
+    fim_da_linha: 'Fim da linha',
+    primeira_baldeacao: 'Primeira baldeação',
+    terminal: 'Terminal',
+  }),
+  criterioDoMarco: Object.freeze({
+    estacao: 'Concluir uma estação da rede.',
+    fim_da_linha: 'Concluir todas as estações de uma linha.',
+    primeira_baldeacao: 'Concluir uma estação que pede outra linha.',
+    terminal: 'Concluir todas as estações da grade.',
+  }),
+});
+
 /** Tudo junto, para quem precisa percorrer (o teste percorre). */
-export const TEXTOS = { placa, comValores, folha, estados, legenda, proibido, ORIGEM, TIPO_DE_ORIGEM, casco, jornada };
+export const TEXTOS = { placa, comValores, folha, estados, legenda, proibido, ORIGEM, TIPO_DE_ORIGEM, casco, jornada, chegada };
 
 export default TEXTOS;

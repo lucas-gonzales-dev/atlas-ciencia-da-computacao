@@ -354,4 +354,93 @@
     transition: none;
     transform: none;
   }
+
+  /* S6: com movimento reduzido o selo já chega CHEIO e o traço já está
+     desenhado — a pessoa vê o mesmo fato, sem a animação. */
+  .folha-tra-traco {
+    stroke-dashoffset: 0;
+    animation: none;
+  }
+}
+
+/* ─────────────── S6 — o MOMENTO ("Conexão criada") ─────────────── */
+
+.folha-momento .folha-tra {
+  width: var(--alvo-toque);
+  height: var(--alvo-toque);
+  color: var(--cor);
+}
+
+.folha-tra-fundo {
+  fill: currentColor;
+  opacity: 0.16;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+
+.folha-tra-traco {
+  stroke: currentColor;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 32;
+  stroke-dashoffset: 32;
+  animation: folha-tra var(--movimento-chegada) var(--curva-atlas) forwards;
+}
+
+@keyframes folha-tra {
+  to { stroke-dashoffset: 0; }
+}
+
+.folha-rotulo-momento,
+.folha-caminho-rotulo,
+.folha-marco-rotulo {
+  color: var(--fosca);
+  font-size: var(--tipo-nota);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.folha-titulo-momento {
+  font-size: var(--tipo-titulo);
+  margin: 0;
+}
+
+.folha-carimbo-momento,
+.folha-momento-estado {
+  color: var(--fosca);
+  font-size: var(--tipo-corpo);
+}
+
+.folha-caminho-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--espaco-2);
+}
+
+.folha-caminho-link {
+  color: var(--cor);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.folha-anuncio {
+  color: var(--fosca);
+  font-size: var(--tipo-nota);
+}
+
+.folha-marco {
+  border-inline-start: 3px solid var(--cor);
+  padding-inline-start: var(--espaco-3);
+}
+
+.folha-marco-criterio {
+  color: var(--fosca);
+  font-size: var(--tipo-nota);
+}
+
+.folha-momento-acoes {
+  display: grid;
+  gap: var(--espaco-3);
 }
