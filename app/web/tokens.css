@@ -10,10 +10,14 @@
  * nenhum tamanho, duração ou ponto de quebra aparece lá, porque nada disso muda
  * no escuro.
  *
- * PROVISÓRIOS: o bloco no fim guarda as cores da tela de HOJE (o azul-marinho
- * que o Lucas rejeitou). Estão aqui só para a trava de cor valer sem mudar a
- * aparência antes da hora. Cada um morre no pedido que redesenha a tela dele.
- * Veja "Migração" em design/README.md. */
+ * PROVISÓRIOS: NÃO HÁ MAIS. O bloco --p-* do fim do arquivo (a paleta
+ * azul-marinho que o Lucas rejeitou) foi migrado e APAGADO na S3b da v2
+ * (31/10/2026): os 31 usos do web/grade.css passaram a usar --fundo,
+ * --superficie, --tinta, --fosca, --borda, --trancada, --alerta,
+ * --alerta-fundo, --linha-6 e a cor da LINHA do cartão (--cor / --cor-fraca).
+ * tests/design-system.test.js confere duas coisas: nenhuma tela usa var(--p-*)
+ * e este arquivo não declara nenhum --p-*. Um apelio que sobrevivesse seria
+ * convite para a paleta rejeitada voltar num CSS novo. */
 
 :root {
   /* ── COR · fundo e tinta ────────────────────────────────────────────────
@@ -239,44 +243,4 @@
     transition-duration: 0ms !important;
     scroll-behavior: auto !important;
   }
-}
-
-/* ── PROVISÓRIOS · a aparência de HOJE, que ainda não mudou ──────────────
- * A tela atual é a que o Lucas rejeitou: fundo azul-marinho, botões contornados
- * iguais, fonte do sistema. Este pedido entrega o DS sem mudar a tela, então as
- * cores antigas viraram tokens com prefixo --p- para a trava de cor valer.
- *
- * CADA UM MORRE no pedido que redesenha a tela dele: o que for migrado passa a
- * usar --fundo, --tinta, --linha-N, e o --p-* correspondente é APAGADO. Um
- * provisório que sobrevive ao redesenho é dívida. */
-:root {
-  --p-fundo: #0b1020;          /* PROVISÓRIO: azul-marinho rejeitado → --fundo */
-  --p-cartao: #151b30;         /* PROVISÓRIO → --superficie */
-  --p-borda: #26304d;          /* PROVISÓRIO → --borda */
-  --p-texto: #e8ecf7;          /* PROVISÓRIO → --tinta */
-  --p-fosco: #93a0c2;          /* PROVISÓRIO → --fosca */
-  --p-aberto: #38d39f;         /* PROVISÓRIO: estado por cor → forma + --linha-N */
-  --p-feito: #6aa9ff;          /* PROVISÓRIO → cor da linha da estação */
-  --p-trancado: #5a6482;       /* PROVISÓRIO → --trancada */
-  --p-alerta: #ffb454;         /* PROVISÓRIO → --alerta */
-  --p-alerta-fundo: #3a2a12;   /* PROVISÓRIO → --alerta-fundo */
-  --p-alerta-borda: #6b4a1c;   /* PROVISÓRIO → --alerta-fundo + --alerta */
-  --p-recurso-fundo: #101a30;  /* PROVISÓRIO → --superficie */
-  --p-link-biblio: #9fb8d8;    /* PROVISÓRIO → --linha-6 */
-  --p-link-biblio-forte: #d8e4f5; /* PROVISÓRIO → --tinta */
-  --p-link-biblio-borda: rgba(159, 184, 216, 0.5); /* PROVISÓRIO → --linha-6 */
-  --p-nota: #8a8f98;           /* PROVISÓRIO → --fosca */
-  --p-riscado: #4a5a80;        /* PROVISÓRIO → --trancada */
-  --p-botao-fundo: #1d2740;    /* PROVISÓRIO → --superficie */
-  --p-aberto-fundo: #12352a;   /* PROVISÓRIO → cor da linha a 25% */
-  --p-aberto-borda: #1f6b52;   /* PROVISÓRIO → cor da linha */
-  --p-feito-fundo: #16233d;    /* PROVISÓRIO → cor da linha a 25% */
-  --p-feito-borda: #2c4c7d;    /* PROVISÓRIO → cor da linha */
-  --p-aviso-fundo: #1b1f33;    /* PROVISÓRIO → --superficie */
-  --p-obras-borda: #8a6a1f;    /* PROVISÓRIO → --alerta */
-  --p-obras-fundo: #1d1a12;    /* PROVISÓRIO → --alerta-fundo */
-  --p-obras-texto: #e9d9a8;    /* PROVISÓRIO → --alerta */
-  --p-obras-caixa: #2a2313;    /* PROVISÓRIO → --alerta-fundo */
-  --p-obras-caixa-borda: #55461f; /* PROVISÓRIO → --alerta */
-  --p-esp-nota: #c9b98a;       /* PROVISÓRIO → --fosca */
 }

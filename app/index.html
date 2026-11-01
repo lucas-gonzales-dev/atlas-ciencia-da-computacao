@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0b1020">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#fbf7f0">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#17181a">
 <meta name="description" content="A sua próxima estação na trilha de Ciência da Computação da Universidade Brasileira Livre.">
 <title>Projeto Atlas — Ciência da Computação</title>
 <link rel="manifest" href="manifest.webmanifest">
@@ -15,10 +16,15 @@
      (fundo, anel de foco de 3 px, .so-leitor). Depois vêm as telas: metro.css
      desenha a Jornada, grade.css desenha a Explorar — as duas escopadas nas
      suas classes, nenhum valor à mão aqui. O casco.css (cara das abas) entra na
-     S3a-2b. Não há build: o que está no disco é o que o navegador usa. -->
+     S3a-2b. Não há build: o que está no disco é o que o navegador usa.
+
+     S3b (31/10/2026): a base vem LOGO DEPOIS do tokens.css — antes dele as
+     variáveis ainda não existem e o fundo volta a ser branco no escuro. E as
+     duas metas theme-color acima são papel e carvão por media: a barra do
+     navegador acompanha o tema da tela, que agora é o do design system. -->
 <link rel="stylesheet" href="./web/tokens.css">
-<link rel="stylesheet" href="./web/fontes.css">
 <link rel="stylesheet" href="./web/base.css">
+<link rel="stylesheet" href="./web/fontes.css">
 <link rel="stylesheet" href="./web/casco.css">
 <link rel="stylesheet" href="./web/metro.css">
 <link rel="stylesheet" href="./web/grade.css">

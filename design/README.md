@@ -377,6 +377,13 @@ passa a usar `--fundo`, `--tinta`, `--linha-N`, e o provisório correspondente �
 apagado. Um token provisório que sobrevive ao redesenho daquela tela é dívida, e
 o comentário diz de quem.
 
+**A S3b da v2 fechou a migração (31/10/2026):** os 31 usos de `--p-*` do
+`web/grade.css` passaram aos tokens do DS (`--fundo`, `--superficie`, `--tinta`,
+`--fosca`, `--borda`, `--trancada`, `--alerta`, `--alerta-fundo`, `--linha-6` e a
+cor da linha do cartão, `--cor`/`--cor-fraca`), e o bloco PROVISÓRIO foi apagado
+do `tokens.css`. Não sobra nenhum; `web/grade.css` e `app/metro.html` (agora só
+redirecionamento para `./#/`) foram os últimos a sair da paleta rejeitada.
+
 Duas exceções honestas, as únicas mudanças visíveis deste pedido:
 
 1. o `@media (min-width: 620px)` do CSS atual virou `min-width: 600px`, porque

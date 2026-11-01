@@ -352,7 +352,13 @@ export function render(root, { courses, completed, origem, electives, origemElet
     // primeira disciplina jogava TypeError e a tela morria inteira. Ninguem
     // tinha visto porque index.html ainda nao existia. Agora o li e montado
     // antes de entrar na lista, sem remendo posterior.
-    const li = el('li', { class: `item ${estado}`, 'data-id': c.id });
+    // S3b (31/10/2026): o cartão ganha a classe da linha (`l1` a `l7`), e é ela
+    // que traz --cor e --cor-fraca do metro.css. Antes o estado era pintado por
+    // cores soltas da paleta provisória (verde = disponível, azul = feito): a
+    // cor passava a significar estado, o que o design system proíbe — cor é de
+    // linha, e estado continua dito pela forma e pela palavra.
+    const classeLinha = Number.isInteger(c.stage) && c.stage >= 1 && c.stage <= 7 ? ` l${c.stage}` : '';
+    const li = el('li', { class: `item ${estado}${classeLinha}`, 'data-id': c.id });
     const pedacos = [
       el('span', { class: 'titulo' }, `${c.title}${prereq}`),
       el('span', { class: 'status' }, rotulo)

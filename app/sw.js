@@ -149,12 +149,21 @@
 // navegador le. Agora le: tests/design-system.test.js reprova linha que comeca
 // com // em arquivo de estilo.
 // Sem subir a VERSAO, quem tem v23 no cache continua com a folha quebrada.
-const VERSAO = 'atlas-v24';
+// atlas-v25: S3b da v2 — a paleta azul-marinho morre. web/grade.css migrou os
+// 31 var(--p-*) para os tokens do design system e web/tokens.css perdeu o bloco
+// PROVISORIO inteiro; web/main.js passou a pôr a classe da linha (l1..l7) no
+// cartao, porque o estado agora e pintado pela COR DA LINHA, nao por verde/azul
+// inventados. app/metro.html deixou de ser pagina e virou redirecionamento para
+// ./#/ (quem tem o endereco salvo chega na Jornada, ate offline: ele continua no
+// precache), e app/index.html passou a ter dois theme-color, papel e carvao.
+// Sem subir a VERSAO, o navegador compara estes arquivos por bytes e o cache
+// velho vence: a tela ficaria com o azul-marinho rejeitado por fora.
+const VERSAO = 'atlas-v25';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
 // deixa o cache antigo sem o nome novo. Recalcular: node tests/precache-hash.js.
-const PRECACHE_HASH = 'sha256-d35ad1ed5ef8b5022b1097e3a04bb57d038fe3ebdf4d9556e84ae6d24f08ce6e';
+const PRECACHE_HASH = 'sha256-4f8f47e911dee57eac05ab757b41bf1b4624b231e69c289106f2b17d0ac92496';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.
