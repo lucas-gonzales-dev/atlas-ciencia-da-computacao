@@ -16,8 +16,10 @@
 //      resolve com os tokens. JS que escolhe hex é JS que fura o design system.
 
 import { placa, comValores, estados, ORIGEM, TIPO_DE_ORIGEM } from '../core/textos.js';
+import { abertura, tresNumeros, conexao, totalDeLinhas } from './telas/jornada-blocos.js';
 import {
   ESTADOS,
+  numerosDaJornada,
   lerProgresso,
   estadoDaEstacao,
   resumoDaViagem,
@@ -408,6 +410,19 @@ export function desenharMetro(doc, root, estado) {
   root.append(marca);
   nos.marca = marca;
 
+  // ── 0b. a ABERTURA (S4a, JORNADA 1.1) ───────────────────────────────────
+  // É a PEÇA 1 das três da Jornada, e vem ANTES da placa porque é ela que
+  // responde "o que é isto". As três peças moram em web/telas/jornada-blocos.js:
+  // este arquivo tem 932 linhas, e a regra 15 manda dividir pela responsabilidade
+  // em vez de engordar. Aqui só se chama.
+  const primeiraVisita = resumo.concluidas === 0 && resumo.emCurso === 0;
+  root.append(abertura(doc, {
+    resumo,
+    primeiraVisita,
+    estacoes: resumo.estacoes,
+    linhas: totalDeLinhas(catalogo)
+  }));
+
   // ── 1. a placa ──────────────────────────────────────────────────────────
   const proxima = resumo.proximaEstacao
     ? estadoDaEstacao(resumo.proximaEstacao.id, progresso, catalogo)
@@ -458,6 +473,24 @@ export function desenharMetro(doc, root, estado) {
   }
   root.append(cartao);
   nos.placas = cartao;
+
+  // ── 1b. os TRÊS NÚMEROS e a PRÓXIMA CONEXÃO (S4a) ──────────────────────
+  // Depois da placa, na ordem da fatia. No Terminal os dois não aparecem: vale o
+  // `terminal` de textos.js, que a placa já desenha, e "35/35" ao lado de "próxima
+  // conexão" de nada seria a tela insistindo num número que já não quer dizer
+  // nada. Os números vêm do núcleo (numerosDaJornada), nunca contados aqui.
+  if (!resumo.terminal) {
+    const n = numerosDaJornada(progresso, catalogo);
+    root.append(tresNumeros(doc, {
+      carimbos: n.carimbos,
+      total: resumo.estacoes,
+      emCurso: n.emCurso,
+      abertas: n.linhasAbertas,
+      linhas: totalDeLinhas(catalogo)
+    }));
+    const conn = conexao(doc, { progresso, catalogo, resumo });
+    if (conn) root.append(conn);
+  }
 
   // ── 5b. embarque (fatia 2c-2) ────────────────────────────────────────────
   // Aparece sozinho na primeira visita (0 concluídas) e fica enquanto a lista

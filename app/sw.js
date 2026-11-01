@@ -158,12 +158,19 @@
 // precache), e app/index.html passou a ter dois theme-color, papel e carvao.
 // Sem subir a VERSAO, o navegador compara estes arquivos por bytes e o cache
 // velho vence: a tela ficaria com o azul-marinho rejeitado por fora.
-const VERSAO = 'atlas-v25';
+// atlas-v26: S4a da v2 — a Jornada responde em 10 segundos. Entraram no
+// precache web/telas/jornada-blocos.js (as tres pecas: abertura, os tres
+// numeros, a proxima conexao) e web/telas/jornada.css, e mudaram por dentro
+// web/metro.js (o desenharMetro chama as pecas), core/viagem.js
+// (numerosDaJornada), core/textos.js (secao jornada) e index.html (o link do
+// css novo). Sem estes dois no cache, quem tem v25 recebe o HTML novo e a
+// abertura nao monta — a tela perde a primeira coisa que se le, no onibus.
+const VERSAO = 'atlas-v26';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
 // deixa o cache antigo sem o nome novo. Recalcular: node tests/precache-hash.js.
-const PRECACHE_HASH = 'sha256-4f8f47e911dee57eac05ab757b41bf1b4624b231e69c289106f2b17d0ac92496';
+const PRECACHE_HASH = 'sha256-824d7683f2fc3e3cd1bec85573537be2ad4bed003ff5c10306f96642231ed689';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.
@@ -215,6 +222,12 @@ const PRECACHE = [
   'web/casco.css',
   'web/telas/jornada.js',
   'web/telas/explorar.js',
+  // As tres pecas da Jornada (S4a, 31/10/2026): o metro.js importa
+  // jornada-blocos.js, e o index.html liga o jornada.css. Se um dos dois
+  // faltar no cache, a primeira aba abre sem a abertura e sem o tamanho do
+  // titulo — branco silencioso, sem erro na rede para avisar.
+  'web/telas/jornada-blocos.js',
+  'web/telas/jornada.css',
   'web/fontes.css',
   'fonts/overpass-latin-var.woff2',
   'fonts/overpass-mono-latin-var.woff2',

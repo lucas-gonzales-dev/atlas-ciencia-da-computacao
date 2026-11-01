@@ -313,7 +313,51 @@ export const casco = {
   abas: { jornada: 'Jornada', explorar: 'Explorar' },
 };
 
+/**
+ * A JORNADA (S4a, 31/10/2026): as três peças que respondem em 10 segundos —
+ * o que é isto (abertura), onde estou (os três números) e o que o próximo passo
+ * abre (a conexão). Os rótulos saem em caixa alta no CSS (`text-transform`),
+ * como toda placa do app, e nenhum dos três números é placar: sem XP, sem
+ * sequência, sem pontos.
+ *
+ * Frase com valor é função, e o valor vem do catálogo ou da viagem da pessoa —
+ * nunca um número escrito aqui. Por isso `paragrafo` e `valorLinhas` recebem.
+ */
+export const jornada = {
+  abertura: {
+    rotulo: 'Sua viagem em Ciência da Computação',
+    titulo: 'Seu caminho fica mais claro a cada',
+    // A palavra que fecha o título leva a cor da linha da próxima estação.
+    tituloFim: 'conexão.',
+    paragrafo: (estacoes, linhas) =>
+      `${estacoes} estações em ${linhas} linhas, da grade aberta da Universidade Brasileira Livre. ` +
+      'O Atlas aponta os cursos e livros que ela indica e guarda sua viagem só neste aparelho.',
+    // Primeira visita: o embarque é a saída, e a linha 1 é a porta da rede.
+    primeiraVisita:
+      'Comece pela Linha 1: as estações dela abrem o resto da rede. Ou marque o que você já estudou — a rede se ajusta ao que você sabe.',
+  },
+  numeros: {
+    rotulo: 'Sua viagem em números',
+    viagem: 'Viagem',
+    valorViagem: (c, t) => `${c}/${t}`,
+    notaViagem: 'estações concluídas',
+    emCurso: 'Em curso',
+    valorEmCurso: (n) => String(n).padStart(2, '0'),
+    notaEmCurso: 'você decide quando concluir',
+    linhasAbertas: 'Linhas abertas',
+    valorLinhas: (a, t) => `${a}/${t}`,
+    notaLinhas: 'com estação disponível',
+  },
+  conexao: {
+    rotulo: 'Próxima conexão',
+    abre: (proxima, nomes) => `Ao concluir ${proxima}, você abre ${nomes}.`,
+    // Baldeação é travessia: a tela nomeia a linha de destino.
+    naLinha: (nomes, linha) => `${nomes}, na Linha ${linha}`,
+    fecha: (linha) => `Esta estação fecha a Linha ${linha}.`,
+  },
+};
+
 /** Tudo junto, para quem precisa percorrer (o teste percorre). */
-export const TEXTOS = { placa, comValores, estados, legenda, proibido, ORIGEM, TIPO_DE_ORIGEM, casco };
+export const TEXTOS = { placa, comValores, estados, legenda, proibido, ORIGEM, TIPO_DE_ORIGEM, casco, jornada };
 
 export default TEXTOS;

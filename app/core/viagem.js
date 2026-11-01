@@ -554,3 +554,29 @@ export function linhasAbertas(progresso, catalogo) {
   }
   return [...linhas].sort((a, b) => a - b);
 }
+
+/**
+ * OS TRÊS NÚMEROS DA JORNADA (S4a, 31/10/2026).
+ *
+ * A tela mostra "3/35", "01" e "5/7". Cada um deles é uma contagem de estado, e
+ * contagem de estado é regra — mora aqui, no mesmo lugar do resumo, para a placa
+ * e os números não dividirem de formas diferentes. XP, sequência e pontos não
+ * existem (regra 9): os três números saem do que a pessoa fez, não de um placar.
+ *
+ * @param {unknown} progresso array de ids OU objeto v3
+ * @param {Array} catalogo
+ * @returns {{carimbos:number, emCurso:number, linhasAbertas:number}}
+ */
+export function numerosDaJornada(progresso, catalogo) {
+  const { lista, byId } = malha(catalogo);
+  const p = lerProgresso(progresso);
+  const concluidas = new Set(p.completed.filter((id) => byId.has(id)));
+  const emCurso = new Set(p.emCurso.filter((id) => byId.has(id) && !concluidas.has(id)));
+  return {
+    carimbos: concluidas.size,
+    emCurso: emCurso.size,
+    // O tamanho do que linhasAbertas devolve — a mesma porta do mapa, para o
+    // número da tela e a linha acesa não discordarem.
+    linhasAbertas: linhasAbertas(p, lista).length
+  };
+}

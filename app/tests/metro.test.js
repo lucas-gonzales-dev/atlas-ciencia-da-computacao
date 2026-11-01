@@ -28,7 +28,8 @@ import {
   ESTADOS, resumoDaViagem, estadoDaEstacao, concluirEstacao, abreComBaldeacao
 } from '../core/viagem.js';
 import {
-  placa as PLACAS, comValores, estados as TEXTOS_ESTADOS, ORIGEM, TIPO_DE_ORIGEM
+  placa as PLACAS, comValores, estados as TEXTOS_ESTADOS, ORIGEM, TIPO_DE_ORIGEM,
+  jornada as J
 } from '../core/textos.js';
 import { setNota } from '../core/notes.js';
 import * as mainReal from '../web/main.js';
@@ -1382,4 +1383,174 @@ test('marca: a tela não desenha o nome "Atlas" (o logo do topo já diz)', () =>
   assert.equal(marca.tag, 'div', 'div, não header: o cabeçalho do app é o do HTML');
   assert.equal(comClasse(marca, 'marca-linha')[0].textContent, PLACAS.marcaLinha,
     'a linha do curso fica: é ela que rotula a tela');
+});
+
+// ════════════════════ S4a: as três peças da Jornada ════════════════════
+//
+// JORNADA 1.1: em 10 segundos a pessoa lê o que é isto, onde ela está e qual é
+// o próximo passo. São três peças novas, e o que pesa é o que elas NÃO podem
+// ter: régua de jogo (XP, sequência, pontos), número inventado, e o parágrafo
+// da abertura na primeira visita — quando a viagem ainda não começou, falar de
+// "35 estações em 7 linhas" para quem vai marcar o que já estudou é a tela
+// falando de si mesma.
+test('jornada: o número do catálogo é lido, nunca escrito', () => {
+  // Quem já tem um carimbo lê a descrição da grade — e os dois números dela vêm
+  // do catálogo passado ao desenhar, não de um literal escrito no metro.js. Por
+  // isso o catálogo de teste é 6×3: se a tela tivesse 35 e 7 no código, a frase
+  // não apareceria aqui e o teste pegaria.
+  const { root } = desenhar({ completed: ['l1a'], catalogo: CATALOGO });
+  const texto = textoDe(root);
+  const estacoes = CATALOGO.length;
+  const linhas = new Set(CATALOGO.map((c) => c.stage)).size;
+  assert.ok(estacoes !== 35 && linhas !== 7,
+    'o catálogo de teste virou 35×7: a frase leria um literal e passaria por prova');
+  assert.ok(texto.includes(`${estacoes} estações em ${linhas} linhas`),
+    `a abertura não leu o catálogo (esperava "${estacoes} estações em ${linhas} linhas", e o texto diz outra coisa)`);
+
+  // O denominador é o total do catálogo, nunca o 35 da grade publicado.
+  assert.equal(texto.includes(`/${35}`), false,
+    'a viagem divide por 35 escrito à mão, não pelo catálogo');
+
+  // Primeira visita: a vitrine cede o lugar à porta — quem ainda não tem nada
+  // concluído vê o embarque, não uma contagem de estações.
+  const vazio = desenhar({ completed: [], catalogo: CATALOGO });
+  const p = comClasse(vazio.root, 'abertura-texto')[0].textContent;
+  assert.equal(p.includes(`${estacoes} estações`), false,
+    `na primeira visita a abertura ainda fala da grade em vez do embarque: "${p}"`);
+});
+
+test('jornada: nenhum XP nem sequência na tela', () => {
+  const re = /\bXP\b|sequ[êe]ncia|streak|ranking|pontos/i;
+  const achados = [];
+  const ver = (onde, v) => { if (typeof v === 'string' && re.test(v)) achados.push(`${onde}: "${v}"`); };
+  const percorrer = (obj, prefixo) => {
+    for (const [k, v] of Object.entries(obj || {})) {
+      const nome = `${prefixo}.${k}`;
+      if (typeof v === 'string') ver(nome, v);
+      else if (Array.isArray(v)) v.forEach((item, i) => {
+        if (typeof item === 'string') ver(`${nome}[${i}]`, item);
+        else percorrer(item, `${nome}[${i}]`);
+      });
+      else if (v && typeof v === 'object') {
+        for (const [kk, vv] of Object.entries(v)) {
+          if (typeof vv === 'function') ver(`${nome}.${kk}`, vv('1'));
+          else percorrer({ [kk]: vv }, nome);
+        }
+      }
+    }
+  };
+  percorrer(TEXTOS_ESTADOS, 'estados');
+  // Os textos da Jornada, lidos com valores reais (função também é frase).
+  ver('jornada.abertura.rotulo', J.abertura.rotulo);
+  ver('jornada.abertura.titulo', J.abertura.titulo);
+  ver('jornada.abertura.tituloFim', J.abertura.tituloFim);
+  ver('jornada.abertura.paragrafo', J.abertura.paragrafo(35, 7));
+  ver('jornada.abertura.primeiraVisita', J.abertura.primeiraVisita);
+  for (const [k, v] of Object.entries(J.numeros)) ver(`jornada.numeros.${k}`, typeof v === 'function' ? v(1, 35) : v);
+  ver('jornada.conexao.rotulo', J.conexao.rotulo);
+  ver('jornada.conexao.abre', J.conexao.abre('Alfa', 'Beta'));
+  ver('jornada.conexao.fecha', J.conexao.fecha(1));
+  assert.deepEqual(achados, [], 'régua de jogo na tela (JORNADA §1: os três números saem do que a pessoa fez)');
+
+  // A prova de que o percorrer enxerga de verdade: duas armadilhas plantadas,
+  // uma em string direta e uma dentro de array. Sem isso, "achados vazio" podia
+  // ser só uma varredura que não varre nada — o pior tipo de verde.
+  percorrer({ armadilha: { grito: 'você ganhou 240 XP', lista: ['streak de 3 dias'] } }, 'planta');
+  assert.equal(achados.length, 2,
+    `o percorrer não achou as duas armadilhas plantadas (achou ${achados.length}): ${JSON.stringify(achados)}`);
+});
+
+test('jornada: o h1 é o primeiro título e usa o tamanho da estação', () => {
+  const { root } = desenhar({ completed: [] });
+  // Documento, não filho direto da raiz: o h1 mora dentro da <section> da
+  // abertura, e um indexOf em root.children daria -1 dos dois lados — verde que
+  // não prova nada. O que a fatia pede é ordem de leitura: o PRIMEIRO título.
+  const titulos = todos(root, (no) => no.tag === 'h1' || no.tag === 'h2');
+  assert.equal(titulos.length > 0, true, 'a Jornada desenhada não tem título nenhum');
+  assert.equal(titulos[0].tag, 'h1', `o primeiro título é um <${titulos[0].tag}>`);
+  assert.equal(titulos[0].className.split(/\s+/).includes('abertura-titulo'), true,
+    `o primeiro título tem a classe "${titulos[0].className}": a abertura não abre a tela`);
+  assert.equal(porTag(root, 'h1').length, 1, 'a tela tem mais de um <h1>');
+
+  // O CSS é a fonte da forma: --tipo-estacao é o MAIOR tamanho da escala.
+  const css = readFileSync(fileURLToPath(new URL('../web/telas/jornada.css', import.meta.url)), 'utf8');
+  const bloco = css.split('}').find((b) => b.includes('.abertura-titulo'));
+  assert.ok(bloco, 'jornada.css não declara .abertura-titulo');
+  assert.ok(bloco.includes('font-size: var(--tipo-estacao)'),
+    'o título da abertura não usa o tamanho da estação — é a placa competindo com ele');
+});
+
+test('jornada: na primeira visita, o parágrafo cede o lugar ao embarque', () => {
+  const vazio = desenhar({ completed: [], catalogo: CAT_RECURSO });
+  const textoVazio = textoDe(vazio.root);
+  assert.ok(textoVazio.includes(J.abertura.primeiraVisita),
+    'na viagem vazia a abertura não fala do embarque');
+  assert.ok(comClasse(vazio.root, 'embarque').length > 0,
+    'o embarque sumiu da primeira visita');
+
+  // Uma concluída: a frase volta a ser a da grade, e o embarque continua só
+  // enquanto a lista estiver aberta — não para sempre.
+  const depois = desenhar({ completed: ['l1a'], catalogo: CATALOGO });
+  assert.equal(textoDe(depois.root).includes(J.abertura.primeiraVisita), false,
+    'a frase de primeira visita ficou pendurada em quem já tem uma estação');
+  assert.ok(textoDe(depois.root).includes(`${CATALOGO.length} estações`),
+    'com uma concluída a tela não voltou a descrever a grade');
+
+  // Terminal: tudo carimbado no catálogo REAL. Os números e a conexão saem; vale
+  // o texto do terminal, que a placa já desenha. `readFileSync` já é importado
+  // no topo — um `await` dentro de test() não-async é SyntaxError e derruba o
+  // arquivo inteiro, que é exatamente o que aconteceu aqui.
+  const real = JSON.parse(readFileSync(fileURLToPath(new URL('../data/catalog.json', import.meta.url)), 'utf8')).courses;
+  const ids = real.map((c) => c.id);
+  assert.equal(ids.length, 35, `o catálogo real mudou de tamanho (${ids.length}): o caso Terminal precisa de revisão`);
+  const terminal = desenhar({
+    completed: ids,
+    conclusoes: Object.fromEntries(ids.map((id) => [id, '2026-10-30'])),
+    catalogo: real
+  });
+  assert.equal(comClasse(terminal.root, 'numeros').length, 0,
+    'no Terminal a tela ainda empilha os três números');
+  assert.equal(comClasse(terminal.root, 'conexao').length, 0,
+    'no Terminal a tela ainda promete uma próxima conexão');
+});
+
+test('jornada: a próxima conexão diz o que o passo abre, inclusive baldeação', () => {
+  // linha 1: Alfa (sem pré). linha 2: Beta (← Alfa). Concluir Alfa abre Beta,
+  // que é de OUTRA linha: é travessia, e a tela nomeia a linha de destino.
+  const cat = [
+    { id: 'c1a', title: 'Alfa', stage: 1, prerequisites: [] },
+    { id: 'c2a', title: 'Beta', stage: 2, prerequisites: ['c1a'] }
+  ];
+  const raiz = desenhar({ completed: [], catalogo: cat });
+  const conn = comClasse(raiz.root, 'conexao-texto')[0];
+  assert.ok(conn, 'a peça "próxima conexão" não foi desenhada');
+  assert.equal(conn.textContent, 'Ao concluir Alfa, você abre Beta, na Linha 2.',
+    `a conexão não nomeou a baldeação com a linha de destino: "${conn.textContent}"`);
+
+  // Uma estação só, na linha 1: concluí-la fecha a linha, e não abre nada.
+  const sozinha = [
+    { id: 'f1a', title: 'Alfa', stage: 1, prerequisites: [] },
+    { id: 'f1b', title: 'Beta', stage: 1, prerequisites: ['f1a'] }
+  ];
+  const fecha = desenhar({ completed: ['f1a'], catalogo: sozinha });
+  const conn2 = comClasse(fecha.root, 'conexao-texto')[0];
+  assert.ok(conn2, 'a linha que fecha não foi dita');
+  assert.equal(conn2.textContent, 'Esta estação fecha a Linha 1.',
+    `discrimina: com lista vazia a tela diria "você abre ." — "${conn2.textContent}"`);
+
+  // E sem nada que abrir E sem linha que fechar, a peça se cala: nada inventado.
+  // A peça tem que se calar. Beta está travada por Gama, que é uma estação REAL
+  // e ainda não concluída — um pré inexistente não serve, porque o núcleo ignora
+  // pré que não está no catálogo e a Beta abriria. Gama já está livre antes e
+  // depois do gesto, então nada destrava; e a linha 1 tem 3 estações com zero
+  // carimbos, então tampoco fecha. Nada a dizer: silêncio.
+  const muda = [
+    { id: 'm1a', title: 'Alfa', stage: 1, prerequisites: [] },
+    { id: 'm1b', title: 'Beta', stage: 1, prerequisites: ['m1c'] },
+    { id: 'm1c', title: 'Gama', stage: 1, prerequisites: [] }
+  ];
+  const calada = desenhar({ completed: [], catalogo: muda });
+  const conn3 = comClasse(calada.root, 'conexao');
+  assert.ok(conn3.length === 0 || conn3[0].children.length === 1,
+    'a conexão inventou um gancho onde o catálogo não garante nenhum');
 });

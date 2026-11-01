@@ -1,0 +1,93 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   A JORNADA — as três peças da S4a (abertura, os três números, próxima conexão).
+
+   POR QUE OUTRO ARQUIVO: o metro.css fechou a 400 linhas (a regra 15 do 00-regras
+   não deixa engordar), e estas três peças têm responsabilidade própria — é a
+   primeira tela do app, não o diagrama. O link dele vem DEPOIS do metro.css no
+   index.html, porque a abertura e os números reusam a classe de rótulo de placa
+   que o metro.css declara.
+
+   NADA AQUI ESCOLHE COR, TEMPO OU LARGURA: só tokens (--espaco-*, --tipo-*,
+   --cor) e o que o metro.css já define. O layout de duas colunas no computador
+   é da S4b, não daqui.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.abertura {
+  display: grid;
+  gap: var(--espaco-2);
+  margin: var(--espaco-6) 0 var(--espaco-4);
+}
+
+/* O maior texto da tela. --tipo-estacao é o MAIOR da escala, e é aqui que ele
+   mora depois da estação na placa: um título por tela, e um só competindo. */
+.abertura-titulo {
+  margin: 0;
+  font-family: var(--fonte-placa);
+  font-size: var(--tipo-estacao);
+  font-weight: var(--peso-placa);
+  line-height: var(--entrelinha-apertada);
+  letter-spacing: -0.01em;
+  color: var(--tinta);
+  overflow-wrap: anywhere;
+}
+
+/* A palavra "conexão." na cor da linha da próxima estação. A cor vem da classe
+   l<n> que o metro.css declara em .l1 … .l7, aplicada no ANCESTRAL da placa —
+   aqui ela só a lê, e por isso não há valor nenhum escrito à mão. */
+.pela-linha { color: var(--cor, var(--tinta)); }
+
+.abertura-texto {
+  margin: 0;
+  font-family: var(--fonte-corpo);
+  font-size: var(--tipo-corpo);
+  line-height: var(--entrelinha-nota);
+  color: var(--fosca);
+}
+
+.numeros {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--espaco-3);
+  margin: var(--espaco-4) 0;
+  padding: var(--espaco-4);
+  background: var(--superficie);
+  border: var(--anel-trancada) solid var(--borda);
+  border-radius: var(--raio-placa);
+}
+
+.numero-item { display: grid; gap: var(--espaco-1); }
+
+/* Mono: três números lado a lado têm de alinhar, e número que alinha é número
+   que se compara. Não é placar — é contagem do que a pessoa fez. */
+.numero-valor {
+  margin: 0;
+  font-family: var(--fonte-mono);
+  font-size: var(--tipo-titulo);
+  font-weight: var(--peso-forte);
+  line-height: var(--entrelinha-apertada);
+  color: var(--tinta);
+}
+
+.numero-nota {
+  margin: 0;
+  font-family: var(--fonte-corpo);
+  font-size: var(--tipo-nota);
+  line-height: var(--entrelinha-nota);
+  color: var(--fosca);
+}
+
+.conexao {
+  margin: 0 0 var(--espaco-6);
+  padding: var(--espaco-3) var(--espaco-4);
+  border-left: var(--trilho) solid var(--cor, var(--borda));
+  display: grid;
+  gap: var(--espaco-1);
+}
+
+.conexao-texto {
+  margin: 0;
+  font-family: var(--fonte-corpo);
+  font-size: var(--tipo-corpo);
+  line-height: var(--entrelinha-nota);
+  color: var(--tinta);
+}
