@@ -147,8 +147,15 @@
 
 /* ── 3. seletor das 7 linhas: faixa que rola de lado ────────────────────── */
 .linhas {
-  margin-top: var(--espaco-4); display: flex; gap: var(--espaco-2);
-  overflow-x: auto; padding-bottom: var(--espaco-2);
+  /* O ar de recorte é padding nos quatro lados, nunca só embaixo: um container
+   * de rolagem corta no próprio padding-edge, e o anel da linha atual mora FORA
+   * da caixa do selo (box-shadow) como o anel de teclado da base (outline com
+   * afastamento). Com recorte justo na caixa, o selo 1 — o primeiro da fileira,
+   * encostado na borda — perdia o pedaço esquerdo do anel. A margem negativa
+   * devolve a sobra para os lados, então o 1 continua alinhado com a placa. */
+  margin-top: var(--espaco-2); margin-inline: calc(-1 * var(--espaco-2));
+  display: flex; gap: var(--espaco-2);
+  overflow-x: auto; padding: var(--espaco-2);
   scrollbar-width: thin; -webkit-overflow-scrolling: touch;
 }
 /* S2 da v2 (31/10/2026), defeito 2: o seletor era sete `<span type="button">`

@@ -1718,3 +1718,27 @@ test('jornada: duas colunas no computador, e o token novo existe', () => {
   assert.match(tokens, /--altura-topo:\s*calc\(/,
     '--altura-topo não existe: o sticky do painel colaria embaixo do topo sticky');
 });
+
+// ── O defeito que só a tela mostra (01/11/2026, pedido do Lucas, desktop e
+// celular): o número 1 nasce com o anel MUTILADO. A causa não é o selo, é a
+// faixa que o envolve: `.linhas` é container de rolagem (`overflow-x: auto`),
+// e um container de rolagem corta no próprio padding-edge. O padding era só
+// embaixo. Só que o anel da linha atual é `box-shadow` --anel-foco de espessura
+// — e box-shadow não aumenta caixa nenhuma, ele mora FORA dela — e o
+// :focus-visible da base (regra S2) é contorno com afastamento: 3 + 3 também
+// fora da caixa. Os dois vivem no espaço que a faixa não tinha. O selo 1 é o
+// primeiro da fileira, encostado na borda esquerda da janela de recorte, e por
+// isso era o que perdia o pedaço.
+test('seletor: a faixa que rola não corta o anel do primeiro selo, e o selo 1 continua alinhado com a placa', () => {
+  const css = readFileSync(fileURLToPath(new URL('../web/metro.css', import.meta.url)), 'utf8');
+  const m = /^\.linhas\s*\{([^}]*)\}/m.exec(css);
+  assert.ok(m, '.linhas tem bloco próprio no começo da linha');
+  const bloco = m[1];
+  assert.match(bloco, /overflow-x:\s*auto/, 'a faixa continua rolando de lado quando não cabe');
+  assert.match(bloco, /padding:\s*var\(--espaco-2\)/,
+    'o ar de recorte tem de ser padding nos QUATRO lados: com padding só embaixo, o anel que vive fora da caixa (box-shadow e outline-offset) é cortado no selo 1');
+  assert.match(bloco, /margin-inline:\s*calc\(-1 \* var\(--espaco-2\)\)/,
+    'e a sobra é devolvida em margem negativa: sem isso o selo 1 entraria na margem da tela e perderia o alinhamento com a placa');
+  assert.match(bloco, /margin-top:\s*var\(--espaco-2\)/,
+    'o ar acima fica na conta de antes: --espaco-2 de margem + --espaco-2 de padding = o --espaco-4 que a placa já tinha');
+});

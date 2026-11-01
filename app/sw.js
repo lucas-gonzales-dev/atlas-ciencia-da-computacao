@@ -187,12 +187,18 @@
 // quebrou. boot.js passou a chamar reg.update() quando ja havia um sw no
 // controle — cache-first sem hora de revalidar deixa dias servindo snapshot de
 // uma versao morta no disco. Mudou conteudo do precache, entao VERSAO e hash.
-const VERSAO = 'atlas-v30';
+// atlas-v31: o selo da Linha 1 nasce sem o numero mutilado (01/11/2026). A faixa
+// que rola (`.linhas`) cortava no proprio padding-edge, e o padding era so
+// embaixo: o anel da linha atual e um box-shadow, e o anel de teclado e outline
+// com afastamento — os dois moram FORA da caixa do selo. Sem ar em volta, o 1,
+// que e o primeiro da fileira, perdia o pedaco esquerdo do anel no desktop e no
+// celular. Mudou conteudo do precache (metro.css), entao VERSAO e hash.
+const VERSAO = 'atlas-v31';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
 // deixa o cache antigo sem o nome novo. Recalcular: node tests/precache-hash.js.
-const PRECACHE_HASH = 'sha256-179ac2351e49ac06d788140a2884037df85bb37a2ea5bf0230263b258de5e4b2';
+const PRECACHE_HASH = 'sha256-b7bc4487100f609f6184f30866685c35f32dd89bbd4ed9a0201ec2e6ba8918be';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.
