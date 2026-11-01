@@ -801,6 +801,14 @@ export function bindMetro(doc, root, handlers) {
     if (fechar) { evento.preventDefault?.(); h.fechar?.(); return; }
   });
 
+  // S5 parte 2: ESC fecha a folha. O ouvinte é no root, a mesma delegação do
+  // clique — a folha é redesenhada a cada pintura e um listener nela nasceria
+  // morto no segundo redesenho. `fechar` é no-op sem rota (abaixo), então Esc
+  // na tela do mapa não manda ninguém para lugar nenhum.
+  root.addEventListener('keydown', (evento) => {
+    if (evento.key === 'Escape') h.fechar?.();
+  });
+
   root.addEventListener('input', (evento) => {
     const campo = evento.target;
     if (!campo || typeof campo.getAttribute !== 'function') return;
@@ -912,7 +920,9 @@ export async function subirMetro(deps = {}) {
     // já tirou o `aria-pressed` do seletor. FECHAR, em vez de apagar um estado,
     // navega para `#/`: o mesmo href do botão da folha, e o "voltar" devolve a
     // pessoa à estação de onde ela veio.
-    fechar() { irPara('#/'); },
+    // Sem rota de estação, Esc não tem o que fechar: navegar para '#/' na tela
+    // do mapa jogaria a pessoa para o começo e criaria entrada no histórico.
+    fechar() { if (ui.folha) irPara('#/'); },
     embarque() { ui.embarqueAberto = !ui.embarqueAberto; pintar(); },
     anotar(id, texto) {
       // aplicarNota é a função do NÚCLEO de anotação, a mesma da tela principal:

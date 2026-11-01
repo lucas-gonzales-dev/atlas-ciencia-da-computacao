@@ -445,6 +445,48 @@ test('folha: tocar em "Concluir estação" conclui pelo núcleo e traz a chegada
   assert.equal(comClasse(root, 'aviso-chegada').length, 1, 'e a tela respondeu com a chegada');
 });
 
+// S5 parte 2: o Esc. `disparar` monta {target, preventDefault} e não traz
+// `key`, e o handler do teclado existe PELO key — aqui o evento é montado como
+// o navegador o monta. E o `window` entra por deps só por causa do endereço:
+// o fechar NAVEGA, não apaga um estado interno.
+async function telaComEndereco(aparelho, folha) {
+  const doc = criarDoc();
+  const root = raiz(doc);
+  const modulos = modulosFake({ completed: [] });
+  globalThis.localStorage = modulos.guardado.aparelho;
+  let api;
+  try {
+    api = await subirMetro({
+      document: doc, root, storage: criarStorage(), modulos,
+      setTimeout: () => ({}), hoje: '2026-10-29',
+      window: { location: aparelho }, folha
+    });
+  } finally {
+    delete globalThis.localStorage;
+  }
+  const esc = () => { for (const fn of root.listeners.keydown || []) fn({ key: 'Escape', target: root }); };
+  return { api, root, esc };
+}
+
+test('folha: Esc fecha a folha navegando para #/', async () => {
+  const aparelho = { hash: '#/estacao/l1a' };
+  const { root, esc } = await telaComEndereco(aparelho, 'l1a');
+  assert.equal(comClasse(root, 'folha').length, 1, 'a rota abriu a folha');
+  esc();
+  // Fechar é IR para #/, não apagar um estado: quem relê o endereço e remonta
+  // é o casco (web/casco.js). Cobrar o DOM vazio aqui seria testar o casco
+  // dentro do metrô, e o `hashchange` tem um dono só por regra.
+  assert.equal(aparelho.hash, '#/', 'o Esc devolve a pessoa ao mapa pelo endereço');
+});
+
+test('folha: na tela do mapa, o Esc não toca no endereço', async () => {
+  const aparelho = { hash: '#/' };
+  const { root, esc } = await telaComEndereco(aparelho, null);
+  assert.equal(comClasse(root, 'folha').length, 0, 'sem rota não há painel');
+  esc();
+  assert.equal(aparelho.hash, '#/', 'Esc sem folha não cria entrada no histórico');
+});
+
 // FEITO na fatia 2c-2 (30/10/2026) e MUTOU na S5 parte 2: a folha fechada deixou
 // de existir no DOM (era `hidden`; agora não há painel sem rota — nada a
 // esconder), e a trancada aberta cita TODOS os pré-requisitos pelo nome.
@@ -1483,6 +1525,8 @@ test('jornada: a próxima conexão diz o que o passo abre, inclusive baldeação
 
 const cssMetroS4b = () => readFileSync(fileURLToPath(new URL('../web/metro.css', import.meta.url)), 'utf8');
 const cssJornadaS4b = () => readFileSync(fileURLToPath(new URL('../web/telas/jornada.css', import.meta.url)), 'utf8');
+// S5 parte 2: a folha é web/folha.css. Quem dá forma ao primário mudou de arquivo.
+const cssFolhaS5 = () => readFileSync(fileURLToPath(new URL('../web/folha.css', import.meta.url)), 'utf8');
 
 /**
  * Todo `box-shadow` escrito numa REGRA, com o seletor dela.
@@ -1517,15 +1561,18 @@ test('jornada: um primário só na tela', () => {
   // quando uma folha está aberta, é ela que manda, e a ação da placa cede.
   // O CSS da tela está dividido desde a S4b: a geometria do trilho no
   // metro.css, o que dá forma à tela no jornada.css. O teste lê os dois.
-  const css = `${cssMetroS4b()}\n${cssJornadaS4b()}`;
+  const css = `${cssMetroS4b()}\n${cssJornadaS4b()}\n${cssFolhaS5()}`;
   const bloco = (seletor) => {
     const ini = css.indexOf(`\n${seletor} {`);
     assert.ok(ini >= 0, `${seletor} não existe no CSS do app`);
     return css.slice(ini, css.indexOf('}', ini));
   };
-  assert.match(bloco('.recurso'), /background:\s*var\(--cor\)/,
+  // S5 parte 2: os nomes mudaram com o arquivo. `.recurso`/`.botao-concluir`
+  // eram da folha-desenhada-dentro-da-linha; a folha de rota usa
+  // `.botao-primario`/`.botao-secundario`, e é neles que a regra vive.
+  assert.match(bloco('.botao-primario'), /background:\s*var\(--cor\)/,
     'o recurso continua sendo o primário da folha');
-  assert.match(bloco('.botao-concluir'), /background:\s*(none|var\(--superficie\)|var\(--fundo\))/,
+  assert.match(bloco('.botao-secundario'), /background:\s*(none|var\(--superficie\)|var\(--fundo\))/,
     'e o concluir continua contorno');
   // O estado que cede o primário: a raiz da tela ganha a classe quando há folha aberta.
   assert.match(css, /\.metro\.com-folha \.placa-acao \{[^}]*background:\s*(none|var\(--superficie\)|var\(--fundo\))/,
@@ -1537,7 +1584,7 @@ test('jornada: um primário só na tela', () => {
   assert.ok(comFolha.root.className.split(/\s+/).includes('com-folha'),
     `a tela com folha aberta tem className "${comFolha.root.className}": o CSS não tem como saber`);
   assert.equal(comClasse(comFolha.root, 'placa-acao').length, 1, 'a placa segue com a sua ação');
-  assert.equal(comClasse(comFolha.root, 'recurso').length, 1, 'e a folha aberta tem o recurso dela');
+  assert.equal(comClasse(comFolha.root, 'folha-recurso').length, 1, 'e a folha aberta tem o recurso dela');
 
   const semFolha = desenhar({ completed: [], linha: 1, catalogo: CAT_RECURSO });
   assert.ok(!semFolha.root.className.split(/\s+/).includes('com-folha'),

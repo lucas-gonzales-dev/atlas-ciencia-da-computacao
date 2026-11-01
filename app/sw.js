@@ -173,12 +173,20 @@
 // web/folha.js (desenharFolha) e web/folha.css (o painel do computador, a folha
 // do celular), e o index.html passou a linkar o CSS: sem os dois la, quem tem
 // v27 recebe o HTML novo pedindo offline um CSS e um modulo que nao existem.
-const VERSAO = 'atlas-v28';
+// atlas-v29: S5 parte 2 da v2 — a FOLHA passou a ser ROTA de verdade. Mudaram
+// web/metro.js (o cartao virou <a href="#/estacao/<slug>">, a folha saiu do
+// desenho de dentro da linha, entrou Esc), web/folha.css (as classes
+// .botao-primario/.botao-secundario que o folha.js emite e nenhum CSS tinha),
+// web/telas/jornada.js (entrega o slug da rota ao subirMetro — sem isso a rota
+// existia, os testes passavam e a tela nao abria folha nenhuma) e os dois
+// testes. Sem subir a VERSAO, quem tem v28 no cache recebe o HTML novo e a
+// folha continua invisivel no celular.
+const VERSAO = 'atlas-v29';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
 // deixa o cache antigo sem o nome novo. Recalcular: node tests/precache-hash.js.
-const PRECACHE_HASH = 'sha256-b743e52318270189c848a4adefe4f296be76a205502c1216223aca6071eb2c36';
+const PRECACHE_HASH = 'sha256-04cee5162c2d39bba2540a5e6145ea187fff3931698bf6db11feb4e277dd7211';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.

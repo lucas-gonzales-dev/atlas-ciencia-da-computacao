@@ -256,12 +256,12 @@ test('folha: a última da linha diz que fecha a linha, em vez de uma lista vazia
 });
 
 // ═══════════ o cartão do metrô agora é link ═══════════
-// DIVIDA NOMEADA (S5 parte 2): o metro.js ainda desenha a folha dentro da
-// linha (o `detalhe` com aria-expanded/aria-controls) e o cartão é <button>.
-// Trocar o cartão por <a href="#/estacao/..."> tira o clique que abre e
-// mexe em 18 casos do metro.test.js, que provam a folha de dentro. Fica
-// todo, nao some: verde falso custa mais que uma divida a vista.
-test('metrô: o cartão da estação é <a href="#/estacao/<slug>">', { todo: 'S5 parte 2 — migração do cartão e da folha para fora do metro.js' }, () => {
+// FEITO na S5 parte 2 (01/11): o cartão virou <a href="#/estacao/<slug>">, a
+// folha saiu do `detalhe` de dentro da linha (é web/folha.js, Irmã do mapa) e
+// os 18 casos que provavam a folha de dentro foram reescritos no metro.test.js
+// contra o painel da rota. Era { todo } até este commit: verde falso custa
+// mais que uma dívida a vista, e agora a dívida está paga com o caso rodando.
+test('metrô: o cartão da estação é <a href="#/estacao/<slug>">', () => {
   const doc = criarDoc();
   const root = doc.registrar('metro', doc.createElement('div'));
   desenharMetro(doc, root, { catalogo: CATALOGO, progresso: { completed: [], emCurso: [], conclusoes: {} }, linha: 1 });

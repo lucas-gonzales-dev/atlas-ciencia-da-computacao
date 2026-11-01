@@ -224,6 +224,31 @@
   margin: 0 0 var(--espaco-4);
 }
 
+/* A forma do botão, uma vez. O folha.js dá a classe .botao aos <button> e o
+ * link do recurso não a recebe (é <a>, e .botao traz cursor:pointer e
+ * transition de botão), então a geometria é repetida aqui com os MESMOS
+ * tokens — nenhum número à mão, nenhuma cor à mão. */
+.folha-recurso {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: var(--alvo-toque);
+  padding: var(--espaco-3) var(--espaco-4); border-radius: var(--raio-placa);
+  border: 1px solid var(--borda);
+  font-family: var(--fonte-placa); font-size: var(--tipo-corpo);
+  font-weight: var(--peso-forte); text-decoration: none;
+}
+
+/* UM primário por folha (2d-2, item 4; S5 parte 2: a folha mudou de arquivo e
+ * os nomes com ele). O primário é recheado na cor da linha, o secundário é o
+ * contorno da mesma família — era o que .recurso e .botao-concluir faziam no
+ * metro.css, quando a folha morava dentro da linha. */
+.botao-primario {
+  background: var(--cor); border-color: var(--cor); color: var(--superficie);
+}
+
+.botao-secundario {
+  background: var(--superficie); border-color: var(--cor); color: var(--cor);
+}
+
 .folha-nota {
   margin: 0;
   font-size: var(--tipo-legenda);

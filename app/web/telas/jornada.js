@@ -29,5 +29,8 @@ export async function montar(raiz, ctx) {
     // A promessa do casco, não uma chamada nova ao main.js.
     loadCatalog: () => ctx.catalogo
   };
-  return subirMetro({ root: raiz, modulos });
+  // S5 parte 2: a folha é ROTA, e quem lê o endereço é o casco. Sem entregar o
+  // slug aqui, #/estacao/<slug> montava a Jornada sem painel nenhum — a rota
+  // existia, o folha.js existia, os testes passavam, e nada aparecia na tela.
+  return subirMetro({ root: raiz, modulos, folha: ctx.folha });
 }
