@@ -223,7 +223,9 @@ test('marca: o manifesto pinta papel', () => {
 });
 
 test('marca: as páginas apontam os ícones novos', async () => {
-  for (const nome of ['metro.html', 'index.html']) {
+  // S3b: só sobrou uma página. O metro.html virou redirecionamento (teste
+  // abaixo), então o laço de dois virou o index.html — o casco.
+  for (const nome of ['index.html']) {
     const html = await readFile(join(RAIZ, nome), 'utf8');
     const links = tagsDe(html, 'link');
     for (const [arq, sizes] of [['icons/favicon-32.png', '32x32'], ['icons/favicon-16.png', '16x16']]) {
@@ -235,22 +237,39 @@ test('marca: as páginas apontam os ícones novos', async () => {
     const apple = links.find((l) => atributo(l, 'rel') === 'apple-touch-icon');
     assert.ok(apple, `${nome}: sem <link rel="apple-touch-icon"> o iOS usa screenshot`);
     assert.equal(atributo(apple, 'href'), 'icons/apple-touch-icon.png', `${nome}: apple-touch-icon fora da marca nova`);
+
+    // S3b (item 3): a tela é papel e carvão, então a barra do navegador
+    // acompanha o tema. Antes havia um theme-color único — o azul-marinho que a
+    // pessoa rejeitou — e quem carregava os dois por media era o metro.html, que
+    // agora é só o redirecionamento. A cor da barra mora na página do app.
+    const metas = tagsDe(html, 'meta').filter((m) => atributo(m, 'name') === 'theme-color');
+    assert.equal(metas.length, 2, `${nome}: esperava DOIS theme-color (claro e escuro por media)`);
+    const claro = metas.find((m) => /light/.test(atributo(m, 'media')));
+    const escuro = metas.find((m) => /dark/.test(atributo(m, 'media')));
+    assert.ok(claro, `${nome} sem theme-color de claro por media`);
+    assert.ok(escuro, `${nome} sem theme-color de escuro por media`);
+    assert.equal(atributo(claro, 'content'), PAPEL, `${nome}: theme-color de claro não é papel`);
+    assert.equal(atributo(escuro, 'content'), CARVAO, `${nome}: theme-color de escuro não é carvão`);
   }
+});
 
+test('metro.html é só um redirecionamento', async () => {
+  // S3b: quem guardou o endereço antigo (o post, o histórico, o QR) chega na
+  // Jornada. Não é mais página: sem <script>, sem folha de estilo, sem marca —
+  // só o refresh de 0 segundos e o link visível, que é o que sobra para quem o
+  // navegador não obedece http-equiv. Continua no precache: offline também
+  // precisa redirecionar, senão o endereço salvo vira tela em branco no ônibus.
   const html = await readFile(join(RAIZ, 'metro.html'), 'utf8');
-  const metas = tagsDe(html, 'meta').filter((m) => atributo(m, 'name') === 'theme-color');
-  const claro = metas.find((m) => /light/.test(atributo(m, 'media')));
-  const escuro = metas.find((m) => /dark/.test(atributo(m, 'media')));
-  assert.ok(claro, 'metro.html sem theme-color de claro por media');
-  assert.ok(escuro, 'metro.html sem theme-color de escuro por media');
-  assert.equal(atributo(claro, 'content'), PAPEL);
-  assert.equal(atributo(escuro, 'content'), CARVAO);
-
-  // index.html MANTÉM o theme-color dele até a S3b: quem trocar agora pinta uma
-  // tela que ainda é azul-marinho por dentro com papel por fora.
-  const ainda = tagsDe(await readFile(join(RAIZ, 'index.html'), 'utf8'), 'meta').filter((m) => atributo(m, 'name') === 'theme-color');
-  assert.equal(ainda.length, 1, 'index.html deve ter UM theme-color até a S3b');
-  assert.equal(atributo(ainda[0], 'media'), '', 'index.html ainda não divide theme-color por tema');
+  const metas = tagsDe(html, 'meta');
+  const refresh = metas.find((m) => /http-equiv/i.test(m) && /refresh/i.test(atributo(m, 'http-equiv')));
+  assert.ok(refresh, 'metro.html sem <meta http-equiv="refresh">');
+  assert.equal(atributo(refresh, 'content'), '0; url=./#/', 'o refresh deve ir para ./#/ na hora (Jornada)');
+  const link = [...html.matchAll(/<a\b[^>]*>([\s\S]*?)<\/a>/g)].find((m) => atributo(m[0], 'href') === './#/');
+  assert.ok(link, 'metro.html sem link visível para ./#/');
+  assert.ok(link[1].trim().length > 0, 'o link do redirecionamento está sem texto');
+  assert.equal(/<script\b/.test(html), false, 'redirecionamento carregando lógica: ele não é mais tela');
+  assert.equal(tagsDe(html, 'link').some((l) => /stylesheet/i.test(l)), false, 'redirecionamento carregando folha de estilo');
+  assert.ok(listaDoSw(swTexto).includes('metro.html'), 'o redirecionamento saiu do offline');
 });
 
 test('marca: o precache leva os ícones e a marca', async () => {
@@ -266,9 +285,11 @@ test('marca: o link do topo tem classe própria', async () => {
   // cabeçalho que o metro.js desenha dentro do <main>. Ele herdava de lá a
   // borda de baixo e a margem, e era essa a linha curta sob o logo. A classe
   // do topo agora é `topo-marca`, e nenhuma página do app usa `class="marca"`.
-  const html = await readFile(join(RAIZ, 'metro.html'), 'utf8');
+  // S3b: o metro.html virou redirecionamento e não tem topo; o topo é do casco,
+  // o index.html.
+  const html = await readFile(join(RAIZ, 'index.html'), 'utf8');
   assert.ok(/<a class="topo-marca"/.test(html), 'o link do topo voltou a ser class="marca"');
-  assert.equal(/\sclass="marca"/.test(html), false, 'ainda existe class="marca" no metro.html');
+  assert.equal(/\sclass="marca"/.test(html), false, 'ainda existe class="marca" no index.html');
   const css = await readFile(join(RAIZ, 'web/metro.css'), 'utf8');
   assert.ok(/\.topo-marca\s*\{/.test(css), 'o CSS não tem o bloco .topo-marca');
   assert.equal(/^\.topo \.marca\s*\{/m.test(css), false, 'a regra .topo .marca voltou');

@@ -98,7 +98,10 @@ function caminhosDoSw(texto) {
 }
 
 test('app: todo href relativo de .html aponta para arquivo que existe em app/', () => {
-  const htmls = ['index.html', 'metro.html'];
+  // S3b: o metro.html deixou de ser página (é um redirecionamento com um único
+  // href, o ./#/), então a varredura de hrefs de página é só o index.html. O
+  // redirecionamento em si tem teste próprio em tests/pwa.test.js.
+  const htmls = ['index.html'];
   let conferidos = 0;
   for (const nome of htmls) {
     const caminho = join(PASTA_APP, nome);

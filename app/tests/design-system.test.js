@@ -178,7 +178,7 @@ test('cor: nenhuma cor escrita à mão fora do tokens.css', async () => {
       achados.push(`${c}:${linha} → ${m[1]}`);
     }
   }
-  assert.deepEqual(achados, [], 'cor fora dos tokens: use var(--p-*) do tokens.css (design/README.md §2)');
+  assert.deepEqual(achados, [], 'cor fora dos tokens: use os tokens do design system, não um apelido --p-* (design/README.md §2)');
 });
 
 // A regra de cima só enxerga cor em forma de PROPRIEDADE CSS (`color: #fff`).
@@ -361,14 +361,13 @@ for (const tema of ['claro', 'escuro']) {
   });
 }
 
-// DÍVIDA CONHECIDA (29/10/2026, realizada em 31/10/2026 na S3a-1): a grade ainda
-// pinta com os tokens --p-*, a paleta de protótipo que o design system substituiu.
-// O `<style>` do index.html saiu para web/grade.css nesta fatia — o arquivo mudou
-// de nome, a dívida não: 31 usos continuam lá. A trava está escrita e certa. Fica
-// como `todo` para não esconder a dívida atrás de um verde falso: quando a
-// migração acontecer (S3b), tira-se o todo e ela passa a reprovar quem voltar para
-// a paleta antiga.
-test('a paleta antiga (--p-*) não pinta mais nenhuma tela', { todo: 'migrar os 31 usos de --p-* no web/grade.css para os tokens do DS' }, async () => {
+// DÍVIDA CONHECIDA (29/10/2026) QUE MORREU (31/10/2026, S3b): a grade pintava com
+// os tokens --p-*, a paleta de protótipo que o design system substituiu. O
+// `<style>` do index.html saiu para web/grade.css na S3a-1 — o arquivo mudou de
+// nome, a dívida não. A S3b migrou os 31 usos e apagou o bloco PROVISÓRIO do
+// tokens.css. A trava fica escrita para sempre: ela é o que impede a paleta
+// velha de voltar por um patch de tela.
+test('a paleta antiga (--p-*) não pinta mais nenhuma tela', async () => {
   // Os tokens --p-* existem no tokens.css marcados como PROVISÓRIO: são a paleta
   // de protótipo que o design system substituiu. Enquanto alguma regra da tela
   // os usar, o DS não está aplicado de verdade.
@@ -381,6 +380,12 @@ test('a paleta antiga (--p-*) não pinta mais nenhuma tela', { todo: 'migrar os 
     }
   }
   assert.deepEqual(achados, [], 'tela ainda pinta com a paleta provisória: migre para o token do DS');
+
+  // S3b: o tokens.css não declara mais nenhum --p-*. Um apelido que ninguém usa
+  // não é herança, é convite para a paleta rejeitada voltar numa regra nova.
+  const tokens = await ler('web/tokens.css');
+  const declarados = [...tokens.matchAll(/(--p-[a-z0-9-]+)\s*:/g)].map((m) => m[1]);
+  assert.deepEqual(declarados, [], 'tokens.css ainda declara --p-*: a paleta provisória morreu na S3b');
 });
 
 // ---------------------------------------------------------------------------
@@ -562,12 +567,15 @@ test('tema: o html e o body pintam --fundo', async () => {
     const bloco = base.slice(ini, base.indexOf('}', ini));
     assert.match(bloco, /background:\s*var\(--fundo\)/, `${alvo} não pinta --fundo: calha branca no escuro`);
   }
-  const html = await ler('metro.html');
+  // S3b: o metro.html virou redirecionamento, e a página do app é o index.html
+  // (o casco). A exigência é a mesma, só mudou de arquivo: a base precisa vir
+  // LOGO DEPOIS do tokens.css, senão ela não vê os tokens.
+  const html = await ler('index.html');
   const lig = [...html.matchAll(/<link\b[^>]*>/g)].map((m) => m[0]);
   const iBase = lig.findIndex((l) => /href="\.\/web\/base\.css"/.test(l) && /stylesheet/.test(l));
-  assert.ok(iBase >= 0, 'metro.html não carrega web/base.css');
+  assert.ok(iBase >= 0, 'index.html não carrega web/base.css');
   const iTokens = lig.findIndex((l) => /href="\.\/web\/tokens\.css"/.test(l));
-  assert.ok(iTokens >= 0, 'metro.html perdeu o tokens.css');
+  assert.ok(iTokens >= 0, 'index.html perdeu o tokens.css');
   assert.equal(iBase, iTokens + 1, 'base.css deve vir LOGO DEPOIS do tokens.css: antes, a base não vê os tokens');
 });
 
