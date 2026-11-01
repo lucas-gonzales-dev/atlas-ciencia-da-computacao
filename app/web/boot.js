@@ -208,6 +208,14 @@ export async function registrarSW(win, avisar) {
     const escopo = new URL('./', win.document.baseURI).pathname;
     const reg = await nav.serviceWorker.register('sw.js', { scope: escopo });
     if (jaControlava) {
+      // FORÇA a checagem do sw.js nesta abertura (01/11/2026). O navegador só
+      // compara os bytes do service worker quando a URL dele é buscada de novo,
+      // e isso não tem hora: quem abre o Atlas todo dia pode passar dias com o
+      // cache-first do sw.js servindo o snapshot de uma versão que já morreu no
+      // disco. update() pergunta agora. O catch é obrigatório: update() é
+      // recusado sem service worker em http, e derrubar o boot por isso é o
+      // oposto do motivo pelo qual ele existe.
+      reg.update?.().catch(() => {});
       reg.addEventListener?.('updatefound', () => {
         const novo = reg.installing;
         novo?.addEventListener('statechange', () => {

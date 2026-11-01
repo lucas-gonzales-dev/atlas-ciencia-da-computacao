@@ -181,12 +181,18 @@
 // existia, os testes passavam e a tela nao abria folha nenhuma) e os dois
 // testes. Sem subir a VERSAO, quem tem v28 no cache recebe o HTML novo e a
 // folha continua invisivel no celular.
-const VERSAO = 'atlas-v29';
+// atlas-v30: o index.html ganhou a GUARDA ESCRITA do casco branco (01/11/2026).
+// Em file:// o navegador recusa <script type="module"> por CORS e nao existe JS
+// para se avisar: sem as frases no <main>, o aluno ve branco e acha que o Atlas
+// quebrou. boot.js passou a chamar reg.update() quando ja havia um sw no
+// controle — cache-first sem hora de revalidar deixa dias servindo snapshot de
+// uma versao morta no disco. Mudou conteudo do precache, entao VERSAO e hash.
+const VERSAO = 'atlas-v30';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
 // deixa o cache antigo sem o nome novo. Recalcular: node tests/precache-hash.js.
-const PRECACHE_HASH = 'sha256-04cee5162c2d39bba2540a5e6145ea187fff3931698bf6db11feb4e277dd7211';
+const PRECACHE_HASH = 'sha256-179ac2351e49ac06d788140a2884037df85bb37a2ea5bf0230263b258de5e4b2';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.

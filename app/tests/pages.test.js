@@ -171,6 +171,28 @@ test('casco: o index.html não tem <style> nem código inline — só <link> e o
   );
 });
 
+test('casco: o main traz a GUARDA ESCRITA — sem ela, módulo que não roda é tela branca muda', async () => {
+  // 01/11/2026: o Lucas abriu o Atlas e viu marca + duas abas + branco. O disco,
+  // o servidor e a suíte estavam verdes; o que faltava era a página dizer o que
+  // ela não pode dizer por JS, porque em file:// o navegador RECUSA módulo ES
+  // (CORS, origem "null") e não existe código rodando para se avisar. Este caso
+  // existe para a guarda não ser apagada por refatoração: quem limpa o main sem
+  // olhar o HTML devolve o branco mudo.
+  const html = await ler('index.html');
+  const dentro = html.slice(html.search(/<main\b[^>]*>/i), html.indexOf('</main>'));
+  assert.ok(dentro.length > 0, 'sumiu o </main> do index.html');
+  assert.match(
+    dentro,
+    /<p>[\s\S]{60,}/,
+    'o main está vazio de novo: se ./web/casco.js não rodar, o aluno vê branco e nenhuma saída'
+  );
+  assert.match(dentro, /duplo clique|file:/, 'a guarda não nomeia a causa (file://)');
+  assert.match(dentro, /node app\/serve\.js/, 'a guarda não dá o comando que resolve');
+  // O aviso mora DENTRO do main, não antes dele: o casco manda esvaziar o main
+  // antes de pintar, então em http a guarda dura o tempo do módulo carregar e
+  // desaparece sozinha. Fora do main ela ficaria na tela para sempre.
+});
+
 test('casco: importar boot.js sem #app não monta nada e não busca o catálogo', async () => {
   // A S3a-2a tira o `subir()` e o `export const inicio`. Quem decide quando a
   // tela sobe passa a ser o casco; enquanto boot.js sobe sozinho, a página

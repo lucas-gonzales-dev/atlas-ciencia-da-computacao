@@ -51,8 +51,28 @@
     <a href="#/explorar" data-tela="explorar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="M16 16l4 4"/></svg><span>Explorar</span></a>
   </nav>
 </header>
-<main id="conteudo" tabindex="-1"></main>
+<!-- GUARDA ESCRITA DO CASCO (01/11/2026). Estas frases vivem DENTRO do main de
+     propósito: o casco manda esvaziar o main antes de pintar, então em http o
+     aviso dura o tempo do módulo carregar e desaparece sozinho — e o lugar de
+     onde ele some é exatamente o lugar onde a tela aparece. Se o módulo não
+     rodar, nada esvazia o main e o aluno lê o que fazer. É o único recurso
+     possível contra file://: o navegador recusa módulo ES por CORS (origem
+     "null"), então NÃO EXISTE JavaScript para se avisar — sem texto estático, o
+     que ele vê é marca, duas abas e branco, e a conclusão é que o Atlas quebrou.
+     (Foi assim em 01/11/2026: a tela branca do Lucas, com o disco, o servidor e
+     a suíte provados verdes.) Zero classe nova e zero valor: o base.css já dá
+     fundo e tinta, e não há motivo para o design system carregar o peso de um
+     estado que só existe quando o JS não existe. Nada de tag de estilo ou de
+     código aqui dentro: pages.test.js conta os elementos da página inteira e um
+     comentário que escreva o nome deles cria um segundo na contagem. -->
+<main id="conteudo" tabindex="-1">
+<p>O Atlas está carregando.</p>
+<p>Se esta frase continuar na tela, o navegador não executou ./web/casco.js. Isso acontece quando o index.html é aberto com duplo clique, pelo protocolo file:// — que bloqueia módulo. Sirva por http: na pasta do projeto rode <b>node app/serve.js</b> e abra <b>http://localhost:41730/</b>.</p>
+<p>Abriu por http e a tela continua vazia? É cache antigo deste app: recarregue com Ctrl+Shift+R, ou abra F12 → Application → Service Workers e desregistre.</p>
+</main>
 <p id="anuncio" class="so-leitor" aria-live="polite"></p>
+<!-- O módulo é o único código desta página: nem estilo, nem handler escrito
+     aqui dentro (pages.test.js cobra). A guarda escrita mora no main acima. -->
 <script type="module" src="./web/casco.js"></script>
 </body>
 </html>
