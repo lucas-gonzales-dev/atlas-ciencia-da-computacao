@@ -1554,3 +1554,202 @@ test('jornada: a próxima conexão diz o que o passo abre, inclusive baldeação
   assert.ok(conn3.length === 0 || conn3[0].children.length === 1,
     'a conexão inventou um gancho onde o catálogo não garante nenhum');
 });
+
+// ═══════════ 9. FATIA S4b: o layout do Lovable (cartões, duas colunas) ═══════════
+// A crítica visual (31/10/2026) do Claude no celular: a linha ficou bonita, mas
+// faltavam quatro coisas da JORNADA. A S4a respondeu o QUE se lê; aqui entra a
+// FORMA: a placa com a única sombra do app, cada estação como cartão ao lado do
+// trilho, duas colunas no computador e a entrada em cascata.
+//
+// Uma nota sobre o teste 4 ("só a placa tem sombra"), escrita aqui para não
+// virar dúvida depois: o `@keyframes` do anel "você está aqui" (metro.css, da
+// 2c/2d) também usa `box-shadow`, e é de propósito — é um anel concêntrico sem
+// deslocamento, na cor da LINHA, não uma sombra de elevação. A regra da fatia é
+// sobre a sombra que destaca um bloco no layout. Então o teste varre as REGRAS
+// (seletores) e deixa os `@keyframes` de fora, dizendo por quê.
+
+const cssMetroS4b = () => readFileSync(fileURLToPath(new URL('../web/metro.css', import.meta.url)), 'utf8');
+const cssJornadaS4b = () => readFileSync(fileURLToPath(new URL('../web/telas/jornada.css', import.meta.url)), 'utf8');
+
+/**
+ * Todo `box-shadow` escrito numa REGRA, com o seletor dela.
+ * `@keyframes` fica de fora por decisão, não por descuido: o anel "você está
+ * aqui" da 2c (`.forma.proxima`) cresce por box-shadow concêntrico, na cor da
+ * linha, sem deslocamento — é anel, não sombra de elevação, e a frase da fatia
+ * ("é a única sombra do app") fala da que destaca um bloco no layout.
+ */
+const sombrasDeRegra = (css) => {
+  const saida = [];
+  let seletor = '';
+  let emKeyframes = false;
+  for (const crua of css.split('\n')) {
+    const t = crua.trim();
+    if (t.endsWith('{')) {
+      if (/@keyframes/.test(t)) { emKeyframes = true; seletor = t; }
+      else if (!emKeyframes) seletor = t;
+    } else if (emKeyframes && t === '}') {
+      emKeyframes = false;
+    } else if (/box-shadow:/.test(t) && !emKeyframes && !/box-shadow:\s*0 0 0\b/.test(t)) {
+      // `0 0 0` é anel (contorno sem deslocamento): foco e "você está aqui".
+      saida.push({ seletor, linha: t });
+    }
+  }
+  return saida;
+};
+
+test('jornada: um primário só na tela', () => {
+  // Dois recheios na cor da linha, um em cima do outro, é a tela pedindo duas
+  // decisões para a mesma pessoa. A 2d-2 já dava UM primário por FOLHA (o
+  // recurso, com o "Concluir" em contorno); a S4b sobe a regra para a TELA:
+  // quando uma folha está aberta, é ela que manda, e a ação da placa cede.
+  // O CSS da tela está dividido desde a S4b: a geometria do trilho no
+  // metro.css, o que dá forma à tela no jornada.css. O teste lê os dois.
+  const css = `${cssMetroS4b()}\n${cssJornadaS4b()}`;
+  const bloco = (seletor) => {
+    const ini = css.indexOf(`\n${seletor} {`);
+    assert.ok(ini >= 0, `${seletor} não existe no CSS do app`);
+    return css.slice(ini, css.indexOf('}', ini));
+  };
+  assert.match(bloco('.recurso'), /background:\s*var\(--cor\)/,
+    'o recurso continua sendo o primário da folha');
+  assert.match(bloco('.botao-concluir'), /background:\s*(none|var\(--superficie\)|var\(--fundo\))/,
+    'e o concluir continua contorno');
+  // O estado que cede o primário: a raiz da tela ganha a classe quando há folha aberta.
+  assert.match(css, /\.metro\.com-folha \.placa-acao \{[^}]*background:\s*(none|var\(--superficie\)|var\(--fundo\))/,
+    'com uma folha aberta, a ação da placa não pode continuar recheada: um primário por tela');
+
+  const comFolha = desenhar({ completed: [], linha: 1, aberta: 'l1a', catalogo: CAT_RECURSO });
+  assert.ok(comFolha.root.className.split(/\s+/).includes('com-folha'),
+    `a tela com folha aberta tem className "${comFolha.root.className}": o CSS não tem como saber`);
+  assert.equal(comClasse(comFolha.root, 'placa-acao').length, 1, 'a placa segue com a sua ação');
+  assert.equal(comClasse(comFolha.root, 'recurso').length, 1, 'e a folha aberta tem o recurso dela');
+
+  const semFolha = desenhar({ completed: [], linha: 1, catalogo: CAT_RECURSO });
+  assert.ok(!semFolha.root.className.split(/\s+/).includes('com-folha'),
+    'sem folha aberta não há por que a placa ceder o primário');
+});
+
+test('jornada: a placa diz CONTINUE DE ONDE PAROU com estação em curso, e a posição na linha', () => {
+  // JORNADA / fatia S4b: abaixo do nome, "Linha 2 · estação 3 de 5" — a pessoa
+  // precisa saber ONDE naquela linha ela está, não só em qual linha.
+  const { root } = desenhar({ completed: ['l1a'], emCurso: ['l1b'], linha: 1 });
+  const cartao = comClasse(root, 'placa')[0];
+  assert.ok(cartao, 'a placa sumiu');
+  assert.equal(comClasse(cartao, 'placa-rotulo')[0].textContent, PLACAS.continueOndeParou,
+    'com a estação já em curso, o rótulo ainda promete "Sua próxima estação"');
+  const posicao = comClasse(cartao, 'placa-posicao');
+  assert.equal(posicao.length, 1, 'a placa não diz a posição da estação na linha dela');
+  // l1b é a 2ª de 2 estações da Linha 1 no catálogo de teste.
+  assert.equal(posicao[0].textContent, comValores.posicaoNaLinha(1, 2, 2),
+    `a posição saiu como "${posicao[0].textContent}" — queria "Linha 1 · estação 2 de 2"`);
+  assert.ok(!/estação 0 de/.test(posicao[0].textContent), 'posição é 1-based, como a pessoa conta');
+
+  // E quem ainda não começou continua lendo "Sua próxima estação".
+  const outra = desenhar({ completed: ['l1a'], linha: 1 });
+  assert.equal(comClasse(outra.root, 'placa-rotulo')[0].textContent, PLACAS.proximaEstacao,
+    'o rótulo mudou para quem não está em curso');
+});
+
+test('jornada: a estação trancada diz o que falta e a concluída diz a data, no cartão', () => {
+  // O apoio do cartão, a linha pequena abaixo do estado. A folha já diz tudo
+  // isso quando abre; o cartão diz sem precisar abrir — é o que se vê rolando.
+  const { root } = desenhar({
+    completed: ['l1a'], linha: 2, conclusoes: { l1a: '2026-10-29' }
+  });
+  const apoio = (id) => {
+    const botao = comAttr(root, 'data-id').find((n) => n.getAttribute('data-id') === id);
+    assert.ok(botao, `a estação ${id} não foi desenhada`);
+    return comClasse(botao, 'estacao-apoio');
+  };
+  const trancada = apoio('l2b'); // precisa de l1a (concluída) E de l1b
+  assert.equal(trancada.length, 1, 'o cartão da trancada não diz nada além do estado');
+  assert.match(trancada[0].textContent, /^Falta /, `saiu "${trancada[0].textContent}"`);
+  assert.ok(trancada[0].textContent.includes('Algoritmos I'), 'pelo NOME do pré que falta');
+  assert.ok(!/l1[ab]/.test(trancada[0].textContent), 'nunca pelo id');
+
+  // l1a não está nesta linha: desenho a Linha 1, que tem a concluída.
+  const r1 = desenhar({ completed: ['l1a'], linha: 1, conclusoes: { l1a: '2026-10-29' } });
+  const feita = comClasse(r1.root, 'estacao-apoio').find((n) => /Concluída/.test(n.textContent));
+  assert.ok(feita, 'o cartão da concluída não carimba a data');
+  assert.equal(feita.textContent, comValores.concluidaEm('2026-10-29'));
+  assert.equal(feita.textContent, 'Concluída em 29/10/2026', 'dd/mm/aaaa, nunca ISO na tela');
+
+  // O cartão é o botão que abre a folha: o toque não pode ter mudado de dono.
+  const botaoDaFeita = comAttr(r1.root, 'data-id').find((n) => n.getAttribute('data-id') === 'l1a');
+  assert.equal(botaoDaFeita.tag, 'button', 'o cartão saiu do botão e o toque deixou de abrir a folha');
+});
+
+test('jornada: só a placa tem sombra', () => {
+  // Duas famílias de box-shadow existem no app, e elas não são a mesma coisa:
+  //   anel  — `0 0 0 Npx`, sem deslocamento, é contorno de foco ou o "você está
+  //           aqui" da estação próxima. Não projeta nada, não levanta nada.
+  //   sombra — tem offset (--sombra-placa = 4px 4px 0), levanta um bloco do
+  //           papel. A JORNADA dá UMA no app inteiro, na placa.
+  // Por isso o varredor ignora `0 0 0` e os @keyframes: a regra que ele cobra é
+  // a sombra de elevação, que é o que a pessoa vê como "isto está por cima".
+  // JORNADA: `box-shadow: var(--sombra-placa)` é a ÚNICA sombra do app. Fora
+  // dos @keyframes (o anel "você está aqui" da 2c, que é anel e não sombra),
+  // nenhum outro bloco pode projetar, e a sombra tem de morar no seletor dela.
+  const todas = [['metro.css', cssMetroS4b()], ['jornada.css', cssJornadaS4b()]]
+    .flatMap(([nome, css]) => sombrasDeRegra(css).map((s) => ({ ...s, arquivo: nome })));
+  assert.equal(todas.length, 1,
+    `${todas.length} sombras de elevação no app (${todas.map((s) => `${s.arquivo}:${s.seletor}`).join(' | ')}); a JORNADA dá uma só`);
+  assert.match(todas[0].linha, /var\(--sombra-placa\)/, 'a sombra não vem do token');
+  assert.ok(todas[0].seletor.includes('.placa'),
+    `a sombra mora em "${todas[0].seletor}", não no seletor da placa`);
+});
+
+test('carregando: a placa cinza parada no lugar da placa, sem pulso', () => {
+  // S4b "Carregando": o esqueleto ganha uma placa parada. Nada de brilho
+  // correndo (a 2c-3 já proibia shimmer) e nada de sombra: sombra é a placa de
+  // verdade, e um esqueleto que projeta ensina a pessoa a olhar para o lugar
+  // errado quando o conteúdo chega.
+  const doc = criarDoc();
+  const root = raiz(doc);
+  desenharEsqueleto(doc, root);
+  assert.equal(comClasse(root, 'esqueleto-placa').length, 1, 'o esqueleto não tem placa');
+  const css = cssJornadaS4b();
+  const ini = css.indexOf('.esqueleto-placa {');
+  assert.ok(ini >= 0, '.esqueleto-placa não existe no CSS da tela');
+  const bloco = css.slice(ini, css.indexOf('}', ini));
+  assert.ok(!/animation|box-shadow/.test(bloco), `a placa do esqueleto se mexe ou projeta: ${bloco}`);
+  assert.match(bloco, /background:\s*var\(--borda\)/, 'cinza parado, da mesma família do resto');
+});
+
+test('jornada: as peças entram em cascata, com o atraso nos tokens', () => {
+  // S4b "Movimento": abertura, placa e números entram escalonados, i de 0 a 5.
+  // Quem espaça é o CSS (--atraso-cascata), e com movimento reduzido o token
+  // zera sozinho — por isso o JS só entrega o ÍNDICE, nunca uma duração.
+  const css = cssJornadaS4b();
+  assert.match(css, /animation:\s*entrar var\(--movimento-abrir\) var\(--curva-atlas\)/,
+    'a cascata não usa o `entrar` do casco com a curva do atlas');
+  assert.match(css, /animation-delay:\s*calc\(var\(--atraso-cascata\) \* var\(--cascata-i/,
+    'o escalonamento não vem de calc com --atraso-cascata e --cascata-i');
+
+  const { root } = desenhar({ completed: ['l1a'], linha: 1 });
+  const emCascata = todos(root, (n) => n.className.split(/\s+/).includes('cascata'));
+  assert.ok(emCascata.length >= 3,
+    `só ${emCascata.length} peças da Jornada entram em cascata; são abertura, placa e números`);
+  const indices = emCascata.map((n) => n.getAttribute('style') || '');
+  for (const s of indices) assert.match(s, /--cascata-i:\s*[0-5]\b/, `estilo "${s}" não traz um índice 0..5`);
+  assert.deepEqual(indices.map((s) => Number(s.match(/--cascata-i:\s*(\d)/)[1])),
+    indices.map((s) => Number(s.match(/--cascata-i:\s*(\d)/)[1])).sort((a, b) => a - b),
+    'a cascata saiu fora de ordem: a pessoa veria os itens chegando embaralhados');
+});
+
+test('jornada: duas colunas no computador, e o token novo existe', () => {
+  // S4b "Computador": grid de duas colunas com áreas nomeadas; a lateral com
+  // --largura-lateral (360px) e sticky abaixo do topo. No celular, uma coluna
+  // na ordem da S4a, que é a ordem do fonte.
+  const css = cssJornadaS4b();
+  assert.match(css, /--largura-lateral/, 'o layout não usa o token de largura da fatia');
+  assert.match(css, /grid-template-columns:\s*1fr var\(--largura-lateral\)/,
+    'a coluna lateral não é 1fr var(--largura-lateral)');
+  assert.match(css, /grid-template-areas:/, 'as colunas não usam áreas nomeadas');
+  assert.match(css, /position:\s*sticky/, 'a lateral não é sticky');
+  assert.match(css, /top:\s*var\(--altura-topo\)/, 'o sticky não respeita a altura do topo');
+  const tokens = readFileSync(fileURLToPath(new URL('../web/tokens.css', import.meta.url)), 'utf8');
+  assert.match(tokens, /--largura-lateral:\s*360px/, '--largura-lateral não foi declarado em tokens.css');
+  assert.match(tokens, /--altura-topo:\s*calc\(/,
+    '--altura-topo não existe: o sticky do painel colaria embaixo do topo sticky');
+});

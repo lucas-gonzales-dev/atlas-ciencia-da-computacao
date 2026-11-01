@@ -88,7 +88,12 @@
   border-radius: var(--raio-placa); padding: var(--espaco-4);
   display: grid; gap: var(--espaco-2);
 }
-.placa-rotulo {
+/* S4b: o rótulo serigrafado é UM estilo, mas duas classes. `placa-rotulo` é o
+   da placa; `bloco-rotulo` é o das peças da jornada (abertura, números,
+   conexão). Separar os nomes é o que deixa o teste da placa achar O rótulo da
+   placa na tela inteira, em vez do primeiro rótulo que aparecer. */
+.placa-rotulo,
+.bloco-rotulo {
   margin: 0; font-family: var(--fonte-placa); font-size: var(--tipo-placa);
   font-weight: var(--peso-placa); letter-spacing: var(--espacamento-placa);
   text-transform: uppercase; color: var(--fosca);
@@ -254,12 +259,19 @@
 }
 
 /* a estação é um BOTÃO inteiro: nome + forma, alvo de toque de 44 px */
+/* S4b: cada estação é um CARTÃO ao lado do trilho. O cartão É o <button> que
+ * abre a folha — o toque não mudou de dono, só ganhou borda, raio e piso de
+ * 44 px. O trilho continua na coluna 1; a `--estacao-proxima` (22 px) é a
+ * largura do trilho e o círculo maior mora nela, por isso o cartão fica na
+ * coluna 2 com 1px de borda somado ao gap: o centro do círculo não se move. */
 .estacao {
   grid-column: 2; grid-row: 1; align-self: center;
   min-height: var(--alvo-toque); width: 100%;
   display: flex; flex-direction: column; align-items: flex-start;
   justify-content: center; gap: var(--espaco-1);
-  margin: 0; padding: var(--espaco-2) 0; border: 0; background: none;
+  margin: 0; padding: var(--espaco-2) var(--espaco-3);
+  border: 1px solid var(--borda); border-radius: var(--raio-placa);
+  background: var(--superficie);
   color: inherit; font: inherit; text-align: left; cursor: pointer;
 }
 .estacao-nome { font-weight: var(--peso-forte); font-size: var(--tipo-corpo); }

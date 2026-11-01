@@ -291,6 +291,44 @@ export function linhasDoCatalogo(catalogo) {
 
 // ───────────────────────────────── DOM mínimo ─────────────────────────────────
 
+/**
+ * S4b (Movimento): quem desenha entrega o ÍNDICE da cascata, nunca uma
+ * duração. Quem espaça é o CSS, com
+ * `animation-delay: calc(var(--atraso-cascata) * var(--cascata-i))`, e com
+ * movimento reduzido o token zera sozinho — por isso não há um segundo caminho
+ * de "sem animação" escrito à mão aqui. O índice para no 5: depois do sexto
+ * item a lista chega junta, senão a pessoa espera a tela acabar de aparecer.
+ */
+function cascata(no, i) {
+  if (!no || typeof no.setAttribute !== 'function') return no;
+  no.className = `${no.className} cascata`.trim();
+  no.setAttribute('style', `--cascata-i: ${Math.min(5, Math.max(0, i))}`);
+  return no;
+}
+
+/**
+ * S4b: a linha de apoio do cartão, a palavra pequena debaixo do estado.
+ * Trancada diz o que FALTA, pelo nome; concluída carimba a data que o núcleo
+ * guarda, no formato do Brasil. Os outros dois estados não têm apoio: a forma
+ * do círculo e o rótulo já disseram tudo, e linha de baixo sem informação é
+ * ruído. Nada aqui consulta pré-requisito — `e.faltam` vem do núcleo.
+ */
+export function apoioDoCartao(e, datas) {
+  if (!e) return '';
+  if (e.estado === ESTADOS.TRANCADA) {
+    const nomes = (Array.isArray(e.faltam) ? e.faltam : [])
+      .map((f) => (typeof f === 'string' ? f : f?.titulo))
+      .filter(Boolean);
+    if (!nomes.length) return '';
+    return comValores.apoioFalta(nomes);
+  }
+  if (e.estado === ESTADOS.CONCLUIDA) {
+    const data = datas?.[e.id];
+    return data ? comValores.concluidaEm(data) : '';
+  }
+  return '';
+}
+
 function el(doc, tag, className, attrs) {
   const no = doc.createElement(tag);
   if (className) no.className = className;
@@ -342,6 +380,11 @@ export function desenharEsqueleto(doc, root) {
   limpar(doc, root);
   root.setAttribute('aria-busy', 'true');
   const box = el(doc, 'div', 'esqueleto');
+  // S4b "Carregando": uma placa cinza PARADA no lugar da placa. Sem sombra —
+  // sombra é a placa de verdade, e um esqueleto que projeta ensina a pessoa a
+  // olhar para o sítio errado quando o conteúdo chega. Sem animação também: o
+  // bloco do fim do arquivo já desliga tudo, e pulso em esqueleto é spinner.
+  box.append(el(doc, 'div', 'esqueleto-placa'));
   box.append(el(doc, 'div', 'esqueleto-titulo'));
   for (let i = 0; i < 5; i += 1) {
     const linha = el(doc, 'div', 'esqueleto-linha');
@@ -385,7 +428,12 @@ export function desenharMetro(doc, root, estado) {
   const despertas = new Set(Array.isArray(estado.despertas) ? estado.despertas : []);
 
   limpar(doc, root);
-  root.className = `metro l${linha}`;
+  // S4b, UM primário por TELA (a 2d-2 já dava um por folha): quando uma folha
+  // está aberta, é ela que tem o botão cheio — o recurso — e a ação da placa
+  // cede o recheio pelo estado da raiz. O CSS decide a forma; aqui só se declara
+  // "existe folha aberta NESTA linha", que é o que a pessoa está vendo.
+  const folhaAberta = estacoesDaLinha(catalogo, linha).some((c) => c && c.id === estado.aberta);
+  root.className = `metro l${linha}${folhaAberta ? ' com-folha' : ''}`;
 
   const nos = { linha, resumo, placas: null, seletor: null, diagrama: null, aviso: null, embarque: null };
 
@@ -416,19 +464,23 @@ export function desenharMetro(doc, root, estado) {
   // este arquivo tem 932 linhas, e a regra 15 manda dividir pela responsabilidade
   // em vez de engordar. Aqui só se chama.
   const primeiraVisita = resumo.concluidas === 0 && resumo.emCurso === 0;
-  root.append(abertura(doc, {
+  root.append(cascata(abertura(doc, {
     resumo,
     primeiraVisita,
     estacoes: resumo.estacoes,
     linhas: totalDeLinhas(catalogo)
-  }));
+  }), 0));
 
   // ── 1. a placa ──────────────────────────────────────────────────────────
   const proxima = resumo.proximaEstacao
     ? estadoDaEstacao(resumo.proximaEstacao.id, progresso, catalogo)
     : null;
   const cartao = el(doc, 'section', 'placa');
-  cartao.append(el(doc, 'p', 'placa-rotulo', { text: placa.proximaEstacao }));
+  cartao.append(el(doc, 'p', 'placa-rotulo', {
+    // S4b: quem já está dentro de uma estação não está olhando para a próxima
+    // — está continuando. É o mesmo par estado/verbo do `acaoDaPlaca` de baixo.
+    text: proxima?.estado === ESTADOS.EM_CURSO ? placa.continueOndeParou : placa.proximaEstacao
+  }));
 
   if (proxima) {
     const cabeca = el(doc, 'div', 'placa-cabeca');
@@ -436,6 +488,16 @@ export function desenharMetro(doc, root, estado) {
     cabeca.append(el(doc, 'p', 'placa-linha', { text: comValores.linha(proxima.linha) }));
     cartao.append(cabeca);
     cartao.append(el(doc, 'p', 'placa-nome', { text: proxima.titulo }));
+    // S4b: "Linha 2 · estação 3 de 5". A posição sai da ordem da fonte dentro
+    // da linha dela (estacoesDaLinha, o mesmo caminho que desenha o diagrama),
+    // nunca de um índice de array que a tela inventou.
+    const naLinha = estacoesDaLinha(catalogo, proxima.linha);
+    const emQue = naLinha.findIndex((c) => c && c.id === proxima.id);
+    if (emQue >= 0) {
+      cartao.append(el(doc, 'p', 'placa-posicao', {
+        text: comValores.posicaoNaLinha(proxima.linha, emQue + 1, naLinha.length)
+      }));
+    }
     cartao.append(el(doc, 'p', 'placa-contador', {
       text: comValores.viagem(resumo.concluidas, resumo.estacoes)
     }));
@@ -453,6 +515,9 @@ export function desenharMetro(doc, root, estado) {
     cartao.append(acao);
     nos.placaAcao = acao;
     // FATIA 2d-1 (JORNADA §2.3): o botão abre um site lá fora, e abrir no escuro
+    // S4b: a nota abaixo da ação. Abrir é grátis — o que escreve na viagem é a
+    // conclusão, e ela continua sendo decisão da pessoa.
+    cartao.append(el(doc, 'p', 'placa-nota', { text: placa.notaAbrir }));
     // é motivo de desistência. A linha embaixo da ação diz de onde o recurso
     // veio, com a MESMA palavra da folha — uma origem por tela, não duas.
     const origemPlaca = origemDoRecurso(proxima.estado === ESTADOS.EM_CURSO ? null : curso);
@@ -471,8 +536,23 @@ export function desenharMetro(doc, root, estado) {
       text: comValores.viagem(resumo.concluidas, resumo.estacoes)
     }));
   }
-  root.append(cartao);
+  // S4b: a placa, os números e a próxima conexão formam a COLUNA DA DIREITA no
+  // computador. Elas já eram três irmãos seguidos no DOM — embrulhá-las não
+  // muda a ordem de leitura no celular, que é a da S4a, e é o que permite o
+  // `position: sticky` na lateral inteira em vez de três sticky que brigam.
+  const lateral = el(doc, 'div', 'lateral');
+  lateral.append(cascata(cartao, 1));
+  root.append(lateral);
+  nos.lateral = lateral;
   nos.placas = cartao;
+
+  // S4b: a COLUNA DO MAPA — embarque, seletor das 7 linhas, diagrama e aviso.
+  // No celular ela vem depois da lateral, na ordem da S4a (o DOM é a ordem de
+  // leitura); no computador as áreas nomeadas do grid é que a põem embaixo da
+  // abertura, à esquerda da lateral, sem mexer no DOM um centímetro.
+  const mapa = el(doc, 'div', 'mapa');
+  root.append(mapa);
+  nos.mapa = mapa;
 
   // ── 1b. os TRÊS NÚMEROS e a PRÓXIMA CONEXÃO (S4a) ──────────────────────
   // Depois da placa, na ordem da fatia. No Terminal os dois não aparecem: vale o
@@ -481,15 +561,15 @@ export function desenharMetro(doc, root, estado) {
   // nada. Os números vêm do núcleo (numerosDaJornada), nunca contados aqui.
   if (!resumo.terminal) {
     const n = numerosDaJornada(progresso, catalogo);
-    root.append(tresNumeros(doc, {
+    lateral.append(cascata(tresNumeros(doc, {
       carimbos: n.carimbos,
       total: resumo.estacoes,
       emCurso: n.emCurso,
       abertas: n.linhasAbertas,
       linhas: totalDeLinhas(catalogo)
-    }));
+    }), 2));
     const conn = conexao(doc, { progresso, catalogo, resumo });
-    if (conn) root.append(conn);
+    if (conn) lateral.append(cascata(conn, 3));
   }
 
   // ── 5b. embarque (fatia 2c-2) ────────────────────────────────────────────
@@ -525,7 +605,7 @@ export function desenharMetro(doc, root, estado) {
       }
       emb.append(lista);
     }
-    root.append(emb);
+    mapa.append(emb);
     nos.embarque = emb;
   }
 
@@ -553,7 +633,7 @@ export function desenharMetro(doc, root, estado) {
     }, 'button');
     nav.append(botao);
   }
-  root.append(nav);
+  mapa.append(nav);
   nos.seletor = nav;
 
   // ── 2. a linha na vertical, como o diagrama da porta do trem ────────────
@@ -599,13 +679,18 @@ export function desenharMetro(doc, root, estado) {
     });
     botao.append(el(doc, 'span', 'estacao-nome', { text: e.titulo }));
     botao.append(el(doc, 'span', 'estacao-estado', { text: ESTADO_LEGIVEL[e.estado] }));
+    // S4b: a linha de apoio do cartão. Trancada diz o que falta pelo nome;
+    // concluída carimba a data do núcleo. Sem apoio nos outros estados, porque
+    // ali a frase não acrescentaria nada que a pessoa ainda não veja.
+    const apoio = apoioDoCartao(e, datas);
+    if (apoio) botao.append(el(doc, 'span', 'estacao-apoio', { text: apoio }));
     parada.append(botao);
 
     parada.append(folha(doc, c, e, idDetalhe, aberta, linha, datas));
     diagrama.append(parada);
     percorrido = feito;
   }
-  root.append(diagrama);
+  mapa.append(diagrama);
   nos.diagrama = diagrama;
 
   // ── 4. o aviso da chegada, com o desfazer ───────────────────────────────
@@ -638,7 +723,10 @@ export function desenharMetro(doc, root, estado) {
       })
     }));
     aviso.append(desfazer);
-    root.append(aviso);
+    // S4b: o aviso é da coluna do mapa, porque ele fala do trecho que acabou de
+    // encher — a chegada aparece ao lado do lugar que mudou, não em cima da
+    // placa que já disse outra coisa.
+    mapa.append(aviso);
     nos.aviso = aviso;
   }
   nos.chegada = { aviso, desfazer, formas: formasDeChegada, tracos: tracosDeChegada };
@@ -673,7 +761,12 @@ function folha(doc, curso, e, id, aberta, linha, datas = {}) {
   // FATIA 2d-2 (§3.1): a TRANCADA não oferece o recurso. Oferecer "Começar a
   // estudar" de uma estação que ainda não existe para a pessoa é a tela mentindo
   // — o que ela precisa ali é o nome do que falta, e nada mais.
-  if (curso?.resourceUrl && e.estado !== ESTADOS.TRANCADA) {
+  // S4b (um primário por TELA): o recurso só sai na folha ABERTA. Folha fechada
+  // é hidden, e link escondido continua na fila do leitor de tela — com o
+  // catálogo inteiro desenhado, a tela punha 35 "Começar a estudar" antes de
+  // qualquer toque. É a mesma regra que a 2c-3 deu à anotação, e é o que deixa
+  // exatamente um botão cheio na tela quando uma folha está aberta.
+  if (aberta && curso?.resourceUrl && e.estado !== ESTADOS.TRANCADA) {
     box.append(el(doc, 'a', 'recurso', {
       href: curso.resourceUrl, rel: 'noopener', target: '_blank',
       // UM verbo só na tela (item 5 da crítica): o mesmo texto da placa.
@@ -689,7 +782,7 @@ function folha(doc, curso, e, id, aberta, linha, datas = {}) {
     if (origem) box.append(el(doc, 'p', 'recurso-origem', { text: origem }));
   }
 
-  if (curso?.bibliography) {
+  if (aberta && curso?.bibliography) {
     const biblio = el(doc, 'div', 'biblio');
     // O TEXTO é o nome (linkBibliografia); o HREF é o caminho real da fonte.
     // Caminho como texto na tela está na lista do proibido — como endereço, não.

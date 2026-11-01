@@ -124,6 +124,21 @@
   --alvo-toque: 44px;          /* piso de qualquer área tocável */
   --sombra-placa: 4px 4px 0 var(--tinta); /* a ÚNICA sombra: a placa da próxima estação */
 
+  /* S4b (31/10/2026): as duas medidas que o layout da Jornada precisa e não
+   * tinha. --largura-lateral é a coluna direita do computador (abertura e mapa
+   * à esquerda, placa + números + conexão à direita, sticky). 360px é o que
+   * sobra de mapa legível num 1024px: menos que isso a lateral esmaga o
+   * diagrama, mais que isso o texto da placa começa a quebrar em uma palavra
+   * por linha.
+   * --altura-topo não é um número: é a conta do topo real (padding de 12px
+   * em cima e embaixo + a margem segura do app instalado + a marca de 24px).
+   * O painel sticky precisa dela para NÃO COLAR EMBAIXO do topo, que também é
+   * sticky — 12+12+24 = 48px é o piso, e o env() entra sozinho quando o Atlas
+   * está instalado no celular. Um `top:` copiado à mão em dias vira o bug do
+   * ano, então é token. */
+  --largura-lateral: 360px;
+  --altura-topo: calc(var(--espaco-3) + var(--espaco-3) + var(--margem-segura-topo) + var(--marca-altura));
+
   /* ── MOVIMENTO · três vozes ────────────────────────────────────────────
    * Duração diz o que o movimento SIGNIFICA: curto é máquina respondendo,
    * meio segundo é o trem chegando, devagar é onde você está. */

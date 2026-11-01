@@ -165,12 +165,16 @@
 // (numerosDaJornada), core/textos.js (secao jornada) e index.html (o link do
 // css novo). Sem estes dois no cache, quem tem v25 recebe o HTML novo e a
 // abertura nao monta — a tela perde a primeira coisa que se le, no onibus.
-const VERSAO = 'atlas-v26';
+// atlas-v27: S4b da v2 — o layout da Jornada. Mudaram metro.js (a placa com a
+// posição na linha, a nota "Abrir não muda sua viagem", o cartão com a linha de
+// apoio, e o recurso/bibliografia só na folha ABERTA — um primário por tela),
+// metro.css, jornada.css, jornada-blocos.js, textos.js e tokens.css.
+const VERSAO = 'atlas-v27';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
 // deixa o cache antigo sem o nome novo. Recalcular: node tests/precache-hash.js.
-const PRECACHE_HASH = 'sha256-824d7683f2fc3e3cd1bec85573537be2ad4bed003ff5c10306f96642231ed689';
+const PRECACHE_HASH = 'sha256-e4ee9d4c9658560e08b03f2bba02ab1e0453b7a3e5d4706abbc5faa1d6bce31c';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.

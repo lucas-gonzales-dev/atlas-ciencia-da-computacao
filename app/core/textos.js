@@ -23,6 +23,12 @@ export const placa = {
   titulo: 'Atlas',
   subtitulo: 'Ciência da Computação — Universidade Brasileira Livre',
   proximaEstacao: 'Sua próxima estação',
+  // S4b (JORNADA, layout): a placa muda de rótulo com o estado. Quem já está
+  // dentro de uma estação não está olhando para a "próxima" — está continuando.
+  continueOndeParou: 'Continue de onde parou',
+  // S4b: a placa é o lugar de decidir, e decidir custa um clique que ninguém
+  // devolve. A nota diz que abrir é grátis: nada aqui escreve na viagem.
+  notaAbrir: 'Abrir não muda sua viagem: você decide quando concluir.',
   viagem: 'Sua viagem',
   comoLerMapa: 'Como ler o mapa',
   sobre: 'Sobre',
@@ -87,6 +93,21 @@ export function dataDeCalendario(iso) {
 export const comValores = {
   /** Selo da linha. A fonte não nomeia os estágios: é Linha N, sempre. */
   linha: (n) => `Linha ${n}`,
+
+  /**
+   * S4b: ONDE na linha a pessoa está — "Linha 2 · estação 3 de 5". É 1-based
+   * porque é assim que se conta uma fila de estação, e a posição vem do
+   * catálogo (a ordem da fonte), nunca de um índice de array na tela.
+   */
+  posicaoNaLinha: (n, posicao, total) => `Linha ${n} · estação ${posicao} de ${total}`,
+
+  /**
+   * S4b: a linha de apoio do CARTÃO do diagrama. É a mesma informação da
+   * `trancadaFalta`, mas curta: no cartão cabe uma linha, e "trancada:" já está
+   * escrito no rótulo de estado logo acima — repetir seria a tela dizendo duas
+   * vezes a mesma coisa em dois lugares.
+   */
+  apoioFalta: (nomes) => (nomes.length === 1 ? `Falta ${nomes[0]}` : `Faltam ${nomes.join(', ')}`),
 
   /** Estação trancada: diz o que falta, pelo nome — prevenir erro é dizer. */
   trancadaFalta: (nome) => `trancada: falta ${nome}`,

@@ -39,7 +39,7 @@ export function totalDeLinhas(catalogo) {
  */
 export function abertura(doc, { resumo, primeiraVisita, estacoes, linhas }) {
   const caixa = el(doc, 'section', 'abertura');
-  caixa.append(el(doc, 'p', 'placa-rotulo', { text: J.abertura.rotulo }));
+  caixa.append(el(doc, 'p', 'bloco-rotulo', { text: J.abertura.rotulo }));
 
   // O texto entra por `textContent` e o span por `append`: é assim que o
   // mini-DOM do teste (que não tem createTextNode) e o navegador chegam ao
@@ -69,7 +69,7 @@ export function tresNumeros(doc, { carimbos, total, emCurso, abertas, linhas }) 
   const caixa = el(doc, 'div', 'numeros', { 'aria-label': J.numeros.rotulo });
   const item = (rotulo, valor, nota) => {
     const bloco = el(doc, 'div', 'numero-item');
-    bloco.append(el(doc, 'p', 'placa-rotulo', { text: rotulo }));
+    bloco.append(el(doc, 'p', 'bloco-rotulo', { text: rotulo }));
     bloco.append(el(doc, 'p', 'numero-valor', { text: valor }));
     bloco.append(el(doc, 'p', 'numero-nota', { text: nota }));
     return bloco;
@@ -131,7 +131,7 @@ export function conexao(doc, { progresso, catalogo, resumo }) {
   const linha = Number.isFinite(Number(proxima.linha)) ? Number(proxima.linha) : null;
 
   const caixa = el(doc, 'section', 'conexao');
-  caixa.append(el(doc, 'p', 'placa-rotulo', { text: J.conexao.rotulo }));
+  caixa.append(el(doc, 'p', 'bloco-rotulo', { text: J.conexao.rotulo }));
 
   if (abre.length > 0) {
     caixa.append(el(doc, 'p', 'conexao-texto', {

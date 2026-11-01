@@ -8,8 +8,14 @@
    que o metro.css declara.
 
    NADA AQUI ESCOLHE COR, TEMPO OU LARGURA: só tokens (--espaco-*, --tipo-*,
-   --cor) e o que o metro.css já define. O layout de duas colunas no computador
-   é da S4b, não daqui.
+   --cor) e o que o metro.css já define.
+
+   S4b (31/10/2026) — o LAYOUT chegou, e chegou AQUI, não no metro.css: a casa
+   fechou em 399 linhas antes da fatia (a regra de dividir pela responsabilidade
+   não deixa engordar), e estas peças são da TELA, não do diagrama. O metro.css
+   ficou com a geometria do trilho e com o cartão que é área de toque; o que dá
+   forma à tela — a sombra, as duas colunas, a cascata, o apoio do cartão, a
+   placa do carregando — mora no fim deste arquivo.
    ───────────────────────────────────────────────────────────────────────────── */
 
 .abertura {
@@ -90,4 +96,91 @@
   font-size: var(--tipo-corpo);
   line-height: var(--entrelinha-nota);
   color: var(--tinta);
+}
+
+/* ════════════════════ S4b — O LAYOUT DO LOVABLE ════════════════════ */
+
+/* A ÚNICA SOMBRA DO APP. --sombra-placa é 4px 4px 0 --tinta: deslocada, sem
+   desfoque, como serigrafia — não é elevação de Material, é a placa esmaltada
+   saindo do papel. O teste «jornada: só a placa tem sombra» varre metro.css e
+   jornada.css procurando box-shadow com offset dentro de REGRAS e cobra uma,
+   exatamente esta. (O anel de foco e o "você está aqui" usam `0 0 0 Npx`:
+   contorno concêntrico, sem deslocamento — anel, não sombra, e por isso o
+   varredor os deixa passar de propósito, não por descuido.) */
+.placa {
+  box-shadow: var(--sombra-placa);
+}
+
+/* UM PRIMÁRIO POR TELA. A 2d-2 dava um por FOLHA (o recurso, com o "Concluir
+   estação" em contorno); aqui a regra sobe: quando a pessoa abre uma estação, o
+   recheio passa a ser o recurso dela e a ação da placa cede, virando contorno da
+   mesma família. Quem declara a folha aberta é o metro.js, na raiz (`com-folha`). */
+.metro.com-folha .placa-acao {
+  background: none;
+  color: var(--cor, var(--tinta));
+  border: 1px solid var(--cor, var(--tinta));
+}
+
+/* O apoio do cartão, a linha pequena debaixo do estado: "Falta Algoritmos I" /
+   "Concluída em 29/10/2026". É o degrau mais baixo da escala e a MESMA palavra
+   do carimbo da folha — o cartão diz sem abrir, a folha diz por inteiro. */
+.estacao-apoio {
+  font-size: var(--tipo-nota);
+  line-height: var(--entrelinha-nota);
+  color: var(--fosca);
+  align-self: flex-start;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+/* A placa do carregando: mesma caixa da placa de verdade (raio, borda,
+   preenchimento, piso de toque) para a tela não saltar quando o catálogo chega.
+   Cinza PARADO, como o resto do esqueleto — sem animation (pulso em esqueleto é
+   spinner) e sem box-shadow (um esqueleto que projeta ensina a pessoa a olhar
+   para o sítio errado quando o conteúdo chega). */
+.esqueleto-placa {
+  min-height: var(--alvo-toque);
+  border-radius: var(--raio-placa);
+  border: var(--anel-trancada) solid var(--borda);
+  background: var(--borda);
+}
+
+/* A CASCATA. Abertura, placa, números e próxima conexão entram escalonadas, com
+   o índice que o JS entrega (--cascata-i, 0 a 5). Quem espaça é o CSS, e com
+   movimento reduzido --atraso-cascata zera sozinho no bloco do tokens.css — por
+   isso não há aqui um segundo "sem animação" escrito à mão (regra 11 da v2).
+   Depois do 6º item a lista chega junta: esperar a tela acabar de aparecer é
+   pior do que vê-la chegar de uma vez. */
+.cascata {
+  animation: entrar var(--movimento-abrir) var(--curva-atlas) both;
+  animation-delay: calc(var(--atraso-cascata) * var(--cascata-i, 0));
+}
+
+/* DUAS COLUNAS NO COMPUTADOR. À esquerda a abertura e o mapa; à direita a
+   lateral com a placa, os números e a próxima conexão, sticky logo abaixo do
+   topo (que também é sticky — daí --altura-topo, que é conta, não número).
+   Áreas nomeadas porque o DOM é a ordem de leitura no celular (a ordem da S4a)
+   e aqui só se redesenha o mapa do grid, sem mover um nó. */
+@media (min-width: 1024px) {
+  .metro {
+    display: grid;
+    grid-template-columns: 1fr var(--largura-lateral);
+    grid-template-areas:
+      "marca marca"
+      "abertura lateral"
+      "mapa lateral";
+    column-gap: var(--espaco-8);
+    align-items: start;
+  }
+
+  .metro > .marca { grid-area: marca; }
+  .metro > .abertura { grid-area: abertura; }
+  .metro > .mapa { grid-area: mapa; }
+  .metro > .lateral {
+    grid-area: lateral;
+    position: sticky;
+    top: var(--altura-topo);
+    display: grid;
+    gap: var(--espaco-4);
+  }
 }

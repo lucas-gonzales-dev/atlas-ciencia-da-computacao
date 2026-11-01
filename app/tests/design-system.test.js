@@ -419,6 +419,11 @@ test('textos: nada vazio, nada "undefined", nada com slug de código', async () 
 test('textos: as funções com valor usam o valor que recebem', async () => {
   const exemplos = {
     linha: [3],
+    // S4b: "Linha 2 · estação 3 de 5" — linha, posição e total entram na frase.
+    posicaoNaLinha: [2, 3, 5],
+    // S4b: o apoio do cartão. O argumento é a LISTA de nomes (o cartão pode ter
+    // um ou vários pré-requisitos), e String() de um vetor já é o texto da frase.
+    apoioFalta: [['Cálculo I']],
     trancadaFalta: ['Cálculo I'],
     trancadaFaltam: ['Cálculo I e Cálculo II'],
     baldeacao: ['Algoritmos II', 4],
