@@ -460,8 +460,8 @@ export const explorar = Object.freeze({
   // aprofundamento — nenhuma das duas conta no progresso. Uma lista que nao
   // diz isso sugere que tudo pesa igual.
   avisos: {
-    ramais: 'Ramais dao aprofundamento em uma area — nao somam a grade obrigatoria nem contam no seu progresso.',
-    eletivas: 'Eletivas arquivadas na fonte: nao somam a grade obrigatoria sem decisao editorial.',
+    ramais: 'Ramais dão aprofundamento em uma área — não somam à grade obrigatória nem contam no seu progresso.',
+    eletivas: 'Eletivas arquivadas na fonte: não somam à grade obrigatória sem decisão editorial.',
   },
   selo: {
     emObras: 'EM OBRAS',

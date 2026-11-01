@@ -217,12 +217,19 @@
 // do index.html e do disco, boot.js ficou so com registrarSW, e a Explorar passou
 // a se desenhar em web/telas/explorar.css. Sem subir a VERSAO, quem tem v36 no
 // cache conserva a folha morta de 25 medidas fora da escala.
-const VERSAO = 'atlas-v37';
+// atlas-v38: a Explorar pedia desculpas ao aluno em vez de acento (S7, achado
+// do navegador — nao da suíte). Duas frases de UI nasceram cruas em core/textos.js:
+// "Ramais dao aprofundamento em uma area" e "sem decisao editorial". A familia ja
+// tinha trava no dado derivado e na tela montada, mas NENHUMA lia core/textos.js,
+// que e a casa da prosa; agora portugues-tela.test.js varre os literais de la, e
+// provou o vermelho com o texto cru de volta. Mudou conteudo do precache
+// (core/textos.js), entao VERSAO e hash.
+const VERSAO = 'atlas-v38';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
 // deixa o cache antigo sem o nome novo. Recalcular: node tests/precache-hash.js.
-const PRECACHE_HASH = 'sha256-623506cd0e286027f2b357b0f4ce1357141e9c19cfab23cce0608812fd43a3a2';
+const PRECACHE_HASH = 'sha256-5da7933f6cf64bf57cb1d7278d580e671f9a320a98ac9ac9a78772b9290d9009';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.
