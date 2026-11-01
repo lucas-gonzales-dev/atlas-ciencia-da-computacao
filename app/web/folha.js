@@ -1,0 +1,263 @@
+// Projeto Atlas — a FOLHA da estação (fatia S5 da v2).
+//
+// S5 tira a folha do metro.js e dá a ela uma rota própria: #/estacao/<slug>.
+// No celular a folha sobe até --altura-folha; no computador vira painel à
+// direita, com o mapa ainda clicável ao lado. O desenho vem dos fatos que o
+// núcleo devolve em `fatosDaEstacao`; este arquivo só monta DOM — nenhuma regra
+// de desbloqueio, nenhum calendário, nenhuma cor mora aqui.
+//
+// Este arquivo é o COMPONENTE, e a segunda metade da S5 é a QUEM ABRE: o casco
+// já entrega o slug da rota (web/casco.js), falta o metro.js trocar o clique do
+// cartão por `<a href="#/estacao/<slug>">` e ligar Esc, voltar, foco preso e
+// desfazer. Até lá o metro.js desenha a folha dentro da linha (`detalhe`) e os
+// 84 testes dele continuam de pé. Por isso esta função não lê estado interno da
+// tela: catálogo, progresso, slug e notas entram, `{root, estacaoId}` sai.
+//
+// PROIBIDO (regra 9): cor, tempo, largura e ponto de quebra à mão — tudo é
+// token (web/folha.css não escreve um número); frase à mão — tudo é
+// core/textos.js; um segundo botão primário — disponível tem UM (o curso), em
+// curso tem UM (concluir), trancada e concluída não têm nenhum.
+import { comValores, folha as F, jornada as J, placa } from '../core/textos.js';
+import { ESTADOS, fatosDaEstacao } from '../core/viagem.js';
+// `origemDoRecurso` e `naFonte` já existem no metro.js e já têm testes. A folha
+// IMPORTA, em vez de reimplementar: reimplementar é como nasce a segunda palavra
+// para a mesma origem, e a crítica da v1 contou duas.
+import { naFonte, origemDoRecurso } from './metro.js';
+
+function no(doc, tag, classe, attrs) {
+  const n = doc.createElement(tag);
+  if (classe) n.className = classe;
+  for (const chave of Object.keys(attrs || {})) {
+    if (chave === 'text') n.textContent = String(attrs[chave]);
+    else n.setAttribute(chave, String(attrs[chave]));
+  }
+  return n;
+}
+
+/** O número da linha dentro do selo, na classe de cor da linha. */
+function seloLinha(doc, linha) {
+  const n = Number(linha);
+  const temNumero = Number.isFinite(n) && n > 0;
+  const selo = no(doc, 'span', temNumero ? `selo l${n}` : 'selo', { 'aria-hidden': 'true' });
+  selo.textContent = temNumero ? String(n) : '—';
+  return selo;
+}
+
+/**
+ * A ação, por estado — a regra da 2d-2 continua de pé: UM primário por folha,
+ * e nenhum na trancada e na concluída (JORNADA §3.1).
+ */
+function acaoPorEstado(doc, f, curso, dataConclusao) {
+  const box = no(doc, 'div', 'folha-acoes');
+
+  if (f.estado === ESTADOS.TRANCADA) {
+    // A trancada não oferece o recurso como ação: oferecer "começar a estudar"
+    // de uma estação que ainda não existe para a pessoa é a tela mentindo. O que
+    // ela precisa ali é o nome de CADA pré-requisito, como link para a folha
+    // dele — e nada mais. Ler a folha continua livre: trancada não esconde.
+    const titulo = no(doc, 'h3', 'folha-trancada-titulo');
+    titulo.textContent = F.trancadaTitulo;
+    box.append(titulo);
+    const lista = no(doc, 'ul', 'folha-falta');
+    for (const p of f.pede) {
+      const link = no(doc, 'a', 'folha-falta-link', { href: `#/estacao/${p.slug || p.id}` });
+      link.textContent = p.titulo;
+      const item = no(doc, 'li');
+      item.append(link);
+      lista.append(item);
+    }
+    box.append(lista);
+    return box;
+  }
+
+  if (f.estado === ESTADOS.CONCLUIDA) {
+    // O carimbo: a data é a que o núcleo guarda em `conclusoes`, e quem converte
+    // para dd/mm/aaaa é core/textos.js. Sem data (estação vinda de importação
+    // antiga) o carimbo cala, em vez de afirmar um dia em que ninguém estudou.
+    if (dataConclusao) {
+      const carimbo = no(doc, 'p', 'folha-carimbo');
+      carimbo.textContent = comValores.concluidaEm(dataConclusao);
+      box.append(carimbo);
+    }
+    if (curso.resourceUrl) {
+      box.append(no(doc, 'a', 'botao botao-secundario', {
+        href: curso.resourceUrl, rel: 'noopener', target: '_blank', text: F.revisitar
+      }));
+    }
+    // Desfazer conclusão é link discreto, não botão: voltar atrás é correção,
+    // e o segundo botão cheio por folha é o defeito que a 2d-2 matou.
+    box.append(no(doc, 'a', 'folha-desfazer', { href: '#/', 'data-desfazer': f.id, text: F.desfazerConclusao }));
+    return box;
+  }
+
+  const comRecurso = Boolean(curso.resourceUrl);
+  const abrir = no(doc, 'a', 'folha-recurso', {
+    href: comRecurso ? curso.resourceUrl : '#/',
+    rel: 'noopener', target: '_blank',
+    'data-recurso': f.id,
+    text: f.estado === ESTADOS.EM_CURSO ? F.abrirCurso : placa.comecarEstudar
+  });
+  const concluir = no(doc, 'button', 'botao', {
+    type: 'button', 'data-concluir': f.id, text: placa.concluir
+  });
+
+  // O primário é o verbo que o estado manda: quem ainda não saiu de casa pega o
+  // curso (JORNADA §2.3); quem já está dentro conclui.
+  const primario = f.estado === ESTADOS.DISPONIVEL && comRecurso ? abrir : concluir;
+  const secundario = primario === abrir ? concluir : abrir;
+  primario.classList.add('botao-primario');
+  secundario.classList.add('botao-secundario');
+  box.append(primario, secundario);
+
+  // A nota só faz sentido onde há um curso para abrir fora do Atlas (§2.3).
+  if (primario === abrir) {
+    const nota = no(doc, 'p', 'folha-nota');
+    nota.textContent = F.notaAbrir;
+    box.append(nota);
+  }
+  return box;
+}
+
+/** O bloco "ao concluir, você abre" — ou a frase de quem fecha a linha. */
+function blocoDeAbertura(doc, f) {
+  if (f.abre.length === 0) {
+    // Nada abre: é fim de linha, e a frase é a que a placa já usa — nunca uma
+    // lista vazia, nunca uma invenção.
+    const fecha = no(doc, 'p', 'folha-abre folha-abre-fecha');
+    fecha.textContent = J.conexao.fecha(f.linha);
+    return fecha;
+  }
+  const box = no(doc, 'div', 'folha-abre');
+  const titulo = no(doc, 'p', 'folha-abre-titulo');
+  titulo.textContent = F.abreTitulo;
+  box.append(titulo);
+  const lista = no(doc, 'ul', 'folha-abre-lista');
+  for (const a of f.abre) {
+    // Baldeação é travessia: a folha nomeia a linha de destino (§3.2).
+    const texto = a.linha && a.linha !== f.linha ? comValores.abreItem(a.titulo, a.linha) : a.titulo;
+    const link = no(doc, 'a', 'folha-abre-link', { href: `#/estacao/${a.slug || a.id}`, text: texto });
+    const item = no(doc, 'li');
+    item.append(link);
+    lista.append(item);
+  }
+  box.append(lista);
+  return box;
+}
+
+/** UM fato da folha: a etiqueta de placa de um lado, o valor do outro. */
+function fato(doc, rotuloTxt, valor) {
+  const linha = no(doc, 'div', 'folha-fato');
+  const dt = no(doc, 'dt', 'fato-rotulo');
+  dt.textContent = rotuloTxt;
+  const dd = no(doc, 'dd', 'fato-valor');
+  dd.append(valor);
+  linha.append(dt, dd);
+  return linha;
+}
+
+/**
+ * Desenha a folha da estação `slug`.
+ *
+ * A raiz é o INVÓLUCRO do diálogo (`.folha`, cheia na tela, e só aqui o véu
+ * acerta o toque fora sem uma linha de JS no celular); o aparadeiro é
+ * `.folha-corpo`, que sobe no celular e vira painel à direita no computador.
+ *
+ * @param {Document} doc
+ * @param {{catalogo: Array, progresso: object, slug: string, notas: object}} estado
+ * @returns {{root: Element, estacaoId: string|null}}
+ */
+export function desenharFolha(doc, estado) {
+  const { catalogo = [], progresso = {}, slug, notas = {} } = estado || {};
+  const curso = catalogo.find((c) => c && (c.slug === slug || c.id === slug));
+
+  const raiz = no(doc, 'div', 'folha', {
+    id: 'folha', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'folha-titulo',
+    'data-slug': String(slug ?? '')
+  });
+  // O véu fica DENTRO do diálogo e atrás do corpo: tocar nele fecha (o metro.js
+  // liga closest('[data-fechar]'), o mesmo atributo do botão de fechar).
+  raiz.append(no(doc, 'div', 'folha-veu', { 'data-fechar': 'veu', 'aria-hidden': 'true' }));
+  const corpo = no(doc, 'div', 'folha-corpo');
+  corpo.append(no(doc, 'div', 'folha-alca', { 'aria-hidden': 'true' }));
+  corpo.append(no(doc, 'a', 'folha-fechar', { href: '#/', 'data-fechar': 'true', text: placa.fechar }));
+  raiz.append(corpo);
+
+  if (!curso) {
+    // Deep-link errado ou catálogo que mudou: a folha abre e diz, com a frase da
+    // fatia. Um link só, e nenhuma ação — um primário aqui seria promessa falsa.
+    raiz.classList.add('folha-inexistente');
+    const aviso = no(doc, 'p', 'folha-aviso');
+    aviso.textContent = F.naoEstaNoMapa;
+    corpo.append(aviso);
+    corpo.append(no(doc, 'a', 'botao botao-volver', { href: '#/', text: F.voltarAoMapa }));
+    return { root: raiz, estacaoId: null };
+  }
+
+  const f = fatosDaEstacao(catalogo, curso.id, progresso);
+  if (Number.isFinite(f.linha) && f.linha > 0) corpo.classList.add(`l${f.linha}`);
+  raiz.setAttribute('data-estacao', curso.id);
+
+  // 1. o selo da linha + "Linha 2 · estação 3 de 5", lidos do catálogo.
+  const cabecalho = no(doc, 'div', 'folha-cabecalho');
+  cabecalho.append(seloLinha(doc, f.linha));
+  const rotulo = no(doc, 'p', 'folha-rotulo');
+  rotulo.textContent = f.linha
+    ? comValores.posicaoNaLinha(f.linha, f.posicao, f.total)
+    : comValores.viagem(0, f.total);
+  cabecalho.append(rotulo);
+  corpo.append(cabecalho);
+
+  // 2. o nome, no maior tamanho da escala (e para ele que o diálogo aponta).
+  corpo.append(no(doc, 'h2', 'folha-titulo', { id: 'folha-titulo', text: f.titulo }));
+
+  // 3. o estado, por forma E por texto — nunca só a cor (JORNADA §3.1).
+  corpo.append(no(doc, 'p', `folha-estado ${String(f.estado).replace(/_/g, '-')}`, {
+    text: F.estadoNome[f.estado] || ''
+  }));
+
+  // 4. os três fatos. A origem é a MESMA função da placa, e o que a fonte não
+  //    diz a folha cala — por isso o dd pode sair com texto vazio.
+  const fatos = no(doc, 'dl', 'folha-fatos');
+  const origem = origemDoRecurso(curso);
+  const origemNo = no(doc, 'span', 'folha-origem', { text: origem || '' });
+  fatos.append(fato(doc, F.rotuloRecurso, origemNo));
+
+  const biblioNo = no(doc, 'span', 'folha-bibliografia-valor');
+  if (curso.bibliography) {
+    biblioNo.append(no(doc, 'a', 'folha-bibliografia', {
+      href: naFonte(curso.bibliography), rel: 'noopener', target: '_blank',
+      'data-bibliografia': curso.id, text: placa.bibliografiaNaFonte
+    }));
+  }
+  fatos.append(fato(doc, F.rotuloBibliografia, biblioNo));
+
+  const conexoes = no(doc, 'span', 'folha-conexoes', { text: comValores.fatosConexoes(f.pede.length, f.abre.length) });
+  fatos.append(fato(doc, F.rotuloConexoes, conexoes));
+  corpo.append(fatos);
+
+  // 5. o que o gesto abre, pelo nome, com a baldeação nomeada.
+  corpo.append(blocoDeAbertura(doc, f));
+
+  // 6. a ação do estado.
+  corpo.append(acaoPorEstado(doc, f, curso, progresso.conclusoes?.[curso.id]));
+
+  // 7. a anotação. O nome acessível do campo leva a estação — é a lição da
+  //    2c-3: desenhado nas 35 estações, o leitor de tela dizia "Anotação"
+  //    trinta e cinco vezes.
+  const campo = no(doc, 'div', 'folha-anotacao');
+  const pergunta = no(doc, 'label', 'folha-anotacao-rotulo', { for: 'nota-folha' });
+  const perguntaTxt = no(doc, 'span');
+  perguntaTxt.textContent = F.anotacaoPergunta;
+  const area = no(doc, 'textarea', 'anotacao', {
+    id: 'nota-folha', 'data-nota': curso.id,
+    'aria-label': F.anotacaoCampo(f.titulo), rows: '3'
+  });
+  area.value = typeof notas[curso.id] === 'string' ? notas[curso.id]
+    : (typeof curso.nota === 'string' ? curso.nota : '');
+  pergunta.append(perguntaTxt, area);
+  const salvo = no(doc, 'span', 'folha-salvo', { role: 'status', 'aria-live': 'polite' });
+  campo.append(pergunta, salvo);
+  corpo.append(campo);
+
+  return { root: raiz, estacaoId: curso.id };
+}

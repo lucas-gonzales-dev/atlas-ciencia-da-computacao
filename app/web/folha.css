@@ -1,0 +1,332 @@
+/* Projeto Atlas — a FOLHA da estação (fatia S5 da v2).
+
+   DOIS APARATEIROS, UMA FOLHA: no celular ela sobe de baixo e cobre até
+   --altura-folha; no computador é o painel à direita de --largura-painel, com a
+   borda esquerda na cor da linha, e o mapa continua clicável ao lado. Um único
+   breakpoint (1024px, o do computador) decide a mudança, porque dois aparelhos
+   que se desenhavam por separado foi como a v1 chegou a nove regras de @media
+   para a mesma caixa.
+
+   PROIBIDO aqui, e o teste lê este arquivo inteiro: número de tempo (toda
+   duração é token), cor (todo valor é token do tokens.css), hex, comentário de
+   uma linha no estilo dos programas (CSS só conhece o bloco, e a v2 perdeu um
+   turno descobrindo isso) e desfoque de fundo, que está na lista do proibido:
+   o véu é tinta pura.
+
+   O corpo da folha é o que se move (.folha-corpo); o invólucro (.folha) é cheio
+   na tela e só existe para o toque no véu acertar o lugar certo sem uma linha de
+   JS. */
+
+/* ── o invólucro: a folha aberta cobre a tela, e só ela ─────────────────── */
+.folha {
+  position: fixed;
+  inset: 0;
+  z-index: 3; /* acima do topo e das abas: quem abriu uma estação está lendo a estação */
+  display: flex;
+  align-items: flex-end;
+}
+
+/* O véu: --tinta a 40%, sem desfoque. Atrás do corpo, e tocável — fechar por
+   fora do cartão é o gesto que a pessoa já conhece do resto do mundo. */
+.folha-veu {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--tinta) 40%, transparent);
+}
+
+/* ── o corpo no celular: sobe de baixo, até 90 % da tela ────────────────── */
+.folha-corpo {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-height: var(--altura-folha);
+  overflow-y: auto;
+  padding: var(--espaco-2) var(--espaco-4) calc(var(--espaco-4) + var(--margem-segura-baixo));
+  background: var(--superficie);
+  border-top: var(--espessura-borda-painel) solid var(--cor);
+  border-radius: var(--raio-placa) var(--raio-placa) 0 0;
+  transform: translateY(100%);
+  transition: transform var(--movimento-abrir) var(--curva-atlas);
+}
+
+/* A folha entra quando existe: sem esta classe ninguém a levanta, e o estado
+   parado é o estado fechado. O metro.js põe e tira; o tempo e a curva são os
+   tokens da chegada de uma coisa que se abre. */
+.folha.aberta .folha-corpo {
+  transform: translateY(0);
+}
+
+/* A alça: o rabo de painel que diz "isto sobe". Decorativa, e por isso some do
+   leitor de tela no JS (aria-hidden) e não recebe cor própria. */
+.folha-alca {
+  width: var(--espaco-8);
+  height: 4px;
+  margin: 0 auto var(--espaco-2);
+  border-radius: var(--raio-selo);
+  background: var(--borda);
+}
+
+/* Fechar: um botão de verdade, com o piso de toque, no topo e à direita — onde
+   o polegar alcança a primeira vez. É link (#/), porque fechar é voltar. */
+.folha-fechar {
+  position: absolute;
+  top: var(--espaco-1);
+  right: var(--espaco-2);
+  min-height: var(--alvo-toque);
+  min-width: var(--alvo-toque);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--espaco-3);
+  color: var(--tinta);
+  text-decoration: none;
+}
+
+.folha-fechar:focus-visible {
+  outline: var(--foco-espessura) solid var(--cor-foco);
+  outline-offset: var(--espaco-1);
+}
+
+/* ── o alto da folha: selo, posição, nome, estado ───────────────────────── */
+.folha-cabecalho {
+  display: flex;
+  align-items: center;
+  gap: var(--espaco-2);
+  margin-block-end: var(--espaco-2);
+}
+
+.folha .selo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--alvo-toque);
+  height: var(--alvo-toque);
+  border-radius: var(--raio-estacao);
+  background: var(--cor);
+  color: var(--cor-texto);
+}
+
+.folha-rotulo {
+  margin: 0;
+  font-size: var(--tipo-legenda);
+  letter-spacing: var(--rastreio-etiqueta);
+  text-transform: uppercase;
+  color: var(--fosca);
+}
+
+.folha-titulo {
+  margin: 0 0 var(--espaco-2);
+  font-size: var(--tipo-estacao);
+  line-height: 1.1;
+  color: var(--tinta);
+}
+
+/* O estado por palavra, nunca só pela cor (JORNADA §3.1). A etiqueta é a forma
+   do cartão: caixa com contorno na cor da linha. */
+.folha-estado {
+  display: inline-block;
+  margin: 0 0 var(--espaco-4);
+  padding: var(--espaco-1) var(--espaco-2);
+  border: 1px solid var(--cor);
+  border-radius: var(--raio-selo);
+  font-size: var(--tipo-legenda);
+  letter-spacing: var(--rastreio-etiqueta);
+  text-transform: uppercase;
+  color: var(--tinta);
+}
+
+.folha-estado.trancada {
+  border-color: var(--trancada);
+  color: var(--fosca);
+}
+
+/* ── os três fatos: etiqueta de placa e valor ────────────────────────────── */
+.folha-fatos {
+  display: grid;
+  gap: var(--espaco-2);
+  margin: 0 0 var(--espaco-4);
+  padding: var(--espaco-3) 0;
+  border-block: 1px solid var(--borda);
+}
+
+.folha-fato {
+  display: grid;
+  grid-template-columns: minmax(0, var(--espaco-8)) minmax(0, 1fr);
+  gap: var(--espaco-3);
+  align-items: baseline;
+}
+
+.fato-rotulo {
+  margin: 0;
+  font-size: var(--tipo-legenda);
+  letter-spacing: var(--rastreio-etiqueta);
+  text-transform: uppercase;
+  color: var(--fosca);
+}
+
+.fato-valor {
+  margin: 0;
+  font-size: var(--tipo-corpo);
+  color: var(--tinta);
+  overflow-wrap: anywhere;
+}
+
+.folha-bibliografia {
+  color: var(--linha-cor);
+}
+
+/* ── "ao concluir, você abre" e a falta da trancada ─────────────────────── */
+.folha-abre {
+  margin: 0 0 var(--espaco-4);
+}
+
+.folha-abre-titulo,
+.folha-trancada-titulo {
+  margin: 0 0 var(--espaco-2);
+  font-size: var(--tipo-legenda);
+  letter-spacing: var(--rastreio-etiqueta);
+  text-transform: uppercase;
+  color: var(--fosca);
+}
+
+.folha-trancada-titulo {
+  font-size: var(--tipo-corpo);
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--tinta);
+}
+
+.folha-abre-lista,
+.folha-falta {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--espaco-1);
+}
+
+.folha-abre-link,
+.folha-falta-link {
+  display: inline-block;
+  padding: var(--espaco-1) 0;
+  color: var(--linha-cor);
+}
+
+.folha-abre-fecha {
+  margin: 0 0 var(--espaco-4);
+  color: var(--fosca);
+}
+
+/* ── as ações: um primário por folha ─────────────────────────────────────── */
+.folha-acoes {
+  display: grid;
+  gap: var(--espaco-2);
+  margin: 0 0 var(--espaco-4);
+}
+
+.folha-nota {
+  margin: 0;
+  font-size: var(--tipo-legenda);
+  color: var(--fosca);
+}
+
+.folha-carimbo {
+  margin: 0 0 var(--espaco-2);
+  font-size: var(--tipo-legenda);
+  letter-spacing: var(--rastreio-etiqueta);
+  text-transform: uppercase;
+  color: var(--tinta);
+}
+
+/* Desfazer conclusão é link discreto: correção não é ação principal, e o
+   segundo botão cheio é a 2d-2 voltando. */
+.folha-desfazer {
+  justify-self: start;
+  padding: var(--espaco-1) 0;
+  color: var(--fosca);
+}
+
+/* ── a anotação ─────────────────────────────────────────────────────────── */
+.folha-anotacao {
+  display: grid;
+  gap: var(--espaco-1);
+  padding-block-start: var(--espaco-3);
+  border-block-start: 1px solid var(--borda);
+}
+
+.folha-anotacao-rotulo {
+  display: grid;
+  gap: var(--espaco-1);
+  font-size: var(--tipo-legenda);
+  color: var(--fosca);
+}
+
+.folha-anotacao .anotacao {
+  min-height: calc(var(--alvo-toque) * 2);
+  padding: var(--espaco-2);
+  font: inherit;
+  color: var(--tinta);
+  background: var(--fundo);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-placa);
+}
+
+.folha-anotacao .anotacao:focus-visible {
+  outline: var(--foco-espessura) solid var(--cor-foco);
+  outline-offset: var(--espaco-1);
+}
+
+/* "Salvo" é um status mudo até a primeira tecla; por isso começa sem altura. */
+.folha-salvo {
+  min-height: var(--espaco-4);
+  font-size: var(--tipo-legenda);
+  color: var(--fosca);
+}
+
+/* ── a estação que não está no mapa ─────────────────────────────────────── */
+.folha-aviso {
+  margin: var(--espaco-4) 0;
+  color: var(--tinta);
+}
+
+/* ── o computador: painel à direita, sem véu, mapa vivo ─────────────────── */
+@media (min-width: 1024px) {
+  .folha {
+    align-items: stretch;
+    justify-content: flex-end;
+  }
+
+  .folha-veu {
+    display: none; /* no painel não há nada atrás para fechar: o mapa é clicável */
+  }
+
+  .folha-corpo {
+    width: var(--largura-painel);
+    max-height: none;
+    height: 100%;
+    padding: var(--espaco-6) var(--espaco-6) var(--espaco-6) var(--espaco-4);
+    border: 0;
+    border-left: var(--espessura-borda-painel) solid var(--cor);
+    border-radius: 0;
+    transform: translateX(100%);
+    box-shadow: var(--sombra-placa);
+  }
+
+  .folha.aberta .folha-corpo {
+    transform: translateX(0);
+  }
+
+  .folha-alca {
+    display: none; /* alça é do aparadeiro; o painel não se arrasta */
+  }
+}
+
+/* Movimento reduzido: a folha aparece, sem subir. O conteúdo é o mesmo, e
+   ninguém perde informação por ter --prefers-reduced-motion ligado. */
+@media (prefers-reduced-motion: reduce) {
+  .folha-corpo,
+  .folha.aberta .folha-corpo {
+    transition: none;
+    transform: none;
+  }
+}

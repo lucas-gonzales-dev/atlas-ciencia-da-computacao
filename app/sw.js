@@ -169,12 +169,16 @@
 // posição na linha, a nota "Abrir não muda sua viagem", o cartão com a linha de
 // apoio, e o recurso/bibliografia só na folha ABERTA — um primário por tela),
 // metro.css, jornada.css, jornada-blocos.js, textos.js e tokens.css.
-const VERSAO = 'atlas-v27';
+// atlas-v28: S5 da v2 — a FOLHA tem componente proprio. Entram no precache
+// web/folha.js (desenharFolha) e web/folha.css (o painel do computador, a folha
+// do celular), e o index.html passou a linkar o CSS: sem os dois la, quem tem
+// v27 recebe o HTML novo pedindo offline um CSS e um modulo que nao existem.
+const VERSAO = 'atlas-v28';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
 // deixa o cache antigo sem o nome novo. Recalcular: node tests/precache-hash.js.
-const PRECACHE_HASH = 'sha256-e4ee9d4c9658560e08b03f2bba02ab1e0453b7a3e5d4706abbc5faa1d6bce31c';
+const PRECACHE_HASH = 'sha256-b743e52318270189c848a4adefe4f296be76a205502c1216223aca6071eb2c36';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.
@@ -224,6 +228,11 @@ const PRECACHE = [
   // onibus, e o branco nao da erro nenhum na rede.
   'web/casco.js',
   'web/casco.css',
+ // A FOLHA da estacao (S5): o index.html liga o CSS, e ela vira modulo quando o
+ // metro.js trocar o clique pela rota. Os dois entram juntos pelo mesmo motivo
+ // da v22 — HTML novo pedindo arquivo que o cache antigo nao tem.
+ 'web/folha.js',
+ 'web/folha.css',
   'web/telas/jornada.js',
   'web/telas/explorar.js',
   // As tres pecas da Jornada (S4a, 31/10/2026): o metro.js importa

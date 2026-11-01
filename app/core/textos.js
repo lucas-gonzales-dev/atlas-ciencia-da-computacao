@@ -148,6 +148,19 @@ export const comValores = {
 
   /** Link com nome, no lugar da URL crua. */
   linkBibliografia: (titulo) => `Bibliografia: ${titulo}`,
+
+  /**
+   * S5: um item da lista "AO CONCLUIR, VOCÊ ABRE". Baldeação é travessia — o
+   * número da linha de destino vem junto com o nome, como na 2d-2 (§3.2).
+   */
+  abreItem: (titulo, linha) => `${titulo}, na Linha ${linha}`,
+
+  /**
+   * S5: o fato "CONEXÕES" da folha, em número. "Pede 1 · Abre 2" é lido da
+   * malha; zero continua escrito zero, porque esconder o número seria a tela
+   * dizendo menos do que sabe.
+   */
+  fatosConexoes: (pede, abre) => `Pede ${pede} · Abre ${abre}`,
 };
 
 /**
@@ -268,6 +281,37 @@ export const estados = {
 };
 
 /**
+ * S5 — a FOLHA da estação. Todo texto que ela desenha mora aqui (regra 9:
+ * frase à mão no `web/` é o que faz a mesma origem aparecer de dois jeitos em
+ * duas telas). Os nomes vêm do slice S5 do `design/v2/FATIAS-POR-ESCRITA.md`,
+ * e o que é número ou data é função em `comValores`.
+ */
+export const folha = Object.freeze({
+  fechar: 'Fechar a folha',
+  naoEstaNoMapa: 'Essa estação não está no mapa.',
+  voltarAoMapa: 'Voltar ao mapa',
+  rotuloRecurso: 'Recurso',
+  rotuloBibliografia: 'Bibliografia',
+  rotuloConexoes: 'Conexões',
+  abreTitulo: 'Ao concluir, você abre',
+  trancadaTitulo: 'A conexão começa antes.',
+  revisitar: 'Rever o conteúdo',
+  abrirCurso: 'Abrir o curso',
+  desfazerConclusao: 'Desfazer conclusão',
+  anotacaoPergunta: 'Em uma frase, o que você leva desta estação?',
+  anotacaoCampo: (nome) => `Anotação de ${nome}`,
+  salvo: 'Salvo',
+  notaAbrir: 'O curso abre fora do Atlas, no site de quem o publicou.',
+  // O estado por texto (JORNADA §3.1): forma E palavra, nunca só a cor.
+  estadoNome: Object.freeze({
+    concluida: 'Concluída',
+    em_curso: 'Em curso',
+    disponivel: 'Disponível',
+    trancada: 'Trancada',
+  }),
+});
+
+/**
  * Legenda do mapa — heurística 6 (reconhecer em vez de lembrar) e 10 (ajuda).
  * A forma diz o estado, e a legenda diz a forma: cor nunca é o único sinal.
  */
@@ -379,6 +423,6 @@ export const jornada = {
 };
 
 /** Tudo junto, para quem precisa percorrer (o teste percorre). */
-export const TEXTOS = { placa, comValores, estados, legenda, proibido, ORIGEM, TIPO_DE_ORIGEM, casco, jornada };
+export const TEXTOS = { placa, comValores, folha, estados, legenda, proibido, ORIGEM, TIPO_DE_ORIGEM, casco, jornada };
 
 export default TEXTOS;

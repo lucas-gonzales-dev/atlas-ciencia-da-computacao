@@ -26,6 +26,10 @@
 //      a estação (JORNADA.md §3.2).
 
 import { detectCycles, unlockedCourses, nextUp } from './progress.js';
+// S5: `TIPO_DE_ORIGEM` é o dicionário resourceType → palavra (textos.js é puro,
+// sem import de node e sem DOM, por isso o núcleo pode lê-lo sem quebrar a regra
+// de cima). A folha mostra a palavra; o que a fonte não diz, a folha não diz.
+import { TIPO_DE_ORIGEM } from './textos.js';
 
 /** Os quatro estados de uma estação (JORNADA.md §3.1). */
 export const ESTADOS = Object.freeze({
@@ -579,4 +583,80 @@ export function numerosDaJornada(progresso, catalogo) {
     // número da tela e a linha acesa não discordarem.
     linhasAbertas: linhasAbertas(p, lista).length
   };
+}
+
+/**
+ * OS FATOS DE UMA ESTAÇÃO (S5) — o que a folha lê, numa chamada só.
+ *
+ * A folha não calcula nada: linha, posição na linha, total da linha, a origem
+ * do recurso (tipo + domínio, lidos do catálogo com `TIPO_DE_ORIGEM` — o que a
+ * fonte não diz, a folha não diz), o que ela pede e o que ela abre vêm daqui.
+ * Baldeação é uma linha que aparece nos dados (`linha` de quem abre), nunca um
+ * palpite da tela.
+ *
+ * Pura: catálogo e progresso entram, nada de `document`, `window` ou storage.
+ * Id que não existe no catálogo devolve `null`, como `estadoDaEstacao`.
+ *
+ * @param {Array} catalogo
+ * @param {string} id
+ * @param {unknown} progresso array de ids OU objeto v3
+ * @returns {object|null}
+ */
+export function fatosDaEstacao(catalogo, id, progresso) {
+  const e = estadoDaEstacao(id, progresso, catalogo);
+  if (!e) return null;
+  const { lista, byId, ciclo } = malha(catalogo);
+  const course = byId.get(id);
+  if (!course) return null;
+
+  // posição e total DENTRO da linha, na ordem da fonte (regra S4b: a posição
+  // vem do catálogo, nunca de um índice de array que o catálogo embaralha).
+  // `ciclo` vem do malha(), a mesma autoridade do mapa — não reimplemento aqui.
+  const naLinha = lista.filter((c) => Number(c?.stage) === e.linha && !ciclo.has(c?.id));
+  const posicao = naLinha.findIndex((c) => c.id === id) + 1;
+
+  const abre = lista
+    .filter((c) => Array.isArray(c?.prerequisites) && c.prerequisites.includes(id))
+    .map((c) => ({
+      id: c.id,
+      slug: c.slug,
+      titulo: typeof c.title === 'string' ? c.title : c.id,
+      linha: Number.isFinite(Number(c.stage)) ? Number(c.stage) : null
+    }));
+
+  const faltam = e.faltam.map((f) => ({
+    id: f.id,
+    slug: (byId.get(f.id) || {}).slug,
+    titulo: f.titulo,
+    linha: f.linha
+  }));
+
+  return {
+    ...e,
+    slug: course.slug,
+    posicao: posicao > 0 ? posicao : null,
+    total: naLinha.length,
+    recurso: recursoDaEstacao(course),
+    pede: faltam,
+    abre
+  };
+}
+
+/**
+ * `resourceType` + domínio do `resourceUrl`, lidos do catálogo. Sem recurso,
+ * `{ tipo: null, dominio: null }`: a folha cala em vez de inventar origem.
+ */
+function recursoDaEstacao(course) {
+  const palavra = typeof course.resourceType === 'string' ? (TIPO_DE_ORIGEM[course.resourceType] || null) : null;
+  return { tipo: palavra, dominio: hostLegivelDoRecurso(course.resourceUrl) };
+}
+
+function hostLegivelDoRecurso(url) {
+  if (typeof url !== 'string' || !url.trim()) return null;
+  try {
+    const h = new URL(url).hostname;
+    return h.replace(/^www\./, '') || null;
+  } catch {
+    return null;
+  }
 }

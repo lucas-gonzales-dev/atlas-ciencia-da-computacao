@@ -39,11 +39,17 @@ const TELAS = Object.freeze({
 const CLASSE_DA_TELA = Object.freeze({ jornada: 'metro', explorar: '' });
 
 /**
- * Decide a tela para uma rota. `estacao` ainda não tem tela própria (deep-link
- * é fatia futura): cai na Jornada, que é o comportamento de sempre.
+ * Decide a tela para uma rota, e QUAL FOLHA abrir por cima dela (S5).
+ *
+ * A estação não é uma tela nova: `#/estacao/<slug>` monta a Jornada e a
+ * Jornada levanta a folha. O casco entrega o slug à promessa de tela, que é
+ * quem conhece o catálogo. `export` porque a rota é decisão e decisão tem de
+ * ser testável (tests/folha.test.js) — sem importar a folha, que puxaria o
+ * DOM, e o casco continua sem tocar em document.
  */
-function telaDaRota(rota) {
-  return TELAS[rota.tela] ? rota.tela : 'jornada';
+export function telaDaRota(rota) {
+  if (rota?.tela === 'estacao') return { tela: 'jornada', folha: String(rota.slug || '') };
+  return { tela: TELAS[rota.tela] ? rota.tela : 'jornada', folha: null };
 }
 
 export async function iniciar(deps = {}) {
@@ -55,7 +61,11 @@ export async function iniciar(deps = {}) {
   if (!main || !anuncio || !nav) return { ok: false, motivo: 'casco sem #conteudo/#anuncio/nav' };
 
   let catalogo = null; // a promessa, não o resultado
-  const contexto = { modulos, get catalogo() { return catalogo; } };
+  // S5: `folha` é o slug que a rota pediu. O casco NÃO conhece a folha (ela é
+  // tela, e tela não é casco): só entrega o que a rota disse, pela mesma
+  // promessa do catálogo. Quem tem o catálogo decide o que fazer com ele.
+  const contexto = { modulos, get catalogo() { return catalogo; }, get folha() { return folhaPedida; } };
+  let folhaPedida = null;
   let atual = null; // { tela, instancia } — para o desmontar da saída
   let primeira = true;
 
@@ -71,7 +81,8 @@ export async function iniciar(deps = {}) {
     // Âncora comum (#conteudo do "Pular"): não é rota, não se pinta nada.
     // Ignorar aqui é o que impede o link de pular de trocar a tela no clique.
     if (!rota) return;
-    let nome = telaDaRota(rota);
+    let { tela: nome, folha } = telaDaRota(rota);
+    folhaPedida = folha;
     if (rota.desconhecida) {
       // Rota que ninguém reconhece: volta para #/ SEM criar entrada no
       // histórico — o botão "voltar" do aluno não pode ficar preso num

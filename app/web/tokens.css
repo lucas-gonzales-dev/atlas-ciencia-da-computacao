@@ -171,6 +171,14 @@
    * parado e visível: o estado final é o anel, não a ausência dele. */
   --pulso-repeticoes: 2;
 
+  /* S5: a FOLHA. altura do aparadeiro no celular, largura do painel no
+   * computador e a borda que pinta a linha da estação. Nada destes números
+   * vive na folha.css: são tokens, porque a regra 11 do design system só vale
+   * se o tamanho morar num lugar só. */
+  --altura-folha: 90dvh;          /* o teto da folha no celular */
+  --largura-painel: 480px;        /* o painel da estação no computador */
+  --espessura-borda-painel: 6px;  /* a borda esquerda, na cor da linha */
+
   --curva-mecanica: cubic-bezier(0, 0, 0.2, 1);
   --curva-chegada: cubic-bezier(0.16, 1, 0.3, 1); /* saída suave */
   --curva-pulso: ease-in-out;
