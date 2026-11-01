@@ -198,12 +198,18 @@
 // e web/folha.css (o miolo vira o momento, com um primario so) e web/metro.js (o
 // handler passa o momento pela porta do nucleo). Conteudo do precache mudou, entao
 // VERSAO e hash.
-const VERSAO = 'atlas-v32';
+// atlas-v33: comeca a S7 (01/11/2026). core/rotas.js passou a ler e escrever a
+// busca e a linha no endereco (#/explorar?busca=calculo&linha=2), com
+// hrefDe fazendo o caminho de volta. Antes, colar esse link caia no 'rota
+// desconhecida' e o casco dava replaceState para '#/' -- a pessoa perdia a
+// busca do outro lado sem aviso. Mudou conteudo do precache (rotas.js),
+// entao VERSAO e hash.
+const VERSAO = 'atlas-v33';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
 // deixa o cache antigo sem o nome novo. Recalcular: node tests/precache-hash.js.
-const PRECACHE_HASH = 'sha256-ec877bd0f9c19ce13dc532e72e0574c5c2d4d2c6ce499f48c175dd19fc785359';
+const PRECACHE_HASH = 'sha256-fa8c07fca84a2033d002ccac478480bb6bf764834072c83fbb881e47cdb5230a';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.

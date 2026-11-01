@@ -31,6 +31,30 @@ export const ABAS = Object.freeze([
 const PREFIXO_ESTACAO = '#/estacao/';
 
 /**
+ * 'busca=calculo&linha=2' -> Map. Sem URLSearchParams de propósito: ele não
+ * existe no mini-DOM dos testes, e a regra é pequena demais para arrastar um
+ * global que pode faltar. Um % quebrado no endereço da outra pessoa
+ * ('#/explorar?busca=%') tem que devolver a rede inteira, não estourar no
+ * hashchange — por isso o decode vai em try/catch e devolve '' na falha.
+ * @param {string|undefined} queryString o que vem depois do '?'
+ * @returns {Map<string,string>}
+ */
+function parseQuery(queryString) {
+  const out = new Map();
+  for (const pedaco of String(queryString ?? '').split('&')) {
+    if (!pedaco) continue;
+    const i = pedaco.indexOf('=');
+    const chave = i < 0 ? pedaco : pedaco.slice(0, i);
+    const valor = i < 0 ? '' : pedaco.slice(i + 1);
+    const dec = (texto) => {
+      try { return decodeURIComponent(texto); } catch { return ''; }
+    };
+    out.set(dec(chave), dec(valor));
+  }
+  return out;
+}
+
+/**
  * Lê um hash e diz que tela ele pede.
  *
  * @param {string} hash `location.hash` (ou o href de uma âncora)
@@ -44,9 +68,20 @@ export function lerRota(hash) {
   // Âncora comum ('#conteudo', '#topo'): não é rota. Null, não jornada.
   if (!cru.startsWith('#/')) return cru === '' || cru === '#' ? { tela: 'jornada' } : null;
 
-  const caminho = cru.slice(2);
+  const [caminho, queryString] = cru.slice(2).split('?');
   if (caminho === '' || caminho === '/') return { tela: 'jornada' };
-  if (caminho === 'explorar') return { tela: 'explorar' };
+  if (caminho === 'explorar') {
+    // A busca e a linha só existem aqui: nenhuma outra tela lê estes valores,
+    // e rota que carrega dado que ninguém consome é endereço que mente.
+    const par = parseQuery(queryString);
+    const busca = par.get('busca');
+    const linha = par.get('linha');
+    const rota = { tela: 'explorar' };
+    if (busca) rota.busca = busca;
+    const n = linha === undefined ? NaN : Number(linha);
+    if (Number.isInteger(n) && n >= 1 && n <= 7) rota.linha = n;
+    return rota;
+  }
   if (caminho.startsWith('estacao/')) {
     const slug = caminho.slice('estacao/'.length);
     // '#/estacao/' sem nada depois não nomeia estação nenhuma.
@@ -65,7 +100,15 @@ export function lerRota(hash) {
  */
 export function hrefDe(rota) {
   const tela = rota?.tela;
-  if (tela === 'explorar') return '#/explorar';
+  if (tela === 'explorar') {
+    // A ordem é busca, linha — a mesma que lerRota aceita em qualquer ordem, e
+    // que o teste cobra byte a byte: um endereço compartilhado tem de ser o
+    // mesmo endereço que a tela escreveu.
+    const pedacos = [];
+    if (rota.busca) pedacos.push(`busca=${encodeURIComponent(rota.busca)}`);
+    if (rota.linha) pedacos.push(`linha=${rota.linha}`);
+    return pedacos.length ? `#/explorar?${pedacos.join('&')}` : '#/explorar';
+  }
   if (tela === 'estacao') return `${PREFIXO_ESTACAO}${rota.slug}`;
   return '#/';
 }
