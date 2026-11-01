@@ -206,12 +206,15 @@
 // entao VERSAO e hash.
 // atlas-v34: S7 — core/textos.js ganhou a voz da Explorar (rotulo, busca,
 // filtro, status, grupos, selos, rodape). A tela em si vem no proximo bloco.
-const VERSAO = 'atlas-v34';
+// atlas-v35: S7 (01/11/2026) — a Explorar passou a importar core/filtro.js e
+// a ligar web/telas/explorar.css, e o index.html passou a carregar o css dela.
+// Dois arquivos novos no precache e dois htmls alterados: VERSAO e hash sobem.
+const VERSAO = 'atlas-v35';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
 // deixa o cache antigo sem o nome novo. Recalcular: node tests/precache-hash.js.
-const PRECACHE_HASH = 'sha256-a4603d3182bffc372f0e0241ac4b40751f63f7c7f53ee9d92be9ae6ae7ef4bbc';
+const PRECACHE_HASH = 'sha256-494f30356a44ed688ea23e746af642a11417e631c623f7bd0c2a69d85857bd14';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.
@@ -268,6 +271,11 @@ const PRECACHE = [
  'web/folha.css',
   'web/telas/jornada.js',
   'web/telas/explorar.js',
+  // A EXPLORAR da v2 (S7, 01/11/2026): a tela passou a importar core/filtro.js
+  // e a ligar web/telas/explorar.css. Mesma regra da v21 — HTML e JS novos
+  // pedindo arquivo que o cache antigo nao tem abre em branco, sem erro na rede.
+  'core/filtro.js',
+  'web/telas/explorar.css',
   // As tres pecas da Jornada (S4a, 31/10/2026): o metro.js importa
   // jornada-blocos.js, e o index.html liga o jornada.css. Se um dos dois
   // faltar no cache, a primeira aba abre sem a abertura e sem o tamanho do
