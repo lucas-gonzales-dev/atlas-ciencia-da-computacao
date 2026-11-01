@@ -209,12 +209,16 @@
 // atlas-v35: S7 (01/11/2026) — a Explorar passou a importar core/filtro.js e
 // a ligar web/telas/explorar.css, e o index.html passou a carregar o css dela.
 // Dois arquivos novos no precache e dois htmls alterados: VERSAO e hash sobem.
-const VERSAO = 'atlas-v35';
+// atlas-v36: S7 (01/11/2026 a noite) — a Explorar nao acumula mais a linha de
+// origem do curriculo a cada tecla (ela nascia no montar e era anexada dentro
+// do pintar), e ganhou testes de DOM proprios em tests/explorar.test.js.
+// Mudou conteudo do precache (web/telas/explorar.js), entao VERSAO e hash.
+const VERSAO = 'atlas-v36';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
 // deixa o cache antigo sem o nome novo. Recalcular: node tests/precache-hash.js.
-const PRECACHE_HASH = 'sha256-494f30356a44ed688ea23e746af642a11417e631c623f7bd0c2a69d85857bd14';
+const PRECACHE_HASH = 'sha256-54e722044bc6427105f7f382b8aa0437308773e3d09c5c77290be4e3f64b98b0';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.

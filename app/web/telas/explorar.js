@@ -119,7 +119,12 @@ export function montar(raiz, ctx) {
   corpo.append(esqueleto(doc));
 
   const rodape = el(doc, `${CLASSE}-rodape`);
-  rodape.append(el(doc, `${CLASSE}-licenca`, t.rodape));
+  const licenca = el(doc, `${CLASSE}-licenca`, t.rodape);
+  // A origem é UMA linha criada aqui e preenchida no pintar(). Criá-la dentro
+  // do pintar() somava uma ao DOM a cada tecla (visto na tela com a busca
+  // "calculo": a mesma frase, duas vezes). Explorar.search 'origem' abaixo.
+  const origem = el(doc, `${CLASSE}-origem`, '');
+  rodape.append(licenca, origem);
 
   raiz.className = `${CLASSE}-raiz`;
   raiz.append(cabeca, controles, corpo, rodape);
@@ -212,7 +217,8 @@ export function montar(raiz, ctx) {
     });
 
     status.textContent = contar(r.estacoes.length);
-    rodape.append(el(doc, `${CLASSE}-origem`, cat.origem || ''));
+    // Escreve na linha que já existe no rodapé; nunca anexa outra.
+    origem.textContent = cat.origem || '';
 
     if (r.semResultado) {
       const vazio = el(doc, `${CLASSE}-vazio`);
