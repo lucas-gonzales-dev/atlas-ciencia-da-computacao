@@ -204,12 +204,14 @@
 // desconhecida' e o casco dava replaceState para '#/' -- a pessoa perdia a
 // busca do outro lado sem aviso. Mudou conteudo do precache (rotas.js),
 // entao VERSAO e hash.
-const VERSAO = 'atlas-v33';
+// atlas-v34: S7 — core/textos.js ganhou a voz da Explorar (rotulo, busca,
+// filtro, status, grupos, selos, rodape). A tela em si vem no proximo bloco.
+const VERSAO = 'atlas-v34';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
 // deixa o cache antigo sem o nome novo. Recalcular: node tests/precache-hash.js.
-const PRECACHE_HASH = 'sha256-fa8c07fca84a2033d002ccac478480bb6bf764834072c83fbb881e47cdb5230a';
+const PRECACHE_HASH = 'sha256-a4603d3182bffc372f0e0241ac4b40751f63f7c7f53ee9d92be9ae6ae7ef4bbc';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.

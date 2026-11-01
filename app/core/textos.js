@@ -423,6 +423,48 @@ export const jornada = {
 };
 
 /**
+ * A EXPLORAR (S7, 01/11/2026): a rede inteira em lista, para quem quer ver o
+ * caminho sem embarcar em nada. Nenhuma frase daqui diz "estude", "assista" ou
+ * "comece agora": a Explorar mostra a rede, quem decide é a pessoa na estação.
+ * Nada de emoji, nada de contagem de dias, nenhum número que ela não gerou.
+ */
+export const explorar = Object.freeze({
+  rotulo: 'A REDE INTEIRA',
+  titulo: 'Explore sem perder a direção.',
+  descricao: 'Cada estação mostra o que ela pede e o que ela abre. Trancada também se lê.',
+  busca: {
+    rotulo: 'Buscar estação',
+    placeholder: 'Nome da disciplina',
+  },
+  filtro: {
+    rotulo: 'Linha',
+    todas: 'Todas',
+    // O seletor é derivado do catálogo, nunca 7 escrito à mão.
+    linha: (n) => `Linha ${n}`,
+  },
+  // `role=status aria-live=polite`: a contagem que quem usa leitor de tela ouve
+  // a cada tecla. Frase curta, nunca a página inteira.
+  status: {
+    nenhuma: 'Nenhuma estação',
+    uma: '1 estação',
+    muitas: (n) => `${n} estações`,
+  },
+  grupos: {
+    linha: (n) => `Linha ${n}`,
+    ramais: 'Ramais',
+    eletivas: 'Eletivas',
+    semLinha: 'linha a definir',
+  },
+  selo: {
+    emObras: 'EM OBRAS',
+    trancada: 'trancada',
+  },
+  // O que falta, dito pelo NOME — mesma regra da folha (JORNADA 2.3).
+  falta: (nomes) => `Falta ${nomes}`,
+  rodape: 'Currículo: Universidade Brasileira Livre (licença MIT)',
+});
+
+/**
  * A CHEGADA (S6, 01/11/2026): o momento em que concluir vira coisa visível.
  *
  * O Lovable fez disso uma tela inteira; aqui o miolo da folha troca de corpo
@@ -465,6 +507,6 @@ export const chegada = Object.freeze({
 });
 
 /** Tudo junto, para quem precisa percorrer (o teste percorre). */
-export const TEXTOS = { placa, comValores, folha, estados, legenda, proibido, ORIGEM, TIPO_DE_ORIGEM, casco, jornada, chegada };
+export const TEXTOS = { placa, comValores, folha, estados, legenda, proibido, ORIGEM, TIPO_DE_ORIGEM, casco, jornada, explorar, chegada };
 
 export default TEXTOS;
