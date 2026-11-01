@@ -157,6 +157,7 @@ export function montar(raiz, ctx) {
   function ramais(cat, r) {
     const secao = el(doc, `${CLASSE}-secao`);
     secao.append(h2(doc, `${CLASSE}-grupo-titulo`, t.grupos.ramais));
+    secao.append(el(doc, `${CLASSE}-aviso-grupo`, t.avisos.ramais));
     const lista = r.buscaAtiva ? r.ramais : (cat.specializations || []);
     if (!lista.length) {
       secao.append(el(doc, `${CLASSE}-vazio-texto`, t.status.nenhuma));
@@ -183,6 +184,7 @@ export function montar(raiz, ctx) {
   function eletivas(cat, r) {
     const secao = el(doc, `${CLASSE}-secao`);
     secao.append(h2(doc, `${CLASSE}-grupo-titulo`, t.grupos.eletivas));
+    secao.append(el(doc, `${CLASSE}-aviso-grupo`, t.avisos.eletivas));
     const lista = r.buscaAtiva ? r.eletivas : (cat.electives || []);
     if (!lista.length) {
       secao.append(el(doc, `${CLASSE}-vazio-texto`, t.status.nenhuma));

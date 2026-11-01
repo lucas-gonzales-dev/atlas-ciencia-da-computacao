@@ -455,6 +455,14 @@ export const explorar = Object.freeze({
     eletivas: 'Eletivas',
     semLinha: 'linha a definir',
   },
+  // Honestidade herdada da grade v1 (24/10/2026) e cobrada por teste desde
+  // entao: eletivas vivem num bloco COMENTADO do README da UBL, e ramais sao
+  // aprofundamento — nenhuma das duas conta no progresso. Uma lista que nao
+  // diz isso sugere que tudo pesa igual.
+  avisos: {
+    ramais: 'Ramais dao aprofundamento em uma area — nao somam a grade obrigatoria nem contam no seu progresso.',
+    eletivas: 'Eletivas arquivadas na fonte: nao somam a grade obrigatoria sem decisao editorial.',
+  },
   selo: {
     emObras: 'EM OBRAS',
     trancada: 'trancada',

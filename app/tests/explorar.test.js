@@ -172,3 +172,19 @@ test('explorar: trancada diz o que falta pelo nome, e o ramal em obras avisa', a
   const obras = comClasse(raiz, /^explorar-selo-obras$/);
   assert.equal(obras.length, 1, 'o ramal under_construction deveria vir com selo de obras');
 });
+
+test('explorar: eletivas e ramais dizem por palavra que não somam à grade obrigatória', async () => {
+  // HERANÇA DE HONESTIDADE (24/10/2026, na grade v1) que a S7-1b perdeu no
+  // caminho: as eletivas vivem num bloco COMENTADO do README da UBL e os ramais
+  // são aprofundamento — nenhuma das duas conta no progresso. Sem o aviso
+  // escrito, uma tela que lista "6 + 2 + 1" sugere que as oito coisas pesam
+  // igual. A rede nova tem de dizer isso com palavra, como dizia a grade.
+  const { raiz } = await abrir();
+  const avisos = comClasse(raiz, /^explorar-aviso-grupo$/).map((n) => textoDe(n));
+  assert.equal(avisos.length, 2,
+    `esperava um aviso em cada seção fora da grade; vieram ${avisos.length}: ${avisos.join(' | ')}`);
+  assert.ok(avisos.some((a) => /arquivad|eletiva/i.test(a) && /n[ãa]o somam/i.test(a)),
+    `a seção de eletivas não diz que não soma à grade: ${avisos.join(' | ')}`);
+  assert.ok(avisos.some((a) => /aprofundamento/i.test(a)),
+    `a seção de ramais não diz que é aprofundamento: ${avisos.join(' | ')}`);
+});

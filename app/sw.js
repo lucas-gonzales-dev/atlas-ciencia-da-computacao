@@ -213,12 +213,16 @@
 // origem do curriculo a cada tecla (ela nascia no montar e era anexada dentro
 // do pintar), e ganhou testes de DOM proprios em tests/explorar.test.js.
 // Mudou conteudo do precache (web/telas/explorar.js), entao VERSAO e hash.
-const VERSAO = 'atlas-v36';
+// atlas-v37: a grade morre (S7-1c, 01/11/2026). web/grade.css saiu do PRECACHE,
+// do index.html e do disco, boot.js ficou so com registrarSW, e a Explorar passou
+// a se desenhar em web/telas/explorar.css. Sem subir a VERSAO, quem tem v36 no
+// cache conserva a folha morta de 25 medidas fora da escala.
+const VERSAO = 'atlas-v37';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
 // deixa o cache antigo sem o nome novo. Recalcular: node tests/precache-hash.js.
-const PRECACHE_HASH = 'sha256-54e722044bc6427105f7f382b8aa0437308773e3d09c5c77290be4e3f64b98b0';
+const PRECACHE_HASH = 'sha256-623506cd0e286027f2b357b0f4ce1357141e9c19cfab23cce0608812fd43a3a2';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.
@@ -259,9 +263,6 @@ const PRECACHE = [
   // calha branca no escuro — o defeito que a S2 matou.
   'web/tokens.css',
   'web/base.css',
-  // A grade compartilhada (S3a-1, 31/10/2026): celulas e lacunas do quadro.
-  // Sem ela, quem tem v20 no cache recebe o HTML novo e a grade desmontada.
-  'web/grade.css',
   // O CASCO (S3a-2a, 31/10/2026): o index.html passou a carregar cascos.js e as
   // duas telas sao importadas por dinamica. Sem estes tres no cache, quem tem
   // v21 recebe o HTML novo e a tela nunca monta — a pagina abre em branco no

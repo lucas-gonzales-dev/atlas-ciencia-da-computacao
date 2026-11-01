@@ -1,223 +1,28 @@
-// Projeto Atlas — boot da pagina como MODULO testavel (27/10/2026).
+// Projeto Atlas — boot da página (web/boot.js) depois da grade.
 //
-// POR QUE ESTE ARQUIVO EXISTE: a ligacao da pagina morava num <script> inline
-// no index.html, e codigo inline nao entra em teste nenhum — o node importa
-// modulos, nao HTML. Foi exatamente por isso que o bug do hook `avisar` chegou
-// ao navegador: escrever `avisar` onde a variavel da pagina se chama `aviso` e
-// um ReferenceError que NENHUM teste que importa web/main.js consegue ver, e o
-// importador de progresso morria em silencio ao avisar. testar_pagina pegou em
-// 27/10; agora o node pega tambem.
+// S7-1c (01/11/2026): a grade antiga morreu — o index parou de carregar
+// grade.css, o arquivo saiu do disco e `boot.montarGrade` deixou de existir.
+// Este arquivo tinha oito testes; três morreram com ela: a fumaça de
+// montarGrade (desenhava trilha, slot de busca) e o fio `avisar` do
+// exportador — cujo único chamador era a própria montagem. A garantia não se
+// perde, se adia: quando a exportação de progresso voltar (S9), volta com
+// chamador vivo e teste próprio. Cobrir código que ninguém chama é exatamente
+// o defeito que esta casa apontou no main.js da v1.
 //
-// O QUE SE PROVA AQUI (e o limite honesto):
-//   1. web/boot.js sobe num navegador de mentira (document/window/localStorage
-//      falsos) sem ReferenceError/TypeError — ou seja, todo identificador que
-//      ele usa existe;
-//   2. o fio `avisar` do importador existe de verdade: disparar o clique de
-//      exportar escreve um recado na tela (e o bug acima nao volta);
-//   3. o service worker e registrado com escopo RELATIVO a baseURI (o bug de
-//      escopo '/' que quebra o offline servido fora da raiz do dominio);
-//   4. guarda: o index.html NAO pode voltar a ter <script> inline com codigo.
-// node nao executa navegador: layout, foco e PWA instalada continuam sendo
-// assunto do testar_pagina / do Android.
+// O que sobrevive e continua protegido: `registrarSW` (escopo relativo a
+// baseURI, aviso de versão só na SEGUNDA visita, update() forçado) e o
+// index.html como shell sem código inline — a lição do `avisar` de 27/10, que
+// só aparecia no navegador porque vivia dentro de um <script> sem teste.
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 
-// ---------------------------------------------------------------------------
-// DOM de mentira — o minimo para render()/bind()/bindProgressIO() subirem.
-// Nao e um jsdom: e o bastante para o boot rodar, e de proposito pequeno, para
-// o teste mostrar onde doeu quando doer.
-// ---------------------------------------------------------------------------
-const classes = (no) => String(no?.className ?? no?.attrs?.class ?? '').split(/\s+/).filter(Boolean);
-
-/** Casamenteiro de seletor simples: tag, .classe, #id, [attr], [attr="v"], descendentes. */
-function casaComposto(no, composto) {
-  const m = String(composto).match(/^([a-zA-Z][\w-]*)?((?:[.#][\w-]+|\[[^\]]+\])*)$/);
-  if (!m) return false;
-  if (m[1] && no.tagName !== m[1].toUpperCase()) return false;
-  for (const parte of String(m[2] ?? '').matchAll(/[.#][\w-]+|\[[^\]]+\]/g)) {
-    const p = parte[0];
-    if (p[0] === '.') {
-      if (!classes(no).includes(p.slice(1))) return false;
-    } else if (p[0] === '#') {
-      if (String(no.attrs.id ?? '') !== p.slice(1)) return false;
-    } else {
-      const [nome, valor] = p.slice(1, -1).split('=');
-      if (!(nome in no.attrs)) return false;
-      if (valor !== undefined && no.attrs[nome] !== valor.replace(/^["']|["']$/g, '')) return false;
-    }
-  }
-  return true;
-}
-
-function casa(no, seletor) {
-  const compostos = String(seletor).trim().split(/\s+/).filter(Boolean);
-  if (compostos.length === 0) return false;
-  if (!casaComposto(no, compostos[compostos.length - 1])) return false;
-  let alvo = no.parentNode;
-  for (let i = compostos.length - 2; i >= 0; i--) {
-    let achou = false;
-    while (alvo) {
-      if (casaComposto(alvo, compostos[i])) { achou = true; alvo = alvo.parentNode; break; }
-      alvo = alvo.parentNode;
-    }
-    if (!achou) return false;
-  }
-  return true;
-}
-
-function criarNo(tag) {
-  let texto = '';
-  const no = {
-    tagName: String(tag).toUpperCase(),
-    children: [], attrs: {}, handlers: {}, dataset: {}, style: {},
-    className: '', value: '', files: [], hidden: false, disabled: false, parentNode: null,
-    append(...ns) { for (const n of ns.filter(Boolean)) { no.children.push(n); n.parentNode = no; } },
-    appendChild(n) { no.append(n); return n; },
-    prepend(...ns) { no.children.unshift(...ns.filter(Boolean)); for (const n of ns.filter(Boolean)) n.parentNode = no; },
-    insertBefore(n) { no.children.unshift(n); n.parentNode = no; return n; },
-    replaceChildren(...ns) { no.children = ns.filter(Boolean); for (const n of no.children) n.parentNode = no; },
-    remove() { const p = no.parentNode; if (p) p.children = p.children.filter((c) => c !== no); no.removido = true; },
-    removeChild(n) { no.children = no.children.filter((c) => c !== n); return n; },
-    setAttribute(k, v) {
-      no.attrs[k] = String(v);
-      if (k === 'class') no.className = String(v);
-      if (k === 'id') no.id = String(v);
-      if (k.startsWith('data-')) no.dataset[k.slice(5).replace(/-(\w)/g, (_, c) => c.toUpperCase())] = String(v);
-    },
-    getAttribute(k) { return k in no.attrs ? no.attrs[k] : null; },
-    removeAttribute(k) { delete no.attrs[k]; },
-    hasAttribute(k) { return k in no.attrs; },
-    addEventListener(t, f) { (no.handlers[t] ??= []).push(f); },
-    removeEventListener(t, f) { no.handlers[t] = (no.handlers[t] ?? []).filter((x) => x !== f); },
-    click() { no.cliques = (no.cliques ?? 0) + 1; },
-    focus() {}, blur() {},
-    contains(n) { return n === no || no.children.some((c) => c.contains?.(n)); },
-    closest(sel) { return casa(no, sel) ? no : no.parentNode?.closest?.(sel) ?? null; },
-    querySelector(sel) { return acharTodos(no, sel)[0] ?? null; },
-    querySelectorAll(sel) { return acharTodos(no, sel); },
-    get firstChild() { return no.children[0] ?? null; },
-    get lastChild() { return no.children[no.children.length - 1] ?? null; },
-    get childNodes() { return no.children; },
-    // Como no navegador: escrever texto limpa os filhos.
-    get textContent() { return texto !== '' ? texto : no.children.map((c) => c.textContent).join(''); },
-    set textContent(v) { texto = v === undefined || v === null ? '' : String(v); no.children = []; },
-    get innerHTML() { return ''; },
-    set innerHTML(v) { no.children = []; texto = ''; }
-  };
-  no.classList = {
-    contains: (c) => classes(no).includes(c),
-    add: (...cs) => { no.className = [...new Set([...classes(no), ...cs])].join(' '); },
-    remove: (...cs) => { no.className = classes(no).filter((c) => !cs.includes(c)).join(' '); },
-    toggle: (c) => (no.classList.contains(c) ? no.classList.remove(c) : no.classList.add(c))
-  };
-  return no;
-}
-
-function acharTodos(raiz, sel) {
-  const saida = [];
-  const andar = (no) => { for (const f of no.children) { if (casa(f, sel)) saida.push(f); andar(f); } };
-  andar(raiz);
-  return saida;
-}
-
-function criarDocument(ids = {}) {
-  return {
-    baseURI: 'http://127.0.0.1/index.html',
-    body: criarNo('body'),
-    createElement: (t) => criarNo(t),
-    createTextNode: (t) => { const n = criarNo('#text'); n.textContent = t; return n; },
-    createDocumentFragment: () => criarNo('#fragment'),
-    getElementById: (id) => ids[id] ?? null,
-    querySelector: () => null,
-    querySelectorAll: () => [],
-    addEventListener() {}
-  };
-}
-
-function criarStorage() {
-  const mapa = new Map();
-  return {
-    getItem: (k) => (mapa.has(k) ? mapa.get(k) : null),
-    setItem: (k, v) => mapa.set(k, String(v)),
-    removeItem: (k) => mapa.delete(k),
-    clear: () => mapa.clear(),
-    get length() { return mapa.size; }
-  };
-}
-
-/** Dispara um evento nos listeners registrados — sem Event de verdade, so o alvo. */
-function disparar(no, tipo, alvo) {
-  const ev = { type: tipo, target: alvo ?? no, preventDefault() {}, stopPropagation() {} };
-  for (const f of no.handlers[tipo] ?? []) f(ev);
-  return ev;
-}
-
-// Ambiente instalado ANTES de importar o modulo: web/main.js le `document` e
-// `localStorage` como globais, e e exatamente isso que o navegador fornece.
-const root = criarNo('main');
-root.setAttribute('id', 'app');
-const buscaSlot = criarNo('div');
-buscaSlot.setAttribute('id', 'busca-slot');
-const documento = criarDocument({ app: root, 'busca-slot': buscaSlot });
-const storage = criarStorage();
-storage.setItem('atlas.progresso.v1', JSON.stringify(['logica']));
-const janela = {
-  document: documento,
-  location: { protocol: 'http:', href: 'http://127.0.0.1/index.html', origin: 'http://127.0.0.1' },
-  navigator: {}, // SEM serviceWorker: no node o registro nao deve nem ser tentado
-  console
-};
-
-globalThis.document = documento;
-globalThis.window = janela;
-globalThis.localStorage = storage;
 // fetch relativo falharia no node de qualquer jeito; fixar o erro deixa o teste
 // deterministico (e garante que ele nao tenta rede).
 globalThis.fetch = async () => { throw new Error('sem rede no teste: cai no catalogo minimo embutido'); };
 
 const boot = await import('../web/boot.js');
-
-test('boot: o modulo monta quando chamado, e nao sobe sozinho (S3a-2a)', async () => {
-  // O `inicio` saiu de proposito: pages.test.js cobra que importar boot.js nao
-  // busca catalogo nenhum. O boot do teste passa a ser explicito — que e
-  // exatamente o que o casco faz ao ligar o fio rota -> tela.
-  assert.ok(!('inicio' in boot), 'inicio voltou: boot.js sobe sozinho de novo');
-  const { loadCatalog } = await import('../web/main.js');
-  const inicio = await boot.montarGrade({
-    raiz: root,
-    slotBusca: buscaSlot,
-    catalogo: await loadCatalog()
-  });
-  assert.ok(inicio, 'montarGrade nao devolveu nada');
-  assert.equal(inicio.ok, true, `boot falhou: ${inicio.motivo}`);
-  // Estado montado e catalogo carregado (aqui, o minimo embutido — o que importa
-  // e que loadCatalog() foi chamado e o resultado chegou ao estado).
-  assert.ok(Array.isArray(inicio.state.courses) && inicio.state.courses.length > 0);
-  assert.equal(typeof inicio.state.origem, 'string');
-  // Progresso veio do localStorage falso: prova que loadCompleted() leu a chave.
-  assert.deepEqual(inicio.state.completed, ['logica']);
-  // A tela foi desenhada de verdade: root com filhos, e o "Carregando…" substituido.
-  assert.ok(root.children.length > 0, 'render() nao desenhou nada em #app');
-  assert.ok(acharTodos(root, 'li.item').length > 0, 'a trilha nao foi desenhada');
-  // Busca montada no slot externo e visivel.
-  assert.equal(buscaSlot.hidden, false, 'o slot de busca ficou escondido depois de carregar');
-  assert.ok(acharTodos(buscaSlot, 'input.busca').length === 1, 'montarBusca nao criou o campo no slot');
-});
-
-test('boot: o fio `avisar` existe — a acao de exportar escreve recado na tela', async () => {
-  // O bug que este teste mata: bindProgressIO recebe o hook `avisar`, e a pagina
-  // tinha uma funcao chamada `aviso`. Passar `avisar` (variavel inexistente) e um
-  // ReferenceError que so aparece no navegador, no primeiro clique.
-  const btn = criarNo('button');
-  btn.setAttribute('data-acao', 'exportar');
-  disparar(root, 'click', btn);
-
-  const recados = acharTodos(root, 'p.aviso-save');
-  assert.equal(recados.length, 1, 'nenhum recado chegou a tela: o hook avisar nao esta ligado');
-  assert.ok(recados[0].textContent.length > 0, 'recado vazio nao diz nada ao aluno');
-  assert.match(recados[0].textContent, /exportad/i, `recado inesperado: ${recados[0].textContent}`);
-});
 
 /**
  * Navigator de mentira com service worker. `controller` e a PROVA de que ja
@@ -328,43 +133,28 @@ test('index.html: sem <script> inline com codigo, e o casco entra como modulo', 
   }
 });
 
-// ── S3a-1 (31/10/2026): o CASCO vem depois, e precisa chamar a grade com uma
-// raiz que não é o document inteiro. tres casos:
-//   7. boot.js exporta montarGrade (a montagem vira função chamada, não feitiço
-//      que roda na importação) e registrarSW;
-//   8. o <style> do index.html saiu para web/grade.css — CSS inline na página não
-//      tem teste nenhum, do mesmo modo que o <script> inline de 27/10;
-//   9. todo seletor de grade.css começa por .grade. Sem o escopo, o azul-marinho
-//      provisório da grade vazaria para o casco novo da S3a-2 e as duas telas
-//      brigariam pela mesma cor.
-test('boot.js: montarGrade e registrarSW sao exportados como funcoes', () => {
-  assert.equal(typeof boot.montarGrade, 'function',
-    'montarGrade nao e exportada: o casco da S3a-2 nao tem como montar a grade');
-  assert.equal(typeof boot.registrarSW, 'function',
-    'registrarSW sumiu das exportacoes');
+// ── S7-1c (01/11/2026): a MORTE DA GRADE. Tres casos, um por lugar onde ela
+// ainda vive: a exportacao no boot, o arquivo no disco e o <link> no HTML.
+// Escrevi os tres ANTES do corte — vermelho pelo motivo certo, como nas
+// fatias 2c/2d: "o codigo morreu" so e prova quando o teste apontava para ele.
+test('boot.js: montarGrade morreu com a grade, e registrarSW fica sozinho', () => {
+  assert.equal(boot.montarGrade, undefined,
+    'montarGrade voltou: a grade vive de novo e o app tem duas Explorar no disco');
+  assert.deepEqual(Object.keys(boot), ['registrarSW'],
+    `boot.js deveria exportar apenas registrarSW; veio: ${Object.keys(boot).join(', ')}`);
 });
 
-test('index.html: nenhum <style> inline, e a grade vem de web/grade.css', async () => {
+test('web/grade.css saiu do disco', () => {
+  assert.equal(existsSync(new URL('../web/grade.css', import.meta.url)), false,
+    'web/grade.css ainda existe: as 25 linhas de medidas fora da escala seguem no app sem dono');
+});
+
+test('index.html: a Explorar e desenhada por telas/explorar.css, e grade.css nao e mais carregada', async () => {
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
   assert.equal(/<style\b/i.test(html), false,
     'voltou <style> para dentro do index.html: ali a CSS nao entra em teste nenhum');
-  assert.match(html, /<link[^>]+rel=["']stylesheet["'][^>]+href=["']\.\/web\/grade\.css["']/,
-    'index.html nao carrega ./web/grade.css: a tela abre sem layout nenhum');
-});
-
-test('web/grade.css: todo seletor comeca por .grade (o escopo que impede o vazamento)', async () => {
-  const css = await readFile(new URL('../web/grade.css', import.meta.url), 'utf8');
-  const semComentario = css.replace(/\/\*[\s\S]*?\*\//g, '');
-  const soltos = [];
-  // Cada bloco «seletor {». O preludio de @media (que nao contem '{') e pulado:
-  // o que vale e o seletor DENTRO dele, e esse vem no lote seguinte.
-  for (const bloco of semComentario.matchAll(/([^{}]*)\{/g)) {
-    for (const parte of bloco[1].split(',')) {
-      const sel = parte.trim();
-      if (!sel || sel.startsWith('@')) continue;
-      if (!/^\.grade(?![\w-])/.test(sel)) soltos.push(sel);
-    }
-  }
-  assert.deepEqual(soltos, [],
-    `seletor sem o escopo .grade vaza para o casco inteiro: ${soltos.join(' | ')}`);
+  assert.doesNotMatch(html, /grade\.css/,
+    'o index ainda carrega a grade: a tela puxaria CSS de um arquivo que nao esta mais no precache');
+  assert.match(html, /<link[^>]+href=["']\.\/web\/telas\/explorar\.css["']/,
+    'index.html nao carrega ./web/telas/explorar.css: a Explorar abre sem layout');
 });
