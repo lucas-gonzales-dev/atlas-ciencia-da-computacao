@@ -228,12 +228,17 @@
 // web/telas/revisar.js e revisar.css entraram no PRECACHE, e o index.html passou
 // a listar a terceira aba. Arquivo novo fora do cache = Revisar em branco no
 // aparelho de quem já tem v38, sem erro nenhum na rede.
-const VERSAO = 'atlas-v39';
+// atlas-v40: core/textos.js fechava um Object.freeze com ) em vez de }) (S9 em
+// curso). O modulo nao carregava e o app inteiro ficava em branco — marca e abas
+// vinham do HTML estatico, o <main> morria mudo. A trava de acento nao pegou
+// porque o arquivo nem chegava a ser parseado. Mudou conteudo do precache
+// (core/textos.js), entao VERSAO e hash sobem com ele.
+const VERSAO = 'atlas-v40';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
 // deixa o cache antigo sem o nome novo. Recalcular: node tests/precache-hash.js.
-const PRECACHE_HASH = 'sha256-448d14e58dfeca11ba108a7180e6f665d447a5260f597b7c84a957beff45785d';
+const PRECACHE_HASH = 'sha256-adabc70f7c28d2af12789fcd9f2706d14ee42c694105201f98f86db393c137b7';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.
