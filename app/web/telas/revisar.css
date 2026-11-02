@@ -1,0 +1,239 @@
+/*
+  Projeto Atlas — a tela REVISAR (S8, 01/11/2026).
+
+  POR QUE EXISTE: a aba precisa se parecer com as outras duas sem copiar o CSS
+  delas — e o que faz a tela ser "Atlas" é o tipo de placa, o trilho de espaço
+  entre blocos e nenhuma cor escrita à mão. Tudo aqui sai dos tokens; se um
+  número de espaço ou uma duração aparecer literal, os testes da casa param.
+
+  SEM DECORAÇÃO: nada de sombra de cartao, nada de animacao infinita, nada de
+  brilho correndo. O movimento desta tela e a entrada, com a curva que a v2 ja
+  declara, e o aviso que some sozinho na janela do desfazer.
+*/
+
+.revisar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-8);
+  padding: var(--espaco-6) var(--largura-lateral);
+  max-width: var(--largura-painel);
+  font-family: var(--fonte-corpo);
+  color: var(--tinta);
+}
+
+.revisar-corpo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-6);
+}
+
+/* A placa do estado. Caixa alta e espaço entre letras, como toda placa do app. */
+.revisar-placa,
+.revisar-como-titulo {
+  font-family: var(--fonte-placa);
+  font-size: var(--tipo-placa);
+  font-weight: var(--peso-placa);
+  letter-spacing: var(--espacamento-placa);
+  text-transform: uppercase;
+  line-height: var(--entrelinha-placa);
+  color: var(--fosca);
+}
+
+/* O nome da estação é o que a pessoa veio ler: o maior tipo da tela. */
+.revisar-estacao,
+.revisar-titulo {
+  margin: 0;
+  font-family: var(--fonte-placa);
+  font-size: var(--tipo-titulo);
+  font-weight: var(--peso-placa);
+  line-height: var(--entrelinha-titulo);
+  color: var(--tinta);
+}
+
+.revisar-convite {
+  margin: var(--espaco-3) 0 0;
+  font-size: var(--tipo-corpo);
+  line-height: var(--entrelinha-corpo);
+  color: var(--fosca);
+}
+
+.revisar-sub,
+.revisar-nota {
+  margin: var(--espaco-2) 0 0;
+  font-size: var(--tipo-corpo);
+  line-height: var(--entrelinha-corpo);
+  color: var(--fosca);
+}
+
+.revisar-nota {
+  font-size: var(--tipo-nota);
+  line-height: var(--entrelinha-nota);
+}
+
+/* A anotação é citação da própria pessoa, e não um bloco de destaque. */
+.revisar-anotacao {
+  margin: var(--espaco-4) 0 0;
+  padding-left: var(--espaco-4);
+  border-left: var(--espessura-borda-painel) solid var(--borda);
+}
+
+.revisar-anotacao-texto,
+.revisar-anotacao-vazia {
+  margin: 0;
+  font-size: var(--tipo-corpo);
+  line-height: var(--entrelinha-corpo);
+  color: var(--tinta);
+}
+
+.revisar-anotacao-vazia {
+  color: var(--fosca);
+}
+
+.revisar-link-curso {
+  display: inline-block;
+  margin-top: var(--espaco-2);
+  font-size: var(--tipo-nota);
+  color: var(--linha-1);
+}
+
+/* Os tres botoes do mesmo peso: nenhum e primario, e o CSS nao pode fingir que
+   um deles e. Borda e tinta iguais, sem preenchimento. */
+.revisar-respostas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espaco-3);
+  margin-top: var(--espaco-6);
+}
+
+.revisar-resposta,
+.revisar-secundario {
+  min-height: var(--alvo-toque);
+  padding: var(--espaco-2) var(--espaco-4);
+  font: inherit;
+  font-size: var(--tipo-corpo);
+  font-weight: var(--peso-forte);
+  color: var(--tinta);
+  background: none;
+  border: var(--espessura-borda-painel) solid var(--borda);
+  border-radius: var(--raio-placa);
+  cursor: pointer;
+  transition: border-color var(--movimento-toque) var(--curva-atlas),
+    background-color var(--movimento-toque) var(--curva-atlas);
+}
+
+.revisar-resposta:hover,
+.revisar-secundario:hover {
+  border-color: var(--tinta);
+}
+
+.revisar-resposta:focus-visible,
+.revisar-secundario:focus-visible,
+.revisar-primario:focus-visible,
+.revisar-link-curso:focus-visible,
+.revisar-aviso-desfazer:focus-visible {
+  outline: var(--anel-foco) solid var(--alerta);
+  outline-offset: var(--afastamento-foco);
+}
+
+/* O unico primario da tela e a saida para quem ainda nao tem nada a revisar. */
+.revisar-primario {
+  display: inline-block;
+  align-self: flex-start;
+  margin-top: var(--espaco-4);
+  padding: var(--espaco-3) var(--espaco-6);
+  font-size: var(--tipo-corpo);
+  font-weight: var(--peso-forte);
+  color: var(--superficie);
+  background: var(--tinta);
+  border-radius: var(--raio-placa);
+  text-decoration: none;
+}
+
+.revisar-vazio {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-2);
+}
+
+/* O aviso de baixo: texto e o desfazer na mesma linha, e some sozinho. */
+.revisar-aviso {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--espaco-4);
+  margin-top: var(--espaco-4);
+  padding: var(--espaco-3) var(--espaco-4);
+  font-size: var(--tipo-nota);
+  line-height: var(--entrelinha-nota);
+  color: var(--tinta);
+  background: var(--superficie);
+  border: var(--espessura-borda-painel) solid var(--borda);
+  border-radius: var(--raio-placa);
+}
+
+.revisar-aviso-texto {
+  margin: 0;
+}
+
+.revisar-aviso-desfazer {
+  min-height: var(--alvo-toque);
+  padding: 0;
+  font: inherit;
+  font-weight: var(--peso-forte);
+  color: var(--tinta);
+  background: none;
+  border: 0;
+  border-bottom: var(--espessura-borda-painel) solid var(--tinta);
+  cursor: pointer;
+}
+
+/* "Como funciona": tres passos numerados, ordem de lista (o 01/02/03 e numero
+   de passo, nao placar). */
+.revisar-como {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-4);
+  padding-top: var(--espaco-6);
+  border-top: var(--espessura-borda-painel) solid var(--borda);
+}
+
+.revisar-cartoes {
+  display: grid;
+  gap: var(--espaco-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.revisar-cartao {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-1);
+}
+
+.revisar-cartao-numero {
+  font-family: var(--fonte-mono);
+  font-size: var(--tipo-nota);
+  letter-spacing: var(--espacamento-placa);
+  color: var(--fosca);
+}
+
+.revisar-cartao-titulo {
+  font-size: var(--tipo-corpo);
+  font-weight: var(--peso-forte);
+  color: var(--tinta);
+}
+
+.revisar-cartao-texto {
+  margin: 0;
+  font-size: var(--tipo-nota);
+  line-height: var(--entrelinha-nota);
+  color: var(--fosca);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .revisar-resposta,
+  .revisar-secundario {
+    transition: none;
+  }
+}

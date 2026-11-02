@@ -44,7 +44,11 @@ export const VERSAO_MINIMA = 1;
 // NAO reimplementa corte de tamanho nem "vazio apaga": duas copias da mesma
 // regra e a receita para o arquivo exportado e o guardado no aparelho
 // discordarem em silencio. Sem ciclo: notes.js nao importa daqui.
+// As regras do calendário de revisão moram em core/revisao.js, com teste
+// próprio. Este arquivo não reimplementa degrau nem soma de dias; só limpa e
+// filtra o que chegou do arquivo.
 import { parseNotas, filtrarNotas } from './notes.js';
+import { sanitizar } from './revisao.js';
 
 /**
  * Ids validos do catalogo, na ORDEM do catalogo.
@@ -111,6 +115,17 @@ function anotacoesDoArquivo(brutas, catalogo) {
 }
 
 /**
+ * Revisões aceitas para exportar/importar: mesmas mãos da anotação — catálogo
+ * COMPLETO (grade + eletivas + especializações), id desconhecido fora e CONTADO.
+ * Aqui `sanitizar` só ordena e filtra; degrau e data ilegíveis ficam intactos,
+ * porque a tela os trata na leitura e um arquivo não ensina o núcleo a mentir.
+ * @returns {{revisoes: object, ignorados: number, descartados: string[], ilegivel: boolean}}
+ */
+function revisoesDoArquivo(brutas, catalogo) {
+  return sanitizar(brutas, catalogo);
+}
+
+/**
  * Monta o pacote a exportar. Puro: devolve objeto, nao texto nem arquivo.
  * @param {Array<{id: string}>} courses catalogo atual (fonte dos ids validos)
  * @param {string[]} completed progresso do aluno
@@ -119,6 +134,11 @@ function anotacoesDoArquivo(brutas, catalogo) {
  * @param {{electives?: Array, specializations?: Array}} [extras] resto do catalogo
  */
 export function buildExport(courses, completed = [], agora = new Date(), notas = {}, extras = {}) {
+  // As revisões vêm DENTRO de `extras` ("o resto do estado"), não como 6º
+  // argumento posicional: chamar buildExport(c, c2, d, notas, extras, revisoes)
+  // com um argumento a menos já foi possível, e o calendário da pessoa sumiria do
+  // arquivo em silêncio. `extras` já é o balde de electives/specializations.
+  const revisoes = extras && extras.revisoes ? extras.revisoes : {};
   const catalogo = idsDoCatalogo(courses);
   const brutos = Array.isArray(completed) ? completed : [];
   const { completed: validos, descartados } = filtrar(brutos, catalogo);
@@ -126,8 +146,15 @@ export function buildExport(courses, completed = [], agora = new Date(), notas =
   // Anotacao de id que NAO existe em catalogo nenhum fica de fora do arquivo e e
   // CONTADA: mesmo criterio do progresso. Levar lixo seria o arquivo crescer com
   // id de catalogo antigo sem que ninguem soubesse de onde veio.
+  const catalogoCompleto = listaCatalogo({ courses, ...extras });
   const { anotacoes, ignorados: anotacoesIgnoradas, descartados: anotacoesDescartadas } =
-    anotacoesDoArquivo(notas, listaCatalogo({ courses, ...extras }));
+    anotacoesDoArquivo(notas, catalogoCompleto);
+  // Uma chamada só por export: três leituras do mesmo mapa e a receita para as
+  // três contagens discordarem se um dia sanitizar ganhar estado.
+  // `sanitizar` quer IDS (string[]), não os objetos do catálogo: passar a lista
+  // de objetos faria `catalogoIds` cair no ramo "não é array de strings" e o
+  // export levaria id de catálogo morto sem contar nenhum.
+  const revisaoLimpa = revisoesDoArquivo(revisoes, idsDoCatalogo(catalogoCompleto));
 
   return {
     formato: FORMATO,
@@ -142,7 +169,13 @@ export function buildExport(courses, completed = [], agora = new Date(), notas =
     descartados,
     anotacoes,
     anotacoesIgnoradas,
-    descartadas: anotacoesDescartadas
+    descartadas: anotacoesDescartadas,
+    // S8 (01/11/2026): o calendário de revisão é dado da pessoa, e sem ele ela
+    // troca de aparelho e recomeça a esperação do zero. `sanitizar` corta id de
+    // fora do catálogo — mesmo critério da anotação, pelo catálogo COMPLETO.
+    revisoes: revisaoLimpa.revisoes,
+    revisoesIgnoradas: revisaoLimpa.ignorados,
+    revisoesDescartadas: revisaoLimpa.descartados
   };
 }
 
@@ -203,6 +236,13 @@ export function parseImport(texto, courses = [], extras = {}) {
   let notasCandidatas = {};
   let trouxeAnotacoes = false;
   let anotacoesIlegiveis = false;
+  // S8: as revisões têm o MESMO tratamento das anotações — `undefined` quando o
+  // arquivo não fala delas (a tela mantém o que o aparelho tem), `ilegivel`
+  // quando fala e não dá para ler (descarta e DIZ). Um `{}` aqui apagaria o
+  // calendário da pessoa com um arquivo velho.
+  let revisoesBrutas;
+  let trouxeRevisoes = false;
+  let revisoesIlegiveis = false;
   if (Array.isArray(dados)) {
     idsCandidatos = dados;
   } else if (dados && typeof dados === 'object') {
@@ -252,6 +292,21 @@ export function parseImport(texto, courses = [], extras = {}) {
         anotacoesIlegiveis = true;
       }
     }
+    // Campo `revisoes`: opcional, e um arquivo sem ele é lido normalmente (é o
+    // arquivo de ontem, e o Atlas de ontem não sabia de revisão). String vira
+    // texto a parsear, como a anotação: sanitizar cuida dos dois formatos.
+    if (dados.revisoes !== undefined) {
+      trouxeRevisoes = true;
+      revisoesBrutas = dados.revisoes;
+      if (typeof dados.revisoes === 'string' && !/^\s*$/.test(dados.revisoes)) {
+        try {
+          revisoesBrutas = JSON.parse(dados.revisoes);
+        } catch {
+          revisoesIlegiveis = true;
+          revisoesBrutas = undefined;
+        }
+      }
+    }
   } else {
     return { ok: false, erro: 'O arquivo não contém nem o envelope do Atlas nem uma lista de ids.' };
   }
@@ -263,8 +318,17 @@ export function parseImport(texto, courses = [], extras = {}) {
   // catalogo) e pelo catalogo COMPLETO — nao so pela grade. Filtrar so pela
   // grade descartaria a anotacao da eletiva e da especializacao, e aquilo e
   // dado do aluno, nao lixo.
+  const catalogoCompleto = listaCatalogo({ courses, ...extras });
   const { anotacoes, ignorados: anotacoesIgnoradas, descartados: anotacoesDescartadas } =
-    anotacoesDoArquivo(notasCandidatas, listaCatalogo({ courses, ...extras }));
+    anotacoesDoArquivo(notasCandidatas, catalogoCompleto);
+
+  // Revisões: id que não está no catálogo fica de fora e é CONTADO (mesma regra
+  // da anotação). `revisoes` do resultado é `null` quando o arquivo não falou
+  // delas ou quando falou ilegível — nunca `{}`, que a tela leria como "apaga o
+  // calendário deste aparelho".
+  const revisaoArquivo = trouxeRevisoes && !revisoesIlegiveis
+    ? revisoesDoArquivo(revisoesBrutas, idsDoCatalogo(catalogoCompleto))
+    : null;
 
   // PORTUGUES QUE O ALUNO LE (licao de 28/10/2026): "(s)" e atalho de quem nao
   // quis escolher a forma, e esta frase aparece na tela dele. O numero e
@@ -292,6 +356,23 @@ export function parseImport(texto, courses = [], extras = {}) {
     const nomes = anotacoesDescartadas.slice(0, 5).join(', ');
     mensagem += ` ${anotacoesIgnoradas} ${anotacoesIgnoradas === 1 ? 'anotação ignorada' : 'anotações ignoradas'} por id que não está neste catálogo${nomes ? `: ${nomes}` : ''}.`;
   }
+  // As revisões falam por si na mesma voz: quantas entraram, o que foi descartado,
+  // e o que acontece com as deste aparelho quando o arquivo não fala delas.
+  const revisoesEntraram = revisaoArquivo ? Object.keys(revisaoArquivo.revisoes).length : 0;
+  if (revisoesEntraram > 0) {
+    mensagem += ` ${revisoesEntraram} ${revisoesEntraram === 1 ? 'revisão veio' : 'revisões vieram'} junto.`;
+  }
+  if (revisoesIlegiveis) {
+    mensagem += ' O campo de revisões do arquivo estava ilegível: descartei as revisões dele e mantive o progresso.';
+  } else if (!trouxeRevisoes) {
+    mensagem += ' O arquivo não traz revisões: as revisões deste aparelho continuam como estavam.';
+  } else if (revisoesEntraram === 0 && !revisoesIlegiveis) {
+    mensagem += ' O arquivo traz o campo de revisões, mas nenhuma delas está neste catálogo.';
+  }
+  if (revisaoArquivo && revisaoArquivo.ignorados > 0) {
+    const nomes = revisaoArquivo.descartados.slice(0, 5).join(', ');
+    mensagem += ` ${revisaoArquivo.ignorados} ${revisaoArquivo.ignorados === 1 ? 'revisão ignorada' : 'revisões ignoradas'} por id que não está neste catálogo${nomes ? `: ${nomes}` : ''}.`;
+  }
 
   return {
     ok: true,
@@ -300,6 +381,13 @@ export function parseImport(texto, courses = [], extras = {}) {
     anotacoes,
     anotacoesIgnoradas,
     trazAnotacoes: trouxeAnotacoes,
+    // `revisoes: null` é o sinal de "este arquivo não falou delas" — quem aplica
+    // ao estado mantém o calendário do aparelho. Sem null, o `{}` do sanitizar
+    // viraria "não há revisão nenhuma" e apagaria a fila de quem reimporta um
+    // backup velho.
+    revisoes: revisaoArquivo ? revisaoArquivo.revisoes : null,
+    revisoesIgnoradas: revisaoArquivo ? revisaoArquivo.ignorados : 0,
+    trazRevisoes: trouxeRevisoes && !revisoesIlegiveis,
     versao: versaoDoArquivo,
     mensagem
   };

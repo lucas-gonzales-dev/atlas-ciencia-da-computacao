@@ -30,13 +30,14 @@ const TITULO_APP = 'Atlas';
 // código da grade, e vice-versa. Cada módulo exporta montar(raiz, ctx).
 const TELAS = Object.freeze({
   jornada: () => import('./telas/jornada.js'),
-  explorar: () => import('./telas/explorar.js')
+  explorar: () => import('./telas/explorar.js'),
+  revisar: () => import('./telas/revisar.js')
 });
 
 // A classe que a CSS ancora para a tela inteira: metro.css abre com `.metro`,
 // grade.css com `.grade`. Sem ela a tela montada dentro do main chegaria sem
 // layout nenhum — o casco não desenha nada, só escolhe onde desenhar.
-const CLASSE_DA_TELA = Object.freeze({ jornada: 'metro', explorar: '' });
+const CLASSE_DA_TELA = Object.freeze({ jornada: 'metro', explorar: '', revisar: '' });
 
 /**
  * Decide a tela para uma rota, e QUAL FOLHA abrir por cima dela (S5).

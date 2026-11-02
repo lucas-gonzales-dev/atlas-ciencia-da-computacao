@@ -375,7 +375,7 @@ export const casco = {
   pular: 'Pular para o conteúdo',
   navegacao: 'Principal',
   anuncio: (rotulo) => `Você está em ${rotulo}.`,
-  abas: { jornada: 'Jornada', explorar: 'Explorar' },
+  abas: { jornada: 'Jornada', explorar: 'Explorar', revisar: 'Revisar' },
 };
 
 /**
@@ -514,7 +514,50 @@ export const chegada = Object.freeze({
   }),
 });
 
+/**
+ * A REVISAR (S8, 01/11/2026): a fila do que já foi conectado, no tempo certo.
+ *
+ * Nenhuma frase daqui pergunta nada que o Atlas não tem aula para perguntar:
+ * quem dá o conteúdo da revisão é a anotação da própria pessoa. E nenhuma frase
+ * pesa o atraso — adiar não custa, esquecer só reagenda (JORNADA, "sem punição").
+ */
+export const revisar = Object.freeze({
+  rotulo: 'Fortaleça o que você conectou',
+  titulo: 'Revisar é reencontrar uma ideia no momento certo.',
+  // A placa do item da fila: o nome e a linha vêm do catálogo, nunca daqui.
+  naLinha: (nome, linha) => `${nome}, na Linha ${linha}`,
+  semLinha: (nome) => nome,
+  tentarLembrar: 'Tente lembrar antes de abrir sua anotação.',
+  mostrarAnotacao: 'Mostrar minha anotação',
+  esconderAnotacao: 'Guardar minha anotação',
+  semAnotacao: 'Você não deixou anotação nesta estação.',
+  verCurso: 'Ver o curso desta estação',
+  // Os três do mesmo peso — nenhum deles é primário de propósito.
+  resultados: Object.freeze({
+    lembrei: 'Lembrei',
+    'em-parte': 'Lembrei em parte',
+    'nao-lembrei': 'Não lembrei',
+  }),
+  voltaEm: (dias) => `Volta em ${dias} dias.`,
+  desfazer: 'Desfazer',
+  anuncia: (nome) => `Registrado: ${nome}.`,
+  // Estado "em dia": há revisões agendadas, nenhuma para hoje.
+  emDia: 'Em dia.',
+  proximaEm: (data) => `Próxima revisão em ${data}.`,
+  semPressao: 'Sem pressão: se não puder revisar no dia, a revisão espera.',
+  // Estado "nada para revisar": nenhuma estação concluída ainda.
+  nadaParaRevisar: 'Revisar começa na primeira estação concluída.',
+  irParaProxima: 'Ir para a próxima estação',
+  // "Como funciona" aparece sempre, no fim — o método se explica, não se cobra.
+  comoFunciona: 'Como funciona',
+  cartoes: Object.freeze([
+    Object.freeze({ numero: '01', titulo: 'Tente lembrar', texto: 'Antes de ler, puxe da memória.' }),
+    Object.freeze({ numero: '02', titulo: 'Confira', texto: 'Sua anotação mostra o que você levou.' }),
+    Object.freeze({ numero: '03', titulo: 'Volte depois', texto: 'O Atlas sugere quando vale reencontrar.' }),
+  ]),
+});
+
 /** Tudo junto, para quem precisa percorrer (o teste percorre). */
-export const TEXTOS = { placa, comValores, folha, estados, legenda, proibido, ORIGEM, TIPO_DE_ORIGEM, casco, jornada, explorar, chegada };
+export const TEXTOS = { placa, comValores, folha, estados, legenda, proibido, ORIGEM, TIPO_DE_ORIGEM, casco, jornada, explorar, chegada, revisar };
 
 export default TEXTOS;

@@ -22,6 +22,9 @@ import { casco } from './textos.js';
 export const ABAS = Object.freeze([
   Object.freeze({ tela: 'jornada', rotulo: casco.abas.jornada, href: '#/' }),
   Object.freeze({ tela: 'explorar', rotulo: casco.abas.explorar, href: '#/explorar' }),
+  // Revisar é a terceira aba (S8): depois de concluir, o caminho continua — e
+  // ela fica vazia até a primeira conclusão, que é o estado honesto dela.
+  Object.freeze({ tela: 'revisar', rotulo: casco.abas.revisar, href: '#/revisar' }),
 ]);
 
 /**
@@ -82,6 +85,7 @@ export function lerRota(hash) {
     if (Number.isInteger(n) && n >= 1 && n <= 7) rota.linha = n;
     return rota;
   }
+  if (caminho === 'revisar') return { tela: 'revisar' };
   if (caminho.startsWith('estacao/')) {
     const slug = caminho.slice('estacao/'.length);
     // '#/estacao/' sem nada depois não nomeia estação nenhuma.
@@ -109,6 +113,7 @@ export function hrefDe(rota) {
     if (rota.linha) pedacos.push(`linha=${rota.linha}`);
     return pedacos.length ? `#/explorar?${pedacos.join('&')}` : '#/explorar';
   }
+  if (tela === 'revisar') return '#/revisar';
   if (tela === 'estacao') return `${PREFIXO_ESTACAO}${rota.slug}`;
   return '#/';
 }

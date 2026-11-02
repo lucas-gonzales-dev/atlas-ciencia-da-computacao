@@ -49,7 +49,7 @@ test('rota: hrefDe e lerRota são o inverso um do outro em toda aba', () => {
 test('abas: exatamente Jornada e Explorar, nessa ordem, com o rótulo do textos.js', () => {
   // ABAS é a única fonte da barra de baixo. Se o rótulo morar aqui e não em
   // core/textos.js, a trava de textos não vê a frase e ela escapa sem revisão.
-  assert.deepEqual(ABAS.map((a) => a.tela), ['jornada', 'explorar']);
+  assert.deepEqual(ABAS.map((a) => a.tela), ['jornada', 'explorar', 'revisar']);
   for (const aba of ABAS) {
     assert.deepEqual(
       [...Object.keys(aba)].sort(),

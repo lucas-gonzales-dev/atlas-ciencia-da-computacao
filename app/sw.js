@@ -224,12 +224,16 @@
 // que e a casa da prosa; agora portugues-tela.test.js varre os literais de la, e
 // provou o vermelho com o texto cru de volta. Mudou conteudo do precache
 // (core/textos.js), entao VERSAO e hash.
-const VERSAO = 'atlas-v38';
+// atlas-v39: a aba Revisar nasce (S8, 01/11/2026) — core/revisao.js,
+// web/telas/revisar.js e revisar.css entraram no PRECACHE, e o index.html passou
+// a listar a terceira aba. Arquivo novo fora do cache = Revisar em branco no
+// aparelho de quem já tem v38, sem erro nenhum na rede.
+const VERSAO = 'atlas-v39';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
 // deixa o cache antigo sem o nome novo. Recalcular: node tests/precache-hash.js.
-const PRECACHE_HASH = 'sha256-5da7933f6cf64bf57cb1d7278d580e671f9a320a98ac9ac9a78772b9290d9009';
+const PRECACHE_HASH = 'sha256-448d14e58dfeca11ba108a7180e6f665d447a5260f597b7c84a957beff45785d';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.
@@ -288,6 +292,12 @@ const PRECACHE = [
   // pedindo arquivo que o cache antigo nao tem abre em branco, sem erro na rede.
   'core/filtro.js',
   'web/telas/explorar.css',
+  // A REVISÃO (S8, 01/11/2026): core/revisao.js é importado por web/telas/
+  // revisar.js e pelos dois arquivos da tela. HTML e JS novos pedindo arquivo
+  // que o cache antigo não tem = branco no ônibus, sem erro na rede.
+  'core/revisao.js',
+  'web/telas/revisar.js',
+  'web/telas/revisar.css',
   // As tres pecas da Jornada (S4a, 31/10/2026): o metro.js importa
   // jornada-blocos.js, e o index.html liga o jornada.css. Se um dos dois
   // faltar no cache, a primeira aba abre sem a abertura e sem o tamanho do
