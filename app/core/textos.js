@@ -375,7 +375,7 @@ export const casco = {
   pular: 'Pular para o conteúdo',
   navegacao: 'Principal',
   anuncio: (rotulo) => `Você está em ${rotulo}.`,
-  abas: { jornada: 'Jornada', explorar: 'Explorar', revisar: 'Revisar' },
+  abas: { jornada: 'Jornada', explorar: 'Explorar', revisar: 'Revisar', perfil: 'Perfil' },
 };
 
 /**
@@ -557,7 +557,73 @@ export const revisar = Object.freeze({
   ]),
 });
 
+/**
+ * O PERFIL (S9, 02/11/2026): o bilhete de carimbo, os marcos com critério
+ * escrito e os dados da pessoa. É portfólio, não placar — por isso nenhuma
+ * frase daqui conta dias sem fazer, promete recompensa ou nomeia o aluno por
+ * pontuação. Os estados do marco vêm por palavra, nunca por só cor, e as
+ * frases com valor recebem o valor (regra da casa: o número da tela é do
+ * catálogo ou da viagem, jamais escrito aqui).
+ */
+export const perfil = Object.freeze({
+  rotulo: 'Sua viagem',
+  titulo: 'Cada carimbo é seu.',
+  erro: 'Sem rede: o catálogo não abriu. Tente de novo quando a trilha voltar.',
+  emBranco: 'O primeiro carimbo vem da primeira estação concluída.',
+  irParaProxima: 'Ir para a próxima estação',
+  bilhete: 'O bilhete',
+  casaCarimbada: (nome, data) => `${nome}, concluída em ${data}`,
+  casaVazia: (nome) => `${nome}, ainda não`,
+  numeros: Object.freeze({
+    carimbos: 'Carimbos',
+    linhas: 'Linhas fechadas',
+    revisoes: 'Revisões feitas',
+  }),
+  marcos: Object.freeze({
+    titulo: 'Marcos',
+    // Os tipos vêm do núcleo (MARCOS), que escreve 'primeira_baldeacao' e
+    // 'fim_da_linha'; este mapa é a tradução para a pessoa ler.
+    nomes: Object.freeze({
+      estacao: 'Primeira estação',
+      primeira_baldeacao: 'Primeira baldeação',
+      fim_da_linha: 'Fim da linha',
+      terminal: 'Terminal',
+    }),
+    criterios: Object.freeze({
+      estacao: 'Concluir uma estação.',
+      primeira_baldeacao: 'Concluir uma estação que pede outra linha.',
+      fim_da_linha: (porLinha) => `Concluir as ${porLinha} estações de uma linha.`,
+      terminal: (total) => `Concluir as ${total} estações.`,
+    }),
+    estados: Object.freeze({
+      conquistado: 'Concluído',
+      em_andamento: 'Em andamento',
+    }),
+    conquistadoEm: (data) => `Concluído em ${data}.`,
+    emAndamento: (conta) => `Agora: ${conta}.`,
+  }),
+  dados: Object.freeze({
+    titulo: 'Seus dados',
+    ficaAqui: 'Sua viagem fica só neste aparelho.',
+    exportar: 'Exportar viagem',
+    importar: 'Importar viagem',
+    importLabel: 'Escolha o arquivo do Atlas',
+    semDownload: 'Este navegador não deixou baixar o arquivo. Tente em outra janela.',
+    semStorage: 'O aparelho não guardou: o que você importou vale só nesta tela.',
+    recusaPorque: 'O que chegou não tem o formato de uma viagem do Atlas.',
+    recusaOQueFazer: 'Escolha um arquivo exportado pelo Atlas, ou exporte de novo.',
+    importadoGuarda: 'O que já estava aqui foi preservado.',
+  }),
+  sobre: Object.freeze({
+    titulo: 'Sobre',
+    curriculo: 'Currículo: Universidade Brasileira Livre (licença MIT).',
+    fonte: 'Fonte Overpass, licença SIL OFL 1.1.',
+    codigo: 'Ver o código do Atlas',
+    codigoUrl: 'https://github.com/lucas-gonzales-dev/atlas-ciencia-da-computacao',
+  }),
+});
+
 /** Tudo junto, para quem precisa percorrer (o teste percorre). */
-export const TEXTOS = { placa, comValores, folha, estados, legenda, proibido, ORIGEM, TIPO_DE_ORIGEM, casco, jornada, explorar, chegada, revisar };
+export const TEXTOS = { placa, comValores, folha, estados, legenda, proibido, ORIGEM, TIPO_DE_ORIGEM, casco, jornada, explorar, chegada, revisar, perfil };
 
 export default TEXTOS;
