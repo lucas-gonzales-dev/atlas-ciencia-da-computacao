@@ -247,12 +247,18 @@
 // PRECACHE (modulo novo que o casco importa) e index.html, casco.js e casco.css
 // mudaram conteudo. Quem tem v42 no cache receberia o HTML com o selo e um
 // casco.js que nao o liga: a faixa de "offline" nunca apareceria, silenciosa.
-const VERSAO = 'atlas-v43';
+// atlas-v44: S10-auditoria reguas 2 e 5 (03/11/2026) mudaram o CONTEUDO de tres
+// folhas precached: tokens.css (--atraso-esqueleto zerou no reduce), folha.css (o
+// selo da linha saiu de --cor-texto, token que nunca existiu, e passou a --superficie)
+// e telas/explorar.css (o esqueleto parou de respirar; o selo "trancada" trocou o
+// recheio cinza por anel + texto fosco). Quem tem v43 no cache continuaria com o
+// selo trancado a 3,44:1 no claro e o esqueleto pulsando, sem um erro na rede.
+const VERSAO = 'atlas-v44';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
 // deixa o cache antigo sem o nome novo. Recalcular: node tests/precache-hash.js.
-const PRECACHE_HASH = 'sha256-87c0b6dc00d833503bb81a0df819f5bf01f72aa443b77dbc21640db840f6497d';
+const PRECACHE_HASH = 'sha256-a0f6fc31425f13c51954c35424b8e17bbaa9ac35a72bf0f76978afdd623d403d';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.

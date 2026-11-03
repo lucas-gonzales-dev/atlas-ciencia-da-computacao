@@ -256,6 +256,13 @@
     --movimento-abrir: 0ms;
     --atraso-cascata: 0ms;
     --deslocamento-entrada: 0px;
+    /* S10 régua 2 (03/11/2026): atraso TAMBÉM é tempo de movimento, e era o
+     * único que ficava de fora da lista. web/metro.js desenha o esqueleto com
+     * `animation: surgir var(--movimento-toque) var(--atraso-esqueleto) both` —
+     * com a duração a zero mas o atraso em 150ms, a peça ainda entra tarde, e
+     * "nenhuma animação roda" virava "roda mais devagar". Zeramos os cinco.
+     */
+    --atraso-esqueleto: 0ms;
   }
 
   *,

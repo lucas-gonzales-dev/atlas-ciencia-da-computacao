@@ -103,7 +103,13 @@
   height: var(--alvo-toque);
   border-radius: var(--raio-estacao);
   background: var(--cor);
-  color: var(--cor-texto);
+  /* S10 régua 5: --cor-texto nunca foi declarado em lugar nenhum, e var() sem
+     valor cai na herança — o número da linha era desenhado em --tinta sobre a
+     cor da própria linha (1,5:1 a 2,5:1 no escuro: ilegível, e a trava antiga não
+     via porque media token por token, não par por regra). --superficie é o que a
+     casa já usa para texto sobre a cor cheia da linha: .recurso e .botao-primario.
+     Medido nos dois temas, o pior dos 7 cruzamentos é 5,29:1 (linha 4 no claro). */
+  color: var(--superficie);
 }
 
 .folha-rotulo {

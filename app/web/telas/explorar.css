@@ -45,9 +45,19 @@
 .explorar-selo {
   font-family: var(--fonte-mono); font-size: var(--tipo-nota); text-transform: uppercase;
   letter-spacing: var(--espacamento-placa); padding: 2px var(--espaco-2);
-  border-radius: var(--raio-selo); background: var(--marca-fundo); color: var(--tinta);
+  border-radius: var(--raio-selo); background: var(--superficie); color: var(--tinta);
 }
-.explorar-selo-trancada { background: var(--trancada); color: var(--fundo); }
+/* S10 régua 5: era fundo --trancada com tinta --fundo — 3,44:1 no claro e 4,32:1
+   no escuro, abaixo dos 4,5:1 que a palavra "trancada" precisa para se ler. E
+   --trancada é o ANEL da estação trancada, não um recheio de texto: a legenda do
+   Atlas descreve a trancada como "anel fino cinza". O selo passa a falar a mesma
+   língua — anel por fora, texto fosco por dentro — e o texto deixa de depender da
+   cor do anel para existir. */
+.explorar-selo-trancada {
+  background: transparent;
+  border: var(--anel-trancada) solid var(--trancada);
+  color: var(--fosca);
+}
 .explorar-falta { font-size: var(--tipo-nota); color: var(--fosca); width: 100%; }
 
 .explorar-vazio { display: grid; gap: var(--espaco-2); }
@@ -61,10 +71,13 @@
 
 .explorar-rodape { display: grid; gap: var(--espaco-1); font-size: var(--tipo-nota); color: var(--fosca); border-top: 1px solid var(--borda); padding-top: var(--espaco-3); }
 
-/* Carregando: 5 linhas cinza PARADAS, depois de 150 ms. O atraso mora no
-   token --atraso-esqueleto; sem ele a tela "pisca" esqueleto antes de haver
-   motivo para piscar. */
+/* Carregando: 5 linhas cinza PARADAS. S10 régua 2 (03/11/2026): a v1 fez este
+   esqueleto RESPIRAR duas vezes (opacity 0,5 → 1) e chamou isso de "5 linhas
+   paradas" no comentário — o texto mentiu para quem o leu. Um cinza que enche e
+   esvazia é o shimmer que a lista do proibido nomeia (core/textos.js: "spinner",
+   "brilho de esqueleto correndo (shimmer)"), e era o único movimento repetido
+   fora do anel da próxima estação. A régua permite UMA repetição: --pulso-repeticoes
+   existe para dizer "você está aqui", não para dizer "espere". O precedent é
+   telas/jornada.css: "sem animation (pulso em esqueleto é spinner)". */
 .explorar-carregando { display: grid; gap: var(--espaco-3); }
-.explorar-esqueleto { height: var(--espaco-6); background: var(--borda); border-radius: var(--raio-placa); animation: explorar-respira var(--movimento-chegada) var(--curva-atlas) var(--atraso-esqueleto) var(--pulso-repeticoes) both; }
-@keyframes explorar-respira { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 1; } }
-@media (prefers-reduced-motion: reduce) { .explorar-esqueleto { animation: none; } }
+.explorar-esqueleto { height: var(--espaco-6); background: var(--borda); border-radius: var(--raio-placa); }
