@@ -92,11 +92,24 @@ const razao = (a, b) => {
  * porque a linha da estação não é escolha nossa.
  */
 async function temas() {
-  const css = await ler('web/tokens.css');
-  const iniEscuro = css.search(/@media[^{]*prefers-color-scheme:\s*dark[^{]*\{/);
-  assert.ok(iniEscuro >= 0, 'tokens.css sem o tema escuro');
-  const resto = css.slice(iniEscuro);
-  const blocoEscuro = resto.slice(0, resto.indexOf('}'));
+  // SEM COMENTÁRIOS, e é requisito, não higiene: o primeiro '@media' do arquivo é
+  // PROSA (a nota dos breakpoints: "CSS não aceita var() dentro de @media"). Uma
+  // regex que procura '@media ... dark ... {' a partir dele atravessa o resto do
+  // :root até o '{' do @media real — e o "bloco escuro" passa a ser o rabo do
+  // :root, onde não há cor nenhuma. Foi assim que, em 03/11/2026, os dois temas
+  // do teste eram o MESMO tema, claro, e o escuro nunca foi medido.
+  const css = semComentario(await ler('web/tokens.css'));
+  const iniReal = css.search(/@media[^{]*prefers-color-scheme:\s*dark[^{]*\{/);
+  assert.ok(iniReal >= 0, 'tokens.css sem o tema escuro');
+  // Guarda do parser: o '@media' achado tem de ser um bloco que DECLARA CORES, e o
+  // corpo dele tem de ser um ':root'. Se o parser escorregar para outra prosa, o
+  // ':root' não aparece e a suíte para aqui, em vez de medir o claro duas vezes.
+  const iniCorpo = css.indexOf('{', iniReal);
+  const raiz = /:root\s*\{/.exec(css.slice(iniCorpo));
+  assert.ok(raiz, 'o bloco prefers-color-scheme: dark não tem um :root dentro — o parser de tema escorregou');
+  const iniRaiz = iniCorpo + raiz.index + raiz[0].length;
+  const iniEscuro = iniRaiz;
+  const blocoEscuro = css.slice(iniRaiz, css.indexOf('}', iniRaiz));
   const mapa = (texto) => {
     const m = {};
     for (const t of texto.matchAll(/(--[a-z0-9-]+):\s*([^;]+);/g)) {
@@ -105,7 +118,21 @@ async function temas() {
     return m;
   };
   const claro = mapa(css.slice(0, iniEscuro));
-  const escuro = { ...claro, ...mapa(blocoEscuro) }; // :root dentro do @media só troca o que declara
+  const escuroDeclarado = mapa(blocoEscuro);
+  const escuro = { ...claro, ...escuroDeclarado }; // :root dentro do @media só troca o que declara
+  // GUARDA DE TEMA — a peça que faltava, e faltou caro. Não basta o parser achar
+  // um bloco: o escuro tem de ser OUTRO tema. As cores planas que ele declara têm
+  // de ser muitas e têm de DIFFERIR do claro. Se o parser escorregar de novo para
+  // o :root claro, isto quebra aqui, em vez de medir o mesmo par duas vezes e
+  // devolver verde — que é exatamente o que aconteceu com a régua 5 hoje.
+  const trocadas = Object.entries(escuroDeclarado).filter(([nome, valor]) =>
+    /^#[0-9a-f]{3,8}$/i.test(valor) && claro[nome] !== valor);
+  assert.ok(
+    trocadas.length >= 12,
+    `o tema escuro só troca ${trocadas.length} cores planas [${trocadas.map(([n]) => n).join(', ')}]; `
+      + 'esperava as 7 linhas + fundo, superfície, tinta, fosca, borda, trancada, alerta e alerta-fundo. '
+      + 'Ou o bloco dark perdeu valores, ou o parser leu o :root claro outra vez.',
+  );
   const linhas = [...Array(7).keys()].map((i) => `--linha-${i + 1}`);
 
   const planos = {};
@@ -338,10 +365,22 @@ test('contraste: todo par tinta × fundo que uma regra CSS escreve passa 4,5:1 n
   // Regra do teste: se a regra declara `color: var(--x)` e `background(-color):
   // var(--y)`, o par é medido nos dois temas. `background: color-mix(...)` fica
   // fora (o véu e o trilho são compostos, e o motor daqui é de cor plana).
+  //
+  // TETO HONESTO, medido em 03/11/2026: 22 regras têm as duas pernas na mesma
+  // regra; 99 declaram `color` sem declarar fundo nenhum (herdam o fundo de um
+  // ancestral — corpo, cartão, folha) e 26 declaram fundo sem cor. O par herdado
+  // NÃO é medido aqui, e é por isso que a trava de cima (tinta, fosca, as 7
+  // linhas e obras sobre --fundo e --superficie, os dois fundos que a tela usa de
+  // fato) existe junto: ela cobre o texto que pisa o fundo de quem o envolve, e
+  // esta cobre o texto que pisa o fundo que a própria regra pinta. As duas juntas
+  // fecham a régua 5; nenhuma das duas fecha sozinha.
   const p = await temas();
   const reprovados = [];
   const semPar = [];
-  let medidos = 0;
+  // Contado POR TEMA, não somado: um total sozinho não diz se o segundo tema é um
+  // tema ou o primeiro de novo. Foi a soma que deixou a régua 5 dar verde sem
+  // medir o escuro (03/11/2026).
+  const porTema = { claro: 0, escuro: 0 };
 
   for (const c of await cssDaTela()) {
     for (const { seletor, corpo } of regras(await ler(c))) {
@@ -373,7 +412,7 @@ test('contraste: todo par tinta × fundo que uma regra CSS escreve passa 4,5:1 n
         for (const t of tins) {
           for (const b of bases) {
             const r = razao(t, b);
-            medidos++;
+            porTema[tema]++;
             if (r < pior) { pior = r; emQue = [t, b]; }
           }
         }
@@ -384,7 +423,12 @@ test('contraste: todo par tinta × fundo que uma regra CSS escreve passa 4,5:1 n
     }
   }
 
-  assert.ok(medidos >= 40, `esperava medir ao menos 40 pares, medi ${medidos} — o parser de regra quebrou? ${semPar.join('; ')}`);
+  // Os DOIS temas, cada um com seu piso. Um total de 140 pode ser 70 do claro
+  // medidos duas vezes — foi o que aconteceu hoje, e um piso somado não vê isso.
+  assert.ok(porTema.claro >= 40 && porTema.escuro >= 40,
+    `esperava medir ao menos 40 pares em CADA tema, medi ${porTema.claro} no claro e `
+      + `${porTema.escuro} no escuro — parser de regra ou de tema quebrado? ${semPar.join('; ')}`);
+
   assert.deepEqual(
     reprovados,
     [],
