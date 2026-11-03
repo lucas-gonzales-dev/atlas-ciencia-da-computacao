@@ -976,6 +976,15 @@ export async function subirMetro(deps = {}) {
   // da instância anterior (variável de módulo, porque esta instância morreu no
   // meio do caminho) e só faz sentido na pintura que não tem mais painel.
   let folhaVisivel = false;
+  // S11-0 (defeito 1, navegador real 03/11/2026): o CSS da folha existe desde a
+  // S5 parte 1 (web/folha.css:48-57) e diz "o metro.js poe e tira" a classe
+  // .aberta. Nenhum JS jamais pos. O estado parado do painel e translateY(100%),
+  // ou seja, FORA da tela: tocar numa estacao escurecia o fundo (o veu existe) e
+  // nao aparecia nada. S10 mediu o foco, o Tab e o Esc do painel -- todos
+  // funcionam num elemento que esta a 100 px abaixo da janela, e o git
+  // log -G"add\\(.aberta" esta vazio. A folha estava aberta no DOM e fechada na
+  // tela de quem olhava.
+  let slugAberto = null;
 
   const pintar = () => {
     if (ui.carregando) { desenharEsqueleto(doc, root); return; }
@@ -994,6 +1003,24 @@ export async function subirMetro(deps = {}) {
     // o autoriza a mover o foco é o fechar ter armado, nada mais.
     const painel = nos.folha || null;
     if (painel) {
+      // S11-0 (defeito 1): o QUADRO SEGUINTE existe para a transição correr. O
+      // navegador pinta o painel uma vez em translateY(100%) e só depois recebe
+      // a classe que o levanta; pôr a classe no mesmo tick do append é deixar o
+      // navegador ver um único estado e a folha chegar no lugar sem subir nada.
+      // Movimento reduzido (o token --movimento-abrir zera no CSS, e aqui se
+      // pula o quadro): na hora, porque sem transição esperar um frame é só
+      // atraso. Sem `requestAnimationFrame` no contexto (o node, onde `win` é o
+      // dublê do teste, ou um ambiente que não o expõe), a classe entra na hora
+      // também: o desenho não depende de quadro nenhum para existir.
+      const slugPainel = painel.getAttribute('data-slug') || '';
+      const entrouAgora = !folhaVisivel || slugPainel !== slugAberto;
+      const parado = win?.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches === true;
+      if (!entrouAgora || parado || typeof win?.requestAnimationFrame !== 'function') {
+        painel.classList.add('aberta');
+      } else {
+        win.requestAnimationFrame(() => painel.classList.add('aberta'));
+      }
+      slugAberto = slugPainel;
       if (!folhaVisivel) {
         // ENTROU na folha: o primeiro focável do painel é o Fechar, e o foco vai
         // para ele — o título do diálogo já é lido pelo `aria-labelledby`.

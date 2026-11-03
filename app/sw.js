@@ -296,12 +296,35 @@
 // caminho mude. Quem tem v47 no cache nao veria mal nenhum aqui -- o index.html
 // servido do cache tambem carrega as tags -- mas o cartao.png novo nao chegaria
 // a quem ja baixou o app, e o post sairia com a foto velha em silencio.
-const VERSAO = 'atlas-v48';
+// atlas-v49: S11-0 (a critica no navegador real, 03/11/2026). Quatro defeitos
+// que a suinte inteira via verde, medida no navegador de verdade (375x812 e
+// 1280x800), do zero:
+// 1. A folha da estacao nunca abria, em nenhum tamanho. web/folha.css:48-57
+//    diz que "o metro.js poe e tira" a classe .aberta; nenhum JS jamais pos
+//    (git log -G"add\(.aberta" vazio, a regra nasceu na S5 parte 1, 4bc1496).
+//    O estado parado e translateY(100%): tocar numa estacao escurecia o veu e
+//    nao aparecia nada. web/metro.js agora poe .aberta no quadro seguinte
+//    (requestAnimationFrame), na hora com movimento reduzido ou sem rAF.
+// 2. O Revisar media 0 px de conteudo no celular: .revisar usava
+//    --largura-lateral (a COLUNA DIREITA do computador, 360px) como padding
+//    lateral; sobravam 15px para 720px de margem. Agora --espaco-4, a margem
+//    da pagina, a mesma de .metro e .explorar-raiz.
+// 3. O Perfil chegava sem estilo nenhum: web/telas/perfil.css existia no disco
+//    e no precache, e o index.html nunca o linkou. Node le o CSS que o casco
+//    importa, nao o HTML que o navegador segue -- por isso a suinte nao via.
+// 4. A lista do Explorar saia em cartaz: .explorar-link e .explorar-nome usavam
+//    --tipo-estacao (32px, o MAIOR texto da tela, o nome na placa) numa lista
+//    de 35 itens. Agora --tipo-corpo.
+// Mudou conteudo de tres arquivos do PRECACHE (web/metro.js,
+// web/telas/explorar.css, web/telas/revisar.css) e o index.html ganhou um link.
+// Quem tem v48 no cache continuaria com a folha invisivel, o Revisar de 0 px, o
+// Perfil pelado e a lista gigante, sem um erro na rede para avisar.
+const VERSAO = 'atlas-v49';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
 // deixa o cache antigo sem o nome novo. Recalcular: node tests/precache-hash.js.
-const PRECACHE_HASH = 'sha256-32c773733e98856138a7d33dea8a812c3d3bf489a985e6ac4c44e29ee7cd505b';
+const PRECACHE_HASH = 'sha256-10b756c3c255b2d7ce8623091c3319eed1d56a1c3655f311ee8b69a8a61b1b80';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.

@@ -52,6 +52,13 @@
 <link rel="stylesheet" href="./web/telas/jornada.css">
 <link rel="stylesheet" href="./web/telas/explorar.css">
 <link rel="stylesheet" href="./web/telas/revisar.css">
+<!-- S11-0 (critica no navegador, 03/11/2026): o Perfil existia no disco
+     (web/telas/perfil.css, ja no precache) e o index.html nunca o linkou. Sem
+     link o navegador nao baixa nada: a tela montava e chegava sem estilo
+     nenhum, e a suinte nao via porque node le o CSS que o casco importa, nao o
+     HTML que o navegador segue. A trava agora e critica-no-navegador: todo
+     web/telas/*.css esta linkado AQUI e listado no precache. -->
+<link rel="stylesheet" href="./web/telas/perfil.css">
 </head>
 <body>
 <!-- CASCO (S3a-2a, 31/10/2026): esta página é a SHELL, não uma tela. O que há

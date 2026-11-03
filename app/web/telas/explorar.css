@@ -40,8 +40,12 @@
 
 .explorar-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--espaco-2); }
 .explorar-item { display: flex; flex-wrap: wrap; gap: var(--espaco-2); align-items: baseline; padding: var(--espaco-2) 0; border-bottom: 1px solid var(--borda); }
-.explorar-link { color: var(--tinta); font-size: var(--tipo-estacao); text-decoration: underline; text-underline-offset: 3px; }
-.explorar-nome { font-size: var(--tipo-estacao); color: var(--tinta); }
+/* Critica no navegador (S11-0): as duas lines usavam --tipo-estacao, que o
+   tokens.css declara como o MAIOR texto da tela (32px, o nome da estacao na
+   placa). Numa lista de 35 itens a hierarquia mentia e a tela virava cartaz.
+   Lista e corpo: --tipo-corpo. --tipo-estacao fica so na placa da Jornada. */
+.explorar-link { color: var(--tinta); font-size: var(--tipo-corpo); text-decoration: underline; text-underline-offset: 3px; }
+.explorar-nome { font-size: var(--tipo-corpo); color: var(--tinta); }
 .explorar-selo {
   font-family: var(--fonte-mono); font-size: var(--tipo-nota); text-transform: uppercase;
   letter-spacing: var(--espacamento-placa); padding: 2px var(--espaco-2);

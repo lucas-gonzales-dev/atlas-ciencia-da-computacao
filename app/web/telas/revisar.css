@@ -15,7 +15,13 @@
   display: flex;
   flex-direction: column;
   gap: var(--espaco-8);
-  padding: var(--espaco-6) var(--largura-lateral);
+  /* A margem da PAGINA, a mesma de toda tela (.metro e .explorar-raiz usam
+     --espaco-4 lateral). Critica no navegador real (S11-0, 03/11/2026): aqui
+     estava --largura-lateral, que e a COLUNA DIREITA do computador, 360px. No
+     celular de 375px sobravam 15px de conteudo para 720px de padding: a tela
+     do Revisar media 0 px de conteudo e a suinte toda verde nao via nada,
+     porque node nao resolve CSS. */
+  padding: var(--espaco-6) var(--espaco-4);
   max-width: var(--largura-painel);
   font-family: var(--fonte-corpo);
   color: var(--tinta);
