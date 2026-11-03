@@ -225,7 +225,10 @@ export function montar(raiz, ctx) {
     if (r.semResultado) {
       const vazio = el(doc, `${CLASSE}-vazio`);
       vazio.append(
-        h2(doc, `${CLASSE}-vazio-titulo`, VAZIO.titulo),
+        // S10a (regua 1): o titulo da casa e generico; com uma busca digitada o
+      // estado tem de repetir o termo, senao a pessoa nao sabe se a busca falhou
+      // ou se o termo estava errado. A frase com valor ja existe em comValores.
+      h2(doc, `${CLASSE}-vazio-titulo`, estado.busca ? comValores.buscaVazia(estado.busca) : VAZIO.titulo),
         el(doc, `${CLASSE}-vazio-texto`, VAZIO.descricao),
       );
       const botao = doc.createElement('button');
@@ -314,10 +317,17 @@ export function montar(raiz, ctx) {
       escreverEndereco();
       pintar();
     })
-    .catch(() => {
+    .catch((erro) => {
       if (!montado) return;
       corpo.textContent = '';
-      corpo.append(el(doc, `${CLASSE}-vazio-texto`, estados.offline.descricao));
+      // S10a (regua 1): o catalogo nao abrir NAO e o estado offline do selo
+      // discreto — la a pessoa le a rede inteira; aqui nao le nada. Entao a
+      // Explorar devolve as tres partes da casa, as mesmas do metrô: o que
+      // falhou, por que, o que fazer agora.
+      corpo.append(el(doc, `${CLASSE}-vazio-titulo`, estados.erro.titulo));
+      corpo.append(el(doc, `${CLASSE}-vazio-texto`, estados.erro.parteUm));
+      corpo.append(el(doc, `${CLASSE}-vazio-texto`, comValores.erroPorQue(erro?.message || 'desconhecido')));
+      corpo.append(el(doc, `${CLASSE}-vazio-texto`, estados.erro.parteTres));
     });
 
   return { desmontar() { montado = false; } };

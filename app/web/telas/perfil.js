@@ -309,7 +309,12 @@ export async function montar(raiz, ctx) {
         cab.append(placa(doc, T.rotulo));
         cab.append(el(doc, `${CLASSE}-h1`, T.titulo, 'h1'));
         raizEl.append(cab);
-        raizEl.append(linha(doc, 'falha', T.erro));
+        // S10a (regua 1): as tres partes e uma saida, como no metrô. Sem isto o
+        // Perfil sem rede era um beco: uma frase e nenhum caminho de volta.
+        raizEl.append(linha(doc, 'falha', T.erro), linha(doc, 'falha', T.erroOQueFazer));
+        const irFalha = el(doc, 'primario', T.irParaProxima, 'a');
+        irFalha.setAttribute('href', hrefDe({ tela: 'jornada' }));
+        raizEl.append(irFalha);
         return null;
       });
 

@@ -191,6 +191,12 @@ export async function montar(raiz, ctx) {
     const proxima = diaLegivel(proximaData(revisoes));
     if (proxima) caixa.append(el(doc, `${CLASSE}-sub`, T.proximaEm(proxima), 'p'));
     caixa.append(el(doc, `${CLASSE}-nota`, T.semPressao, 'p'));
+    // S10a (regua 1): estado com texto e sem saida e beco. "Em dia" nao e tela
+    // morta — quem esta em dia pode seguir a viagem, entao a saida e o mesmo
+    // link da Jornada que o estado de nada-concluida ja usa.
+    const ir = el(doc, `${CLASSE}-primario`, T.irParaProxima, 'a');
+    ir.setAttribute('href', hrefDe({ tela: 'jornada' }));
+    caixa.append(ir);
     return caixa;
   }
 

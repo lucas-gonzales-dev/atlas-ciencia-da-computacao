@@ -238,12 +238,17 @@
 // listar a quarta aba. A tela também importa web/metro.js só por carregarViagem:
 // se o cache antigo não tiver esses quatro, o Perfil abre em branco no aparelho
 // de quem já tem v40, sem nenhum erro na rede para avisar.
-const VERSAO = 'atlas-v41';
+// atlas-v42: S10a (auditoria de estados, 03/11/2026) mexeu no CONTEUDO de tres
+// telas ja precached — explorar.js (erro de catalogo com as tres partes e o termo
+// repetido na busca sem resultado), revisar.js (o estado "em dia" ganhou saida) e
+// perfil.js (sem rede passou a dizer o que fazer e deu o caminho de volta). Quem
+// tem v41 no cache continuaria lendo "offline" onde nao havia rede nenhuma.
+const VERSAO = 'atlas-v42';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
 // deixa o cache antigo sem o nome novo. Recalcular: node tests/precache-hash.js.
-const PRECACHE_HASH = 'sha256-f0dd53e7af109d87b4cfc7091749c3fac25eba4572e5393826a771f7d87290bc';
+const PRECACHE_HASH = 'sha256-142244b573aa3cea509a070adab95c430f8095aee84e7e20f538e18077bf3399';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.
