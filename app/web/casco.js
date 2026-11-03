@@ -112,7 +112,13 @@ export async function iniciar(deps = {}) {
     const aba = ABAS.find((a) => a.tela === nome) || ABAS[0];
     abaAtiva(nome);
     doc.title = `${aba.rotulo} · ${TITULO_APP}`;
+    // S10 régua 6: no celular e no tablet quem rola é o MAIN (a janela está
+    // trancada, para a barra fixa não cobrir o fim da tela); no computador o
+    // @media de 1024px devolve a rolagem à janela. Zerar os dois é um linha só,
+    // e é o que faz trocar de aba chegar no topo da aba nova — zerar só a janela
+    // deixaria a tela nova aberta no meio da rolagem da anterior.
     win.scrollTo?.(0, 0);
+    main.scrollTo?.(0, 0);
 
     if (primeira) {
       // Quem abriu o app já está onde queria: sem anúncio, sem mover foco.

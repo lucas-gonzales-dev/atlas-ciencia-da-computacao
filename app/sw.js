@@ -253,12 +253,25 @@
 // e telas/explorar.css (o esqueleto parou de respirar; o selo "trancada" trocou o
 // recheio cinza por anel + texto fosco). Quem tem v43 no cache continuaria com o
 // selo trancado a 3,44:1 no claro e o esqueleto pulsando, sem um erro na rede.
-const VERSAO = 'atlas-v44';
+// atlas-v45: S10-auditoria regua 6 (tamanhos, 03/11/2026). O conserto nao e um
+// numero maior de padding: no celular e no tablet a JANELA passou a nao rolar
+// (html/body em 100dvh + overflow hidden) e o main virou o container de rolagem,
+// com forro lendo o token novo --altura-barra — assim a reserva vive com o
+// conteudo e o ultimo item para no topo da barra em vez de atras dela. Mudaram
+// conteudo: tokens.css (o token novo), base.css (o min-height: 100dvh saiu do
+// body e foi para o html -- no body ele era um PISO que esticava a caixa de volta
+// a tela inteira por cima do desconto do casco, ou seja, anulava o conserto),
+// casco.css (a trava da janela, a altura da barra, o @media de 1024 devolvendo o
+// scroll a janela), casco.js (main.scrollTo) e metro.css (o .aviso-chegada, cujo
+// bottom agora conta a faixa da barra). Quem
+// tem v44 no cache continuaria com "Viagem", "Em curso" e "Linhas abertas" atras
+// das abas, e o aviso de desfazer escondido, sem um erro na rede para avisar.
+const VERSAO = 'atlas-v45';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
 // deixa o cache antigo sem o nome novo. Recalcular: node tests/precache-hash.js.
-const PRECACHE_HASH = 'sha256-a0f6fc31425f13c51954c35424b8e17bbaa9ac35a72bf0f76978afdd623d403d';
+const PRECACHE_HASH = 'sha256-84fba7922c46d49c3607d809dd355c98947ca529a16497b3294012ddc0d6520f';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.

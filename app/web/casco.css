@@ -31,7 +31,42 @@
 .pular:focus { top: var(--espaco-2); background: var(--superficie); color: var(--tinta);
                padding: var(--espaco-3) var(--espaco-4); border-radius: var(--raio-placa); z-index: 3; }
 
-/* O topo com a marca: fica colado no alto enquanto a tela rola. */
+/* S10 RÉGUA 6 (03/11/2026) — QUEM ROLA, E ONDE A FAIXA MORA.
+ *
+ * O defeito: no celular e no tablet a barra de abas é `position: fixed` no pé e o
+ * documento é que rolava. "Viagem", "Em curso" e "Linhas abertas" passavam por
+ * CIMA dela com a suíte toda verde, e `main { padding-bottom }` não salvava nada:
+ * reserva no FIM do documento é empurrada junto com o fim — o último item sobe com
+ * a rolagem até a borda inferior da página, que É a barra.
+ *
+ * O primeiro conserto tentado (trancar a janela e dar `overflow-y: auto` ao main
+ * com o forro dentro dele) TAMBÉM estava errado, e o testar_pagina mostrou: sem
+ * caixa limitada, o main tem altura de conteúdo, não rola nada, e a barra segue
+ * pintada sobre o meio da tela. Reserva é diferente de limite.
+ *
+ * O que fecha a régua: o body vira COLUNA de altura = tela MENOS a faixa da barra.
+ * A faixa mora no BODY porque é a borda que nenhuma folha de tela toca: a primeira
+ * tentativa descontou a faixa num margin-bottom do main e o metro.css a comiu viva
+ * — `.metro { margin: 0 auto }` tem o dobro da especificidade de `main` e é
+ * carregado depois do casco. E a barra, sendo `position: fixed`, está FORA do
+ * fluxo: não há espaço sobrando para aquele auto centrar, o que é exatamente por
+ * que ela cobre o que passa abaixo. Conclusão registrada para as próximas fatias:
+ * quem define o TAMANHO da janela de tela é o casco, e o que as telas ajustam é a
+ * POSIÇÃO do conteúdo dentro dela. Assim a caixa do main termina no topo da barra,
+ * o clip do rolador cai ali, e nada é pintado atrás das abas — nem no meio da
+ * rolagem, que é onde o padding-bottom do documento mentia. */
+html,
+body { height: 100dvh; overflow: hidden; }
+body { display: flex; flex-direction: column; height: calc(100dvh - (var(--altura-barra) + var(--margem-segura-baixo))); }
+
+/* O topo e o selo não encolhem: quem recebe o espaço que sobra é o main. */
+.topo,
+.selo-rede { flex: 0 0 auto; }
+
+/* O topo com a marca: fica colado no alto enquanto a tela rola. Dentro do main
+   ele deixaria de colar — o topo é IRMÃO do main, então continua preso à janela,
+   que não rola: é o cabeçalho fixo que a base já desenhava, agora por construção
+   e não por acidente. */
 .topo { position: sticky; top: 0; z-index: 2; display: flex; align-items: center;
         justify-content: space-between; background: var(--fundo); border-bottom: 1px solid var(--borda); }
 
@@ -39,14 +74,17 @@
    segura do iPhone (home indicator) respeitada. */
 .abas { position: fixed; left: 0; right: 0; bottom: 0; z-index: 2; display: grid;
         grid-auto-flow: column; grid-auto-columns: 1fr; background: var(--fundo);
-        border-top: 1px solid var(--borda); padding-bottom: var(--margem-segura-baixo); }
+        border-top: 1px solid var(--borda); height: calc(var(--altura-barra) + var(--margem-segura-baixo)); }
 
-/* A barra fixa no pé cobre o fim da tela: o main ganha exatamente a altura
-   dela + o espaço de respiro, para o último item nunca ficar escondido atrás. */
-main { padding-bottom: calc(var(--alvo-toque) + var(--espaco-6) + var(--margem-segura-baixo)); }
+/* A CAIXA do main: `min-height: 0` é o que permite encolher abaixo do conteúdo
+   (sem ele, flex mantém a altura do conteúdo e a caixa estoura a tela — nada
+   rola). O main só toma o espaço que sobra da coluna; quem desconta a faixa da
+   barra é o body, uma linha acima, e por isso o `margin: 0 auto` das telas pode
+   continuar centrando o conteúdo sem engolir a reserva. O padding é o respiro. */
+main { flex: 1 1 0; min-height: 0; overflow-y: auto; padding-bottom: var(--espaco-4); }
 
 .abas a { display: flex; flex-direction: column; align-items: center; justify-content: center;
-          gap: var(--espaco-1); min-height: var(--alvo-toque); padding: 0 var(--espaco-3);
+          gap: var(--espaco-1); height: var(--altura-barra); padding: 0 var(--espaco-3);
           color: var(--fosca); text-decoration: none; font-size: var(--tipo-nota);
           font-weight: var(--peso-forte); border-top: 3px solid transparent;
           transition: color var(--movimento-selecao) var(--curva-atlas); }
@@ -60,9 +98,18 @@ main { padding-bottom: calc(var(--alvo-toque) + var(--espaco-6) + var(--margem-s
 
 /* Computador (a largura do --bp-4): a barra sobe para o topo e entra no fluxo. */
 @media (min-width: 1024px) {
-  .abas { position: static; display: flex; gap: var(--espaco-2); border-top: 0; padding-bottom: 0; }
-  .abas a { flex-direction: row; font-size: var(--tipo-corpo); }
-  main { padding-bottom: var(--espaco-6); }
+  /* Régua 6 no computador: quem tem mouse espera a janela rolando, e o painel
+     sticky da lateral da Jornada SÓ anda se for o documento que rola. Devolvemos
+     o scroll à janela, a barra sobe para o topo e entra no fluxo, e o forro do
+     main deixa de ler --altura-barra — não há mais nada fixo no pé para forrar. */
+  /* O body volta a ser bloco de altura de janela e o main devolve o que tomou:
+     sem isto, a coluna e o desconto da faixa continuariam ativos num computador
+     onde não há barra no pé — a tela terminaria 56 px antes do fim da janela. */
+  html, body { height: auto; overflow: visible; }
+  body { display: block; }
+  .abas { position: static; height: auto; display: flex; gap: var(--espaco-2); border-top: 0; }
+  .abas a { flex-direction: row; height: auto; min-height: var(--alvo-toque); font-size: var(--tipo-corpo); }
+  main { flex: none; min-height: 0; overflow: visible; padding-bottom: var(--espaco-6); }
 }
 
 /* O SELO DE REDE (S10b, régua 1): a única faixa do casco que não é aba nem

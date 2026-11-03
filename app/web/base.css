@@ -22,12 +22,20 @@ html {
    * o tema: sem isto, o Android desenha uma barra de rolagem clara sobre o
    * carvão e a calha branca volta pela janela. */
   color-scheme: light dark;
+  /* S10 régua 6 (03/11/2026): a garantia de "a janela inteira é pintada" mora no
+   * HTML, não no body. O body era o dono dela (min-height: 100dvh), e isso
+   * anulava em silêncio o conserto das abas: o casco dá ao body uma altura =
+   * tela MENOS a faixa da barra, mas min-height é um PISO, e piso acima do
+   * height estica a caixa de volta a 100dvh — o main passava por baixo da barra
+   * e "Viagem" continuava coberto com a suíte toda verde. Dois arquivos donos da
+   * mesma caixa é a doença; a caixa da janela é do casco, e a base só garante a
+   * cor do que existe além dela. */
+  min-height: 100dvh;
 }
 
 body {
   margin: 0;
   background: var(--fundo);
-  min-height: 100dvh;
 }
 
 /* Foco visível para quem navega sem mouse. O anel é grosso (3 px) e tem ar

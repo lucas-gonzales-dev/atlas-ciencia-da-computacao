@@ -139,6 +139,18 @@
   --largura-lateral: 360px;
   --altura-topo: calc(var(--espaco-3) + var(--espaco-3) + var(--margem-segura-topo) + var(--marca-altura));
 
+  /* S10 régua 6 (03/11/2026): a ALTURA da barra de abas, que o layout precisava
+   * e não tinha — e por isso o forro do main e a barra eram duas contas soltas.
+   * A barra no celular e no tablet é ícone (22px, declarado no casco.css com o
+   * svg) + o ar do gap (--espaco-1) + o rótulo (--tipo-nota no --entrelinha-nota,
+   * 16,8px) + a borda-estado de 3px: 45,8px de piso, com o --alvo-toque mandando
+   * no link. 56px é o que sobra de ar, e NÃO é número de decoração: é a medida
+   * que o forro do main lê, então a reserva e a caixa têm de poder ser conferidas
+   * uma pela outra. tests/auditoria-tamanhos.test.js reprova se ficar abaixo do
+   * próprio conteúdo da barra (o rótulo sai cortado) ou acima de 72px (um terço da
+   * tela do celular dado ao nada). */
+  --altura-barra: 56px;
+
   /* ── MOVIMENTO · três vozes ────────────────────────────────────────────
    * Duração diz o que o movimento SIGNIFICA: curto é máquina respondendo,
    * meio segundo é o trem chegando, devagar é onde você está. */

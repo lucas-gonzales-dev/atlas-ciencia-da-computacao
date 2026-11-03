@@ -362,6 +362,13 @@
 .botao-concluir { background: var(--superficie); border-color: var(--cor); color: var(--cor); }
 
 /* ── 4. a chegada: aviso com desfazer ───────────────────────────────────── */
+/* S10 régua 6 (03/11/2026): o rolador mudou, e com ele o que `bottom` significa.
+ * Até aqui este sticky media a rolagem da JANELA e a borda inferior do rolador era
+ * a própria borda da tela — sobre a qual a barra de abas é desenhada: o aviso da
+ * última estação nascia ATRÁS das abas, e o "desfazer" mais importante do app era
+ * o único inatingível. Agora o rolador é o main, e a caixa dele JÁ termina no topo
+ * da barra (--altura-barra descontado em casco.css), então 24 px continuam sendo
+ * 24 px ACIMA da barra e não da tela. O número não mudou; o terreno dele sim. */
 .aviso-chegada {
   position: sticky; bottom: var(--espaco-4); z-index: 2;
   margin: var(--espaco-4) 0 0; padding: var(--espaco-3) var(--espaco-4);
