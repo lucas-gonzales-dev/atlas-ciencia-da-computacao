@@ -276,12 +276,18 @@
 // um arquivo do PRECACHE (web/metro.js), entao VERSAO e hash. Quem tem v45 no
 // cache continuaria com a folha engolindo o Tab e o foco sumindo ao fechar, sem
 // um erro na rede para avisar.
-const VERSAO = 'atlas-v46';
+// atlas-v47: S10 item 3 e 4. Entram o auditoria de teclado e leitor de tela
+// (app/tests/auditoria-teclado-leitor.test.js, nao esta no precache), mas o
+// conteudo que mudou no precache foi web/casco.js (agora entrega document e
+// window as telas) e web/telas/jornada.js (anuncio de troca de aba e nome nos
+// campos). Sem subir a VERSAO, quem tem v46 no cache continua com a tela que nao
+// recebe o documento e sem o aviso sonoro do leitor de tela.
+const VERSAO = 'atlas-v47';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
 // deixa o cache antigo sem o nome novo. Recalcular: node tests/precache-hash.js.
-const PRECACHE_HASH = 'sha256-03ca06b74adba40290f9596fc0abf308d93aa89d5f399f81f08e4618473f68e3';
+const PRECACHE_HASH = 'sha256-7ae72b8471b3815ddf8d1b112460bbf02d9b3a29c9701c009d9bd90f6d47a194';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.

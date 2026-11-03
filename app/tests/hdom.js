@@ -75,15 +75,48 @@ export function criarNo(tag, doc) {
   return no;
 }
 
+/**
+ * casa() — o seletor que o mini-DOM entende (S10c, item 4 do teclado/leitor).
+ *
+ * O que estava errado: a versão antiga testava `.classe`, `#id`,
+ * `[attr="valor"]` e, no último linha, `n.tag === sel`. Um seletor que ela não
+ * conhecia — `a[href]`, `nav[aria-label="Principal"]`, `[data-fechar]` sem
+ * valor — CAÍA no comparação de tag e devolvia falso para todo nó. O
+ * `closest('a[href]')` do `4d` devolvia null em silêncio, e o teste passava
+ * verde porque o DUBLÊ não entendeu a pergunta, não porque a tela estava certa.
+ * Verde mudo é pior que vermelho: vermelho engana quem lê, verde engana quem
+ * confia.
+ *
+ * A regra agora: o parser cobre a forma que o código real usa — tag opcional
+ * seguida de `.classe`, `#id`, `[attr]` e `[attr="valor"]`, sem combinador —
+ * e QUALQUER outra forma LANÇA um erro com o seletor no texto. Quem escrever um
+ * seletor que o dublê não monta vê isso na hora, no nome do arquivo e da linha.
+ */
+const PECAS = /([a-zA-Z][\w-]*)|[#.]([\w-]+)|\[([\w-]+)(?:="([^"]*)")?\]/g;
+
 function casa(n, sel) {
-  if (sel.startsWith('.')) return n.className.split(/\s+/).includes(sel.slice(1));
-  if (sel.startsWith('#')) return n.id === sel.slice(1);
-  // S10b: `[attr="valor"]` é como o casco procura o cartão-âncora da estação
-  // (`a[href="#/estacao/logica"]`). Um dublê que devolve null para um seletor
-  // que o navegador resolve estaria medindo o dublê, não a tela.
-  const attr = /^\[([\w-]+)="([^"]*)"\]$/.exec(sel);
-  if (attr) return n.getAttribute(attr[1]) === attr[2];
-  return n.tag === sel;
+  const bruto = String(sel).trim();
+  const partes = [];
+  let pos = 0;
+  let m;
+  PECAS.lastIndex = 0;
+  while ((m = PECAS.exec(bruto)) !== null) {
+    if (m.index !== pos) {
+      throw new Error(`hdom casa(): seletor não entendido: "${sel}" (não sei ler a partir de "${bruto.slice(pos)}")`);
+    }
+    pos = PECAS.lastIndex;
+    partes.push(m);
+  }
+  if (partes.length === 0 || pos !== bruto.length) {
+    throw new Error(`hdom casa(): seletor não entendido: "${sel}"`);
+  }
+  return partes.every((p) => {
+    if (p[1] !== undefined) return n.tag === p[1].toLowerCase();
+    if (p[2] !== undefined) {
+      return p[0][0] === '#' ? n.id === p[2] : n.className.split(/\s+/).includes(p[2]);
+    }
+    return p[4] !== undefined ? n.getAttribute(p[3]) === p[4] : n.hasAttribute(p[3]);
+  });
 }
 
 export function criarDoc() {
@@ -95,6 +128,12 @@ export function criarDoc() {
     // As telas do casco procuram por id (getElementById) e por seletor.
     getElementById: (id) => porId.get(id) || null,
     _registrar: (id, no) => { porId.set(id, no); no.id = id; },
+    // S10c: `document.querySelector` existe no navegador e o web/casco.js usa
+    // (nav[aria-label="Principal"]). Sem estes dois métodos no dublê, subir o
+    // casco em teste morria em TypeError — o casco NUNCA foi montado em mini-DOM
+    // até aqui (o tests/casco.test.js citado por pages.test.js:101 não existe).
+    querySelector: (sel) => raiz.querySelector(sel),
+    querySelectorAll: (sel) => raiz.querySelectorAll(sel),
     // S10b: o `documentElement` é o nó que o CSS pinta com o FUNDÃO da página
     // (`:root`/`html { background: var(--fundo) }`), e é dele que o teste de
     // tema escuro lê a cor. Sem este campo, o teste teria de chutar o fundo.

@@ -44,11 +44,14 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 
-import { criarDoc, linksDe, porTag, storageCom, tagDeAbertura, esperar } from './hdom.js';
+import { criarDoc, linksDe, porTag, storageCom, tagDeAbertura, textoDe, todos, esperar } from './hdom.js';
 import { montar as montarExplorar } from '../web/telas/explorar.js';
 import { montar as montarRevisar } from '../web/telas/revisar.js';
 import { montar as montarPerfil } from '../web/telas/perfil.js';
 import { subirMetro } from '../web/metro.js';
+import { iniciar as iniciarCasco } from '../web/casco.js';
+import { ABAS, lerRota } from '../core/rotas.js';
+import { casco } from '../core/textos.js';
 import { agendarConclusao, serializeRevisoes, STORAGE_KEY } from '../core/revisao.js';
 
 const CATALOGO = JSON.parse(readFileSync(fileURLToPath(new URL('../data/catalog.json', import.meta.url)), 'utf8'));
@@ -83,6 +86,21 @@ function retrato(no) {
   const deleg = alvo(no);
   const atributo = deleg ? ` ${deleg}="${no.getAttribute(deleg)}"` : '';
   return `<${no.tag}${classe}${atributo}>`;
+}
+
+/**
+ * Retrato do FOCO em string — é assim que o fail tem de ser lido. Nunca se
+ * passa um nó do mini-DOM ao assert.equal: o formatador do node-test desce o
+ * grafo do dublê (nó→doc→raiz→filhos→nó) sem memória de visita e esgota o
+ * heap. Foi assim que o 4a morria em 58 s com «RangeError: Array buffer
+ * allocation failed», sem mensagem, quando a prenda de foco era desligada
+ * (S10c, 03/11). Uma trava que só fala quando passa não serve a quem lê o
+ * fail: o vermelho tem de dizer ONDE o foco ficou, em segundos.
+ */
+function focoDiz(no) {
+  if (!no) return 'nada (activeElement é null)';
+  const texto = textoDe(no).replace(/\s+/g, ' ').trim().slice(0, 40);
+  return `${retrato(no)}${texto ? ` «${texto}»` : ''}`;
 }
 
 /** Foco por si só: o que o navegador alcança com Tab sem ajuda nenhuma. */
@@ -440,10 +458,11 @@ test('teclado 4a: Tab no último focável da folha volta ao primeiro', async () 
 
   const ultimo = lista[lista.length - 1];
   ultimo.focus();
-  assert.equal(doc.activeElement, ultimo, 'o dublê não registrou o foco no último');
+  assert.ok(doc.activeElement === ultimo, `o dublê não registrou o foco no último: está em ${focoDiz(doc.activeElement)}`);
   const ev = { key: 'Tab', shiftKey: false, target: ultimo, preventDefault() { ev._impedido = true; } };
   tecla(raiz, ev);
-  assert.equal(doc.activeElement, lista[0], 'Tab no último focável saiu da folha em vez de voltar ao primeiro');
+  assert.ok(doc.activeElement === lista[0],
+    `Tab no último focável saiu da folha em vez de voltar ao primeiro: ficou em ${focoDiz(doc.activeElement)}, devia estar em ${focoDiz(lista[0])}`);
   assert.equal(ev._impedido, true, 'a volta ao primeiro precisava impedir o Tab padrão');
 });
 
@@ -455,7 +474,8 @@ test('teclado 4b: Shift+Tab no primeiro focável da folha vai ao último', async
   primeiro.focus();
   const ev = { key: 'Tab', shiftKey: true, target: primeiro, preventDefault() { ev._impedido = true; } };
   tecla(raiz, ev);
-  assert.equal(doc.activeElement, lista[lista.length - 1], 'Shift+Tab no primeiro fugiu da folha para cima');
+  assert.ok(doc.activeElement === lista[lista.length - 1],
+    `Shift+Tab no primeiro fugiu da folha para cima: ficou em ${focoDiz(doc.activeElement)}, devia estar em ${focoDiz(lista[lista.length - 1])}`);
   assert.equal(ev._impedido, true, 'a volta ao último precisava impedir o Shift+Tab padrão');
 });
 
@@ -510,11 +530,189 @@ test('teclado 4d: Esc fecha e o foco volta ao cartão que abriu a folha', async 
   // esgota o heap em ~33 s. O que se compara é a identidade; o que se reporta é
   // a descrição, e a régua 1b já prova que descrever é ler atributos reais.
   const ativo = terceira.doc.activeElement;
-  assert.notEqual(ativo, null, 'o Esc fechou e o foco caiu no nada (doc.activeElement é null)');
-  assert.equal(
-    retrato(ativo) + ' data-id=' + ativo.getAttribute('data-id'),
-    retrato(devolvido) + ' data-id=' + devolvido.getAttribute('data-id'),
-    'Esc fechou, mas o foco não voltou ao cartão que abriu a folha'
+  assert.ok(ativo !== null, 'o Esc fechou e o foco caiu no nada (doc.activeElement é null)');
+  assert.ok(
+    ativo === devolvido,
+    `Esc fechou, mas o foco não voltou ao cartão que abriu a folha: ficou em ${focoDiz(ativo)}, devia estar em ${focoDiz(devolvido)}`
   );
-  assert.equal(ativo === devolvido, true, 'o foco está num nó igual ao cartão, não no cartão');
+});
+
+// ───────────────── ITEM 4: o leitor de tela (S10c, 03/11) ─────────────────
+//
+// O QUE JÁ EXISTIA E NÃO SE COBRE DE NOVO:
+//   · pages.test.js:153-157 — a EXISTÊNCIA do p#anuncio no index.html, lido
+//     como TEXTO (aria-live polite, classe so-leitor), e a frase
+//     `casco.anuncio(rotulo)` saindo de core/textos.js.
+//   · rotas.test.js — as abas, seus rótulos, e a âncora #conteudo fora das rotas.
+// O QUE ENTRA: pages.test.js:100-101 cita um tests/casco.test.js que NUNCA
+// EXISTIU — a troca de aba, o nome dos campos e o tamanho das regiões
+// aria-live nunca foram montados em teste nenhum. O leitor 5 sobe o
+// web/casco.js de verdade no mini-DOM, com a cara do index.html.
+//
+// O QUE O NODE NÃO PROVA (conferência à mão no navegador): se o leitor anuncia
+// na voz e no momento certos — aria-live é comportamento do dispositivo; aqui
+// se mede a ESTRUTURA: quem tem a palavra, em quê, e se todo campo tem nome.
+
+/** Sobe o casco no mini-DOM: pular, topo>nav com as 4 abas, selo de rede,
+ *  main#conteudo e p#anuncio — os mesmos ids e atributos do index.html. */
+async function subirCasco() {
+  const doc = criarDoc();
+  const m = (tag, opts = {}) => {
+    const no = doc.createElement(tag);
+    no.className = opts.classe || '';
+    for (const [k, v] of Object.entries(opts.attrs || {})) no.setAttribute(k, v);
+    if (opts.id) doc._registrar(opts.id, no);
+    return no;
+  };
+  const main = m('main', { id: 'conteudo', attrs: { tabindex: '-1' } });
+  main.textContent = 'O Atlas está carregando.'; // a guarda escrita, que o casco esvazia
+  const nav = m('nav', { classe: 'abas', attrs: { 'aria-label': 'Principal' } });
+  for (const aba of ABAS) nav.append(m('a', { attrs: { href: aba.href, 'data-tela': aba.tela } }));
+  const topo = m('header', { classe: 'topo' });
+  topo.append(nav);
+  doc.documentElement.append(
+    m('a', { classe: 'pular', attrs: { href: '#conteudo' } }),
+    topo,
+    m('p', { id: 'estado-rede', classe: 'selo-rede', attrs: { 'aria-live': 'polite', hidden: '' } }),
+    main,
+    m('p', { id: 'anuncio', classe: 'so-leitor', attrs: { 'aria-live': 'polite' } })
+  );
+  const win = {
+    location: { hash: '#/' },
+    history: { replaceState: () => {} },
+    localStorage: storageCom(),
+    setTimeout: () => 0,
+    clearTimeout: () => {},
+    scrollTo: () => {},
+    addEventListener: () => {}
+  };
+  // O main.js fala o `localStorage` GLOBAL sem janela (loadCompleted e
+  // loadNotas são chamados no montar de Revisar e Perfil). No node ele não
+  // existe, e sem este empréstimo o casco montaria a aba e morreria no meio —
+  // a régua acusaria o casco por um problema do dublê. node --test roda cada
+  // arquivo num processo próprio; o empréstimo não vaza para a suíte inteira.
+  if (typeof globalThis.localStorage?.getItem !== 'function') {
+    Object.defineProperty(globalThis, 'localStorage', { value: storageCom(), configurable: true });
+  }
+  const fetchOriginal = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok: true, json: async () => CATALOGO });
+  let inst;
+  try {
+    inst = await iniciarCasco({ document: doc, window: win });
+  } finally {
+    if (fetchOriginal === undefined) delete globalThis.fetch;
+    else globalThis.fetch = fetchOriginal;
+  }
+  assert.equal(inst?.ok, true, `o casco não subiu no mini-DOM: ${inst?.motivo}`);
+  return {
+    doc,
+    main,
+    nav,
+    anuncio: doc.getElementById('anuncio'),
+    // `pintar` é a MESMA função que o casco amarra ao hashchange no navegador,
+    // e iniciar a devolve em {ok, pintar}: dirigir a rota por ela é o caminho
+    // real da pintura, sem esperar microtask às cegas.
+    ir: (rota) => inst.pintar(lerRota(rota))
+  };
+}
+
+/**
+ * O nome que um leitor de tela leria para este campo, ou null. Placeholder NÃO
+ * é nome: some quando o campo recebe texto, e quem usa leitor de tela muitas
+ * vezes o ouve tarde demais. As três saídas legítimas: aria-label,
+ * aria-labelledby apontando para um id que existe, ou label com for.
+ */
+function nomeDoCampo(no, doc) {
+  const rotulo = no.getAttribute('aria-label');
+  if (rotulo) return rotulo;
+  const dito = no.getAttribute('aria-labelledby');
+  if (dito) {
+    const alvo = todos(doc.documentElement, (n) => n.id === dito.trim().split(/\s+/)[0])[0];
+    return alvo ? textoDe(alvo) : null;
+  }
+  if (no.id) {
+    const label = todos(doc.documentElement, (n) => n.tag === 'label' && n.htmlFor === no.id)[0];
+    if (label && textoDe(label).trim()) return textoDe(label);
+  }
+  return null;
+}
+
+test('leitor 5: cada troca de aba escreve o rótulo da aba em #anuncio', async () => {
+  const { doc, anuncio, ir } = await subirCasco();
+  assert.ok(anuncio, 'o casco montou sem o p#anuncio');
+  // A primeira pintura é MUDA por decisão (regra escrita no topo do
+  // web/casco.js): quem abriu o app não pediu para ser levado a lugar nenhum.
+  assert.equal(anuncio.textContent, '', `a primeira pintura já falou: «${anuncio.textContent}»`);
+  const achados = [];
+  for (const aba of ABAS) {
+    await ir(aba.href);
+    const esperado = casco.anuncio(aba.rotulo);
+    if (anuncio.textContent !== esperado) {
+      achados.push(`ir para ${aba.href}: #anuncio guarda «${anuncio.textContent}», devia «${esperado}»`);
+    }
+    if (!doc.title.startsWith(`${aba.rotulo} · `)) {
+      achados.push(`ir para ${aba.href}: doc.title é «${doc.title}», devia começar com «${aba.rotulo} · »`);
+    }
+  }
+  assert.equal(achados.length, 0, `troca de aba muda para quem usa leitor de tela:\n${achados.join('\n')}`);
+});
+
+test('leitor 6: todo campo das cinco telas e da folha tem nome próprio', async () => {
+  const disponivel = CATALOGO.courses.find((c) => !c.prerequisites?.length && c.resourceUrl);
+  const achados = [];
+  let vistos = 0;
+  // PERGUNTA NA HORA DA PINTURA. Guardar as referências e avaliar no fim deu
+  // falso positivo na Explorar: `main.textContent = ''` da aba seguinte destrói
+  // o <label> que dava nome ao campo, e o input sobrevive como objeto órfão —
+  // a régua procurava o label numa árvore onde ele já não existia. O campo só
+  // tem nome se ele existe JUNTO, naquele instante.
+  const conferir = (tela, raiz, doc) => {
+    for (const campo of porTag(raiz, 'input').concat(porTag(raiz, 'select'), porTag(raiz, 'textarea'))) {
+      if (campo.getAttribute('type') === 'hidden') continue;
+      vistos += 1;
+      if (nomeDoCampo(campo, doc)) continue;
+      const rotulos = todos(doc.documentElement, (n) => n.tag === 'label' && n.htmlFor).map((l) => `label[for=${l.htmlFor}]`);
+      achados.push(`${tela} → ${retrato(campo)} id="${campo.id}": sem nome (placeholder não é nome); aria-label="${campo.getAttribute('aria-label')}", aria-labelledby="${campo.getAttribute('aria-labelledby')}", labels na árvore: ${rotulos.join(', ') || 'nenhum'}`);
+    }
+  };
+  const cascos = await subirCasco();
+  for (const aba of ABAS) {
+    await cascos.ir(aba.href);
+    conferir(aba.rotulo, cascos.main, cascos.doc);
+  }
+  const folha = await jornada({ completed: [], folha: disponivel.slug });
+  conferir('FOLHA', folha.raiz, folha.doc);
+  // Anti-falso-positivo: Explorar tem busca + filtro e a folha tem anotação.
+  assert.ok(vistos >= 3, `só ${vistos} campos percorridos — as telas não montaram`);
+  assert.equal(achados.length, 0, `campo sem nome próprio:\n${achados.join('\n')}`);
+});
+
+// Heurística 9 da casa: aria-live em bloco grande faz o leitor reler a tela
+// inteira a cada mudança. Uma região que fala é UMA FRASE — um p ou um span.
+// `li` ficou fora de propósito: um item ganhando aria-live fala uma frase.
+const GRANDES = new Set(['main', 'section', 'nav', 'ul', 'ol', 'article', 'header', 'footer', 'form', 'fieldset', 'table', 'div']);
+
+test('leitor 7: toda região aria-live é uma frase — p ou span, nunca um bloco', async () => {
+  const vistas = new Set();
+  const achados = [];
+  const conferir = (nome, doc) => {
+    for (const no of todos(doc.documentElement, (n) => n.hasAttribute('aria-live'))) {
+      vistas.add(`${no.tag}#${no.id || no.className}`);
+      if (GRANDES.has(no.tag)) {
+        achados.push(`${nome}: <${no.tag}${no.id ? ` id="${no.id}"` : ` class="${no.className}"`}> leva aria-live="${no.getAttribute('aria-live')}" — um bloco no aria-live faz o leitor reler a tela a cada mudança`);
+      } else if (no.tag !== 'p' && no.tag !== 'span') {
+        achados.push(`${nome}: aria-live em <${no.tag}>, que não é um p nem um span`);
+      }
+    }
+  };
+  const cascos = await subirCasco();
+  for (const aba of ABAS) {
+    await cascos.ir(aba.href);
+    conferir(aba.rotulo, cascos.doc);
+  }
+  const disponivel = CATALOGO.courses.find((c) => !c.prerequisites?.length && c.resourceUrl);
+  const folha = await jornada({ completed: [], folha: disponivel.slug });
+  conferir('FOLHA', folha.doc);
+  assert.ok(vistas.size >= 3, `só ${vistas.size} regiões aria-live vistas (${[...vistas].join(', ')}) — o casco não montou`);
+  assert.equal(achados.length, 0, `aria-live fora do tamanho:\n${achados.join('\n')}`);
 });

@@ -32,5 +32,14 @@ export async function montar(raiz, ctx) {
   // S5 parte 2: a folha é ROTA, e quem lê o endereço é o casco. Sem entregar o
   // slug aqui, #/estacao/<slug> montava a Jornada sem painel nenhum — a rota
   // existia, o folha.js existia, os testes passavam, e nada aparecia na tela.
-  return subirMetro({ root: raiz, modulos, folha: ctx.folha });
+  // S10c: o documento e a janela do casco seguem o mesmo caminho da promessa
+  // do catálogo. Antes disto, o subirMetro caía no `document` global
+  // (metro.js:934) — no navegador, uma coincidência; em teste, um
+  // ReferenceError que deixou o web/casco.js nunca montado num mini-DOM. E sem
+  // a janela, o fechar da folha não navegava: o metro.js:945 aceitou `null`
+  // calado, e o Esc viraria no-op dentro do casco.
+  return subirMetro({
+    root: raiz, modulos, folha: ctx.folha,
+    document: ctx.document, window: ctx.window
+  });
 }

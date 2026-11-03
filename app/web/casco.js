@@ -67,7 +67,19 @@ export async function iniciar(deps = {}) {
   // S5: `folha` é o slug que a rota pediu. O casco NÃO conhece a folha (ela é
   // tela, e tela não é casco): só entrega o que a rota disse, pela mesma
   // promessa do catálogo. Quem tem o catálogo decide o que fazer com ele.
-  const contexto = { modulos, get catalogo() { return catalogo; }, get folha() { return folhaPedida; } };
+  // S10c (item 4): `document` e `window` entram no contexto. As telas já
+  // pediam os dois — revisar.js:78 e perfil.js:158 lêem `ctx.window || window`
+  // e o JSDoc delas lista `window?` como parte do contrato — e no navegador o
+  // global escondia o fato de que o CASCO, dono dos dois, nunca os entregava.
+  // Sem este fio, montar o casco num documento que não é o global (qualquer
+  // teste, qualquer embed futuro) morria em ReferenceError: primeiro no
+  // metro.js:934, depois no revisar.js:78. A injeção sempre foi o contrato;
+  // faltava o cabo.
+  const contexto = {
+    document: doc, window: win, modulos,
+    get catalogo() { return catalogo; },
+    get folha() { return folhaPedida; }
+  };
   let folhaPedida = null;
   let atual = null; // { tela, instancia } — para o desmontar da saída
   let primeira = true;
