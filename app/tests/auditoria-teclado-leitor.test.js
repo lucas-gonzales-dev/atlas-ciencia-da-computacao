@@ -1,0 +1,520 @@
+// Projeto Atlas — régua de TECLADO (S10, item 3). O leitor de tela (item 4) entra
+// neste mesmo arquivo no próximo pedido; por isso o nome já diz os dois.
+//
+// POR QUE EXISTE: o metro.js e o folha.js desenham ações, e até aqui nenhuma
+// travava percorria a árvore montada perguntando «isto que a pessoa clica, o Tab
+// alcança?». Os comentários deste repositório contam o defeito duas vezes, com
+// palavras diferentes: `<span type="button">` nas 7 linhas (S2, 31/10 — «o Tab
+// passava por cima das 7 linhas, Enter e Espaço não faziam nada») e o `detalhe`
+// da folha antes da S5. Cada vez uma fatia consertou O SEU caso; nenhuma escreveu
+// a pergunta que teria achado os outros. Esta é essa pergunta, percorrendo as
+// cinco telas montadas em vez de olhar um arquivo por vez.
+//
+// O QUE JÁ EXISTIA E NÃO SE COBRE DE NOVO (lido antes de escrever, como a fatia
+// manda — folha.test.js, render.test.js, pages.test.js, rotas.test.js,
+// design-system.test.js, metro.test.js):
+//   · pages.test.js:114 — o PRIMEIRO focável do <body> é `a class="pular"` com
+//     `href="#conteudo"`, e :130 — um único `main#conteudo` com `tabindex="-1"`.
+//   · rotas.test.js:29 — `#conteudo` não cai como rota (o pular não troca tela).
+//   · design-system.test.js:602/605 — o anel de `base.css :focus-visible` é
+//     `outline: var(--anel-foco)` com `outline-offset: var(--afastamento-foco)`.
+//   · metro.test.js:469/479 — Esc fecha a folha navegando para `#/`, e na tela do
+//     mapa o Esc não toca no endereço.
+// A forma do `render` do main.js (grade antiga) também não entra: seus alvos de
+// clique são `button.marca`, `button[data-acao]` e `input.importar-arquivo` —
+// todos focáveis por tag, e render.test.js já percorre those links.
+//
+// O QUE ENTRA AQUI:
+//   1. toda ação de clique das cinco telas montadas (própria ou por delegação) é
+//       ou focável por tag (a[href], button, input, select, textarea, summary),
+//       ou tem tabindex="0" + role + ouvinte de tecla;
+//   2. nenhum CSS de web/ zera `outline` sem pôr anel substituto na mesma regra;
+//   3. o CSS do pular: escondido FORA do fluxo de foco é um pular que o Tab
+//       nunca alcança (o que pages.test.js prova é a ESTRUTURA, lida como texto);
+//   4. a folha prende o foco nas duas pontas e o devolve a quem abriu.
+//
+// O QUE O NODE NÃO PROVA (deixa-se dito, porque fingir medida é pior que medida
+// nenhuma): se o handler de tecla trata Enter, Espaço ou as duas — o mini-DOM
+// prova que O OUVINTE existe e roda, não quais teclas ele lê; se o anel de foco
+// aparece pintado na tela, na cor do tema; se o Tab pula o que `display:none`
+// esconde (o dublê não tem caixa). Os três são da conferência à mão no navegador.
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync, readdirSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
+
+import { criarDoc, linksDe, porTag, storageCom, tagDeAbertura, esperar } from './hdom.js';
+import { montar as montarExplorar } from '../web/telas/explorar.js';
+import { montar as montarRevisar } from '../web/telas/revisar.js';
+import { montar as montarPerfil } from '../web/telas/perfil.js';
+import { subirMetro } from '../web/metro.js';
+import { agendarConclusao, serializeRevisoes, STORAGE_KEY } from '../core/revisao.js';
+
+const CATALOGO = JSON.parse(readFileSync(fileURLToPath(new URL('../data/catalog.json', import.meta.url)), 'utf8'));
+const IDS = CATALOGO.courses.map((c) => c.id);
+const HOJE = '2026-11-02';
+const prometido = (v) => Promise.resolve(v);
+const falhou = () => Promise.reject(new Error('sem rede: fetch falhou'));
+
+const RAIZ_WEB = fileURLToPath(new URL('../web', import.meta.url));
+const INDEX = fileURLToPath(new URL('../index.html', import.meta.url));
+
+/** Os atributos que os binds leem por delegação (`alvo.closest('[data-…]')`). */
+const ALVOS_DE_DELEGACAO = [
+  'data-acao-placa', 'data-concluir', 'data-desfazer', 'data-embarque',
+  'data-fechar', 'data-linha', 'data-marcar'
+];
+
+// ─────────────────────────── percorrer a árvore montada ───────────────────────────
+
+function ande(no, fn) {
+  if (!no) return;
+  fn(no);
+  for (const f of no.children || []) ande(f, fn);
+}
+
+const cliqueProprio = (no) => Array.isArray(no.listeners?.click) && no.listeners.click.length > 0;
+const alvo = (no) => ALVOS_DE_DELEGACAO.find((a) => no.getAttribute?.(a) !== null) || null;
+
+/** Retrato do nó para a mensagem: é assim que o achado tem de ser lido, «tela → elemento». */
+function retrato(no) {
+  const classe = no.className ? ` class="${no.className}"` : '';
+  const deleg = alvo(no);
+  const atributo = deleg ? ` ${deleg}="${no.getAttribute(deleg)}"` : '';
+  return `<${no.tag}${classe}${atributo}>`;
+}
+
+/** Foco por si só: o que o navegador alcança com Tab sem ajuda nenhuma. */
+function focavelSozinho(no) {
+  switch (no.tag) {
+    case 'a': return no.getAttribute('href') !== null;   // <a> sem href não entra na ordem do Tab
+    case 'button': case 'input': case 'select': case 'textarea': case 'summary':
+      return no.disabled !== true;
+    default: return no.getAttribute('tabindex') === '0';
+  }
+}
+
+/** O que falta para um NÃO-focável virar alcançável: tabindex="0", role e ouvinte de tecla. */
+function faltaParaTeclado(no) {
+  const faltas = [];
+  if (no.getAttribute('tabindex') !== '0') faltas.push('tabindex="0"');
+  if (no.getAttribute('role') === null) faltas.push('role');
+  if (!Array.isArray(no.listeners?.keydown) || no.listeners.keydown.length === 0) faltas.push('ouvinte de Enter/Espaço');
+  return faltas;
+}
+
+/**
+ * O véu da folha (`div.folha-veu[data-fechar]`) é clicável e não recebe foco, e é
+ * LEGÍTIMO: fecha-se com Esc e com o botão de fechar, que são alcançáveis. A
+ * exceção não é uma lista de nomes — é a condição, conferida a cada árvore: só
+ * vale para um `[data-fechar]` se existir OUTRO `[data-fechar]` focável na mesma
+ * tela e se a tela tiver ouvinte de keydown (o Esc). Retirar o Esc, ou o botão de
+ * fechar, faz o véu voltar a ser achado. É assim que a trava não vira crachá.
+ */
+function excecaoDeVeu(no, raiz, escFecha) {
+  if (no.getAttribute?.('data-fechar') === null) return false;
+  let fecharFocavel = false;
+  ande(raiz, (n) => {
+    if (n !== no && n.getAttribute?.('data-fechar') !== null && focavelSozinho(n)) fecharFocavel = true;
+  });
+  return fecharFocavel && escFecha === true;
+}
+
+/**
+ * MEDIR em vez de contar ouvintes: dispara o Escape na árvore montada e pergunta
+ * ao endereço se a folha saiu. Um `raiz.listeners.keydown.length > 0` diria
+ * «tem Esc» com o ramo do Escape removido, porque o handler do Tab continua lá
+ * no mesmo listener — a isenção viraria crachá, e a mutação da fatia (tirar o
+ * Esc) passaria verde. Custa um tecla por folha montada e devolve o mesmo
+ * boolemo que a régua 4 cobra de verdade.
+ */
+function escFechaFolha(raiz, win) {
+  const antes = win.location.hash;
+  if (antes === '#/' || antes === '') return false;
+  tecla(raiz, { key: 'Escape', shiftKey: false, target: raiz, preventDefault() {} });
+  return win.location.hash === '#/';
+}
+
+/**
+ * A pergunta da régua 1, numa árvore montada. Devolve os achados («tela →
+ * elemento → o que falta») e as contagens, para a trava anti-falso-positivo
+ * conferir que a árvore foi percorrida de verdade e não estava vazia.
+ */
+function percorrer(nome, raiz, { escFecha = false } = {}) {
+  const achados = [];
+  const visitados = { proprio: 0, delegacao: 0, isencoes: 0 };
+  const raizDaTela = raiz;
+  // É delegação ou não, dito por um FLAG e não por string: a mensagem é o texto
+  // que o achado mostra, e comparar «motivo === 'delegação'» contra
+  // «clique por delegação (data-fechar)» nunca casa — a isenção do véu ficava
+  // morta, e a régua acusaria de verdade um elemento que a casa já julgou
+  // legítimo. O flag é a pergunta; o texto é só o relatório.
+  const julgar = (no, rotulo, porDelegacao) => {
+    if (no === raizDaTela && !porDelegacao) return; // o contêiner da delegação não é ação
+    if (focavelSozinho(no)) return;
+    if (excecaoDeVeu(no, raizDaTela, escFecha)) { visitados.isencoes += 1; return; }
+    achados.push(`${nome} → ${retrato(no)}: ${rotulo} sem foco; falta ${faltaParaTeclado(no).join(', ')}`);
+  };
+  ande(raiz, (no) => {
+    if (cliqueProprio(no)) { visitados.proprio += 1; julgar(no, 'clique próprio', false); }
+    const d = alvo(no);
+    if (d) { visitados.delegacao += 1; julgar(no, `clique por delegação (${d})`, true); }
+  });
+  return { achados, visitados };
+}
+
+/** Junta os achados de várias telas numa mensagem só, lida como lista. */
+function semAchado(resultados) {
+  const todos = resultados.flatMap((r) => r.achados);
+  const linha = '\n' + todos.join('\n');
+  assert.equal(todos.length, 0, `${todos.length} ação(ões) fora do alcance do Tab:${linha}`);
+}
+
+// ─────────────────────────────── as cinco telas ───────────────────────────────
+
+function modulosCom(opts = {}) {
+  return {
+    loadCatalog: () => ('catalogo' in opts ? opts.catalogo : prometido(CATALOGO)),
+    loadCompleted: () => (opts.completed || []).slice(),
+    saveCompleted: () => true,
+    loadNotas: () => (opts.notas || {}),
+    saveNotas: () => true,
+    aplicarNota: (state) => state,
+    ...opts.modulos
+  };
+}
+
+function contexto(doc, opts = {}) {
+  const storage = opts.storage || storageCom(
+    opts.completed?.length ? { 'atlas.progresso.v1': JSON.stringify(opts.completed) } : {}
+  );
+  const modulos = modulosCom(opts);
+  return {
+    document: doc,
+    window: { localStorage: storage, setTimeout: () => 0, clearTimeout: () => {}, addEventListener: () => {} },
+    storage,
+    modulos,
+    // hoje é do contexto: a Revisar escolhe a peça do dia por ele. Fixar HOJE
+    // aqui fazia o `hoje` que a tela recebia ser ignorado — a fila ficava vazia
+    // e a régua achava 0 botões, o falso negativo que ela veio impedir.
+    hoje: opts.hoje || HOJE,
+    // A chave de cima é a PROMESSA que a tela espera; esta só sobrepõe quando o
+    // caso pede outra (o catálogo em erro, na JORNADA). Sem o `in`, um opts sem
+    // catalogo apagava a promessa e a Perfil morria em reading 'then' — chave
+    // duplicada no mesmo objeto literal, a última manda.
+    catalogo: 'catalogo' in opts ? opts.catalogo : modulos.loadCatalog(),
+    estadoCatalogo: CATALOGO
+  };
+}
+
+async function jornada(opts = {}) {
+  const doc = criarDoc();
+  const raiz = doc.createElement('div');
+  const win = { location: { hash: opts.folha ? `#/estacao/${opts.folha}` : '#/' }, setTimeout: () => 0, clearTimeout: () => {}, addEventListener: () => {} };
+  const inst = await subirMetro({
+    root: raiz,
+    document: doc,
+    storage: opts.storage || storageCom(),
+    window: win,
+    modulos: modulosCom(opts),
+    setTimeout: () => 0,
+    hoje: HOJE,
+    folha: opts.folha ?? null
+  });
+  return { doc, raiz, inst, win };
+}
+
+// ───────────────────────── 1. o alcance do Tab nas cinco telas ─────────────────────────
+
+test('teclado 1: cada ação desenhada nas cinco telas está ao alcance do Tab', async () => {
+  const disponivel = CATALOGO.courses.find((c) => !c.prerequisites?.length && c.resourceUrl);
+  const trancada = CATALOGO.courses.find((c) => c.prerequisites?.length);
+  const resultados = [];
+
+  // JORNADA — mapa vazio (embarque aberto, placa, 7 linhas, diagrama)…
+  resultados.push(await (async () => {
+    const { raiz } = await jornada({ completed: [] });
+    return { ...percorrer('JORNADA (vazia)', raiz) };
+  })());
+  // …e a JORNADA com cada estado da folha por cima: disponível, trancada, concluída.
+  const comEsc = async (nome, opts) => {
+    const { raiz, win } = await jornada(opts);
+    return { ...percorrer(nome, raiz, { escFecha: escFechaFolha(raiz, win) }) };
+  };
+  resultados.push(await comEsc('FOLHA (disponível)', { completed: [], folha: disponivel.slug }));
+  resultados.push(await comEsc('FOLHA (trancada)', { completed: [], folha: trancada.slug }));
+  resultados.push(await comEsc('FOLHA (concluída)', { completed: IDS.slice(0, 8), folha: CATALOGO.courses.find((c) => c.id === IDS[0])?.slug }));
+
+  // EXPLORAR com a busca sem resultado — o único botão da tela com ouvinte próprio.
+  {
+    const doc = criarDoc();
+    const raiz = doc.createElement('div');
+    await montarExplorar(raiz, contexto(doc));
+    await esperar();
+    const campo = porTag(raiz, 'input').find((n) => n.type === 'search');
+    assert.ok(campo, 'a Explorar não montou o campo de busca');
+    campo.value = 'zxqw';
+    campo.dispatch('input');
+    resultados.push(percorrer('EXPLORAR (busca sem resultado)', raiz));
+  }
+
+  // REVISAR com uma revisão na fila: mostrar-anotação + três respostas + desfazer.
+  {
+    const id = IDS[0];
+    const storage = storageCom({
+      'atlas.progresso.v1': JSON.stringify([id]),
+      [STORAGE_KEY]: serializeRevisoes(agendarConclusao({}, id, '2026-11-02'))
+    });
+    const doc = criarDoc();
+    const raiz = doc.createElement('div');
+    await montarRevisar(raiz, contexto(doc, { completed: [id], storage, hoje: '2027-06-01' }));
+    await esperar();
+    const peca = porTag(raiz, 'button');
+    assert.ok(peca.length >= 4, `Revisar sem a peça do dia: ${peca.length} botões`);
+    resultados.push(percorrer('REVISAR (fila do dia)', raiz));
+    // e o aviso com o desfazer, que é desenhado depois do gesto:
+    peca.find((b) => b.dataset?.resultado)?.dispatch('click', { target: peca[0] });
+    await esperar();
+    resultados.push(percorrer('REVISAR (aviso com desfazer)', raiz));
+  }
+
+  // PERFIL com viagem feita: o botão de exportar (ouvinte próprio) e o input de arquivo.
+  {
+    const doc = criarDoc();
+    const raiz = doc.createElement('div');
+    const inst = await montarPerfil(raiz, contexto(doc, { completed: IDS.slice(0, 3) }));
+    if (inst?.pronto) await inst.pronto;
+    resultados.push(percorrer('PERFIL', raiz));
+  }
+
+  // O catálogo que falha também é tela, e também tem saída clicável.
+  resultados.push(percorrer('JORNADA (catálogo em erro)', (await jornada({ catalogo: falhou() })).raiz));
+
+  // Anti-falso-positivo: se a árvore estivesse vazia, «nenhum achado» seria verde.
+  const somados = resultados.reduce((a, r) => ({
+    proprio: a.proprio + r.visitados.proprio,
+    delegacao: a.delegacao + r.visitados.delegacao,
+    isencoes: a.isencoes + r.visitados.isencoes
+  }), { proprio: 0, delegacao: 0, isencoes: 0 });
+  assert.ok(somados.proprio >= 6, `só ${somados.proprio} ouvintes de clique próprios percorridos — as telas não montaram`);
+  assert.ok(somados.delegacao >= 20, `só ${somados.delegacao} alvos de delegação percorridos — o mapa não foi desenhado`);
+  assert.ok(somados.isencoes >= 2, `o véu deveria ser isentado uma vez por folha aberta (${somados.isencoes})`);
+  semAchado(resultados);
+});
+
+test('teclado 1b: o que a régua achou é a árvore, não o dublê — três casos de referência', async () => {
+  // Se estes três passassem por achado, a régua estaria flagrando o mini-DOM.
+  const { raiz } = await jornada({ completed: [] });
+  const cartao = porTag(raiz, 'a').find((a) => a.getAttribute('data-id'));
+  assert.ok(cartao, 'o cartão da estação não é um link no mapa');
+  // A régua NÃO cobra nada de quem já entra no Tab: faltaParaTeclado é a resposta
+  // para um NÃO-focável (o julgar de percorrer devolve antes de perguntar). Pedir
+  // as três faltas de um link com href seria cobrar o que o navegador já dá.
+  assert.equal(focavelSozinho(cartao), true, 'cartão <a href> deveria entrar no Tab por si');
+  assert.deepEqual(percorrer('MAPA', raiz).achados, [], 'a árvore de verdade não tem achado');
+
+  const botao = porTag(raiz, 'button').find((b) => b.getAttribute('data-linha') !== null);
+  assert.ok(botao, 'o seletor de linha não tem botão');
+  assert.equal(focavelSozinho(botao), true, 'o <button> da linha tem de ser focável por tag');
+
+  // E o falso negativo, medido na própria régua: um div clicável É achado.
+  const doc = criarDoc();
+  // (a) o CONTÊINER da delegação, sozinho, tem clique e não é ação — percorrer
+  //     recebe a raiz da tela, e as telas penduram o ouvinte nela.
+  const raiz2 = doc.createElement('div');
+  raiz2.className = 'tela';
+  raiz2.addEventListener('click', () => {});
+  const r = percorrer('TESTE DE REFERÊNCIA', raiz2);
+  assert.equal(r.achados.length, 0, `a raiz da tela é contêiner da delegação, não ação: ${r.achados}`);
+
+  // (b) o MESMO div, agora dentro do contêiner, É ação, e a régua o acha.
+  const dentro = doc.createElement('div');
+  dentro.className = 'falsa-agindo';
+  dentro.addEventListener('click', () => {});
+  raiz2.append(dentro);
+  const r2 = percorrer('TESTE DE REFERÊNCIA', raiz2);
+  assert.equal(r2.achados.length, 1, `um div com clique dentro da tela deveria ser achado: ${r2.achados}`);
+  assert.match(r2.achados[0], /falta tabindex="0", role, ouvinte de Enter\/Espaço/, `achado sem as três faltas: ${r2.achados[0]}`);
+});
+
+// ───────────────────────── 2. o foco visível no CSS ─────────────────────────
+
+/** Blocos `seletor { corpo }` de um CSS, sem comentário e sem os invólucros @. */
+function regras(texto) {
+  const semComentario = texto.replace(/\/\*[\s\S]*?\*\//g, ' ');
+  const saida = [];
+  for (const m of semComentario.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    const seletor = m[1].trim().replace(/\s+/g, ' ');
+    if (!seletor || seletor.startsWith('@')) continue;
+    saida.push({ seletor, corpo: m[2] });
+  }
+  return saida;
+}
+
+const zeraOutline = (corpo) =>
+  corpo.split(';').some((d) => /^\s*outline\s*:\s*(?:none|0)\b/i.test(d) || /^\s*outline-width\s*:\s*(?:0|none)\b/i.test(d));
+const temAnelNaMesmaRegra = (corpo) => /(?:^|;)\s*box-shadow\s*:/i.test(corpo);
+
+function arquivosDeCss(pasta) {
+  const saida = [];
+  for (const e of readdirSync(pasta, { withFileTypes: true })) {
+    const caminho = join(pasta, e.name);
+    if (e.isDirectory()) saida.push(...arquivosDeCss(caminho));
+    else if (e.name.endsWith('.css')) saida.push(caminho);
+  }
+  return saida;
+}
+
+test('teclado 2: nenhum CSS de web/ zera o outline sem pôr outro anel na mesma regra', () => {
+  const arquivos = arquivosDeCss(RAIZ_WEB);
+  assert.ok(arquivos.length >= 7, `poucos CSS encontrados em web/: ${arquivos.length}`);
+  const achados = [];
+  let aneis = 0;
+  for (const caminho of arquivos) {
+    const nome = caminho.slice(RAIZ_WEB.length + 1).replace(/\\/g, '/');
+    for (const r of regras(readFileSync(caminho, 'utf8'))) {
+      if (!zeraOutline(r.corpo)) continue;
+      if (temAnelNaMesmaRegra(r.corpo)) { aneis += 1; continue; }
+      achados.push(`${nome}: ${r.seletor} zera o outline sem anel substituto (box-shadow) na mesma regra`);
+    }
+  }
+  // O positivo de base.css (:focus-visible com outline de token) já é de
+  // design-system.test.js:602; o que entra aqui é o negativo, na pasta inteira.
+  const base = readFileSync(join(RAIZ_WEB, 'base.css'), 'utf8');
+  assert.match(base, /:focus-visible\s*\{[^}]*outline:\s*var\(--anel-foco\)/, 'o anel de base.css sumiu');
+  assert.equal(achados.length, 0, `${achados.length} regra(s) matando o foco:${'\n' + achados.join('\n')}`);
+});
+
+// ───────────────────────── 3. o pular, no CSS (a estrutura é de pages.test.js) ─────────────────────────
+
+test('teclado 3: o pular está escondido FORA do foco, nunca invisível para o Tab', () => {
+  const html = readFileSync(INDEX, 'utf8');
+  const pular = tagDeAbertura(html, 'a').find((t) => /class="pular"/.test(t));
+  assert.ok(pular, 'index.html sem a.pular');
+  assert.equal(/href="#conteudo"/.test(pular), true, `o pular aponta para outro lugar: ${pular}`);
+  // pages.test.js:130 prova o tabindex do main; aqui, que o alvo existe uma vez.
+  assert.equal((html.match(/id="conteudo"/g) || []).length, 1, 'id="#conteudo" duplicado: o pular não sabe onde cai');
+  // Um pular utilitário (.so-leitor) não reaparece no foco: clip-path não é tirado por :focus.
+  assert.equal(/class="[^"]*so-leitor[^"]*"/.test(pular), false, 'o pular usa .so-leitor e nunca volta a aparecer');
+
+  const css = readFileSync(join(RAIZ_WEB, 'casco.css'), 'utf8');
+  const bloco = regras(css).find((r) => r.seletor.split(',').includes('.pular'));
+  assert.ok(bloco, 'casco.css não tem regra para .pular');
+  for (const proibida of ['display:none', 'visibility:hidden', 'opacity:0', 'clip-path', 'width:0', 'height:0']) {
+    assert.equal(new RegExp(proibida).test(bloco.corpo), false,
+      `.pular com «${proibida}» sai da ordem do Tab: o atalho existe e ninguém alcança`);
+  }
+  const foco = regras(css).find((r) => /\.pular:focus(-visible)?/.test(r.seletor));
+  assert.ok(foco, 'casco.css não traz o .pular de volta em :focus — o Tab cai num lugar que não se vê');
+  assert.match(foco.corpo, /top:\s*(?!-)/, `o :focus do pular não o traz para dentro da tela: ${foco.corpo.trim()}`);
+});
+
+// ───────────────────────── 4. a folha prende o foco e o devolve ─────────────────────────
+
+/** Os focáveis de dentro da folha, na ordem do documento — o que o Tab percorre. */
+function focaveisNa(raiz) {
+  const saida = [];
+  ande(raiz, (no) => { if (no.getAttribute && no.tag && focavelSozinho(no)) saida.push(no); });
+  return saida;
+}
+
+function painelDaFolha(raiz) {
+  const p = raiz.querySelector('.folha');
+  assert.ok(p, 'a rota #/estacao/<slug> não desenhou o painel');
+  return p;
+}
+
+const tecla = (no, evento) => { for (const fn of no.listeners.keydown || []) fn(evento); };
+const clique = (no, alvoDoEvento) => {
+  const ev = { target: alvoDoEvento, preventDefault() { ev._padraoImpedido = true; } };
+  for (const fn of no.listeners.click || []) fn(ev);
+  return ev;
+};
+
+test('teclado 4a: Tab no último focável da folha volta ao primeiro', async () => {
+  const disponivel = CATALOGO.courses.find((c) => !c.prerequisites?.length && c.resourceUrl);
+  const { doc, raiz } = await jornada({ completed: [], folha: disponivel.slug });
+  const lista = focaveisNa(painelDaFolha(raiz));
+  assert.ok(lista.length >= 3, `a folha tem ${lista.length} focáveis; com um só, a trava de volta não significa nada`);
+
+  const ultimo = lista[lista.length - 1];
+  ultimo.focus();
+  assert.equal(doc.activeElement, ultimo, 'o dublê não registrou o foco no último');
+  const ev = { key: 'Tab', shiftKey: false, target: ultimo, preventDefault() { ev._impedido = true; } };
+  tecla(raiz, ev);
+  assert.equal(doc.activeElement, lista[0], 'Tab no último focável saiu da folha em vez de voltar ao primeiro');
+  assert.equal(ev._impedido, true, 'a volta ao primeiro precisava impedir o Tab padrão');
+});
+
+test('teclado 4b: Shift+Tab no primeiro focável da folha vai ao último', async () => {
+  const disponivel = CATALOGO.courses.find((c) => !c.prerequisites?.length && c.resourceUrl);
+  const { doc, raiz } = await jornada({ completed: [], folha: disponivel.slug });
+  const lista = focaveisNa(painelDaFolha(raiz));
+  const primeiro = lista[0];
+  primeiro.focus();
+  const ev = { key: 'Tab', shiftKey: true, target: primeiro, preventDefault() { ev._impedido = true; } };
+  tecla(raiz, ev);
+  assert.equal(doc.activeElement, lista[lista.length - 1], 'Shift+Tab no primeiro fugiu da folha para cima');
+  assert.equal(ev._impedido, true, 'a volta ao último precisava impedir o Shift+Tab padrão');
+});
+
+test('teclado 4c: o foco andou 100 Tabs e nunca saiu da folha', async () => {
+  const disponivel = CATALOGO.courses.find((c) => !c.prerequisites?.length && c.resourceUrl);
+  const { doc, raiz } = await jornada({ completed: [], folha: disponivel.slug });
+  const painel = painelDaFolha(raiz);
+  const lista = focaveisNa(painel);
+  let atual = 0;
+  lista[0].focus();
+  for (let i = 0; i < 100; i += 1) {
+    const no = doc.activeElement;
+    const dentro = no && (no.closest ? !!no.closest('.folha') : false);
+    assert.equal(dentro, true, `Tab nº ${i}: o foco caiu fora da folha em <${no?.tag} class="${no?.className}">`);
+    atual = (atual + 1) % lista.length;
+    const ev = { key: 'Tab', shiftKey: false, target: no, preventDefault() {} };
+    tecla(raiz, ev);
+    if (doc.activeElement !== lista[atual]) {
+      // o navegador faria o Tab andar sozinho; aqui só nos importa que não fugiu
+      doc.activeElement === no && lista[atual].focus();
+    }
+  }
+  assert.ok(true);
+});
+
+test('teclado 4d: Esc fecha e o foco volta ao cartão que abriu a folha', async () => {
+  const disponivel = CATALOGO.courses.find((c) => !c.prerequisites?.length && c.resourceUrl);
+  const HREF = `#/estacao/${disponivel.slug}`;
+  // A COREOGRAFIA É A DO NAVEGADOR, e cada instância é uma pintura:
+  //   1. mapa → a pessoa tecla Enter no cartão (o click que o Enter produz);
+  //   2. a rota mudou: a folha está desenhada, e o foco entrou nela;
+  //   3. Esc NA TELA QUE TEM A FOLHA — o fechar navega (irPara('#/')), e a
+  //      navegação mata a instância: quem devolve o foco é a PINTURA SEGUINTE;
+  //   4. mapa de novo, e o cartão é o elemento focado.
+  // Dar o Esc onde não há painel (como estava) faz o fechar voltar cedo, e a
+  // trava mediria o nada.
+  const primeira = await jornada({ completed: [], folha: null });
+  const cartao = porTag(primeira.raiz, 'a').find((a) => a.getAttribute('href') === HREF);
+  assert.ok(cartao, 'o mapa não tem o cartão-link da estação disponível');
+  clique(primeira.raiz, cartao);
+
+  const segunda = await jornada({ completed: [], folha: disponivel.slug });
+  assert.ok(segunda.raiz.querySelector('.folha'), 'a rota não abriu a folha');
+  tecla(segunda.raiz, { key: 'Escape', shiftKey: false, target: segunda.raiz, preventDefault() {} });
+  assert.equal(segunda.win.location.hash, '#/', 'o Esc não navegou para fora da folha');
+
+  const terceira = await jornada({ completed: [], folha: null });
+  const devolvido = porTag(terceira.raiz, 'a').find((a) => a.getAttribute('href') === HREF);
+  assert.ok(devolvido, 'o cartão que abriu a folha não está no mapa remontado');
+  // SEMPRE por retrato, nunca assert.equal(node, node): o formatador do node-test
+  // desce o grafo do mini-DOM (nó→doc→raiz→filhos→nó) sem memória de visita e
+  // esgota o heap em ~33 s. O que se compara é a identidade; o que se reporta é
+  // a descrição, e a régua 1b já prova que descrever é ler atributos reais.
+  const ativo = terceira.doc.activeElement;
+  assert.notEqual(ativo, null, 'o Esc fechou e o foco caiu no nada (doc.activeElement é null)');
+  assert.equal(
+    retrato(ativo) + ' data-id=' + ativo.getAttribute('data-id'),
+    retrato(devolvido) + ' data-id=' + devolvido.getAttribute('data-id'),
+    'Esc fechou, mas o foco não voltou ao cartão que abriu a folha'
+  );
+  assert.equal(ativo === devolvido, true, 'o foco está num nó igual ao cartão, não no cartão');
+});

@@ -763,6 +763,78 @@ export function desenharMetro(doc, root, estado) {
   return nos;
 }
 
+// ──────────────────── foco da folha (S10, item 3, régua 4) ────────────────────
+
+// O que a folha ainda não é, e esta fatia escreve: o painel abre e fecha, mas o
+// teclado escapa dele e o foco se perde quando ele se fecha. Os dois defeitos
+// são do mesmo tamanho dos que este arquivo já conta nos comentários — a 2c
+// perdeu o `focus()` que a 2b tinha escrito, e a régua 4 da auditoria (03/11)
+// achou a prenda inteira, faltando nas duas pontas. O navegador não faz nenhum
+// dos dois sozinho: a folha é um `<div role="dialog">` irmão do mapa, não um
+// `<dialog>` nativo, e a rota remonta a tela inteira quando ela fecha.
+//
+// A memória do gatilho é VARIÁVEL DE MÓDULO, não campo de `ui`, por causa disso:
+// fechar é navegar para `#/` (regra da S5 parte 2) e a navegação mata a
+// instância que abriu. Um registro dentro de `ui` morreria com ela, e o foco não
+// teria para onde voltar. Vive aqui, e só o FECHAR a arma — abrir a folha por
+// deep-link não rouba o foco de ninguém.
+const FOCAVEL_POR_TAG = new Set(['a', 'button', 'input', 'select', 'textarea', 'summary']);
+let gatilhoDaFolha = null;
+let devolverAposFechar = false;
+
+/** Os focáveis do painel, na ordem do documento. O véu fica fora: não recebe foco. */
+export function focaveisDaFolha(painel) {
+  const saida = [];
+  const ande = (no) => {
+    for (const f of no.children || []) {
+      const alcancaTab = FOCAVEL_POR_TAG.has(f.tag) && (f.tag !== 'a' || f.getAttribute('href') !== null);
+      if (alcancaTab && f.disabled !== true) saida.push(f);
+      ande(f);
+    }
+  };
+  ande(painel);
+  return saida;
+}
+
+/**
+ * Tab nas bordas do painel: no meio, deixa o navegador andar sozinho (um só
+ * dono do Tab, a regra de sempre); na primeira e na última posição, prende.
+ * Devolve true quando interceptou. O `blur()` antes do `focus()` existe para o
+ * mesmo motivo do `blur` no casco: num dublê sem ele, quem ainda se diz focado
+ * é o nó antigo, e a devolução da régua 4 leria o foco errado.
+ */
+export function prendaDeFoco(evento, { doc, painel, ativo }) {
+  const lista = focaveisDaFolha(painel);
+  if (lista.length < 2) return false;
+  const pos = lista.indexOf(ativo);
+  if (pos < 0) return false;
+  const naBorda = evento.shiftKey ? pos === 0 : pos === lista.length - 1;
+  if (!naBorda) return false;
+  const destino = evento.shiftKey
+    ? lista[(pos - 1 + lista.length) % lista.length]
+    : lista[(pos + 1) % lista.length];
+  evento.preventDefault?.();
+  if (doc && doc.activeElement === ativo) ativo.blur?.();
+  destino.focus?.();
+  return true;
+}
+
+/** O cartão que abriu a folha, na tela já remontada. `null` se ele não está mais ali. */
+export function cartaoDoGatilho(root, memoria) {
+  if (!memoria) return null;
+  // Array.from porque no navegador querySelectorAll devolve NodeList, que não
+  // tem .find; o mini-DOM devolve array. Os dois mundos, a mesma pergunta.
+  const cartoes = [...root.querySelectorAll('a')];
+  return cartoes.find((a) => a.getAttribute('data-id') === memoria.id) || null;
+}
+
+/** Fecha a folha de verdade: arma a devolução e navega. Chamado pelo Esc, pelo véu e pelo Fechar. */
+function fecharFolha(ui, irPara) {
+  if (!ui.folha) return;
+  devolverAposFechar = true;
+  irPara('#/');
+}
+
 // ─────────────────────────────── comportamento ───────────────────────────────
 
 /**
@@ -775,6 +847,23 @@ export function bindMetro(doc, root, handlers) {
   root.addEventListener('click', (evento) => {
     const alvo = evento.target;
     if (!alvo || typeof alvo.closest !== 'function') return;
+
+    // S10 régua 4: abrir a folha continua sendo o `href` do cartão, e nada aqui
+    // muda isso — só se MEMORA quem abriu, para o foco voltar ao mesmo cartão
+    // quando a folha fechar. Um segundo caminho para o mesmo gesto é a regra que
+    // já tirou o `aria-pressed` do seletor e o `abrirEstacao` do bind.
+    // `data-id` sem href NÃO é o cartão: é o círculo do diagrama, que não leva a
+    // parte alguma, e memorizá-lo faria o fechar devolver o foco a um nó que
+    // sempre esteve atrás da folha.
+    // `closest('a')` e não `closest('a[href]')`: o seletor de atributo com valor
+    // vazio não é o que o mini-DOM dos testes resolve, e um seletor que o dublê
+    // não casa é um registro que morre em silêncio no node e funciona no navegador
+    // — o pior tipo de verde. A pergunta (é um LINK com href?) é feita na linha seguinte,
+    // dos dois lados, com a mesma resposta.
+    const cartao = alvo.closest('a');
+    if (cartao && cartao.getAttribute('href') !== null && cartao.getAttribute('data-id') !== null) {
+      gatilhoDaFolha = { id: cartao.getAttribute('data-id') };
+    }
 
     const desfazer = alvo.closest('[data-desfazer]');
     if (desfazer) { h.desfazer?.(desfazer.getAttribute('data-desfazer')); return; }
@@ -809,7 +898,15 @@ export function bindMetro(doc, root, handlers) {
   // morto no segundo redesenho. `fechar` é no-op sem rota (abaixo), então Esc
   // na tela do mapa não manda ninguém para lugar nenhum.
   root.addEventListener('keydown', (evento) => {
-    if (evento.key === 'Escape') h.fechar?.();
+    if (evento.key === 'Escape') { h.fechar?.(); return; }
+    // S10 régua 4: o Tab circula DENTRO da folha aberta. Só quando ela existe,
+    // e só nas duas bordas — no meio o navegador anda sozinho, porque
+    // reimplementar a ordem do Tab é pedir para ela divergir do DOM. O listener
+    // é no root pela mesma razão do Esc: a folha é remontada a cada pintura.
+    if (evento.key !== 'Tab') return;
+    const painel = root.querySelector('.folha');
+    if (!painel) return;
+    prendaDeFoco(evento, { doc, painel, ativo: doc.activeElement });
   });
 
   root.addEventListener('input', (evento) => {
@@ -871,9 +968,18 @@ export async function subirMetro(deps = {}) {
   // invisível; no mini-DOM do teste o `for…of` percorria a lista que crescia
   // dentro dele e o clique que redesenha nunca terminava. Delegação por
   // `closest` no root sobrevive ao redesenho dos filhos.
+  // S10 régua 4: a folha é um diálogo, e um diálogo que abre sem levar o foco
+  // deixa a pessoa teclando no mapa que ficou atrás dele. Por isso o entrar é
+  // aqui, e só na TRANSAÇÃO (sem folha → com folha): pintar por pintar — o
+  // concluir, o marcar, o anotar — não pode arrastar o foco de quem está
+  // escrevendo. O sair é o espelho: `devolverAposFechar` foi armado pelo fechar
+  // da instância anterior (variável de módulo, porque esta instância morreu no
+  // meio do caminho) e só faz sentido na pintura que não tem mais painel.
+  let folhaVisivel = false;
+
   const pintar = () => {
     if (ui.carregando) { desenharEsqueleto(doc, root); return; }
-    desenharMetro(doc, root, {
+    const nos = desenharMetro(doc, root, {
       catalogo: ui.catalogo, progresso, linha: ui.linha, folha: ui.folha,
       notas: ui.notas,
       chegada: ui.chegada, despertas: ui.despertas, embarqueAberto: ui.embarqueAberto,
@@ -881,6 +987,32 @@ export async function subirMetro(deps = {}) {
       // chegada entra no mapa. Sem isto a folha conclui e não mostra nada.
       momento: ui.momento
     });
+
+    // `folhaVisivel` é por INSTÂNCIA, `devolverAposFechar` é do MÓDULO: entre o
+    // Esc e esta pintura houve uma troca de rota, e a instância que ouviu o Esc
+    // não existe mais. Por isso o sair não pergunta «havia folha antes?» — o que
+    // o autoriza a mover o foco é o fechar ter armado, nada mais.
+    const painel = nos.folha || null;
+    if (painel) {
+      if (!folhaVisivel) {
+        // ENTROU na folha: o primeiro focável do painel é o Fechar, e o foco vai
+        // para ele — o título do diálogo já é lido pelo `aria-labelledby`.
+        const primeiro = focaveisDaFolha(painel)[0];
+        primeiro?.focus?.();
+      }
+      // Folha nova por cima de folha velha (pré-requisito, voltar do navegador):
+      // o fechar anterior já foi respondido por esta pintura.
+      devolverAposFechar = false;
+    } else if (devolverAposFechar) {
+      // SAIU da folha por fechar: devolve ao cartão que a abriu, se ele ainda
+      // está no mapa (o importar, o desfazer e a rota errada removem o gatilho,
+      // e aí o foco fica onde o navegador o deixou — melhor que jogá-lo no body).
+      devolverAposFechar = false;
+      const cartao = cartaoDoGatilho(root, gatilhoDaFolha);
+      if (cartao) cartao.focus?.();
+      gatilhoDaFolha = null;
+    }
+    folhaVisivel = Boolean(painel);
   };
 
   const persistir = (novo) => {
@@ -929,7 +1061,10 @@ export async function subirMetro(deps = {}) {
     // pessoa à estação de onde ela veio.
     // Sem rota de estação, Esc não tem o que fechar: navegar para '#/' na tela
     // do mapa jogaria a pessoa para o começo e criaria entrada no histórico.
-    fechar() { if (ui.folha) irPara('#/'); },
+    // S10 régua 4: o fechar agora ARMA a devolução de foco antes de navegar. É
+    // variável de módulo porque a navegação mata esta instância — o `ui` morre
+    // com ela, e quem devolve o foco é a PRÓXIMA pintura, a do mapa.
+    fechar() { fecharFolha(ui, irPara); },
     embarque() { ui.embarqueAberto = !ui.embarqueAberto; pintar(); },
     anotar(id, texto) {
       // aplicarNota é a função do NÚCLEO de anotação, a mesma da tela principal:

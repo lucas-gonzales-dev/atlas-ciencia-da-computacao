@@ -266,12 +266,22 @@
 // bottom agora conta a faixa da barra). Quem
 // tem v44 no cache continuaria com "Viagem", "Em curso" e "Linhas abertas" atras
 // das abas, e o aviso de desfazer escondido, sem um erro na rede para avisar.
-const VERSAO = 'atlas-v45';
+// atlas-v46: S10, item 3 (teclado, 03/11/2026). web/metro.js ganhou a prenda de
+// foco da folha -- Tab na ultima posicao volta ao primeiro, Shift+Tab no primeiro
+// vai ao ultimo, Esc devolve o foco ao cartao que abriu a folha (memoria de
+// modulo, porque fechar navega e a instancia morre no meio) -- e o cartao agora
+// memoriza o gatilho por closest('a') + href + data-id, nao por closest('a[href]'):
+// o seletor de atributo sem valor nao e o que o mini-DOM dos testes resolve, e um
+// registro que so funciona no navegador e verde mudo no node. Mudou conteudo de
+// um arquivo do PRECACHE (web/metro.js), entao VERSAO e hash. Quem tem v45 no
+// cache continuaria com a folha engolindo o Tab e o foco sumindo ao fechar, sem
+// um erro na rede para avisar.
+const VERSAO = 'atlas-v46';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
 // deixa o cache antigo sem o nome novo. Recalcular: node tests/precache-hash.js.
-const PRECACHE_HASH = 'sha256-84fba7922c46d49c3607d809dd355c98947ca529a16497b3294012ddc0d6520f';
+const PRECACHE_HASH = 'sha256-03ca06b74adba40290f9596fc0abf308d93aa89d5f399f81f08e4618473f68e3';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.
