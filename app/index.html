@@ -68,6 +68,14 @@
      estado que só existe quando o JS não existe. Nada de tag de estilo ou de
      código aqui dentro: pages.test.js conta os elementos da página inteira e um
      comentário que escreva o nome deles cria um segundo na contagem. -->
+<!-- SELO DE REDE (S10b, régua 1): o único estado da tabela que não pertence a
+     uma tela. O catálogo, o CSS e os módulos estão no precache, então offline é
+     o Atlas INTEIRO funcionando — um banner em cada tela anunciaria um problema
+     que não existe. Quem avisa é o invólucro, uma vez, e web/rede.js é quem
+     escreve aqui: `hidden` nasce escondido para quem abre conectado não ler
+     «offline» por um instante, e aria-live polite porque é estado, não pedido.
+     Mora antes do main de propósito: esvaziado o main, a faixa não some. -->
+<p id="estado-rede" class="selo-rede" aria-live="polite" hidden></p>
 <main id="conteudo" tabindex="-1">
 <p>O Atlas está carregando.</p>
 <p>Se esta frase continuar na tela, o navegador não executou ./web/casco.js. Isso acontece quando o index.html é aberto com duplo clique, pelo protocolo file:// — que bloqueia módulo. Sirva por http: na pasta do projeto rode <b>node app/serve.js</b> e abra <b>http://localhost:41730/</b>.</p>

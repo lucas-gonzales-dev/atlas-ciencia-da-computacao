@@ -243,12 +243,16 @@
 // repetido na busca sem resultado), revisar.js (o estado "em dia" ganhou saida) e
 // perfil.js (sem rede passou a dizer o que fazer e deu o caminho de volta). Quem
 // tem v41 no cache continuaria lendo "offline" onde nao havia rede nenhuma.
-const VERSAO = 'atlas-v42';
+// atlas-v43: S10b item 7 — o selo de rede do casco. web/rede.js entrou no
+// PRECACHE (modulo novo que o casco importa) e index.html, casco.js e casco.css
+// mudaram conteudo. Quem tem v42 no cache receberia o HTML com o selo e um
+// casco.js que nao o liga: a faixa de "offline" nunca apareceria, silenciosa.
+const VERSAO = 'atlas-v43';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
 // deixa o cache antigo sem o nome novo. Recalcular: node tests/precache-hash.js.
-const PRECACHE_HASH = 'sha256-142244b573aa3cea509a070adab95c430f8095aee84e7e20f538e18077bf3399';
+const PRECACHE_HASH = 'sha256-87c0b6dc00d833503bb81a0df819f5bf01f72aa443b77dbc21640db840f6497d';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.
@@ -295,6 +299,10 @@ const PRECACHE = [
   // onibus, e o branco nao da erro nenhum na rede.
   'web/casco.js',
   'web/casco.css',
+  // O SELO DE REDE (S10b, 03/11/2026): modulo novo importado pelo casco. Sem
+  // ele no cache, quem ja tem v42 recebe o HTML novo e o casco morre no import
+  // — branco no onibus, sem erro na rede para avisar.
+  'web/rede.js',
  // A FOLHA da estacao (S5): o index.html liga o CSS, e ela vira modulo quando o
  // metro.js trocar o clique pela rota. Os dois entram juntos pelo mesmo motivo
  // da v22 — HTML novo pedindo arquivo que o cache antigo nao tem.

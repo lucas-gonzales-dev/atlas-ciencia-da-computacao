@@ -21,7 +21,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-import { botoesDe, criarDoc, linksDe, porTag, storageCom, textoDe, esperar } from './hdom.js';
+import { botoesDe, criarDoc, criarNo, janelaCom, linksDe, porTag, storageCom, tagDeAbertura, textoDe, esperar } from './hdom.js';
 import { montar as montarExplorar } from '../web/telas/explorar.js';
 import { montar as montarRevisar } from '../web/telas/revisar.js';
 import { montar as montarPerfil } from '../web/telas/perfil.js';
@@ -280,16 +280,66 @@ function encontrarCampoDeArquivo(raiz) {
 }
 
 // ───────────────────────── o selo do casco ─────────────────────────
-test('estados: offline — o CASCO tem um selo discreto, e só ele', { todo: 'S10b: o selo de rede do casco (id=estado-rede, escutar online/offline) ainda nao existe no index.html nem no casco.js; e da regua de offline/temas, nao desta fatia' }, async () => {
-  // O catálogo está no precache: estar offline é o Atlas inteiro funcionando.
-  // Então quem avisa é o invólucro, uma vez, e não cada tela com um banner.
+//
+// S10b (03/11/2026): o `todo` que a S10a deixou virou teste de verdade. Não
+// basta o `id` existir no HTML — o que a régua 1 cobra é o ESTADO provocado:
+// cortar a rede e ler o que o selo diz, devolver a rede e ler o que ele cala.
+// É o único estado da tabela que não pertence a uma tela: o catálogo está no
+// precache, então estar offline é o Atlas inteiro funcionando, e quem avisa é o
+// invólucro, uma vez, e não cada tela com um banner.
+test('estados: offline — o selo do casco existe, e é aria-live polite', () => {
   const html = readFileSync(fileURLToPath(new URL('../index.html', import.meta.url)), 'utf8');
-  assert.match(html, /id="estado-rede"/, 'o index.html não tem o selo de rede do casco');
-  assert.match(html, /aria-live="polite"[^>]*id="estado-rede"|id="estado-rede"[^>]*aria-live="polite"/,
+  const selo = tagDeAbertura(html, 'p').find((t) => /id="estado-rede"/.test(t));
+  assert.ok(selo, 'o index.html não tem o selo de rede do casco (<p id="estado-rede">)');
+  assert.match(selo, /aria-live="polite"/,
     'o selo de rede precisa de aria-live polite: é estado que não é tela cheia');
+  // Começa CALADO: quem abre o app com rede não pode ler «offline» um instante.
+  assert.match(selo, /\bhidden\b/, `o selo nasce visível no HTML: ${selo}`);
   const casco = readFileSync(fileURLToPath(new URL('../web/casco.js', import.meta.url)), 'utf8');
-  assert.match(casco, /addEventListener\('online'|'online'/, 'o casco não escuta a rede voltar');
-  assert.match(casco, /estados\.offline/, 'o selo do casco não usa a frase da casa');
+  assert.match(casco, /ligarSeloRede/, 'o casco não liga o selo de rede ao subir');
+});
+
+test('estados: offline — cortar a rede mostra o selo com a frase da casa; devolver cala', async () => {
+  const { ligarSeloRede } = await import('../web/rede.js');
+  const doc = criarDoc();
+  const selo = criarNo('p', doc);
+  selo.setAttribute('hidden', '');
+  doc._registrar('estado-rede', selo);
+  const win = janelaCom({ onLine: true });
+
+  ligarSeloRede({ document: doc, window: win });
+  assert.equal(selo.hasAttribute('hidden'), true, 'com rede, o selo tem de estar calado');
+  assert.equal(textoDe(selo), '', 'com rede, o selo escreve alguma coisa');
+
+  win.dispatch('offline');
+  assert.equal(selo.hasAttribute('hidden'), false, 'sem rede o selo continua escondido');
+  assert.match(selo.textContent, new RegExp(estados.offline.titulo),
+    'o selo não usa a frase da casa (core/textos.js, estados.offline)');
+
+  win.dispatch('online');
+  assert.equal(selo.hasAttribute('hidden'), true, 'a rede voltou e o selo não saiu');
+  assert.equal(selo.textContent, '', 'a rede voltou e o selo ainda diz alguma coisa');
+});
+
+test('estados: offline — quem abre o app SEM rede vê o selo desde a primeira pintura', async () => {
+  const { ligarSeloRede } = await import('../web/rede.js');
+  const doc = criarDoc();
+  const selo = criarNo('p', doc);
+  selo.setAttribute('hidden', '');
+  doc._registrar('estado-rede', selo);
+  ligarSeloRede({ document: doc, window: janelaCom({ onLine: false }) });
+  assert.equal(selo.hasAttribute('hidden'), false, 'abriu offline e o selo não avisou ninguém');
+});
+
+test('estados: offline — sem o selo na página, ligar não quebra o casco', async () => {
+  // metro.html é a página do metrô afora: não tem o selo. O casco chama a mesma
+  // função nelas duas, e um id ausente não pode virar TypeError na primeira
+  // pintura — é assim que a tela fica branca com a suíte verde (01/11).
+  const { ligarSeloRede } = await import('../web/rede.js');
+  const doc = criarDoc();
+  const saida = ligarSeloRede({ document: doc, window: janelaCom({ onLine: false }) });
+  assert.equal(saida.ok, false, 'sem #estado-rede, ligar tem de dizer que não ligou');
+  assert.match(saida.motivo, /estado-rede/, `motivo obscuro: ${saida.motivo}`);
 });
 
 test('estados: a tabela tem frase para os oito estados, nenhuma vazia', () => {

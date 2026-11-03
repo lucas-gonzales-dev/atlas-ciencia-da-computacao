@@ -21,6 +21,7 @@
 // quem já estava navegando.
 import * as modulos from './main.js';
 import { registrarSW } from './boot.js';
+import { ligarSeloRede } from './rede.js';
 import { ABAS, lerRota } from '../core/rotas.js';
 import { casco } from '../core/textos.js';
 
@@ -129,6 +130,13 @@ export async function iniciar(deps = {}) {
   // O service worker: a função mora no boot.js (com teste), o casco é quem a
   // chama agora. Sem catálogo antes do SW — registro e dados não competem.
   registrarSW(win, (texto) => { anuncio.textContent = texto; });
+
+  // O SELO DE REDE (S10b, régua 1): a lógica toda mora em web/rede.js, com
+  // teste; aqui é só o fio, do mesmo jeito do registrarSW acima. Antes da
+  // primeira pintura, porque quem abre o app sem rede tem de ler o aviso no
+  // primeiro quadro — e `metro.html`, que não tem o selo, recebe `{ok:false}`
+  // em vez de um TypeError na tela branca.
+  ligarSeloRede({ document: doc, window: win });
 
   catalogo = modulos.loadCatalog();
   catalogo.catch(() => {}); // a tela trata o erro na pintura; sem isso é rejeição órfã

@@ -47,12 +47,19 @@ export function criarNo(tag, doc) {
     },
     setAttribute(k, v) { no.attrs[k] = String(v); if (k === 'id') no.id = String(v); },
     getAttribute(k) { return k in no.attrs ? no.attrs[k] : null; },
+    // S10b: `hidden` é um atributo de presença — não tem valor. O casco e o selo
+    // de rede perguntam «está escondido?», e um dublê sem hasAttribute obrigaria
+    // a tela a ler getAttribute('hidden'), que é outra pergunta.
+    hasAttribute(k) { return k in no.attrs; },
     removeAttribute(k) { delete no.attrs[k]; },
     append(...ns) { for (const n of ns) { n.parent = no; no.children.push(n); } },
     addEventListener(tipo, fn) { (no.listeners[tipo] ||= []).push(fn); },
     dispatch(tipo, ev) { for (const fn of no.listeners[tipo] || []) fn(ev); },
     focus() { no.doc.foco = no; },
-    blur() {},
+    // S10b (réguas 3 e 4): sem blur(), `doc.foco` nunca volta a null e um teste
+    // de «o foco foi devolvido» veria o nó anterior focado para sempre. O
+    // navegador também não deixa dois nós se dizendo focados.
+    blur() { if (no.doc.foco === no) no.doc.foco = null; },
     remove() {
       if (!no.parent) return;
       no.parent.children = no.parent.children.filter((n) => n !== no);
@@ -71,19 +78,70 @@ export function criarNo(tag, doc) {
 function casa(n, sel) {
   if (sel.startsWith('.')) return n.className.split(/\s+/).includes(sel.slice(1));
   if (sel.startsWith('#')) return n.id === sel.slice(1);
+  // S10b: `[attr="valor"]` é como o casco procura o cartão-âncora da estação
+  // (`a[href="#/estacao/logica"]`). Um dublê que devolve null para um seletor
+  // que o navegador resolve estaria medindo o dublê, não a tela.
+  const attr = /^\[([\w-]+)="([^"]*)"\]$/.exec(sel);
+  if (attr) return n.getAttribute(attr[1]) === attr[2];
   return n.tag === sel;
 }
 
 export function criarDoc() {
   const porId = new Map();
+  const raiz = criarNo('html', { createElement: (t) => criarNo(t, doc), foco: null });
   const doc = {
     foco: null,
     createElement: (tag) => criarNo(tag, doc),
     // As telas do casco procuram por id (getElementById) e por seletor.
     getElementById: (id) => porId.get(id) || null,
-    _registrar: (id, no) => { porId.set(id, no); no.id = id; }
+    _registrar: (id, no) => { porId.set(id, no); no.id = id; },
+    // S10b: o `documentElement` é o nó que o CSS pinta com o FUNDÃO da página
+    // (`:root`/`html { background: var(--fundo) }`), e é dele que o teste de
+    // tema escuro lê a cor. Sem este campo, o teste teria de chutar o fundo.
+    documentElement: raiz,
+    // S10b (régua 4): o navegador expõe `document.activeElement`, e é por ele
+    // que a folha sabe a quem devolver o foco ao fechar. Lido de `foco`, o
+    // dublê responde a mesma pergunta que o navegador responde.
+    get activeElement() { return doc.foco; },
+    // `matchMedia` existe para a régua de movimento (item 2): o teste pergunta
+    // com a flag ligada e desligada, e a resposta é o que o `--reduced-motion`
+    // abaixo define. Uma tela que chamar matchMedia sem isto aqui quebra no
+    // teste em vez de quebrar no celular de quem ligou o reduzido.
+    _reducedMotion: false,
+    matchMedia: (consulta) => ({
+      matches: /prefers-reduced-motion:\s*reduce/.test(consulta) ? doc._reducedMotion : false,
+      media: consulta,
+      addEventListener: () => {},
+      addListener: () => {}
+    })
   };
+  raiz.doc = doc;
   return doc;
+}
+
+/** Janela de mentira para quem escuta a rede: `online`/`offline` são eventos da
+ *  janela, não do documento, e o `onLine` é o estado lido na hora de pintar. */
+export function janelaCom({ onLine = true } = {}) {
+  const ouvintes = {};
+  const win = {
+    onLine,
+    localStorage: storageCom(),
+    setTimeout: () => 0,
+    clearTimeout: () => {},
+    addEventListener: (tipo, fn) => { (ouvintes[tipo] ||= []).push(fn); },
+    dispatch: (tipo) => {
+      // S10b (item 7): no navegador o evento ANTES de mudar — quando `offline`
+      // chega aos ouvintes, `navigator.onLine` já é false, e é isso que o selo
+      // lê para pintar. Um dublê que só disparasse o evento e deixasse o
+      // `onLine` antigo obrigaria rede.js a chutar o estado pelo nome do
+      // evento, e o teste mediria o chute, não a tela.
+      if (tipo === 'offline') win.onLine = false;
+      if (tipo === 'online') win.onLine = true;
+      for (const fn of ouvintes[tipo] || []) fn({ type: tipo });
+    },
+    _ouvintes: ouvintes
+  };
+  return win;
 }
 
 export function todos(raiz, pred, saida = []) {
@@ -92,6 +150,12 @@ export function todos(raiz, pred, saida = []) {
   for (const f of raiz.children || []) todos(f, pred, saida);
   return saida;
 }
+
+/** Toda tag de abertura de uma tag no HTML lido como texto (S10b). Está aqui e
+ *  não repetida em cada arquivo porque pages.test.js já tinha a sua, e o que a
+ *  casa aprendeu é que dois duplicados do mesmo leitor divergem (27/10). */
+export const tagDeAbertura = (html, tag) =>
+  [...html.matchAll(new RegExp(`<${tag}\\b[^>]*>`, 'gi'))].map((m) => m[0]);
 
 export const comClasse = (raiz, re) => todos(raiz, (n) => n.className.split(/\s+/).some((c) => re.test(c)));
 export const porTag = (raiz, tag) => todos(raiz, (n) => n.tag === tag);

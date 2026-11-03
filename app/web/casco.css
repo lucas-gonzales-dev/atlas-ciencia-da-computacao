@@ -65,6 +65,16 @@ main { padding-bottom: calc(var(--alvo-toque) + var(--espaco-6) + var(--margem-s
   main { padding-bottom: var(--espaco-6); }
 }
 
+/* O SELO DE REDE (S10b, régua 1): a única faixa do casco que não é aba nem
+   anúncio. Fica sob o topo porque o topo é sticky — rolar a tela não perde o
+   aviso. `hidden` é um atributo de presença, e sem esta regra o display deste
+   parágrafo (bloco) venceria o display:none do navegador. */
+.selo-rede { position: sticky; top: var(--altura-topo); z-index: 1; margin: 0;
+             padding: var(--espaco-2) var(--espaco-4); background: var(--alerta-fundo);
+             color: var(--tinta); font-size: var(--tipo-nota); font-weight: var(--peso-forte);
+             border-bottom: 1px solid var(--borda); }
+.selo-rede[hidden] { display: none; }
+
 /* A tela que entra sobe e aparece — --deslocamento-entrada é o único dono
    desse número, e com movimento reduzido ele é 0 e a duração é 0s. */
 .tela-entra { animation: entrar var(--movimento-abrir) var(--curva-atlas) both; }
