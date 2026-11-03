@@ -1,0 +1,122 @@
+/* Projeto Atlas — a moldura do cartão de divulgação (S11a, 03/11/2026).
+   O MOLDE É A JANELA, não um número: scripts/cartao.mjs abre esta página com
+   --window-size=1200,630, então o viewport JÁ é o cartão. Nenhum `width: 1200px`
+   escrito aqui: a régua 6 reprova largura fixa maior que o celular nascida fora
+   de @media desktop, e com razão mesmo para uma página que ninguém navega — um
+   dia ela é aberta numa janela menor e passa a rolar para o lado (foi o que o
+   testar_pagina achou: 443 px numa tela de 375 px). O que fixa o cartão é a
+   janela que o fotografa.
+
+   QUEM É O RAIZ DO MAPA: `desenharMetro(doc, root, …)` escreve
+   `root.className = 'metro l2'` NO NÓ QUE RECEBE — o #metro É o .metro, não o
+   pai dele. A primeira versão desta folha escreveu `#metro .metro` em toda
+   regra de layout e nenhuma casou: o cartão saiu com a lateral embaixo e sem
+   as duas colunas. Todo seletor abaixo parte do #metro como o próprio mapa.
+
+   Tokens de web/tokens.css em tudo: nenhuma cor à mão, nenhuma duração à mão,
+   nenhum @media com número que os --bp-* não declarem (design/README §2, §7).
+   O título não inventa um grau da escala: multiplica --tipo-estacao, o degrau
+   mais alto que existe, porque o cartão é visto a 2× de distância na miniatura
+   do LinkedIn. */
+
+body.cartao {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-4);
+  height: 630px;
+  margin: 0;
+  padding: var(--espaco-6) var(--espaco-8);
+  overflow: hidden;
+  background: var(--fundo);
+  color: var(--tinta);
+  font-family: var(--fonte-corpo);
+}
+
+/* ── a cabeça: marca, título, endereço ───────────────────────────────────── */
+.cartao-cabeca {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--espaco-2) var(--espaco-4);
+}
+
+.cartao-simbolo { height: var(--marca-altura); width: auto; }
+
+.cartao-titulo { flex: 1; min-width: 0; }
+
+.cartao-cabeca h1 {
+  margin: 0;
+  font-family: var(--fonte-placa);
+  font-size: calc(var(--tipo-estacao) * 1.5);
+  font-weight: var(--peso-placa);
+  line-height: var(--entrelinha-apertada);
+  letter-spacing: var(--espacamento-placa);
+  text-transform: uppercase;
+}
+
+.cartao-subtitulo {
+  margin: var(--espaco-1) 0 0;
+  color: var(--fosca);
+  font-size: var(--tipo-corpo);
+}
+
+.cartao-endereco {
+  margin: 0;
+  font-family: var(--fonte-mono);
+  font-size: var(--tipo-nota);
+  color: var(--fosca);
+  border: var(--espessura-borda-painel) solid var(--borda);
+  border-radius: var(--raio-selo);
+  padding: var(--espaco-1) var(--espaco-3);
+}
+
+/* ── o mapa: o desenho do app, dentro do molde ───────────────────────────── */
+#metro { flex: 1; min-height: 0; margin: 0; padding: 0; }
+#metro > .mapa { min-height: 0; overflow: hidden; }
+
+/* Os três números na coluna: um item de grid tem `min-width: auto` por norma,
+   então a grade de `repeat(3, 1fr)` VALIA o min-content do rótulo ("estações
+   concluídas") e a linha inteira passava por cima da janela — os 443 px que o
+   testar_pagina achou. minmax(0, 1fr) declara a intenção real: dividir o que
+   sobra, não cobrar o que o texto pede. */
+#metro .numeros { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+#metro > *,
+#metro .conexao { min-width: 0; }
+
+/* O que não cabe num cartão de 630 px de altura sai na origem, em vez de
+   espremido: a marca (a cabeça acima JÁ é a marca) e o seletor das 7 linhas
+   (um alvo de toque sem toque dentro de um PNG). */
+#metro > .marca,
+#metro .linhas { display: none; }
+
+/* FOTOGRAFIA, NÃO FILME: o mapa entra em cascata, peça por peça. O
+   --screenshot do Chrome fotografa UM quadro, e um quadro no meio da cascata
+   mostra metade do mapa. `none` não é duração escrita à mão: é a ausência
+   dela, e por isso não briga com a trava de tempo. */
+.cartao *,
+.cartao *::before,
+.cartao *::after {
+  animation: none;
+  transition: none;
+}
+
+/* As duas colunas só no breakpoint que os tokens declaram (--bp-computador:
+   1024px). A captura é feita a 1200 px, então o cartão vai com elas; abaixo
+   disso a lateral desce para baixo do mapa e nada empurra a página para o
+   lado. `position: static` devolve a lateral ao fluxo: sticky só faria
+   sentido numa tela que rola, e esta não rola. */
+@media (min-width: 1024px) {
+  #metro {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) var(--largura-lateral);
+    grid-template-areas:
+      "abertura lateral"
+      "mapa lateral";
+    grid-template-rows: auto 1fr;
+    column-gap: var(--espaco-8);
+    align-items: start;
+  }
+  #metro > .abertura { grid-area: abertura; }
+  #metro > .mapa { grid-area: mapa; }
+  #metro > .lateral { grid-area: lateral; position: static; }
+}

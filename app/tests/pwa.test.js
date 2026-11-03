@@ -40,6 +40,9 @@ function get(pathCru) {
   });
 }
 
+/** O que existe para virar imagem de compartilhamento, nao para ser usado. */
+const VITRINE_FORA_DO_CACHE = ['cartao.html', 'web/cartao.js', 'web/cartao.css', 'marca/cartao.png'];
+
 /** Como o navegador resolve: relativo contra a URL do documento que referencia. */
 const resolver = (valorRelativo, base) => new URL(valorRelativo, base).pathname;
 
@@ -61,6 +64,15 @@ async function arquivosDaApp(pasta = RAIZ, base = RAIZ, saida = []) {
     } else if (/\.(js|json|html|svg|css|webmanifest|woff2|png|ico)$/.test(entrada.name)) {
       // sw.js nao se precacheia: o navegador busca a versao nova sozinho.
       if (entrada.name === 'sw.js') continue;
+      // S11a (03/11/2026): a VITRINE tambem fica fora. cartao.html, cartao.js,
+      // cartao.css e cartao.png existem para ser fotografados por um script, uma
+      // vez, por quem desenvolve — nenhum aluno navega ate eles, e um PNG de
+      // ~60 KB que nunca aparece no app custaria banda no cache de quem roda em
+      // 3G. A excecao e NOMEADA, nao e padrao de pasta: arquivo novo de vitrine
+      // precisa ser declarado aqui a mao, e o vitrine.test.js cobra que o
+      // cartao.html continue FORA do precache. Assim as duas travas se fecham:
+      // esta nao deixa entrar por descuido, aquela nao deixa sair por capricho.
+      if (VITRINE_FORA_DO_CACHE.includes(relative(base, caminho).split(sep).join('/'))) continue;
       // Sem '/' na frente: caminho absoluto e a raiz do dominio, e o Pages
       // serve o Atlas em subcaminho.
       saida.push(relative(base, caminho).split(sep).join('/'));

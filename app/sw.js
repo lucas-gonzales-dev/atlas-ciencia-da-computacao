@@ -282,12 +282,26 @@
 // window as telas) e web/telas/jornada.js (anuncio de troca de aba e nome nos
 // campos). Sem subir a VERSAO, quem tem v46 no cache continua com a tela que nao
 // recebe o documento e sem o aviso sonoro do leitor de tela.
-const VERSAO = 'atlas-v47';
+// atlas-v48: S11a (vitrine, 03/11/2026). O index.html ganhou as dez tags de
+// compartilhamento (og:*, twitter:card) e passou a linkar nada novo; o arquivo
+// marca/cartao.png entrou no PRECACHE, fotografado por scripts/cartao.mjs a
+// partir de app/cartao.html. FICAM FORA do precache os dois, de proposito: a
+// pagina e materia-prima de fotografia, e o PNG e lido pelo robô do LinkedIn,
+// que nao passa pelo service worker do aluno -- precachear os dois pagaria
+// 91 KB de install por um arquivo que o app nunca busca (o PNG medido, 89 KB,
+// mais a pagina, 2 KB). O que mudou no
+// precache foi o index.html (as tags). O cartao.png ainda e PROVISORIO
+// (uma captura da Jornada sem o desenho da rede inteira, que vem na S11b); por
+// isso o hash vai subir de novo quando a imagem trocar de bytes, sem que nenhum
+// caminho mude. Quem tem v47 no cache nao veria mal nenhum aqui -- o index.html
+// servido do cache tambem carrega as tags -- mas o cartao.png novo nao chegaria
+// a quem ja baixou o app, e o post sairia com a foto velha em silencio.
+const VERSAO = 'atlas-v48';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
 // deixa o cache antigo sem o nome novo. Recalcular: node tests/precache-hash.js.
-const PRECACHE_HASH = 'sha256-7ae72b8471b3815ddf8d1b112460bbf02d9b3a29c9701c009d9bd90f6d47a194';
+const PRECACHE_HASH = 'sha256-32c773733e98856138a7d33dea8a812c3d3bf489a985e6ac4c44e29ee7cd505b';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.

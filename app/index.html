@@ -7,6 +7,25 @@
 <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#17181a">
 <meta name="description" content="A sua próxima estação na trilha de Ciência da Computação da Universidade Brasileira Livre.">
 <title>Projeto Atlas — Ciência da Computação</title>
+<!-- VITRINE (S11a, 03/11/2026): o cartão que o LinkedIn e o WhatsApp mostram
+     quando alguém cola o endereço. Sem estas tags o link sai cru — texto sem
+     imagem — e o post morre na primeira impressão. São METAS do documento, não
+     links relativos: quem compartilha não tem como resolver caminho relativo
+     contra a URL do post, então og:url e og:image levam o endereço absoluto,
+     e a imagem é servida de /marca/cartao.png (a raiz do site é a pasta app/).
+     O desenho vem de app/cartao.html, fotografado por scripts/cartao.mjs; a
+     trava é app/tests/vitrine.test.js, que confere tag por tag, o tamanho
+     lido do cabeçalho IHDR do PNG e se o arquivo apontado existe no disco. -->
+<meta property="og:title" content="Ciência da Computação em linhas de metrô">
+<meta property="og:description" content="As 35 disciplinas da grade aberta da Universidade Brasileira Livre, viradas mapa: o que você já fez destrava o que vem em seguida. Sem conta, sem servidor, funciona offline.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://atlas-ciencia-da-computacao.pages.dev/">
+<meta property="og:image" content="https://atlas-ciencia-da-computacao.pages.dev/marca/cartao.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="O mapa do Atlas: a Linha 2 em metrô, com as estações concluídas, a estação em curso e a próxima conexão que ela abre.">
+<meta property="og:locale" content="pt_BR">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png">
 <link rel="icon" href="icons/favicon-16.png" sizes="16x16" type="image/png">

@@ -1,6 +1,9 @@
 # Atlas — Ciência da Computação
 
-A trilha de Ciência da Computação da **Universidade Brasileira Livre (UBL)** em
+[![O Atlas em uso: a Linha 2 desenhada como metrô, com as estações concluídas, a estação em curso e a próxima conexão que ela abre](app/marca/cartao.png)](https://atlas-ciencia-da-computacao.pages.dev/)
+
+O **[atlas-ciencia-da-computacao.pages.dev](https://atlas-ciencia-da-computacao.pages.dev/)**
+é a trilha de Ciência da Computação da **Universidade Brasileira Livre (UBL)** em
 forma de app: mostra as 35 disciplinas, o que o seu progresso já destrancou e o
 que estudar em seguida. Sem conta, sem servidor, sem dependência.
 
