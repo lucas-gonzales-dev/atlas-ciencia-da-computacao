@@ -1,0 +1,257 @@
+/* Projeto Atlas — a tela PERFIL (S9). Folha escopada em .perfil (regra 15).
+ * Só tokens: nenhuma cor, duração ou medida escrita à mão aqui. */
+.perfil {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-6);
+}
+
+.perfil-rotulo,
+.perfil-placa {
+  font-family: var(--fonte-placa);
+  font-size: var(--tipo-placa);
+  font-weight: var(--peso-placa);
+  letter-spacing: var(--espacamento-placa);
+  text-transform: uppercase;
+  color: var(--fosca);
+  margin: 0;
+}
+
+.perfil-h1 {
+  font-size: var(--tipo-estacao);
+  line-height: var(--entrelinha-apertada);
+  font-weight: var(--peso-placa);
+  color: var(--tinta);
+  margin: var(--espaco-2) 0 0;
+}
+
+.perfil-titulo {
+  font-size: var(--tipo-titulo);
+  line-height: var(--entrelinha-titulo);
+  color: var(--tinta);
+  margin: 0 0 var(--espaco-3);
+}
+
+.perfil-card {
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-placa);
+  padding: var(--espaco-4);
+}
+
+/* OS TRÊS NÚMEROS — mono, porque é número de leitura rápida. */
+.perfil-numeros {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--espaco-2);
+}
+
+.perfil-numero-valor {
+  font-family: var(--fonte-mono);
+  font-size: var(--tipo-titulo);
+  color: var(--tinta);
+}
+
+/* O BILHETE — 7 fileiras de 5 casas. A fileira é a linha; a casa, a estação. */
+.perfil-grade {
+  display: grid;
+  gap: var(--espaco-2);
+}
+
+.perfil-bilhete-fileira {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: var(--espaco-1);
+}
+
+.perfil-casa {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--espaco-1);
+  padding: var(--espaco-1);
+  min-height: var(--alvo-toque);
+  color: var(--fosca);
+  text-decoration: none;
+  border-radius: var(--raio-placa);
+  transition: background var(--movimento-toque) var(--curva-mecanica);
+}
+
+.perfil-casa:hover {
+  background: var(--fundo);
+}
+
+.perfil-selo {
+  width: var(--estacao);
+  height: var(--estacao);
+  border-radius: var(--raio-estacao);
+  border: var(--anel-trancada) solid var(--trancada);
+  box-sizing: border-box;
+  flex: 0 0 auto;
+}
+
+.perfil-casa-carimbada {
+  color: var(--tinta);
+}
+
+.perfil-casa-carimbada .perfil-selo {
+  border-color: var(--selo-linha, var(--linha-1));
+  background: var(--selo-linha, var(--linha-1));
+}
+
+/* A cor é da LINHA da casa, e linha é a única coisa que cor marca (DS §2). */
+.perfil-casa[data-linha="1"] { --selo-linha: var(--linha-1); }
+.perfil-casa[data-linha="2"] { --selo-linha: var(--linha-2); }
+.perfil-casa[data-linha="3"] { --selo-linha: var(--linha-3); }
+.perfil-casa[data-linha="4"] { --selo-linha: var(--linha-4); }
+.perfil-casa[data-linha="5"] { --selo-linha: var(--linha-5); }
+.perfil-casa[data-linha="6"] { --selo-linha: var(--linha-6); }
+.perfil-casa[data-linha="7"] { --selo-linha: var(--linha-7); }
+
+.perfil-nome {
+  font-size: var(--tipo-nota);
+  line-height: var(--entrelinha-nota);
+  text-align: center;
+}
+
+.perfil-data {
+  font-family: var(--fonte-mono);
+  font-size: var(--tipo-nota);
+  color: var(--fosca);
+}
+
+/* EM BRANCO — o primeiro carimbo ainda não existe; um gesto por tela. */
+.perfil-em-branco {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-4);
+}
+
+.perfil-em-branco-texto {
+  font-size: var(--tipo-corpo);
+  line-height: var(--entrelinha-corpo);
+  color: var(--tinta);
+  margin: 0;
+}
+
+/* OS MARCOS — critério escrito, estado por palavra. */
+.perfil-marco {
+  border-top: 1px solid var(--borda);
+  padding: var(--espaco-3) 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-1);
+}
+
+.perfil-marco-cab {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--espaco-2);
+  align-items: baseline;
+}
+
+.perfil-marco-nome {
+  font-size: var(--tipo-corpo);
+  font-weight: var(--peso-forte);
+  color: var(--tinta);
+  margin: 0;
+}
+
+.perfil-marco-estado {
+  font-family: var(--fonte-placa);
+  font-size: var(--tipo-placa);
+  letter-spacing: var(--espacamento-placa);
+  text-transform: uppercase;
+  color: var(--fosca);
+  margin: 0;
+}
+
+.perfil-marco[data-estado="conquistado"] .perfil-marco-estado {
+  color: var(--tinta);
+  font-weight: var(--peso-placa);
+}
+
+.perfil-marco-criterio,
+.perfil-marco-conta {
+  font-size: var(--tipo-nota);
+  line-height: var(--entrelinha-nota);
+  color: var(--fosca);
+  margin: 0;
+}
+
+/* SEUS DADOS */
+.perfil-dados-fica {
+  font-size: var(--tipo-corpo);
+  line-height: var(--entrelinha-corpo);
+  color: var(--tinta);
+  margin: 0 0 var(--espaco-3);
+}
+
+.perfil-dados-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espaco-2);
+  align-items: center;
+}
+
+.perfil-dados-importar {
+  display: flex;
+  align-items: center;
+  gap: var(--espaco-2);
+}
+
+.perfil-dados-rotulo {
+  font-size: var(--tipo-nota);
+  color: var(--fosca);
+}
+
+.perfil-dados-input {
+  font-size: var(--tipo-nota);
+  color: var(--tinta);
+  max-width: 100%;
+}
+
+.perfil-dados-recado {
+  font-size: var(--tipo-nota);
+  line-height: var(--entrelinha-nota);
+  color: var(--alerta);
+  background: var(--alerta-fundo);
+  border-radius: var(--raio-selo);
+  padding: var(--espaco-2);
+  margin: var(--espaco-2) 0 0;
+}
+
+.perfil-sobre-linha {
+  font-size: var(--tipo-nota);
+  color: var(--fosca);
+  margin: 0 0 var(--espaco-1);
+}
+
+.perfil-sobre-codigo {
+  font-size: var(--tipo-nota);
+  color: var(--linha-6);
+}
+
+.perfil-falha {
+  font-size: var(--tipo-corpo);
+  color: var(--tinta);
+  margin: 0;
+}
+
+/* Celular: o bilhete não pode rolar na horizontal — as cinco casas dividem a
+   largura, e o nome encolhe antes de o selo sumir. */
+@media (max-width: 599px) {
+  .perfil-numeros {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .perfil-nome {
+    display: none;
+  }
+}
+
+@media (min-width: 1024px) {
+  .perfil {
+    max-width: var(--largura-lateral);
+  }
+}

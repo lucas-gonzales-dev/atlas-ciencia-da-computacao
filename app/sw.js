@@ -233,12 +233,17 @@
 // vinham do HTML estatico, o <main> morria mudo. A trava de acento nao pegou
 // porque o arquivo nem chegava a ser parseado. Mudou conteudo do precache
 // (core/textos.js), entao VERSAO e hash sobem com ele.
-const VERSAO = 'atlas-v40';
+// atlas-v41: a aba Perfil nasce (S9, 02/11/2026) — core/dados-pessoa.js,
+// web/telas/perfil.js e perfil.css entraram no PRECACHE, e o index.html passou a
+// listar a quarta aba. A tela também importa web/metro.js só por carregarViagem:
+// se o cache antigo não tiver esses quatro, o Perfil abre em branco no aparelho
+// de quem já tem v40, sem nenhum erro na rede para avisar.
+const VERSAO = 'atlas-v41';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
 // deixa o cache antigo sem o nome novo. Recalcular: node tests/precache-hash.js.
-const PRECACHE_HASH = 'sha256-adabc70f7c28d2af12789fcd9f2706d14ee42c694105201f98f86db393c137b7';
+const PRECACHE_HASH = 'sha256-f0dd53e7af109d87b4cfc7091749c3fac25eba4572e5393826a771f7d87290bc';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.
@@ -303,6 +308,12 @@ const PRECACHE = [
   'core/revisao.js',
   'web/telas/revisar.js',
   'web/telas/revisar.css',
+  // O PERFIL (S9, 02/11/2026): os dados da pessoa têm casa própria
+  // (core/dados-pessoa.js) e a tela importa web/metro.js pelo carregador da
+  // viagem — os quatro juntos, pela mesma razão da Revisão acima.
+  'core/dados-pessoa.js',
+  'web/telas/perfil.js',
+  'web/telas/perfil.css',
   // As tres pecas da Jornada (S4a, 31/10/2026): o metro.js importa
   // jornada-blocos.js, e o index.html liga o jornada.css. Se um dos dois
   // faltar no cache, a primeira aba abre sem a abertura e sem o tamanho do

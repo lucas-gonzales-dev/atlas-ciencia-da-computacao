@@ -568,7 +568,11 @@ export const revisar = Object.freeze({
 export const perfil = Object.freeze({
   rotulo: 'Sua viagem',
   titulo: 'Cada carimbo é seu.',
-  erro: 'Sem rede: o catálogo não abriu. Tente de novo quando a trilha voltar.',
+  // Duas frases, e a segunda tem de começar por artigo: a tela cola as duas
+  // com um espaço, e "Sem rede: … Revisite a página…" leria duas ordens para a
+  // pessoa ("revisite" o quê?) onde a casa sempre escreveu "Revisite a página".
+  erro: 'Sem rede: o catálogo não abriu.',
+  erroOQueFazer: 'Revisite a página quando a trilha voltar.',
   emBranco: 'O primeiro carimbo vem da primeira estação concluída.',
   irParaProxima: 'Ir para a próxima estação',
   bilhete: 'O bilhete',
@@ -606,10 +610,14 @@ export const perfil = Object.freeze({
     titulo: 'Seus dados',
     ficaAqui: 'Sua viagem fica só neste aparelho.',
     exportar: 'Exportar viagem',
-    importar: 'Importar viagem',
+    importar: 'Importar uma viagem',
     importLabel: 'Escolha o arquivo do Atlas',
     semDownload: 'Este navegador não deixou baixar o arquivo. Tente em outra janela.',
     semStorage: 'O aparelho não guardou: o que você importou vale só nesta tela.',
+    // Função, não string: `exportarViagem` devolve o nome do arquivo gerado, e
+    // o recado tem de nomear O QUE FOI FEITO. Como string, a tela imprimiria o
+    // texto cru dentro do template e a pessoa leria "function" na tela.
+    exportado: (nome) => `Baixado: ${nome}. Guarde onde você encontrar de novo.`,
     recusaPorque: 'O que chegou não tem o formato de uma viagem do Atlas.',
     recusaOQueFazer: 'Escolha um arquivo exportado pelo Atlas, ou exporte de novo.',
     importadoGuarda: 'O que já estava aqui foi preservado.',

@@ -46,10 +46,12 @@ test('rota: hrefDe e lerRota são o inverso um do outro em toda aba', () => {
   assert.equal(hrefDe({ tela: 'estacao', slug: 'calculo-i' }), '#/estacao/calculo-i');
 });
 
-test('abas: exatamente Jornada e Explorar, nessa ordem, com o rótulo do textos.js', () => {
+test('abas: exatamente jornada, explorar, revisar e perfil, nessa ordem, com o rótulo do textos.js', () => {
   // ABAS é a única fonte da barra de baixo. Se o rótulo morar aqui e não em
   // core/textos.js, a trava de textos não vê a frase e ela escapa sem revisão.
-  assert.deepEqual(ABAS.map((a) => a.tela), ['jornada', 'explorar', 'revisar']);
+  // S9 (02/11/2026): Perfil é a quarta aba, por último — as três primeiras são
+  // o caminho à frente, e o perfil é a tela de olhar para trás.
+  assert.deepEqual(ABAS.map((a) => a.tela), ['jornada', 'explorar', 'revisar', 'perfil']);
   for (const aba of ABAS) {
     assert.deepEqual(
       [...Object.keys(aba)].sort(),

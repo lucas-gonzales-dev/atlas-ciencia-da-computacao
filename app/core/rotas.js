@@ -25,6 +25,10 @@ export const ABAS = Object.freeze([
   // Revisar é a terceira aba (S8): depois de concluir, o caminho continua — e
   // ela fica vazia até a primeira conclusão, que é o estado honesto dela.
   Object.freeze({ tela: 'revisar', rotulo: casco.abas.revisar, href: '#/revisar' }),
+  // Perfil é a quarta aba (S9): o bilhete, os marcos e os dados da pessoa. Vem
+  // por último porque é a tela de olhar para trás — as três primeiras são o
+  // caminho à frente.
+  Object.freeze({ tela: 'perfil', rotulo: casco.abas.perfil, href: '#/perfil' }),
 ]);
 
 /**
@@ -86,6 +90,7 @@ export function lerRota(hash) {
     return rota;
   }
   if (caminho === 'revisar') return { tela: 'revisar' };
+  if (caminho === 'perfil') return { tela: 'perfil' };
   if (caminho.startsWith('estacao/')) {
     const slug = caminho.slice('estacao/'.length);
     // '#/estacao/' sem nada depois não nomeia estação nenhuma.
@@ -114,6 +119,7 @@ export function hrefDe(rota) {
     return pedacos.length ? `#/explorar?${pedacos.join('&')}` : '#/explorar';
   }
   if (tela === 'revisar') return '#/revisar';
+  if (tela === 'perfil') return '#/perfil';
   if (tela === 'estacao') return `${PREFIXO_ESTACAO}${rota.slug}`;
   return '#/';
 }

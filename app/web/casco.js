@@ -31,13 +31,14 @@ const TITULO_APP = 'Atlas';
 const TELAS = Object.freeze({
   jornada: () => import('./telas/jornada.js'),
   explorar: () => import('./telas/explorar.js'),
-  revisar: () => import('./telas/revisar.js')
+  revisar: () => import('./telas/revisar.js'),
+  perfil: () => import('./telas/perfil.js')
 });
 
 // A classe que a CSS ancora para a tela inteira: metro.css abre com `.metro`,
 // grade.css com `.grade`. Sem ela a tela montada dentro do main chegaria sem
 // layout nenhum — o casco não desenha nada, só escolhe onde desenhar.
-const CLASSE_DA_TELA = Object.freeze({ jornada: 'metro', explorar: '', revisar: '' });
+const CLASSE_DA_TELA = Object.freeze({ jornada: 'metro', explorar: '', revisar: '', perfil: 'perfil' });
 
 /**
  * Decide a tela para uma rota, e QUAL FOLHA abrir por cima dela (S5).
