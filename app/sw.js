@@ -323,12 +323,16 @@
 // inteira num SVG, uma coluna por linha da fonte, as baldeações como trilhos, o
 // trecho apagado onde a rede ainda está trancada. Nenhuma tela o importa ainda;
 // está no precache porque o precache cobre o disco, como o viagem.js esteve.
-const VERSAO = 'atlas-v50';
+// atlas-v51: S11, o acabamento que só o navegador mostrou (03/11/2026). O "·"
+// tinha avanço zero na Overpass ("Linha 1 ·estação"): sai da faixa dela no
+// web/fontes.css. As etiquetas da folha vazavam por cima dos valores
+// ("BIBLIBibliografia"): os três fatos viram uma grade só no web/folha.css.
+const VERSAO = 'atlas-v51';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
 // deixa o cache antigo sem o nome novo. Recalcular: node tests/precache-hash.js.
-const PRECACHE_HASH = 'sha256-1adcdac6c0c13862c287afb071ef5b4b9cad1e1c5759a0c706310c0db2ebe387';
+const PRECACHE_HASH = 'sha256-5c3caf4adc738098affd6e12c6b0b378e06a788a47393478cdd2fcdee2b6c607';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.
