@@ -534,6 +534,32 @@ function secaoDe(texto, titulo) {
   return texto.slice(inicio, fim < 0 ? texto.length : fim);
 }
 
+/**
+ * Os títulos de cada test() de um arquivo, como eles soariam na tabela §8:
+ * aspas simples, duplas ou template, com escapes soltos e espaço dobrado
+ * reduzido a um. Um título montado por template (`contraste no tema ${tema}: …`)
+ * sai daqui com o `${…}` literal e por isso não pode ser citado — a trava o
+ * reprovaria como inexistente, e é assim mesmo: quem cita, copia.
+ */
+function titulosDeTeste(texto) {
+  const out = [];
+  const re = /\btest\(\s*(['"`])((?:\\.|(?!\1)[^\\])*)\1/g;
+  let m;
+  while ((m = re.exec(texto))) {
+    out.push(m[2].replace(/\\(.)/g, '$1').replace(/\s+/g, ' ').trim());
+  }
+  return out;
+}
+
+/** Palavras em comum, em valor negativo: menor = mais parecido (só para o fail sugerir). */
+function distanciaPalavras(a, b) {
+  const pa = a.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+  const pb = new Set(b.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean));
+  let com = 0;
+  for (const w of pa) if (pb.has(w)) com++;
+  return -(com / Math.max(1, pa.length));
+}
+
 /** As linhas de dados de uma tabela markdown: [célula1, célula2, …]. */
 function linhasDaTabela(secao) {
   return secao
@@ -682,13 +708,36 @@ test('heurísticas: as 10 na tabela, numeradas, cada uma com onde se confere', a
     'a tabela das heurísticas não tem as 10 linhas numeradas de 1 a 10',
   );
 
+  // Título de test() lido do arquivo citado, uma vez por arquivo.
+  const titulosPorArquivo = new Map();
+  const titulosDe = async (arquivo) => {
+    if (!titulosPorArquivo.has(arquivo)) {
+      let bruto;
+      try {
+        bruto = await readFile(join(RAIZ, 'tests', arquivo), 'utf8');
+      } catch {
+        assert.fail(
+          `a tabela §8 cita tests/${arquivo}, que não existe no disco — a coluna `
+            + 'está apontando para uma prova que ninguém roda',
+        );
+      }
+      titulosPorArquivo.set(arquivo, titulosDeTeste(bruto));
+    }
+    return titulosPorArquivo.get(arquivo);
+  };
+
   for (const c of linhas) {
-    const [n, nome, regra, onde] = c;
+    const [n, nome, regra, vale, onde] = c;
     assert.ok(/\S/.test(nome ?? ''), `heurística ${n}: sem nome`);
     assert.ok(
       (regra ?? '').length >= 40,
       `heurística ${n} (${nome}): a regra concreta está vazia — o DS tem de ser `
         + 'preciso o bastante para ser seguido sem olhar a tela',
+    );
+    assert.ok(
+      /\S/.test(vale ?? ''),
+      `heurística ${n} (${nome}): a coluna "Onde vale" está vazia — sem dizer em `
+        + 'quais telas da v2 a regra se vê, ela pode ser verdade em nenhuma',
     );
     assert.ok(
       /\.test\.js|captura/.test(onde ?? ''),
@@ -697,11 +746,38 @@ test('heurísticas: as 10 na tabela, numeradas, cada uma com onde se confere', a
         + 'que falta a captura de tela',
     );
     // Citar teste que não existe é o mesmo buraco com outra roupa: a coluna
-    // fica preenchida e a prova, ausente.
-    for (const m of (onde ?? '').matchAll(/tests\/([\w.-]+\.test\.js)/g)) {
-      await readFile(join(RAIZ, 'tests', m[1]), 'utf8').catch(() =>
-        assert.fail(`heurística ${n} cita tests/${m[1]}, que não existe no disco`),
+    // fica preenchida e a prova, ausente. Desde a S10 a citação é do TESTE, não
+    // só do arquivo — então cada «título» tem de ser um test() daquele arquivo,
+    // e cada arquivo citado tem de trazer pelo menos um título.
+    const citas = [...(onde ?? '').matchAll(/`tests\/([\w.\-]+\.test\.js)`([^`]*)/g)];
+    assert.ok(
+      citas.length > 0 || /captura/.test(onde ?? ''),
+      `heurística ${n} (${nome}): a coluna não cita nenhum \`tests/…\` com crase. `
+        + 'O formato é `tests/<arquivo>.test.js` («título exato do test()»).',
+    );
+    for (const [citacao, arquivo, cauda] of citas) {
+      const titulos = await titulosDe(arquivo);
+      const citados = [...cauda.matchAll(/«([^»]+)»/g)].map((x) => x[1].trim());
+      assert.ok(
+        citados.length > 0,
+        `heurística ${n} (${nome}): «${citacao.slice(0, 60)}…» cita tests/${arquivo} `
+          + 'sem nenhum «título» de test() — arquivo citado sem teste citado não é '
+          + 'prova, é rodapé',
       );
+      for (const t of citados) {
+        if (titulos.includes(t)) continue;
+        const vizinhos = titulos
+          .map((x) => ({ x, d: distanciaPalavras(t, x) }))
+          .sort((a, b) => a.d - b.d)
+          .slice(0, 3)
+          .map((o) => `       «${o.x}»`);
+        assert.fail(
+          `heurística ${n} (${nome}): «${t}» NÃO é um test() de tests/${arquivo}. `
+            + 'Citação que aponta para teste que não existe é a coluna mentindo. '
+            + 'Os títulos mais parecidos daquele arquivo são:\n'
+            + (vizinhos.join('\n') || '       (nenhum — o arquivo não tem test())'),
+        );
+      }
     }
   }
 });
