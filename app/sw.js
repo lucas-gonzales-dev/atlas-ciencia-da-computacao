@@ -319,12 +319,16 @@
 // web/telas/explorar.css, web/telas/revisar.css) e o index.html ganhou um link.
 // Quem tem v48 no cache continuaria com a folha invisivel, o Revisar de 0 px, o
 // Perfil pelado e a lista gigante, sem um erro na rede para avisar.
-const VERSAO = 'atlas-v49';
+// atlas-v50: S11, o mapa da rede (03/11/2026). Entra core/mapa-rede.js: a rede
+// inteira num SVG, uma coluna por linha da fonte, as baldeações como trilhos, o
+// trecho apagado onde a rede ainda está trancada. Nenhuma tela o importa ainda;
+// está no precache porque o precache cobre o disco, como o viagem.js esteve.
+const VERSAO = 'atlas-v50';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
 // deixa o cache antigo sem o nome novo. Recalcular: node tests/precache-hash.js.
-const PRECACHE_HASH = 'sha256-10b756c3c255b2d7ce8623091c3319eed1d56a1c3655f311ee8b69a8a61b1b80';
+const PRECACHE_HASH = 'sha256-1adcdac6c0c13862c287afb071ef5b4b9cad1e1c5759a0c706310c0db2ebe387';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.
@@ -414,6 +418,9 @@ const PRECACHE = [
   // das regras, e a tela vem depois do design system). Esta aqui porque o
   // precache cobre o disco: quando a tela passar a importar, o cache ja tem.
   'core/viagem.js',
+  // O mapa da rede (S11): o diagrama das 35 estações que o cartão do link, o topo
+  // da Jornada e o bilhete desenham. Importa viagem.js e progress.js.
+  'core/mapa-rede.js',
   'core/notes.js',
   'core/search.js',
   // Rotas da grade (S3a-1, 31/10/2026): as abas que o boot.js resolve. Sem
