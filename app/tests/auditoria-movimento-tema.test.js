@@ -27,20 +27,26 @@ const RAIZ = fileURLToPath(new URL('..', import.meta.url)); // app/
 const ler = (c) => readFile(join(RAIZ, c), 'utf8');
 const semComentario = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '');
 
-/** Toda folha de web/ (inclusive web/telas/), com caminho relativo a app/. */
-async function cssDaTela() {
+/** web/, com caminho relativo a app/ — css/. O motor de desenho do atlas
+    (web/metro.js) monta `animation:` dentro de string de template: o CSS nao e o
+    unico lugar onde um tempo de movimento nasce. Quem so ler as folhas le a metade
+    de aonde o movimento vai chegar na tela. */
+async function arquivosDe(pattern, minimo) {
   const saida = [];
   const ande = async (p) => {
     for (const e of await readdir(p, { withFileTypes: true })) {
       const c = join(p, e.name);
       if (e.isDirectory()) await ande(c);
-      else if (e.name.endsWith('.css')) saida.push(c.slice(join(RAIZ, 'web').length - 3).split('\\').join('/'));
+      else if (e.name.endsWith(pattern)) saida.push(c.slice(join(RAIZ, 'web').length - 3).split('\\').join('/'));
     }
   };
   await ande(join(RAIZ, 'web'));
-  assert.ok(saida.length >= 8, `esperava as folhas de web/, vieram ${saida.length}`);
+  assert.ok(saida.length >= minimo, `esperava ao menos ${minimo} ${pattern} em web/, vieram ${saida.length}`);
   return saida;
 }
+
+const cssDaTela = () => arquivosDe('.css', 8);
+const jsDaTela = () => arquivosDe('.js', 10);
 
 /** Regras `{ seletor { corpo } }` no nível mais interno, sem @media no seletor. */
 function regras(textoCss) {
@@ -155,6 +161,75 @@ test('movimento: o único movimento que se repete é o anel da próxima estaçã
     'movimento que se repete fora do pulso da próxima estação: o único anel que '
       + 'pulsa é o da estação onde a pessoa está. Um esqueleto que respira é '
       + 'spinner — deixe o cinza parado, como telas/jornada.css faz. (S10, régua 2)',
+  );
+});
+
+test('movimento: todo tempo de movimento declarado em CSS vem de token, não de número', async () => {
+  // Terceira cláusula da régua 2, e a que a casa mais fácil de perder: um 300ms solto
+  // num arquivo de tela funciona, passa no olho, e o bloco reduce não o alcança —
+  // ele zera TOKENS, não literals. É o mesmo mecanismo do --atraso-esqueleto que
+  // acabou de ser pego: quem escreve o número fora do token escreve movimento que
+  // sobrevive ao movimento reduzido.
+  const achados = [];
+  for (const c of await cssDaTela()) {
+    for (const { seletor, corpo } of regras(await ler(c))) {
+      for (const prop of ['animation-duration', 'animation-delay', 'transition-duration', 'transition-delay', 'animation', 'transition']) {
+        const re = new RegExp(`(?:^|[;\\s])${prop}\\s*:\\s*([^;]+)`, 'i');
+        const m = re.exec(corpo);
+        if (!m) continue;
+        const semVar = m[1].replace(/var\(--[a-z0-9-]+(?:[^)]*)\)/gi, ' ');
+        // Zero literal NÃO é infração: é exatamente o que o bloco reduce escreve
+        // (animation-duration: 0ms !important), e tempo zero não escapa de nada
+        // porque já é ausência de movimento. O que a cláusula pega é número VIVO
+        // fora de token — esse sim sobrevive ao reduce, que só zera tokens.
+        const bruto = /(?<![\d.])\d*\.?\d+m?s\b/.exec(semVar);
+        if (bruto && !/^0(\.0+)?m?s$/.test(bruto[0])) {
+          achados.push(`${c} → ${seletor} { ${prop}: ${m[1].trim()} } usa ${bruto[0]} literal`);
+        }
+      }
+    }
+  }
+  assert.deepEqual(
+    achados,
+    [],
+    'tempo de movimento fora de token (S10, régua 2 — "toda duração vem de token"): '
+      + 'número solto escapa do bloco reduce, que zera os tokens. Ponha em web/tokens.css '
+      + 'e chame var().\n' + achados.join('\n'),
+  );
+});
+
+test('movimento: o JS não escreve tempo de movimento nem repetição por fora do token', async () => {
+  // Por que esta trava olha JS e não só CSS: quem desenha o atlas é web/metro.js, e
+  // ele monta `animation:` dentro de string de template. O CSS é metade do caminho
+  // do movimento até a tela. A outra metade é código — e um `animation: 300ms` vivo
+  // num string de JS passaria por todas as travas acima sem um pio.
+  //
+  // MEDIDO em 03/11/2026 com esta trava rodando: nenhum achado hoje (web/metro.js só
+  // fala de animation em comentário, e o único relógio do JS é JANELA_DESFAZER_MS =
+  // 6000, espelho do token --janela-desfazer). A trava não pega nada agora e existe
+  // para o dia em que alguém desenhar um movimento novo direto no JS.
+  const achados = [];
+  const semCom = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  for (const c of await jsDaTela()) {
+    const código = semCom(await ler(c));
+    for (const m of código.matchAll(/\b(animation|transition)\s*:\s*([^'"`;]*)/gi)) {
+      const decl = m[2];
+      const semVar = decl.replace(/var\(--[a-z0-9-]+(?:[^)]*)\)/gi, ' ');
+      const bruto = /(?<![\d.])\d*\.?\d+m?s\b/.exec(semVar);
+      if (bruto && !/^0(\.0+)?m?s$/.test(bruto[0])) {
+        achados.push(`${c} → ${m[0].trim()} usa ${bruto[0]} literal`);
+      }
+      if (/infinite|--pulso-repeticoes/.test(decl)) {
+        achados.push(`${c} → ${m[0].trim()} repete (só o anel da próxima estação repete)`);
+      }
+    }
+  }
+  assert.deepEqual(
+    achados,
+    [],
+    'movimento nascendo em JS fora de token (S10, régua 2). Tempo de movimento mora '
+      + 'em web/tokens.css e chega aqui por var() — é assim que o bloco reduce alcança.\n'
+      + achados.join('\n'),
   );
 });
 
