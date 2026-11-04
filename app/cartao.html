@@ -3,40 +3,47 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<!-- VITRINE (S11a, 03/11/2026): esta página não é uma tela do app. Ela existe
+<!-- VITRINE (S11c, 03/11/2026): esta página não é uma tela do app. Ela existe
      para ser FOTOGRAFADA: scripts/cartao.mjs a abre no Chrome sem janela numa
      janela de 1200×630 e grava app/marca/cartao.png, que é a imagem dos tags
      og: do index.html. Nenhum ser humano navega até aqui, então:
        · meta robots noindex — ela não é conteúdo, é matéria-prima de imagem;
-       · nada de manifest, nada de service worker, nada de cascos.js: o cartão
+       · nada de manifest, nada de service worker, nada de casco.js: o cartão
          não tem abas, não tem rotas e não guarda progresso;
        · ela NÃO entra no PRECACHE do sw.js (a trava de sincronia do pwa.test.js
          conhece a exceção pelo nome, e o vitrine.test.js cobra o nome). Um
          PNG de 1 MB no cache do ônibus não serve a aluno nenhum.
-     O mapa é o MAPA: web/cartao.js chama o mesmo `desenharMetro` da Jornada,
-     com o mesmo data/catalog.json e uma viagem fabricada no meio, para o
-     cartão mostrar o app de verdade em vez de uma ilustração do app. -->
+
+     S11a desenhava aqui a JORNADA com o `desenharMetro` — uma tela do app
+     fotografada, e a foto saiu com o símbolo fora da margem, o botão cortado e
+     "0 de 35". A razão é estrutural: a Jornada mostra UMA linha por vez, então
+     o cartão mostrava um pedaço da ideia e nenhum mapa. S11c não é foto de
+     tela: é um cartaz com a REDE inteira, desenhada por core/mapa-rede.js com
+     o catálogo real e uma viagem fabricada no meio. -->
 <meta name="robots" content="noindex, nofollow">
 <meta name="description" content="Imagem de divulgação do Atlas. O app fica em atlas-ciencia-da-computacao.pages.dev.">
 <title>Cartão do Atlas — imagem de divulgação</title>
 <link rel="stylesheet" href="./web/tokens.css">
 <link rel="stylesheet" href="./web/base.css">
 <link rel="stylesheet" href="./web/fontes.css">
-<link rel="stylesheet" href="./web/metro.css">
 <link rel="stylesheet" href="./web/cartao.css">
 </head>
 <body class="cartao">
 <div class="cartao-moldura">
-  <header class="cartao-cabeca">
-    <img class="cartao-simbolo" src="marca/simbolo.png" alt="" width="84" height="48">
-    <div class="cartao-titulo">
-      <h1>Ciência da Computação em linhas de metrô</h1>
-      <p class="cartao-subtitulo">O currículo aberto da Universidade Brasileira Livre, estação por estação.</p>
-    </div>
+  <div class="cartao-texto">
+    <p class="cartao-marca">
+      <img class="marca-simbolo" src="marca/simbolo.png" alt="" width="84" height="48">
+      <span class="marca-palavra" aria-hidden="true"></span>
+    </p>
+    <h1 class="cartao-titulo">Ciência da<br>Computação<br>em linhas de metrô</h1>
+    <p class="cartao-apoio">
+      As 35 disciplinas da grade aberta da UBL.<br>
+      Marque o que já estudou e veja o que abre.
+    </p>
     <p class="cartao-endereco">atlas-ciencia-da-computacao.pages.dev</p>
-  </header>
-  <div id="metro"></div>
+  </div>
+  <div class="cartao-rede" id="rede"></div>
 </div>
-<script type="module" src="./web/cartao.js?v=2"></script>
+<script type="module" src="./web/cartao.js?v=3"></script>
 </body>
 </html>

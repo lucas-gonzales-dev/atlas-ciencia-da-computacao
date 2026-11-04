@@ -26,9 +26,8 @@ import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { criarDoc, textoDe } from './hdom.js';
+import { criarDoc, comClasse } from './hdom.js';
 import { desenharCartao, viagemDoCartao } from '../web/cartao.js';
-import { estacoesDaLinha } from '../web/metro.js';
 
 const RAIZ = fileURLToPath(new URL('..', import.meta.url)); // app/
 const REPO = fileURLToPath(new URL('../..', import.meta.url));
@@ -118,7 +117,62 @@ test('vitrine: a página do cartão está fora do precache e é noindex', () => 
   const pagina = ler('cartao.html');
   assert.match(pagina, /<meta\s+name="robots"\s+content="noindex/, 'o cartão indexável viraria página de resultado de busca');
   assert.ok(!/serviceWorker/.test(pagina), 'a página do cartão registra service worker: ela não é o app');
-  assert.match(pagina, /<div id="metro">/, 'sem o contêiner do mapa o cartão sai só com a moldura');
+  assert.match(pagina, /<div class="cartao-rede" id="rede">/, 'sem o contêiner do mapa o cartão sai só com a moldura');
+  assert.match(pagina, /web\/cartao\.js\?v=\d+/, 'o script do cartão entra sem versão: o navegador de quem fotografa pode responder de casa');
+});
+
+test('vitrine: o cartão monta a REDE inteira — 35 estações no mapa, 9 concluídas, e nenhuma delas é texto de tela', () => {
+  const catalogo = JSON.parse(ler('data/catalog.json')).courses;
+  const doc = criarDoc();
+  const raiz = doc.createElement('div');
+  const svg = desenharCartao(doc, raiz, catalogo);
+  assert.ok(typeof svg === 'string' && svg !== '', 'desenharCartao não devolveu SVG: o cartão sai só com a moldura');
+
+  // Os números do cartão são os do mapaDaRede, contados na árvore montada — não
+  // numa string que alguém escreveu. Uma letra a mais no seletor e a contagem
+  // muda: é o que a prova desta fatia aperta.
+  const estações = comClasse(raiz, /^mapa-estacao$/);
+  assert.equal(estações.length, 35, `o mapa do cartão tem ${estações.length} estações, não 35: saiu do catálogo ou saiu pela metade`);
+  const concluídas = estações.filter((n) => n.getAttribute('data-estado') === 'concluida');
+  assert.equal(concluídas.length, 9, `${concluídas.length} concluídas: a Linha 1 inteira (5) mais as quatro fora dela que o cartão declara abertas`);
+
+  const linhas = new Set(concluídas.map((n) => catalogo.find((c) => c.id === n.getAttribute('data-id'))?.stage));
+  assert.ok(linhas.size >= 2, `as estações concluídas do cartão ficam todas numa linha só (${[...linhas]}): o cartão voltaria a ser a foto de uma tela do app, e a ideia é a rede`);
+
+  assert.match(svg, /class="mapa-rede"/, 'sem a classe do mapaDaRede o cartão é outro desenho');
+  assert.match(svg, /aria-label="Mapa da rede: 9 de 35 estações concluídas"/, 'o aria-label é o que o leitor de tela lê do cartão inteiro');
+});
+
+test('vitrine: o título do cartão são três linhas, o apoio duas e o endereço uma, no HTML e não no mapa', () => {
+  const pagina = ler('cartao.html');
+  const titulo = /<h1\b[^>]*>([\s\S]*?)<\/h1>/.exec(pagina)?.[1] ?? '';
+  assert.deepEqual(
+    titulo.split(/<br\/?>/).map((s) => s.trim()),
+    ['Ciência da', 'Computação', 'em linhas de metrô'],
+    `o título do cartão não quebra nas três linhas do cartaz: ${titulo}`
+  );
+  const apoio = /<p class="cartao-apoio">([\s\S]*?)<\/p>/.exec(pagina)?.[1] ?? '';
+  assert.equal(apoio.split(/<br\/?>/).length, 2, 'o apoio do cartão não são duas linhas');
+  assert.match(apoio, /As 35 disciplinas da grade aberta da UBL\./, 'a primeira linha do apoio diz o que o Atlas é');
+  assert.match(pagina, /<p class="cartao-endereco">atlas-ciencia-da-computacao\.pages\.dev<\/p>/, 'o endereço do cartão não é uma linha só, sem http');
+});
+
+test('vitrine: o cartão é cartaz, não tela: nenhum botão, nenhuma placa e nenhum número de contador', () => {
+  const pagina = ler('cartao.html');
+  assert.ok(!/<button\b/i.test(pagina), 'um <button> no cartão: é um alvo de toque dentro de um PNG, e na foto de 1200×630 ele sai cortado');
+  assert.ok(!/class="[^"]*\bplaca\b/i.test(pagina), 'a placa da Jornada no cartão: o cartão tem o próprio título');
+  // O teste é CODE, não prosa: cartao.html e cartao.js CONTAM o nome antigo no
+  // comentário, para explicar por que ele saiu. O que não pode voltar é o
+  // caminho de código — o import do metro.js e o contêiner que ele desenhava.
+  const js = ler('web/cartao.js');
+  assert.ok(!/from '\.\.?\/web\/metro\.js'/.test(js), 'cartao.js voltou a importar o metro.js: o cartão desenharia UMA linha e nenhuma rede (S11a, medido no PNG)');
+  assert.ok(!/id="metro"/.test(pagina), 'o contêiner da Jornada voltou ao cartão');
+  assert.ok(!/class="[^"]*\bnumeros\b/.test(pagina), 'os números da tela dentro do cartão: um contador é frase de interface, não cartaz');
+  // Nada de frase de interface: o cartão não pede nada a ninguém.
+  assert.ok(!/aria-label="Abrir|aria-haspopup/.test(pagina), 'o cartão anunciou uma ação que não existe dentro dele');
+
+  const css = ler('web/cartao.css');
+  assert.ok(!/#\s?[0-9a-f]{3,8}\b/i.test(css), 'cor escrita à mão no web/cartao.css: a lista do proibido (§9) não faz exceção para página de fotografia');
 });
 
 test('vitrine: a viagem do cartão é DERIVADA do catálogo e tem progresso em duas linhas', () => {
@@ -136,22 +190,30 @@ test('vitrine: a viagem do cartão é DERIVADA do catálogo e tem progresso em d
       .map((c) => Number(c.stage))
   );
   assert.ok(linhasComProgresso.size >= 2, `o cartão mostra uma viagem parada em uma linha só: ${[...linhasComProgresso].join(', ')}`);
-  assert.ok(v.completed.length >= 5, 'menos de cinco estações concluídas não conta história no cartão');
-  assert.equal(v.emCurso.length, 1, 'uma estação em curso é o que faz o mapa parecer vivo');
+  // Nove, não "pelo menos cinco": a Linha 1 inteira (5) + as quatro nomeadas na
+  // composição. O número da foto e o número da trava são o mesmo número.
+  assert.equal(v.completed.length, 9, `o cartão conclui ${v.completed.length} estações, não 9`);
 });
 
-test('vitrine: o mapa montado mostra os números, não o vazio', () => {
+test('vitrine: o cartão desenha a REDE — os sete selos, as baldeações e as estações pelo nome', () => {
   const catalogo = JSON.parse(ler('data/catalog.json')).courses;
   const doc = criarDoc();
   const raiz = doc.createElement('div');
-  desenharCartao(doc, raiz, catalogo);
-  const texto = textoDe(raiz);
+  const svg = desenharCartao(doc, raiz, catalogo);
 
-  assert.match(texto, /\d+\/35/, 'o cartão não mostra estações concluídas: voltou o defeito do id inventado');
-  assert.doesNotMatch(texto, /(^|[^\d])0\/35/, '"0/35" no cartão: parece que ninguém nunca abriu o app');
-  assert.match(texto, /em curso/, 'sem estação em curso o mapa conta uma viagem terminada');
-  const uma = estacoesDaLinha(catalogo, 1).map((c) => c.title);
-  assert.ok(uma.some((t) => texto.includes(t)), 'nenhuma estação da Linha 1 aparece: a linha percorrida sumiu do desenho');
+  // Sete selos: as sete linhas da fonte. Uma linha só desenhada era o defeito
+  // da S11a, e ele não aparece em nenhuma contagem de estações.
+  assert.equal(comClasse(raiz, /^mapa-selo$/).length, 7, 'o cartão não mostra as sete linhas: virou foto de uma linha só');
+  assert.ok(comClasse(raiz, /^mapa-baldeacao$/).length >= 20, 'sem baldeações desenhadas o cartão é uma lista de pontos, não uma rede');
+
+  // Os nomes que a composição declara abertos têm de estar na foto. Se um deles
+  // sumir do catálogo, a viagem sai menor e o cartão mente sobre si mesmo.
+  const nomes = [...svg.matchAll(/<title>([^<]*)<\/title>/g)].map((m) => m[1]);
+  for (const nome of ['Estruturas de Dados', 'Álgebra Linear I', 'Cálculo I', 'Programação Funcional em Haskell']) {
+    assert.ok(nomes.includes(nome), `«${nome}» não está no mapa do cartão: o catálogo trocou o nome e a foto continua dizendo que ele abre`);
+  }
+  const uma = catalogo.filter((c) => Number(c.stage) === 1).map((c) => c.title);
+  assert.ok(uma.every((t) => nomes.includes(t)), 'sumiu uma estação da Linha 1: a linha percorrida não está inteira no cartão');
 });
 
 /**

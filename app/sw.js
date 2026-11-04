@@ -327,12 +327,27 @@
 // tinha avanço zero na Overpass ("Linha 1 ·estação"): sai da faixa dela no
 // web/fontes.css. As etiquetas da folha vazavam por cima dos valores
 // ("BIBLIBibliografia"): os três fatos viram uma grade só no web/folha.css.
-const VERSAO = 'atlas-v51';
+// atlas-v52: S11c — o CARTÃO DO LINK passa a ser a TRAVA DA MARCA (03/11/2026).
+// O PNG que o robô do LinkedIn, do WhatsApp e do X mostra é desenhado pelo
+// core/mapa-rede.js, o MESMO módulo que desenha a rede do app, e não mais pelo
+// desenharMetro da Jornada. O motivo é medido, não estético: a Jornada pinta UMA
+// linha por vez, então a foto de antes mostrava um pedaço da ideia, e o que faz o
+// Atlas ser o Atlas é a rede inteira — as sete linhas e as baldeações que elas
+// abrem. Com o mapa verdadeiro entrou o título em três linhas, e o og:image:alt do
+// index.html passou a descrever a rede (sete linhas, 35 disciplinas, nove estações
+// preenchidas) em vez da Linha 2 sozinha. Do PRECACHE participou só o index.html,
+// uma linha de alt: cartao.html, web/cartao.js, web/cartao.css e marca/cartao.png
+// continuam FORA da lista de propósito, como declarado na v48 — a página é
+// matéria-prima de fotografia e o PNG é lido pelo robô, que não passa pelo service
+// worker do aluno; precachear os dois pagaria install por arquivos que o app nunca
+// busca. Sem subir VERSÃO e hash, quem tem v51 no cache recebe o index.html velho
+// e compartilha um link cujo texto descreve o cartão antigo.
+const VERSAO = 'atlas-v52';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
 // deixa o cache antigo sem o nome novo. Recalcular: node tests/precache-hash.js.
-const PRECACHE_HASH = 'sha256-5c3caf4adc738098affd6e12c6b0b378e06a788a47393478cdd2fcdee2b6c607';
+const PRECACHE_HASH = 'sha256-100a3f12844e8284f295e62b67a95678c31e52f8e3588e96f03c4988b70da962';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.

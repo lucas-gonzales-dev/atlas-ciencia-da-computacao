@@ -1,122 +1,169 @@
-/* Projeto Atlas — a moldura do cartão de divulgação (S11a, 03/11/2026).
+/* Projeto Atlas — o cartão de divulgação (S11c, 03/11/2026).
+
    O MOLDE É A JANELA, não um número: scripts/cartao.mjs abre esta página com
-   --window-size=1200,630, então o viewport JÁ é o cartão. Nenhum `width: 1200px`
-   escrito aqui: a régua 6 reprova largura fixa maior que o celular nascida fora
-   de @media desktop, e com razão mesmo para uma página que ninguém navega — um
-   dia ela é aberta numa janela menor e passa a rolar para o lado (foi o que o
-   testar_pagina achou: 443 px numa tela de 375 px). O que fixa o cartão é a
-   janela que o fotografa.
+   --window-size=1200,630, então o viewport JÁ é o cartão. Nenhum `width:
+   1200px` escrito aqui — a régua 6 reprova largura fixa maior que o celular
+   nascida fora de @media desktop, e com razão mesmo para uma página que ninguém
+   navega: um dia ela é aberta numa janela menor e passa a rolar para o lado. O
+   que fixa o cartão é a janela que o fotografa.
 
-   QUEM É O RAIZ DO MAPA: `desenharMetro(doc, root, …)` escreve
-   `root.className = 'metro l2'` NO NÓ QUE RECEBE — o #metro É o .metro, não o
-   pai dele. A primeira versão desta folha escreveu `#metro .metro` em toda
-   regra de layout e nenhuma casou: o cartão saiu com a lateral embaixo e sem
-   as duas colunas. Todo seletor abaixo parte do #metro como o próprio mapa.
+   OS NÚMEROS DO CARTAZ morrem nas variáveis locais da moldura, declaradas uma
+   vez, com o motivo de cada um: 54 px de título não existem na escala do app
+   (--tipo-estacao, o MAIOR degrau, é 32 px) e um degrau inventado por causa de
+   uma imagem entraria na escala de todo o sistema. Cor, fonte, raio e peso de
+   texto continuam 100% tokens — a lista do proibido (design/README §9) não faz
+   exceção para página nenhuma, e o cartão é justamente a coisa que mais gente
+   vai ver dele.
 
-   Tokens de web/tokens.css em tudo: nenhuma cor à mão, nenhuma duração à mão,
-   nenhum @media com número que os --bp-* não declarem (design/README §2, §7).
-   O título não inventa um grau da escala: multiplica --tipo-estacao, o degrau
-   mais alto que existe, porque o cartão é visto a 2× de distância na miniatura
-   do LinkedIn. */
+   O QUE MUDOU DA S11a: sai a foto da Jornada (`desenharMetro`), entra a REDE
+   inteira desenhada por core/mapa-rede.js. A tela de verdade volta a ser a
+   coisa a abrir — um cartão feito de desenho dela, e não dela mesma. */
 
 body.cartao {
-  display: flex;
-  flex-direction: column;
-  gap: var(--espaco-4);
-  height: 630px;
+  height: 100vh;
   margin: 0;
-  padding: var(--espaco-6) var(--espaco-8);
   overflow: hidden;
   background: var(--fundo);
   color: var(--tinta);
   font-family: var(--fonte-corpo);
 }
 
-/* ── a cabeça: marca, título, endereço ───────────────────────────────────── */
-.cartao-cabeca {
+.cartao-moldura {
+  /* As medidas do cartaz, todas aqui, nenhuma repetida embaixo: */
+  --cartao-margem: 64px;          /* o respiro que faz o cartaz ler-se sem apertar os olhos */
+  --cartao-coluna: 520px;         /* a coluna do texto; o que sobra é do mapa */
+  --cartao-altura-marca: 40px;    /* 40, e não os 24 do topo do app: nada aqui é clicável */
+  --cartao-titulo: 54px;
+  --cartao-titulo-peso: 800;      /* entre o --peso-forte (700) e o --peso-placa (900) */
+  --cartao-titulo-entrelinha: 1.06;
+  --cartao-altura-titulo: 40px;   /* o vão entre a marca e o título */
+  --cartao-apoio-margem: 22px;
+  --cartao-endereco: 18px;
+  --cartao-largura-mapa: 528px;   /* o viewBox do mapa; a coluna direita é mais larga que isto */
+  --cartao-altura-mapa: 502px;
+
+  display: grid;
+  grid-template-columns: var(--cartao-coluna) minmax(0, 1fr);
+  gap: 0 var(--espaco-6);
+  box-sizing: border-box;
+  height: 100%;
+  padding: var(--cartao-margem);
+  background: var(--fundo);
+  color: var(--tinta);
+}
+
+/* ── a coluna da esquerda: marca, título, apoio, endereço ─────────────────── */
+.cartao-texto {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* A trava da marca do casco: símbolo com fundo de papel + palavra como máscara
+   de --tinta (a cor troca sozinha no escuro, web/metro.css). As duas classes
+   são as MESMAS do topo do app. O que muda é o fio: .topo-marca é um link, e
+   o cartão não tem link nenhum — então nenhuma borda de baixo aqui. */
+.cartao-marca {
+  display: inline-flex;
   align-items: center;
-  gap: var(--espaco-2) var(--espaco-4);
+  gap: var(--espaco-2);
+  margin: 0;
 }
 
-.cartao-simbolo { height: var(--marca-altura); width: auto; }
+.cartao-marca .marca-simbolo {
+  height: var(--cartao-altura-marca);
+  width: auto;
+  padding: var(--espaco-1);
+  border-radius: var(--raio-placa);
+  background: var(--marca-simbolo-fundo);
+}
 
-.cartao-titulo { flex: 1; min-width: 0; }
+.cartao-marca .marca-palavra {
+  display: block;
+  height: var(--cartao-altura-marca);
+  aspect-ratio: 449 / 192;
+  background: var(--tinta);
+  -webkit-mask: url("../marca/palavra.png") center / contain no-repeat;
+  mask: url("../marca/palavra.png") center / contain no-repeat;
+}
 
-.cartao-cabeca h1 {
-  margin: 0;
+.cartao-titulo {
+  margin: var(--cartao-altura-titulo) 0 0;
   font-family: var(--fonte-placa);
-  font-size: calc(var(--tipo-estacao) * 1.5);
-  font-weight: var(--peso-placa);
-  line-height: var(--entrelinha-apertada);
-  letter-spacing: var(--espacamento-placa);
-  text-transform: uppercase;
+  font-size: var(--cartao-titulo);
+  font-weight: var(--cartao-titulo-peso);
+  line-height: var(--cartao-titulo-entrelinha);
+  letter-spacing: 0;
+  text-transform: none; /* placa é caixa alta no app; aqui é uma frase em três linhas, e em caixa alta ela não caberia */
 }
 
-.cartao-subtitulo {
-  margin: var(--espaco-1) 0 0;
+.cartao-apoio {
+  margin: var(--cartao-apoio-margem) 0 0;
+  font-size: var(--tipo-titulo); /* 22 px é um degrau que já existe na escala */
+  line-height: var(--entrelinha-titulo);
   color: var(--fosca);
-  font-size: var(--tipo-corpo);
 }
 
+/* margin-top: auto empurra o endereço para o pé da coluna: o texto termina onde
+   termina e o endereço fecha o bloco na altura da margem de baixo, sem número
+   de posição escrito. */
 .cartao-endereco {
-  margin: 0;
+  margin: auto 0 0;
   font-family: var(--fonte-mono);
-  font-size: var(--tipo-nota);
+  font-size: var(--cartao-endereco);
   color: var(--fosca);
-  border: var(--espessura-borda-painel) solid var(--borda);
-  border-radius: var(--raio-selo);
-  padding: var(--espaco-1) var(--espaco-3);
+  overflow-wrap: anywhere;
 }
 
-/* ── o mapa: o desenho do app, dentro do molde ───────────────────────────── */
-#metro { flex: 1; min-height: 0; margin: 0; padding: 0; }
-#metro > .mapa { min-height: 0; overflow: hidden; }
+/* ── a coluna da direita: a rede inteira ──────────────────────────────────── */
+.cartao-rede {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+}
 
-/* Os três números na coluna: um item de grid tem `min-width: auto` por norma,
-   então a grade de `repeat(3, 1fr)` VALIA o min-content do rótulo ("estações
-   concluídas") e a linha inteira passava por cima da janela — os 443 px que o
-   testar_pagina achou. minmax(0, 1fr) declara a intenção real: dividir o que
-   sobra, não cobrar o que o texto pede. */
-#metro .numeros { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-#metro > *,
-#metro .conexao { min-width: 0; }
+.cartao-rede svg.mapa-rede {
+  flex: none;
+  width: var(--cartao-largura-mapa);
+  height: var(--cartao-altura-mapa);
+}
 
-/* O que não cabe num cartão de 630 px de altura sai na origem, em vez de
-   espremido: a marca (a cabeça acima JÁ é a marca) e o seletor das 7 linhas
-   (um alvo de toque sem toque dentro de um PNG). */
-#metro > .marca,
-#metro .linhas { display: none; }
+/* ABAIXO DO BREAKPOINT QUE OS TOKENS DECLARAM (--bp-computador: 1024px) o
+   cartaz vira coluna única: o molde de verdade é a janela de 1200×630 da
+   captura, mas esta página É navegável por engano — a S11a descobriu isso com
+   `testar_pagina`, que a abriu a 375 px e a achou rolando para o lado (608 px).
+   Não apago layout com display:none nem invento um segundo desenho: troco os
+   NÚMEROS DO CARTAZ, que são variáveis, pelos tokens da casa. O texto encolhe
+   para o maior degrau que existe (--tipo-estacao, 32 px) e o mapa passa a
+   medir a coluna, não 528 px. */
+@media (max-width: 1024px) {
+  .cartao-moldura {
+    --cartao-margem: var(--espaco-4);
+    --cartao-coluna: auto;
+    --cartao-altura-marca: var(--marca-altura);
+    --cartao-titulo: var(--tipo-estacao);
+    --cartao-altura-titulo: var(--espaco-4);
+    --cartao-apoio-margem: var(--espaco-3);
+    --cartao-endereco: var(--tipo-nota);
 
-/* FOTOGRAFIA, NÃO FILME: o mapa entra em cascata, peça por peça. O
-   --screenshot do Chrome fotografa UM quadro, e um quadro no meio da cascata
-   mostra metade do mapa. `none` não é duração escrita à mão: é a ausência
-   dela, e por isso não briga com a trava de tempo. */
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--espaco-4);
+  }
+
+  .cartao-rede { justify-content: flex-start; }
+  .cartao-rede svg.mapa-rede { width: 100%; height: auto; }
+  .cartao-apoio { font-size: var(--tipo-corpo); line-height: var(--entrelinha-corpo); }
+  .cartao-endereco { margin-top: var(--espaco-4); }
+}
+
+/* FOTOGRAFIA, NÃO FILME: o --screenshot do Chrome fotografa UM quadro, e um
+   quadro no meio de uma entrada em cascata mostra metade do mapa. `none` não é
+   duração escrita à mão: é a ausência dela, e por isso não briga com a trava
+   de tempo. */
 .cartao *,
 .cartao *::before,
 .cartao *::after {
   animation: none;
   transition: none;
-}
-
-/* As duas colunas só no breakpoint que os tokens declaram (--bp-computador:
-   1024px). A captura é feita a 1200 px, então o cartão vai com elas; abaixo
-   disso a lateral desce para baixo do mapa e nada empurra a página para o
-   lado. `position: static` devolve a lateral ao fluxo: sticky só faria
-   sentido numa tela que rola, e esta não rola. */
-@media (min-width: 1024px) {
-  #metro {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) var(--largura-lateral);
-    grid-template-areas:
-      "abertura lateral"
-      "mapa lateral";
-    grid-template-rows: auto 1fr;
-    column-gap: var(--espaco-8);
-    align-items: start;
-  }
-  #metro > .abertura { grid-area: abertura; }
-  #metro > .mapa { grid-area: mapa; }
-  #metro > .lateral { grid-area: lateral; position: static; }
 }

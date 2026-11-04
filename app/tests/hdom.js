@@ -70,9 +70,88 @@ export function criarNo(tag, doc) {
       return null;
     },
     querySelector(sel) { return todos(no, (n) => casa(n, sel))[0] || null; },
-    querySelectorAll(sel) { return todos(no, (n) => casa(n, sel)); }
+    querySelectorAll(sel) { return todos(no, (n) => casa(n, sel)); },
+    // S11c: o cartão é um SVG gerado como STRING por core/mapa-rede.js e entra
+    // na página por `insertAdjacentHTML`. Sem este método no dublê, o
+    // vitrine.test.js contaria zero estações e o cartão da foto passaria por
+    // vazio — ou `desenharCartao` cairia no ramo de `innerHTML`, que o dublê
+    // também não tem, e a régua mediria o dublê em vez do cartão. Verdes mudos
+    // são o defeito que a casa() documenta aí em cima.
+    insertAdjacentHTML(posicao, markup) {
+      if (posicao !== 'beforeend') {
+        throw new Error(`hdom insertAdjacentHTML: só conheço "beforeend", recebi "${posicao}"`);
+      }
+      // montarMarca já apenda em `no` (é o alvo da pilha): reapendar o que ela
+      // devolve duplicaria o mapa inteiro, e a contagem sairia 70 estações.
+      montarMarca(no, markup);
+    }
   };
   return no;
+}
+
+const DECODIFICAR = { '&amp;': '&', '&lt;': '<', '&gt': '>', '&gt;': '>', '&quot;': '"', '&#39;': "'" };
+const decodificar = (texto) =>
+  texto.replace(/&(?:amp|lt|gt|quot|#39);/g, (c) => DECODIFICAR[c] ?? c);
+
+/** Atributos de uma tag: `nome="valor"`, `nome` sozinho, ou nada. */
+function atributosDe(corpo) {
+  const saida = [];
+  const re = /([\w:.-]+)(?:\s*=\s*"([^"]*)")?/g;
+  let m;
+  while ((m = re.exec(corpo)) !== null) saida.push([m[1], m[2] === undefined ? '' : decodificar(m[2])]);
+  return saida;
+}
+
+/**
+ * montarMarca — interpreta MARCAÇÃO FECHADA dentro de um nó do dublê.
+ *
+ * É fechado de propósito: um `<div>` aberto sem par fecha com erro em vez de
+ * engolir o resto em silêncio. Qualquer coisa que este parser não entenda
+ * LANÇA, porque o perigo aqui é o mesmo da casa() antiga: o dublê não entender
+ * a pergunta e devolver verde.
+ */
+export function montarMarca(alvo, markup) {
+  const pilha = [alvo];
+  const topo = []; // só os nós de primeira camada: os netos já estão dentro dos pais
+  const re = /<(\/?)([a-zA-Z][\w:-]*)((?:[^<>"']|"[^"]*")*?)(\/?)>/g;
+  let pos = 0;
+  let m;
+  while ((m = re.exec(markup)) !== null) {
+    const textoSolto = markup.slice(pos, m.index);
+    if (textoSolto.trim() !== '') {
+      const folha = criarNo('#text', alvo.doc);
+      folha._texto = decodificar(textoSolto);
+      pilha[pilha.length - 1].append(folha);
+    }
+    pos = re.lastIndex;
+    const [, fecha, tag, corpo, self] = m;
+    if (fecha) {
+      const atual = pilha[pilha.length - 1];
+      if (pilha.length === 1 || atual.tag !== tag.toLowerCase()) {
+        throw new Error(`hdom montarMarca: </${tag}> fecha o que está aberto (${pilha.length === 1 ? 'nada' : atual.tag})`);
+      }
+      pilha.pop();
+      continue;
+    }
+    const no = criarNo(tag.toLowerCase(), alvo.doc);
+    for (const [k, v] of atributosDe(corpo.trim())) {
+      if (k === 'class') no.className = v;
+      else no.setAttribute(k, v);
+    }
+    pilha[pilha.length - 1].append(no);
+    if (pilha.length === 1) topo.push(no);
+    if (!self) pilha.push(no);
+  }
+  const resto = markup.slice(pos);
+  if (resto.trim() !== '') {
+    const folha = criarNo('#text', alvo.doc);
+    folha._texto = decodificar(resto);
+    pilha[pilha.length - 1].append(folha);
+  }
+  if (pilha.length !== 1) {
+    throw new Error(`hdom montarMarca: sobrou uma tag aberta (${pilha[pilha.length - 1].tag})`);
+  }
+  return topo;
 }
 
 /**
