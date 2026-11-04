@@ -218,12 +218,33 @@
   background: var(--cor, var(--tinta));
 }
 
+/* S14b2 item 8 (04/11/2026): a aula ESTUDADA é o círculo CHEIO. Os três estados
+   se distinguem pela quantidade de tinta, não por cor nova nem por texto: vazio
+   (não iniciada), ponto no centro (aberta), disco (estudada). A regra fica neste
+   arquivo e não no aula.css porque as DUAS telas montam `aula-marca-<estado>`
+   (telas/aulas.js:109 e telas/aula.js:822) — um desenho por tela seria a regra 9
+   pedindo para ser quebrada, e é assim que a folha e a lista divergiriam em seis
+   meses. */
+.aula-marca-estudada {
+  background: var(--cor, var(--tinta));
+}
+
 /* Parte C: a marca muda de não-iniciada para aberta quando a pessoa volta da aba
-   do YouTube. A transição é do CSS, com o tempo do token; --movimento-abrir é o
-   tempo da folha, e no prefers-reduced-motion o próprio token vai a zero, então
-   a casa já trata o "na hora" sem uma regra aqui. */
+   do YouTube, e de aberta para ESTUDADA quando a aula fecha (S14b2 item 6). A
+   transição é do CSS, com o tempo do token; --movimento-abrir é o tempo da
+   folha, e no prefers-reduced-motion o próprio token vai a zero, então a casa já
+   trata o "na hora" sem uma regra aqui.
+
+   O QUE MUDA, E POR QUE A LISTA TEM DOIS NOMES: o "aberta" é o ponto, desenhado
+   por ::after, e o que aparece aqui é a BORDA; o "estudada" é o disco CHEIO, que
+   é `background`. Transicionar só border-color fazia o círculo encher de uma vez
+   enquanto a borda suavizava — e o item 6 pede explicitamente "enche ... com
+   --movimento-abrir". background-color é um canal que o navegador interpola
+   junto, então um nome a mais na lista custa zero e é o que faz a marca encher. */
 .aula-marca {
-  transition: border-color var(--movimento-abrir) var(--curva-chegada);
+  transition:
+    border-color var(--movimento-abrir) var(--curva-chegada),
+    background-color var(--movimento-abrir) var(--curva-chegada);
 }
 
 .aula-n {

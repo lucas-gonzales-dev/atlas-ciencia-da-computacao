@@ -271,7 +271,11 @@ test('a volta da aba rola até o fechamento e põe o foco no título dele', asyn
   assert.equal(h2.tag, 'h2', 'o fechamento é uma seção com título próprio');
   assert.equal(h2.getAttribute('tabindex'), '-1', 'sem tabindex -1 o .focus() não faz nada em nenhum navegador');
   assert.equal(textoDo(h2), 'Fechar a aula');
-  assert.equal(textoDo(um(fim, 'aula-fim-aviso', 'fechamento')), 'Quando terminar de assistir, feche a aula aqui.');
+  // MUTOU na S14b2 commit 2 (04/11/2026): a frase-era-o-placeholder do commit 1,
+  // que morreu com o formulário. No lugar dela trava o formulário existir — os
+  // três passos do desenho J2 — e o resto do caso (rolar e focar) continua caindo
+  // sobre o MESMO h2, que o blocoFechamento guarda por referência.
+  assert.equal(comClasse(fim, 'fechamento-passo').length, 3, 'a seção de fechamento deixou de ser os três passos');
 
   let rolou = 0;
   let focou = 0;

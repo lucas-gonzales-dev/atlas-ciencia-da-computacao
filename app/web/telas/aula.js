@@ -37,11 +37,80 @@ import { fatosDaEstacao } from '../../core/viagem.js';
 import { comValores, aulas as A, aula as U, fechamento as F } from '../../core/textos.js';
 import { carregarAulas } from '../aulas-dados.js';
 import {
+  agoraLocal,
+  estudoDoStorage,
   hrefVideo,
   ligarAberturaDeAula,
   paginaDaAula,
   seloLinha,
 } from '../aulas-pedacos.js';
+// S14b2 commit 2: O FECHAMENTO. As contas, os tetos e as regras moram no core;
+// esta tela monta, obedece e repara a si mesma quando a aula muda de estado.
+import {
+  CARTOES_KEY,
+  LIMITE_FACE,
+  cartoesDaAula,
+  cartoesDevidos,
+  criarCartao,
+  diaSeguinte,
+  lerCartoes,
+  minutosDaFila,
+  modelosDeFrente,
+  serializarCartoes,
+} from '../../core/cartoes.js';
+import {
+  ESTUDO_KEY,
+  chaveRascunho,
+  estadoDaAula,
+  estudarAula,
+  lerEstudo,
+  lerRascunho,
+  serializarEstudo,
+  serializarRascunho,
+} from '../../core/estudo.js';
+
+/** ARBITRADO da tela: até 3 cartões por aula — o teto a que o "Outro cartão" obedece. */
+const LIMITE_CARTOES = 3;
+
+/**
+ * Os 2 minutos do passo 1 (design/v3 J2: tentar lembrar ANTES de conferir).
+ * É tempo de TETO, não de portão: o relógio nunca bloqueia envio nenhum, e o que
+ * ele compra é o efeito medido da recordação com retorno. O valor mora aqui e não
+ * no CSS porque quem anuncia o fim é o JS (texto `fechamento.tempo`).
+ */
+const SEGUNDOS_RELOGIO = 120;
+
+/** Id de um cartão novo: `crypto.randomUUID` quando existir; senão o relógio com
+ *  um sufixo que o mesmo milissegundo não repete — o que torna segura a recusa de
+ *  id repetido em core/cartoes.js. */
+function novoId(win) {
+  const c = win?.crypto;
+  if (typeof c?.randomUUID === 'function') return c.randomUUID();
+  return `c${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
+}
+
+/** Percorre a árvore abaixo de um nó. O app não importa `tests/hdom.js` (o
+ *  andador é do dublê) e o navegador tem `querySelectorAll`, que não responde às
+ *  duas perguntas da repintura ("todo nó com esta classe", "todo campo dentro
+ *  disto") sem um seletor que a casa proíbe aqui. */
+function descender(raiz, pred, saida = []) {
+  if (!raiz) return saida;
+  if (pred(raiz)) saida.push(raiz);
+  for (const filho of raiz.children || []) descender(filho, pred, saida);
+  return saida;
+}
+
+function campoDe(raiz, nome) {
+  return descender(raiz, (x) => x.getAttribute?.('data-campo') === nome)[0] || null;
+}
+
+function rotuloDe(raiz, texto) {
+  return descender(raiz, (x) => x.tag === 'label' && x.textContent === texto)[0] || null;
+}
+
+function editoresDe(raiz) {
+  return descender(raiz, (x) => x.classList?.contains('fechamento-cartao'));
+}
 
 const CLASSE = 'aula';
 
@@ -121,6 +190,491 @@ function blocoDePausas(doc, { marcas, aula, playlist }) {
   caixa.append(lista);
   caixa.append(no(doc, 'p', 'aula-pausas-convite', { text: F.pausaConvite }));
   return caixa;
+}
+
+/** "Origem: Aula 3 · Circuitos Digitais" — de onde o cartão veio. */
+function linhaOrigem(doc, n, estacao) {
+  return no(doc, 'p', 'fechamento-origem apoio', { text: F.origem(n, estacao) });
+}
+
+/**
+ * O primário da conclusão (itens 6 e 7): a próxima aula, e na última da estação,
+ * a lista dela. O item 6 nomeia os dois destinos, e o segundo não é decorativo —
+ * fechar a aula 93 sem porta de saída deixava a página com o texto do feito e
+ * nada em que tocar, com a navegação vizinha já sem "próxima".
+ *
+ * `aula` é lido do arquivo: "Próxima" inventada é o mesmo defeito do item 0
+ * desenhado um passo adiante. A frase do fim mora hoje em `aula.naoExiste
+ * .voltarParaAulas` (textos.js:747) — reusar em vez de reescrever "Ver as aulas
+ * de X" é a regra 9, e a pergunta de quem julga: essa frase pertence a um erro?
+ */
+function botaoProxima(doc, { aulas, n, total, slug, estacao }) {
+  const proxima = n < total ? aulas.find((a) => Number(a.n) === n + 1) : null;
+  if (proxima) {
+    return no(doc, 'a', 'botao botao-primario fechamento-proxima', {
+      href: paginaDaAula(slug, n + 1),
+      rel: 'noopener',
+      'data-proxima': String(n + 1),
+      text: F.proxima(proxima.n, proxima.titulo, duracaoLegivel(proxima.duracaoS))
+    });
+  }
+  return no(doc, 'a', 'botao botao-primario fechamento-fim', {
+    href: hrefDe({ tela: 'estacao', slug, painel: 'aulas' }),
+    rel: 'noopener',
+    'data-fim-estacao': 'sim',
+    text: U.naoExiste.voltarParaAulas(estacao)
+  });
+}
+
+/**
+ * A frase do dia de amanhã: "Por hoje está bom. Amanhã: 4 cartões, ~2 min."
+ * O total lido do arquivo de cartões (não só os gravados agora), porque a fila
+ * de amanhã é o que a pessoa vai ter de fazer, e incluiria as estações anteriores.
+ * `diaSeguinte` e `minutosDaFila` são do core — a tela não sabe nem calcula nada.
+ */
+function avisoDeAmanha(pega, hoje) {
+  const arquivo = lerCartoes(pega(CARTOES_KEY));
+  const devidos = cartoesDevidos(arquivo, diaSeguinte(hoje));
+  if (!devidos.length) return '';
+  return F.porHoje(devidos.length, minutosDaFila(devidos.length));
+}
+
+/**
+ * A VISTA DEPOIS DO ESTUDO (itens 6 e 7): o que aparece no lugar do formulário
+ * quando a aula já foi fechada — a frase, os cartões em leitura, a origem, a
+ * próxima e a conta de amanhã.
+ *
+ * É UMA função para os dois casos ("acabei de fechar" e "voltei numa aula já
+ * fechada") porque a diferença entre eles é uma frase, não uma tela. Dois blocos
+ * parecidos divergiriam em seis meses, e o app teria dois destinos de fim de aula.
+ */
+function vistaConcluida(doc, { n, estacao, aulas, total, slug, cartoes, fraseStatus, aviso }) {
+  const caixa = no(doc, 'div', 'fechamento-feito');
+  caixa.append(no(doc, 'p', 'fechamento-feito-frase', { text: fraseStatus }));
+  for (const c of cartoes) {
+    const leitura = no(doc, 'div', 'fechamento-leitura');
+    leitura.append(no(doc, 'p', 'fechamento-leitura-frente', { text: c.frente }));
+    leitura.append(no(doc, 'p', 'fechamento-leitura-verso', { text: c.verso }));
+    caixa.append(leitura);
+  }
+  if (cartoes.length) caixa.append(linhaOrigem(doc, n, estacao));
+  const proximo = botaoProxima(doc, { aulas, n, total, slug, estacao });
+  if (proximo) caixa.append(proximo);
+  if (aviso) caixa.append(no(doc, 'p', 'fechamento-por-hoje apoio', { text: aviso }));
+  return caixa;
+}
+
+/** O campo de texto do fechamento: um <label for> + um <textarea>. */
+function campoTexto(doc, { id, rotulo, linhas, valor, nome, extra }) {
+  const caixa = no(doc, 'div', 'fechamento-campo');
+  const etiqueta = no(doc, 'label', 'fechamento-pergunta', { text: rotulo });
+  etiqueta.setAttribute('for', id);
+  // `htmlFor` como PROPRIEDADE além do atributo: é assim que a régua `leitor 6`
+  // da casa acha o nome do campo no node (ela lê `label.htmlFor`, não o atributo),
+  // e no navegador os dois caminhos apontam para o mesmo campo.
+  etiqueta.htmlFor = id;
+  const campo = no(doc, 'textarea', `fechamento-entrada fechamento-entrada-${nome}`, {
+    id,
+    rows: String(linhas),
+    'data-campo': nome,
+    maxlength: String(LIMITE_FACE)
+  });
+  campo.value = valor || '';
+  if (extra) {
+    const cabeca = no(doc, 'div', 'fechamento-pergunta-caixa');
+    cabeca.append(etiqueta, extra);
+    caixa.append(cabeca);
+  } else {
+    caixa.append(etiqueta);
+  }
+  caixa.append(campo);
+  return { caixa, etiqueta, campo };
+}
+
+/**
+ * O EDITOR de um cartão: pergunta + resposta, com o erro do próprio editor.
+ * Os dois campos andam juntos de propósito: a recusa do núcleo é o PAR (sem verso
+ * não há o que conferir) e um erro desenhado longe do campo que falta é um erro
+ * que a pessoa procura.
+ */
+function editorCartao(doc, { base, indice, frente, verso }) {
+  const wrap = no(doc, 'div', 'fechamento-cartao');
+  wrap.setAttribute('data-cartao', String(indice));
+  // OS MODELOS VIVEM AQUI, dentro de cada editor. O pedido diz "acima da
+  // Pergunta", e cada cartão tem a sua: um conjunto só no alto da seção
+  // obrigaria a tela a ESCOLHER a que cartão o toque se aplica (ao focado? ao
+  // primeiro vazio?), regra que não está no desenho. Com modelos por editor o
+  // toque só pode significar uma coisa.
+  const modelos = no(doc, 'div', 'fechamento-modelos', {
+    'aria-label': `Modelos para a ${F.passoCartoes.frente.toLowerCase()} do cartão ${indice + 1}`
+  });
+  for (const modelo of modelosDeFrente) {
+    modelos.append(no(doc, 'button', 'fechamento-modelo', {
+      type: 'button', 'data-modelo': modelo, text: modelo
+    }));
+  }
+  const f = campoTexto(doc, { id: `${base}-frente-${indice}`, rotulo: F.passoCartoes.frente, linhas: 2, valor: frente, nome: `frente-${indice}` });
+  const v = campoTexto(doc, { id: `${base}-verso-${indice}`, rotulo: F.passoCartoes.verso, linhas: 3, valor: verso, nome: `verso-${indice}` });
+  wrap.append(modelos, f.caixa, v.caixa);
+  return { wrap, frente: f.campo, verso: v.campo };
+}
+
+/** A linha de erro de um campo. É um `p`, não `role="alert"`: um alert por campo
+ *  faria a tela falar três vezes num envio errado, e a casa só dá voz a uma
+ *  região (o `#anuncio` do casco). */
+function erroDoCampo(doc, texto, id) {
+  const p = no(doc, 'p', 'fechamento-erro', { text: texto });
+  p.setAttribute('id', id);
+  return p;
+}
+
+/**
+ * O FECHAMENTO da aula (S14b2 commit 2) — design/v3, J2, passos 1 a 3.
+ *
+ * As três decisões que importam para quem julgar este código:
+ * 1. **A validação É o núcleo, não uma cópia.** Cada cartão é testado chamando
+ *    `criarCartao` contra um arquivo de mentira. Se a regra "tem de ter pergunta
+ *    e resposta" mudar no core e a tela continuar checando do seu jeito, as duas
+ *    divergem em silêncio — a família inteira de defeitos que a S13b e a S13e
+ *    deixaram no Chrome e não na suíte.
+ * 2. **Nada trava nada.** O relógio de 2:00 é convite, não portão: enviar no
+ *    primeiro segundo é legítimo. Travar por tempo puniria quem lembra em dez
+ *    segundos e não protegia ninguém.
+ * 3. **O rascunho é do core** (`core/estudo.js`, com versão e teto), porque o
+ *    formato do que a pessoa digitou precisa de um dono com contrato. A tela só
+ *    chama; se o storage estourar a falha é engolida de propósito — perder
+ *    rascunho não pode quebrar o formulário.
+ */
+function blocoFechamento(doc, win, deps) {
+  const { storage, estacao, slug, aula, total, playlist, pega } = deps;
+  const chave = chaveRascunho(aula.id);
+  const section = no(doc, 'section', 'aula-fim aula-fim-form');
+  const h2 = no(doc, 'h2', 'aula-fim-titulo', { text: F.titulo });
+  h2.setAttribute('tabindex', '-1');
+  section.append(h2);
+
+  const rascunho = lerRascunho(pega(chave));
+  const estado = {
+    minimo: false,
+    lembrar: rascunho.lembrar,
+    conferir: rascunho.conferir,
+    cartoes: rascunho.cartoes.length ? rascunho.cartoes.map((c) => ({ ...c })) : [{ frente: '', verso: '' }]
+  };
+
+  const relogio = no(doc, 'span', 'fechamento-relogio', { 'aria-hidden': 'true' });
+  relogio.textContent = marcaDeTempo(SEGUNDOS_RELOGIO);
+  let restante = SEGUNDOS_RELOGIO;
+  let ticTac = 0;
+  let anunciado = false;
+
+  const dizer = (texto) => {
+    // O #anuncio é a ÚNICA região viva do casco (web/casco.js). Anunciar por ele
+    // é o caminho que a casa já percorre; uma segunda aria-live faria a frase ser
+    // dita duas vezes para quem usa leitor de tela.
+    const alvo = typeof doc.getElementById === 'function' ? doc.getElementById('anuncio') : null;
+    if (alvo) alvo.textContent = texto;
+  };
+  const pararRelogio = () => {
+    if (ticTac && typeof win?.clearInterval === 'function') win.clearInterval(ticTac);
+    ticTac = 0;
+  };
+  const andar = () => {
+    if (ticTac || typeof win?.setInterval !== 'function') return;
+    ticTac = win.setInterval(() => {
+      restante = Math.max(0, restante - 1);
+      relogio.textContent = restante > 0 ? marcaDeTempo(restante) : F.tempo;
+      if (restante === 0 && !anunciado) {
+        // UMA vez: o relógio chegou ao fim e não vai embora; repetir a frase a
+        // cada segundo seria o app puxando o tapete de quem está escrevendo.
+        anunciado = true;
+        dizer(F.tempo);
+        pararRelogio();
+      }
+    }, 1000);
+  };
+
+  let lembrar = null;
+  let conferir = null;
+  let frase = null;
+  const editores = [];
+
+  const escreverRascunho = () => {
+    try {
+      storage?.setItem?.(chave, serializarRascunho(estado));
+    } catch { /* aparelho sem espaço: o formulário continua de pé, só não lembra */ }
+  };
+
+  const coletar = () => {
+    const origem = estado.minimo ? frase : lembrar;
+    if (origem) estado.lembrar = origem.value || '';
+    if (!estado.minimo && conferir) estado.conferir = conferir.value || '';
+    editores.forEach((ed, i) => {
+      if (!estado.cartoes[i]) estado.cartoes[i] = { frente: '', verso: '' };
+      estado.cartoes[i].frente = ed.frente.value || '';
+      estado.cartoes[i].verso = ed.verso.value || '';
+    });
+  };
+
+  const limparErros = () => {
+    for (const n of descender(section, (x) => x.classList.contains('fechamento-erro'))) n.remove();
+    for (const n of descender(section, (x) => x.tag === 'textarea')) {
+      n.removeAttribute('aria-invalid');
+      n.removeAttribute('aria-describedby');
+    }
+  };
+
+  /** A frase de erro vai JUNTO do campo, apontada por aria-describedby. */
+  const marcarErro = (campo, texto) => {
+    if (!campo) return null;
+    const id = `${campo.getAttribute('id') || 'campo'}-erro`;
+    const p = erroDoCampo(doc, texto, id);
+    const dono = descender(section, (x) => x.tag === 'div' && x.children.includes(campo))[0];
+    (dono || campo.parentNode)?.append?.(p);
+    campo.setAttribute('aria-invalid', 'true');
+    campo.setAttribute('aria-describedby', id);
+    return p;
+  };
+
+  /** O que falta para enviar, decidido pelo core. Devolve erros e cartões válidos. */
+  const validar = () => {
+    limparErros();
+    const erros = [];
+    if (!String(estado.lembrar || '').trim()) erros.push({ campo: lembrar || frase, texto: F.faltaLembrar });
+    const completos = [];
+    estado.cartoes.forEach((c, i) => {
+      const f = String(c?.frente || '').trim();
+      const v = String(c?.verso || '').trim();
+      if (!f && !v) return; // cartão todo vazio é ignorado, não é erro
+      const teste = criarCartao({ cartoes: {} }, {
+        estacao, aula: aula.id, n: aula.n, frente: f, verso: v
+      }, agoraLocal(win), `valida-${i}`);
+      if (teste.ok) completos.push({ frente: f, verso: v });
+      // O core DIZ QUAL CAMPO falta (`teste.campo`: 'frente' | 'verso'). Jogar
+      // essa informação fora e marcar sempre a frente é a tela Choosing por conta
+      // própria onde o núcleo respondeu: sem verso, o erro cairia no campo que
+      // ESTÁ preenchido, e a pessoa olharia para a pergunta errada.
+      else erros.push({ editor: editores[i], campoNome: teste.campo, texto: teste.erro });
+    });
+    if (!completos.length) erros.push({ alvo: editores[0]?.wrap || null, texto: F.faltaCartao });
+    return { erros, completos };
+  };
+
+  const enviar = (evento) => {
+    if (typeof evento?.preventDefault === 'function') evento.preventDefault();
+    coletar();
+    const { erros, completos } = validar();
+    if (erros.length) {
+      let primeiro = null;
+      for (const erro of erros) {
+        // O campo do cartão é escolhido pelo NOME que o core devolve; a frente é
+        // o fallback só quando o nome não é um dos dois campos do editor (id,
+        // quando, estação — erros de programação, não de escrita).
+        const campo = erro.campo
+          || (erro.editor && (erro.editor[erro.campoNome] || erro.editor.frente));
+        if (campo) {
+          marcarErro(campo, erro.texto);
+          if (!primeiro) primeiro = campo;
+        } else if (erro.alvo) {
+          erro.alvo.append(erroDoCampo(doc, erro.texto, 'fechamento-erro-cartoes'));
+        }
+      }
+      // O foco cai no PRIMEIRO ofensor em ordem de leitura — a `erros` é montada
+      // nessa ordem (a frase, depois cada cartão) — não na mensagem: quem usa
+      // teclado ou leitor de tela precisa ir para dentro do campo que falta.
+      if (typeof primeiro?.focus === 'function') primeiro.focus();
+      return;
+    }
+
+    const quando = agoraLocal(win);
+    const antes = lerCartoes(pega(CARTOES_KEY));
+    const estudo = estudarAula(
+      estudoDoStorage(storage),
+      { estacao, aula: aula.id, n: aula.n },
+      quando,
+      { recordacao: estado.lembrar, conferencia: estado.conferir }
+    );
+    let arquivo = antes;
+    let gravados = 0;
+    for (const c of completos) {
+      const r = criarCartao(arquivo, { estacao, aula: aula.id, n: aula.n, frente: c.frente, verso: c.verso }, quando, novoId(win));
+      if (!r.ok) continue;
+      // A forma que o core devolve, conferida na fonte (cartoes.js:200):
+      // `{ ok, cartoes, cartao }`, onde `cartoes` é o MAPA id->cartão, não o
+      // arquivo. Por isso o `{ cartoes: ... }`: serializar o mapa cru daria um
+      // arquivo sem chave `cartoes`, e `lerCartoes` de amanhã devolveria vazio —
+      // a pessoa perdia os cartões sem ver erro nenhum.
+      arquivo = { versao: arquivo.versao, cartoes: r.cartoes };
+      gravados += 1;
+    }
+    try {
+      storage?.setItem?.(ESTUDO_KEY, serializarEstudo(estudo));
+      storage?.setItem?.(CARTOES_KEY, serializarCartoes(arquivo));
+      storage?.removeItem?.(chave);
+    } catch { /* sem espaço: a pessoa perde a gravação, não o app */ }
+    pararRelogio();
+    // "na primeira vez que a pessoa cria um cartão": antes não havia nenhum, agora
+    // há. O persist() é o que segura o estudo quando o navegador decide limpar o
+    // storage — e é em silêncio: não se pede autorização a quem acabou de fazer o
+    // gesto mais caro do app.
+    const primeiroDaVida = Object.keys(antes.cartoes || {}).length === 0 && gravados > 0;
+    if (primeiroDaVida && typeof win?.navigator?.storage?.persist === 'function') {
+      try { win.navigator.storage.persist(); } catch { /* sem persistência possível: segue */ }
+    }
+    deps.aoFechar(gravados);
+  };
+
+  function preencherEditores(pai, maxDoModo = LIMITE_CARTOES) {
+    editores.length = 0;
+    const quantos = Math.min(maxDoModo, estado.cartoes.length);
+    const caixa = no(doc, 'div', 'fechamento-cartoes');
+    for (let i = 0; i < quantos; i += 1) {
+      const ed = editorCartao(doc, {
+        base: 'atlas-fechar', indice: i, frente: estado.cartoes[i].frente, verso: estado.cartoes[i].verso
+      });
+      editores.push(ed);
+      caixa.append(ed.wrap);
+    }
+    pai.append(caixa);
+    // O teto tem duas saídas, e o pedido nomeia as duas: no terceiro cartão o
+    // botão "Outro cartão" SOME e aparece o limite escrito. Mostrar um botão que
+    // não faz nada é a pior forma de dizer "chega".
+    if (editores.length >= LIMITE_CARTOES) {
+      caixa.append(no(doc, 'p', 'fechamento-limite apoio', { text: F.passoCartoes.limite }));
+    } else if (editores.length < maxDoModo) {
+      // No modo mínimo (maxDoModo 1) não há botão nem frase de teto: o teto de
+      // 3 é do modo completo, e "Até 3 cartões" escrito num modo de um só seria
+      // a frase mentindo sobre a forma que a pessoa tem na tela.
+      caixa.append(no(doc, 'button', 'fechamento-mais', {
+        type: 'button', 'data-mais': 'sim', text: F.passoCartoes.mais
+      }));
+    }
+    caixa.append(linhaOrigem(doc, aula.n, estacao));
+  }
+
+  function formularCompleto(caixa) {
+    const p1 = no(doc, 'fieldset', 'fechamento-passo', { 'data-passo': '1' });
+    p1.append(no(doc, 'legend', 'fechamento-passo-titulo', { text: F.passoLembrar.titulo }));
+    const campoLembrar = campoTexto(doc, {
+      id: 'atlas-fechar-lembrar', rotulo: F.passoLembrar.pergunta, linhas: 4, valor: estado.lembrar, nome: 'lembrar', extra: relogio
+    });
+    // `lembrar` É o textarea, não o invólucro {caixa, etiqueta, campo}: coletar()
+    // lê `lembrar.value` e marcarErro() chama `lembrar.getAttribute`. Guardar o
+    // invólucro dava TypeError na primeira recusa — e a recusa é justamente o
+    // caminho que a pessoa pega quando escreve pouco.
+    lembrar = campoLembrar.campo;
+    p1.append(campoLembrar.caixa);
+    // O relógio anda com o FOCO, não com o primeiro dígito: quem tabula até o
+    // campo já decidiu tentar lembrar, mesmo que ainda esteja pensando.
+    lembrar.addEventListener('focus', andar);
+    caixa.append(p1);
+
+    const p2 = no(doc, 'fieldset', 'fechamento-passo', { 'data-passo': '2' });
+    p2.append(no(doc, 'legend', 'fechamento-passo-titulo', { text: F.passoConferir.titulo }));
+    const campoConferir = campoTexto(doc, { id: 'atlas-fechar-conferir', rotulo: F.passoConferir.pergunta, linhas: 3, valor: estado.conferir, nome: 'conferir' });
+    conferir = campoConferir.campo;
+    p2.append(campoConferir.caixa);
+    p2.append(no(doc, 'a', 'fechamento-reabrir', {
+      href: hrefVideo(aula, playlist), target: '_blank', rel: 'noopener', 'data-reabrir': 'sim', text: F.reabrir
+    }));
+    caixa.append(p2);
+
+    const p3 = no(doc, 'fieldset', 'fechamento-passo', { 'data-passo': '3' });
+    p3.append(no(doc, 'legend', 'fechamento-passo-titulo', { text: F.passoCartoes.titulo }));
+    p3.append(no(doc, 'p', 'fechamento-pergunta-maior', { text: F.passoCartoes.pergunta }));
+    caixa.append(p3);
+    preencherEditores(p3);
+  }
+
+  /** O modo mínimo: uma frase e um cartão. Sem fieldset na frase porque ali o
+   *  LABEL já é a pergunta — um legend com o mesmo texto faria o leitor de tela
+   *  dizer a frase duas vezes seguidas. */
+  function formularMinimo(caixa) {
+    caixa.classList.add('fechamento-form-minimo');
+    const campoFrase = campoTexto(doc, { id: 'atlas-fechar-frase', rotulo: F.modoMinimo.frase, linhas: 3, valor: estado.lembrar, nome: 'frase' });
+    frase = campoFrase.campo;
+    caixa.append(campoFrase.caixa);
+    const p2 = no(doc, 'fieldset', 'fechamento-passo', { 'data-passo': '2' });
+    p2.append(no(doc, 'legend', 'fechamento-passo-titulo', { text: F.passoCartoes.titulo }));
+    p2.append(no(doc, 'p', 'fechamento-pergunta-maior', { text: F.passoCartoes.pergunta }));
+    preencherEditores(p2, 1);
+    caixa.append(p2);
+  }
+
+  const repintarFormulario = () => {
+    pararRelogio();
+    section.textContent = '';
+    section.append(h2);
+    const topo = no(doc, 'div', 'fechamento-topo');
+    topo.append(no(doc, 'a', 'fechamento-alternar', {
+      href: '#', 'data-alternar': estado.minimo ? 'completo' : 'minimo',
+      text: estado.minimo ? F.modoCompleto : F.modoMinimo.convite
+    }));
+    section.append(topo);
+    const form = no(doc, 'form', 'fechamento-form');
+    if (estado.minimo) formularMinimo(form); else formularCompleto(form);
+    form.append(no(doc, 'button', 'botao botao-primario fechamento-enviar', {
+      type: 'submit', 'data-enviar': 'sim', text: F.titulo
+    }));
+    section.append(form);
+    // O submit é do form, que nasce novo a cada repintura; clique e digitação são
+    // da SECTION, amarrados UMA vez aqui embaixo — amarrar dentro daria três
+    // ouvintes depois de três "Outro cartão", e cada tecla gravaria três vezes.
+    form.addEventListener('submit', enviar);
+  };
+
+  const aoEscrever = () => { coletar(); escreverRascunho(); };
+
+  const aoClicar = (evento) => {
+    // DOIS `closest` de seletor simples, não `closest('button, a')`: o parser do
+    // mini-DOM (tests/hdom.js, casa()) LANÇA em seletor com vírgula — regra que a
+    // casa escreveu depois de um `closest('a[href]')` devolver null em silêncio e
+    // um teste passar verde medindo o dublê.
+    const alvo = evento?.target?.closest?.('button') || evento?.target?.closest?.('a');
+    if (!alvo) return;
+    const modelo = alvo.getAttribute('data-modelo');
+    if (modelo !== null) {
+      // O modelo entra no COMEÇO da Pergunta e o foco vai para o FIM do campo:
+      // quem toca num modelo quer completar a frase que acabou de começar.
+      coletar();
+      const dono = alvo.closest('.fechamento-cartao');
+      const destino = (dono && editores.find((ed) => ed.wrap === dono)) || editores[0];
+      const campo = destino?.frente;
+      if (campo) {
+        campo.value = `${modelo}${campo.value || ''}`.slice(0, LIMITE_FACE);
+        if (typeof campo.focus === 'function') campo.focus();
+        const fim = (campo.value || '').length;
+        if (typeof campo.setSelectionRange === 'function') campo.setSelectionRange(fim, fim);
+        coletar();
+        escreverRascunho();
+      }
+      return;
+    }
+    if (alvo.getAttribute('data-mais') !== null) {
+      coletar();
+      if (estado.cartoes.length < LIMITE_CARTOES) {
+        estado.cartoes.push({ frente: '', verso: '' });
+        repintarFormulario();
+        const ultimo = editores[editores.length - 1];
+        if (typeof ultimo?.frente?.focus === 'function') ultimo.frente.focus();
+      }
+      return;
+    }
+    const alternar = alvo.getAttribute('data-alternar');
+    if (alternar !== null) {
+      if (typeof evento.preventDefault === 'function') evento.preventDefault();
+      coletar();
+      estado.minimo = alternar === 'minimo';
+      repintarFormulario();
+      return;
+    }
+    if (alvo.getAttribute('data-reabrir') !== null) andar();
+  };
+
+  section.addEventListener('click', aoClicar);
+  section.addEventListener('input', aoEscrever);
+  repintarFormulario();
+
+  return { section, h2, repintarFormulario, pararRelogio };
 }
 
 /** "← Aula anterior" e "Próxima aula →", e só o que existe. */
@@ -245,6 +799,14 @@ export async function montar(raiz, ctx) {
   // classe `aula-etiqueta` da lista (aulas.css) — dois desenhos de uma mesma
   // informação seria a regra 9 pedindo para ser quebrada.
   const apoio = no(doc, 'p', 'aula-apoio');
+  // A MARCA DO ESTADO no alto (item 6). Ela é um nó com nome porque a página
+  // inteira se refaz depois do envio: deixar "Não iniciada" escrito em cima de
+  // "Aula estudada" é a classe de defeito que a S13 inteira ensinou a não
+  // cometer — o Chrome achou, a suíte não via. `aria-hidden`: quem lê a linha de
+  // apoio escuta o NOME, e a classe é o desenho (círculo cheio = estudada).
+  const marca = no(doc, 'span', 'aula-marca', { 'aria-hidden': 'true' });
+  const nomeEstado = no(doc, 'span', 'aula-estado', { text: A.estados['nao-iniciada'] });
+  apoio.append(marca, nomeEstado);
   apoio.append(no(doc, 'span', 'aula-duracao', { text: duracaoLegivel(aula.duracaoS) }));
   if (aula.exercicio) apoio.append(no(doc, 'span', 'aula-etiqueta', { text: A.etiquetaExercicio }));
   raiz.append(apoio);
@@ -265,42 +827,119 @@ export async function montar(raiz, ctx) {
   const marcas = pausasDaAula(aula.duracaoS);
   if (marcas.length) raiz.append(blocoDePausas(doc, { marcas, aula, playlist }));
 
-  // O lugar do fechamento (S14b2 põe o formulário dentro deste mesmo section).
-  const fim = no(doc, 'section', 'aula-fim');
-  const h2 = no(doc, 'h2', 'aula-fim-titulo', { text: F.titulo });
-  // tabindex -1: é alvo de foco programático na volta da aba, não um passo do
-  // Tab. Sem ele, .focus() num h2 não faz nada em nenhum navegador.
-  h2.setAttribute('tabindex', '-1');
-  fim.append(h2);
-  fim.append(no(doc, 'p', 'aula-fim-aviso', { text: F.quandoTerminar }));
-  raiz.append(fim);
+  const storage = win?.localStorage;
+  const pega = (k) => (typeof storage?.getItem === 'function' ? storage.getItem(k) : null);
 
-  raiz.append(navegacaoVizinha(doc, { slug, n: aula.n, total }));
+  /** Pinta a marca e o nome do estado no alto — o MESMO par, sempre. */
+  const pintarMarca = (estado) => {
+    marca.className = `aula-marca aula-marca-${estado}`;
+    nomeEstado.textContent = A.estados[estado] || A.estados['nao-iniciada'];
+  };
+
+  const estudoLido = () => lerEstudo(pega(ESTUDO_KEY));
+  const hoje = () => agoraLocal(win).slice(0, 10);
+
+  /** O bloco de conclusão, lido do storage — a mesma função dos dois casos. */
+  const blocoDeConclusao = (fraseStatus) => {
+    const feito = no(doc, 'section', 'aula-fim aula-fim-feito');
+    const titulo = no(doc, 'h2', 'aula-fim-titulo', { text: F.titulo });
+    titulo.setAttribute('tabindex', '-1');
+    feito.append(titulo);
+    feito.append(vistaConcluida(doc, {
+      n: aula.n,
+      estacao,
+      slug,
+      aulas: lista.aulas,
+      total,
+      cartoes: cartoesDaAula(lerCartoes(pega(CARTOES_KEY)), aula.id),
+      fraseStatus,
+      aviso: avisoDeAmanha(pega, hoje())
+    }));
+    return { section: feito, h2: titulo, conclusao: true };
+  };
+
+  // Um único `bloco` guarda o que está em tela — formulário OU conclusão. É dele
+  // que o desmontar para o relógio e o aoRetornar tiram o alvo de rolagem e foco.
+  let bloco = null;
+
+  /**
+   * TROCA o fechamento em tela pelo bloco de conclusão. A navegação vizinha é
+   * tirada do lugar e recolocada DEPOIS, porque o section novo cai no fim da
+   * raiz e a ordem lida é "fechamento, depois anterior/próxima".
+   */
+  const pintarConclusao = (fraseStatus) => {
+    bloco?.pararRelogio?.();
+    bloco?.section?.remove();
+    const novo = blocoDeConclusao(fraseStatus);
+    if (nav.parentNode === raiz) nav.remove();
+    raiz.append(novo.section, nav);
+    bloco = novo;
+    return novo;
+  };
+
+  // A navegação vizinha nasce ANTES do fechamento: a ordem de apêndice é
+  // "fechamento, depois nav", e pintarConclusao move os dois — declarar depois
+  // deixaria a conclusão chamar uma variável que ainda não existe (TDZ).
+  const nav = navegacaoVizinha(doc, { slug, n: aula.n, total });
+
+  const concluida = estadoDaAula(estudoLido(), aula.id) === 'estudada';
+  if (concluida) {
+    // Item 6 pela porta de fora: quem abre uma aula já fechada não vê formulário
+    // nenhum — vê a conclusão, com os cartões em leitura.
+    pintarMarca('estudada');
+    pintarConclusao(F.estudadaEm(estudoLido().aulas[aula.id]?.estudadaEm));
+  } else {
+    pintarMarca(estadoDaAula(estudoLido(), aula.id));
+    bloco = blocoFechamento(doc, win, {
+      storage,
+      estacao,
+      slug,
+      aula,
+      total,
+      playlist,
+      pega,
+      aoFechar: (quantos) => {
+        // A página INTEIRA se refaz no sentido de que marca, nome, section e
+        // anúncio dizem a mesma coisa a partir daqui — nada de repintar só o
+        // formulário e deixar o alto dizendo "Não iniciada".
+        pintarMarca('estudada');
+        pintarConclusao(quantos > 0 ? F.feito(quantos) : F.estudadaEm(hoje()));
+      }
+    });
+    raiz.append(bloco.section, nav);
+  }
 
   const aoRetornar = (link) => {
     // Só depois de um clique que SAIU para o vídeo. `null` é a primeira troca de
     // aba da sessão; um link interno nunca chega aqui (o gravador o ignora).
     if (!link || link.getAttribute('data-assistir') !== 'sim') return;
+    const estado = estadoDaAula(estudoLido(), aula.id);
+    if (estado === 'estudada') {
+      // A volta pode trazer estudo feito LÁ (outra aba, mesmo aparelho): a
+      // página acompanha, ou mostraria um formulário em cima de aula fechada.
+      pintarMarca('estudada');
+      if (!bloco?.conclusao) pintarConclusao(F.estudadaEm(estudoLido().aulas[aula.id]?.estudadaEm));
+    } else {
+      pintarMarca(estado);
+    }
     const parado = win?.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches === true;
     // O mesmo par de metro.js:1083 — movimento é tempo, e o token vira 0 ms com
     // prefers-reduced-motion; aqui o que muda é o COMPORTAMENTO da rolagem, que
     // o CSS não toca.
-    fim.scrollIntoView?.({ behavior: parado ? 'auto' : 'smooth', block: 'start' });
-    h2.focus?.({ preventScroll: true });
+    bloco.section.scrollIntoView?.({ behavior: parado ? 'auto' : 'smooth', block: 'start' });
+    // O h2 é o nó GUARDADO do bloco em tela, não um querySelector: a tela criou
+    // o h2 e sabe onde ele mora — procurar um nó que você tem na mão é como o
+    // dublê já mentiu duas vezes nesta série.
+    bloco.h2?.focus?.({ preventScroll: true });
   };
 
-  const desligar = ligarAberturaDeAula({
-    win,
-    storage: win?.localStorage,
-    painel: raiz,
-    aoRetornar
-  });
+  const desligar = ligarAberturaDeAula({ win, storage, painel: raiz, aoRetornar });
 
   return {
     root: raiz,
     rotulo: U.rotulo(aula.n, estacao),
     anuncio: U.anuncio(aula.n, total, aula.titulo),
-    desmontar: () => desligar(),
+    desmontar: () => { bloco?.pararRelogio?.(); desligar(); },
     _estado: () => ({ lista: true, curso: curso.id, n: aula.n, total, pausas: marcas.length })
   };
 }

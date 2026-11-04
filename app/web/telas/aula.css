@@ -210,6 +210,215 @@
   margin-left: auto;
 }
 
+/* S14b2/item 0, FECHADO DE VERDADE (04/11/2026): o link de saída do /aula/999.
+   O commit 1 pôs a classe da casa (`folha-caminho-link`, folha.css:449) no link
+   e o Chrome continuou vendo texto comum. A causa é de ordem de carga: o
+   index.html linka folha.css antes de aula.css, e `.aula-nav-antes` (lá em cima,
+   `text-decoration: none`) ganha de `.folha-caminho-link` — duas classes × zero
+   contra uma × zero, mas a folha mais recente manda no empate. Um link de saída
+   numa página de erro é a única porta; sem cara de porta, a página diz "não
+   existe" e não diz o que fazer.
+   A regra compõe as DUAS classes e fica escopada em `.aula`, senão o "← Aula
+   anterior" (mesma classe, sem `folha-caminho-link`) ganharia um sublinhado que
+   o desenho da S14b1 não pediu. */
+.aula .aula-nav-antes.folha-caminho-link,
+.aula .fechamento-alternar,
+.aula .fechamento-reabrir {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ── o FECHAMENTO (S14b2 commit 2) ─────────────────────────────────────── */
+/* Nenhum valor à mão: as bordas, os raios, as fontes e os tempos são os tokens
+   que o resto da casa já usa. O que é daqui é o LAYOUT — três passos empilhados,
+   dois campos andando juntos, os modelos encostados na pergunta que elesEnchem. */
+.aula .fechamento-form,
+.aula .fechamento-feito {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-4);
+}
+
+.aula .fechamento-topo {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.aula .fechamento-alternar,
+.aula .fechamento-reabrir {
+  color: var(--cor, var(--tinta));
+  font-size: var(--tipo-nota);
+  min-height: var(--alvo-toque);
+  display: inline-flex;
+  align-items: center;
+}
+
+/* O fieldset é o passo. Sem a moldura, os três passos viravam uma coluna de
+   rótulos e a numeração do desenho (1, 2, 3) deixaria de ser lida como ordem. */
+.aula .fechamento-passo {
+  box-sizing: border-box;
+  margin: 0;
+  padding: var(--espaco-3);
+  border: var(--anel-trancada) solid var(--borda);
+  border-radius: var(--raio-placa);
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-3);
+}
+
+.aula .fechamento-passo-titulo {
+  color: var(--cor, var(--tinta));
+  font-size: var(--tipo-nota);
+  font-weight: 700;
+  padding: 0 var(--espaco-1);
+}
+
+.aula .fechamento-campo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-1);
+}
+
+.aula .fechamento-pergunta-caixa {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--espaco-2);
+}
+
+.aula .fechamento-pergunta {
+  color: var(--tinta);
+  font-size: var(--tipo-nota);
+}
+
+/* O campo de dentro da caixa --superficie pinta --fundo: é o rebaixo que diz
+   "escreva aqui", e é o único jeito de não escrever uma cor nova. */
+.aula .fechamento-entrada {
+  box-sizing: border-box;
+  width: 100%;
+  padding: var(--espaco-2);
+  background: var(--fundo);
+  color: var(--tinta);
+  font-family: var(--fonte-corpo);
+  border: var(--anel-trancada) solid var(--borda);
+  border-radius: var(--raio-selo);
+  resize: vertical;
+}
+
+.aula .fechamento-entrada[aria-invalid="true"] {
+  border-color: var(--cor, var(--tinta));
+}
+
+.aula .fechamento-relogio {
+  font-family: var(--fonte-mono);
+  color: var(--fosca);
+}
+
+/* A frase de erro: junto do campo (o JS a apêndice no mesmo invólucro), em texto,
+   nunca só por cor — a borda e o peso a distinguem do rótulo, e o leitor de tela
+   a escuta porque o campo aponta para ela por aria-describedby. */
+.aula .fechamento-erro {
+  margin: 0;
+  color: var(--tinta);
+  font-size: var(--tipo-nota);
+  font-weight: 700;
+  border-inline-start: var(--anel-trancada) solid var(--cor, var(--tinta));
+  padding-inline-start: var(--espaco-2);
+}
+
+/* Cada editor de cartão é um bloco com a régua da linha: "erro no próprio
+   editor" precisa de um corpo visível, senão a frase solta no meio da coluna não
+   diz a qual dos três cartões ela pertence. */
+.aula .fechamento-cartoes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-4);
+}
+
+.aula .fechamento-cartao {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-3);
+  border-inline-start: var(--espessura-borda-painel) solid var(--cor, var(--tinta));
+  padding-inline-start: var(--espaco-3);
+}
+
+.aula .fechamento-modelos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espaco-1);
+}
+
+/* "Botões pequenos" do pedido, e mesmo assim o piso de toque da casa (44 px):
+   o que encolhe é o peso visual — moldura em vez de recheio — nunca a área de
+   acerto. Cinco caracteres de rótulo em duas linhas também passam dos 44 px de
+   altura, e a régua 6 da S10 confere isto nos 4 tamanhos. */
+.aula .fechamento-modelo,
+.aula .fechamento-mais {
+  box-sizing: border-box;
+  min-width: var(--alvo-toque);
+  min-height: var(--alvo-toque);
+  padding: 0 var(--espaco-2);
+  background: none;
+  color: var(--tinta);
+  font-family: var(--fonte-corpo);
+  font-size: var(--tipo-nota);
+  border: var(--anel-trancada) solid var(--borda);
+  border-radius: var(--raio-selo);
+}
+
+.aula .fechamento-modelo:hover,
+.aula .fechamento-mais:hover {
+  border-color: var(--cor, var(--tinta));
+}
+
+.aula .fechamento-mais {
+  border-color: var(--cor, var(--tinta));
+  color: var(--cor, var(--tinta));
+  align-self: flex-start;
+}
+
+.aula .fechamento-limite,
+.aula .fechamento-origem,
+.aula .fechamento-por-hoje {
+  margin: 0;
+  color: var(--fosca);
+  font-size: var(--tipo-nota);
+}
+
+/* A leitura dos cartões de uma aula já fechada: frente e verso sem campo, e com
+   a mesma régua da linha do editor, para o bloco não parecer um formulário mudo. */
+.aula .fechamento-leitura {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-1);
+  border-inline-start: var(--espessura-borda-painel) solid var(--cor, var(--tinta));
+  padding-inline-start: var(--espaco-3);
+}
+
+.aula .fechamento-leitura-frente {
+  margin: 0;
+  color: var(--tinta);
+  font-weight: 700;
+}
+
+.aula .fechamento-leitura-verso {
+  margin: 0;
+  color: var(--tinta);
+}
+
+.aula .fechamento-feito-frase {
+  margin: 0;
+  color: var(--tinta);
+  font-weight: 700;
+}
+
+.aula .fechamento-proxima,
+.aula .fechamento-fim {
+  align-self: flex-start;
+}
+
 /* ── o computador ───────────────────────────────────────────────────────── */
 /* Item 6: no desktop a página continua com --largura-leitura, À ESQUERDA, com a
    margem das outras telas — o `margin: 0` da base faz isso, e não há regra nova

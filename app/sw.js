@@ -492,7 +492,32 @@
 // VERSAO, quem tem v64 no cache recebe a tela do commit 2 chamando lerRascunho de
 // um modulo que nao tem lerRascunho — TypeError no boot e a pagina em branco no
 // onibus.
-const VERSAO = 'atlas-v65';
+// atlas-v66: S14b2 (commit 2), o FORMULARIO do fechamento — o gesto que define o
+// Atlas. web/telas/aula.js ganha o blocoFechamento: os tres passos do design/v3
+// J2 (Sem olhar, com relogio de 2:00 no foco do campo e aviso de uma frase so
+// pelo #anuncio do casco; Conferir, com o Reabrir no YouTube; Cartoes, com os
+// quatro modelos POR EDITOR, porque um conjunto no alto da seção obrigaria a tela
+// a adivinhar a que cartão o toque se aplica). O 'Outro cartão' cresce ate 3 e no
+// teto vira frase — nunca botao morto. O modo minimo (uma frase, um cartao) troca
+// por link e nao oferece 'Outro cartao' nem 'Ate 3 cartoes': a frase mentiria
+// sobre a forma em tela.
+// A VALIDACAO E A DO NUCLEO, nao copia da tela: cada recusa sai de criarCartao de
+// verdade, inclusive o NOME do campo (teste.campo) — jogar aquilo fora e marcar a
+// frente faria o erro de "sem resposta" cair no campo que ESTA preenchido. O
+// texto digitado mora no rascunho do core (chave por aula, teto 2.000/3 cartoes),
+// apagado no envio.
+// Fechar refaz a PAGINA INTEIRA: a marca e o nome do estado no alto, o bloco de
+// conclusao com os cartoes em leitura, 'Origem: Aula n · estacao', o proximo lido
+// do arquivo e a conta de amanha (minutosDaFila). O mesmo bloco serve a quem abre
+// uma aula ja fechada e a volta da aba com estudo feito em OUTRA aba (o fio do
+// Assistir grava abertura, o visibilitychange repinta); voltar sem ter saido para
+// o video nao rola nada nem rouba o foco. navigator.storage.persist() no primeiro
+// cartao da vida, em silencio.
+// Uma folha do precache mudou de bytes (web/telas/aula.js), entao VERSAO e hash:
+// sem subir a VERSAO, quem tem v65 recebe a tela nova importando lerRascunho e
+// minutosDaFila de modulos que ainda nao tem esses nomes — TypeError no boot e a
+// pagina em branco no onibus.
+const VERSAO = 'atlas-v66';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
@@ -522,7 +547,7 @@ const VERSAO = 'atlas-v65';
 // core/rotas.js (a rota da aula), core/aulas.js (pausasDaAula) e core/textos.js
 // (a seção fechamento). O sw.js mediu o mesmo sha256 antes e depois de eu subir a
 // VERSAO, o que é a prova de que ele não está na própria lista.
-const PRECACHE_HASH = 'sha256-00a0c4dc736b2f7dd3490203e543eda449c2d014ef4b690dcf508ee8adcd7d48';
+const PRECACHE_HASH = 'sha256-9bcdec8dcc93b7ebc60b4a335f6e1f74ecf7122e8102b70a883198704b33544a';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.
