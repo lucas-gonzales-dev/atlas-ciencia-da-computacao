@@ -595,7 +595,14 @@
 // core/textos.js — os quatro no precache. Sem subir a VERSAO, quem tem v73 no
 // cache continua com o convite contraditório, o foco no body e as três barras de
 // 6px, com o HTML novo por cima.
-const VERSAO = 'atlas-v74';
+// atlas-v75: S16a (04/11/2026) — entra core/eixos.js no precache, o núcleo dos
+// DOIS EIXOS de uma estação: o PREENCHIMENTO do que foi estudado (estado 'estudada'
+// de core/estudo.js) e a COR do que foi lembrado depois (um 'lembrei' do histórico
+// do cartão dado num dia DEPOIS de ele nascer — o 'lembrei' do mesmo dia é memória
+// de curto prazo e não pinta). Estágio novo 'concluida-antes': enche o mapa, não
+// colore, porque ali ninguém foi medido. O tempo nunca rebaixa nada: só o
+// pedeRevisao olha o hoje. Nenhum arquivo de tela mudou — a S16b desenha o mapa.
+const VERSAO = 'atlas-v75';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
@@ -632,7 +639,11 @@ const VERSAO = 'atlas-v74';
 // grade de confiança, a borda de 1px, o anel da casa, o box-sizing do link) e
 // core/textos.js (o singular). O app/olhodoprova.html saiu do disco: não é tela
 // do produto e a régua do precache acusa arquivo a mais fora do git.
-const PRECACHE_HASH = 'sha256-29497cca2d1aca5bbb4169318b952c42c8334b2f39154160a94536a0408e7690';
+// Recalculado na S16a (04/11/2026), com a árvore parada e DEPOIS de subir a
+// VERSAO acima: 106 arquivos, um ENTROU (core/eixos.js, o núcleo dos dois eixos) e
+// nenhum mudou de bytes — a fatia é pura, sem tela. O sw.js mediu o mesmo sha256
+// antes e depois de eu subir a VERSAO, prova de que ele não está na própria lista.
+const PRECACHE_HASH = 'sha256-38e6ac1f7019b20343297bd1ef1300b1e620672db5e9d11f4915ff7c7bc52b76';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.
@@ -773,6 +784,11 @@ const PRECACHE = [
   // e a frase «o seu cartao volta amanha» quebra so no onibus, que e justamente
   // onde ela importa.
   'core/fsrs.js',
+  // OS DOIS EIXOS da estacao (S16a, 04/11/2026): o preenchimento do que foi
+  // estudado e a cor do que foi lembrado depois. Modulo puro, sem tela ainda (a
+  // S16b desenha o mapa) — mas o mapa e a primeira coisa que a pessoa ve na
+  // jornada, e um modulo fora do cache e a jornada em branco no onibus.
+  'core/eixos.js',
   'core/notes.js',
   'core/search.js',
   // Rotas da grade (S3a-1, 31/10/2026): as abas que o boot.js resolve. Sem
