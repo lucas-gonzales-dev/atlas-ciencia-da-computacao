@@ -540,7 +540,13 @@
 // cache recebe a tela pedindo aula.separador de um modulo que nao tem
 // aula.separador — undefined no meio da linha de apoio e a frase quebrada no
 // onibus.
-const VERSAO = 'atlas-v67';
+// atlas-v68: S20a, o topo novo da Jornada (J1 primeira visita e J5 a volta).
+// Entra web/telas/jornada-topo.js no precache e mudam de bytes core/textos.js
+// (a secao jornada.topo), core/mapa-rede.js (o rotulo acessivel opcional, que
+// na primeira visita diz nenhuma estudada ainda em vez de zero de trinta e
+// cinco), web/telas/jornada.css (as classes do topo) e web/metro.js. Sem o
+// precache, o topo perde o mapa no onibus: a rede desenhada e um arquivo.
+const VERSAO = 'atlas-v68';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
@@ -570,7 +576,7 @@ const VERSAO = 'atlas-v67';
 // core/rotas.js (a rota da aula), core/aulas.js (pausasDaAula) e core/textos.js
 // (a seção fechamento). O sw.js mediu o mesmo sha256 antes e depois de eu subir a
 // VERSAO, o que é a prova de que ele não está na própria lista.
-const PRECACHE_HASH = 'sha256-806185f77e429a4af8d2b52016c5ee4990d1a9fdfd1a7ca6a5a22c45f39fba44';
+const PRECACHE_HASH = 'sha256-140990f102824968da4bb2c125547d077813b3152f0c8062219b1d20c2d8c2b7';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.
@@ -661,7 +667,11 @@ const PRECACHE = [
   // jornada-blocos.js, e o index.html liga o jornada.css. Se um dos dois
   // faltar no cache, a primeira aba abre sem a abertura e sem o tamanho do
   // titulo — branco silencioso, sem erro na rede para avisar.
+  // S20a: o topo da Jornada (a primeira visita e a volta). Importado por
+  // web/metro.js, entao sem ele a Jornada nao sobe offline, e o indice de aulas
+  // que o topo le ja esta listado abaixo em data/aulas/indice.json.
   'web/telas/jornada-blocos.js',
+  'web/telas/jornada-topo.js',
   'web/telas/jornada.css',
   'web/fontes.css',
   'fonts/overpass-latin-var.woff2',

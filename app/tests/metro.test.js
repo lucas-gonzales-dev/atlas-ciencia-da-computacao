@@ -968,17 +968,23 @@ test('esqueleto: a tela carregando não mostra placa nenhuma', async () => {
   assert.ok(comClasse(root, 'placa').length === 1);
 });
 
-test('embarque: com 0 concluídas, diz por onde começar e oferece marcar o que já sabe', async () => {
+// S20a (04/11/2026): o quadro «Bem-vindo ao embarque» saiu de cena — o topo novo
+// (J1) faz o papel dele. A trava continua no mesmo lugar de espírito (a primeira
+// visita convida, sem empilhar um botão por estação), mas cobra a tela de agora.
+test('embarque: a primeira visita convida a marcar, e a lista só existe aberta', async () => {
   const { root } = desenhar({ completed: [] });
-  const emb = comClasse(root, 'embarque')[0];
-  assert.ok(emb, 'o embarque aparece na primeira visita');
-  assert.equal(comClasse(emb, 'embarque-titulo')[0].textContent, TEXTOS_ESTADOS.primeiraVisita.titulo);
-  assert.equal(comClasse(emb, 'embarque-texto')[0].textContent, TEXTOS_ESTADOS.primeiraVisita.descricao);
-  assert.equal(comClasse(emb, 'embarque-acao')[0].textContent, TEXTOS_ESTADOS.primeiraVisita.acao);
-  const abrir = comAttr(emb, 'data-embarque')[0];
-  assert.equal(abrir.textContent, TEXTOS_ESTADOS.primeiraVisita.botao);
-  assert.equal(abrir.getAttribute('aria-expanded'), 'false', 'a lista começa fechada');
-  assert.equal(comAttr(emb, 'data-marcar').length, 0);
+  const convite = comAttr(root, 'data-embarque')[0];
+  assert.ok(convite, 'sumiu o convite de quem já estudou alguma disciplina');
+  assert.equal(convite.textContent, J.topo.marcar,
+    'o convite do topo não usa a frase da casa');
+  assert.equal(convite.getAttribute('aria-expanded'), 'false', 'a lista começa fechada');
+  assert.equal(comAttr(root, 'data-marcar').length, 0,
+    'a primeira visita empilha um botão por estação na cara de quem acabou de chegar');
+  assert.equal(comClasse(root, 'embarque-titulo').length, 0,
+    'o quadro «Bem-vindo ao embarque» voltou: o topo (S20a) já faz o papel dele');
+
+  const { root: aberta } = desenhar({ completed: [], embarqueAberto: true });
+  assert.ok(comAttr(aberta, 'data-marcar').length > 0, 'aberto, o fluxo não lista nada para marcar');
 });
 
 // FEITO na fatia 2c-2 (30/10/2026): perdeu o `todo` neste commit. Marcável é a
@@ -1359,8 +1365,13 @@ test('jornada: o número do catálogo é lido, nunca escrito', () => {
   const linhas = new Set(CATALOGO.map((c) => c.stage)).size;
   assert.ok(estacoes !== 35 && linhas !== 7,
     'o catálogo de teste virou 35×7: a frase leria um literal e passaria por prova');
-  assert.ok(texto.includes(`${estacoes} estações em ${linhas} linhas`),
-    `a abertura não leu o catálogo (esperava "${estacoes} estações em ${linhas} linhas", e o texto diz outra coisa)`);
+  // S20a: a medida da rede saiu do parágrafo da grade e virou a linha do TOPO.
+  // O número continua vindo do catálogo passado ao desenhar — e sem o
+  // indice.json (o caso do dublê, que não serve a rede de aulas) a frase é a
+  // que só diz as disciplinas: um total de aulas inventado ali seria a tela
+  // mentindo sobre o tamanho do compromisso.
+  assert.ok(texto.includes(`${estacoes} disciplinas`),
+    `o topo não leu o catálogo (esperava «${estacoes} disciplinas», e o texto diz: ${texto.slice(0, 200)})`);
 
   // O denominador é o total do catálogo, nunca o 35 da grade publicado.
   assert.equal(texto.includes(`/${35}`), false,
@@ -1368,10 +1379,14 @@ test('jornada: o número do catálogo é lido, nunca escrito', () => {
 
   // Primeira visita: a vitrine cede o lugar à porta — quem ainda não tem nada
   // concluído vê o embarque, não uma contagem de estações.
+  // Primeira visita: o parágrafo que descrevia a grade para quem ainda não tem
+  // nada deu lugar ao primeiro passo. A medida de uma linha não é a grade lida em
+  // voz alta, e a `abertura-texto` de S4a não volta a aparecer por cima do topo.
   const vazio = desenhar({ completed: [], catalogo: CATALOGO });
-  const p = comClasse(vazio.root, 'abertura-texto')[0].textContent;
-  assert.equal(p.includes(`${estacoes} estações`), false,
-    `na primeira visita a abertura ainda fala da grade em vez do embarque: "${p}"`);
+  assert.equal(comClasse(vazio.root, 'abertura-texto').length, 0,
+    'a abertura de S4a voltou a falar da grade por cima do topo novo');
+  assert.ok(comClasse(vazio.root, 'topo-acao').length > 0,
+    'na primeira visita o topo não oferece o primeiro passo');
 });
 
 test('jornada: nenhum XP nem sequência na tela', () => {
@@ -1423,25 +1438,29 @@ test('jornada: o h1 é o primeiro título e usa o tamanho da estação', () => {
   const titulos = todos(root, (no) => no.tag === 'h1' || no.tag === 'h2');
   assert.equal(titulos.length > 0, true, 'a Jornada desenhada não tem título nenhum');
   assert.equal(titulos[0].tag, 'h1', `o primeiro título é um <${titulos[0].tag}>`);
-  assert.equal(titulos[0].className.split(/\s+/).includes('abertura-titulo'), true,
-    `o primeiro título tem a classe "${titulos[0].className}": a abertura não abre a tela`);
+  assert.equal(titulos[0].className.split(/\s+/).includes('topo-titulo'), true,
+    `o primeiro título tem a classe "${titulos[0].className}": o topo não abre a tela`);
   assert.equal(porTag(root, 'h1').length, 1, 'a tela tem mais de um <h1>');
 
   // O CSS é a fonte da forma: --tipo-estacao é o MAIOR tamanho da escala.
   const css = readFileSync(fileURLToPath(new URL('../web/telas/jornada.css', import.meta.url)), 'utf8');
-  const bloco = css.split('}').find((b) => b.includes('.abertura-titulo'));
-  assert.ok(bloco, 'jornada.css não declara .abertura-titulo');
+  const bloco = css.split('}').find((b) => b.includes('.topo-titulo'));
+  assert.ok(bloco, 'jornada.css não declara .topo-titulo');
   assert.ok(bloco.includes('font-size: var(--tipo-estacao)'),
-    'o título da abertura não usa o tamanho da estação — é a placa competindo com ele');
+    'o título do topo não usa o tamanho da estação — é a placa competindo com ele');
 });
 
-test('jornada: na primeira visita, o parágrafo cede o lugar ao embarque', () => {
+test('jornada: na primeira visita, o topo dá o primeiro passo e o convite de marcar', () => {
   const vazio = desenhar({ completed: [], catalogo: CAT_RECURSO });
   const textoVazio = textoDe(vazio.root);
-  assert.ok(textoVazio.includes(J.abertura.primeiraVisita),
-    'na viagem vazia a abertura não fala do embarque');
-  assert.ok(comClasse(vazio.root, 'embarque').length > 0,
-    'o embarque sumiu da primeira visita');
+  // S20a: a frase da abertura cedeu o lugar ao TOPO — o primeiro passo (J1) e o
+  // convite discreto de marcar, que abre a mesma lista de antes.
+  assert.ok(textoVazio.includes(J.topo.comecar),
+    'na viagem vazia o topo não dá o primeiro passo');
+  assert.ok(textoVazio.includes(J.topo.marcar),
+    'na viagem vazia o topo não convida quem já estudou');
+  assert.ok(comAttr(vazio.root, 'data-embarque').length > 0,
+    'sumiu o gancho que abre a lista de marcar');
 
   // Uma concluída: a frase volta a ser a da grade, e o embarque continua só
   // enquanto a lista estiver aberta — não para sempre.

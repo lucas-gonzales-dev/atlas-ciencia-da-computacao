@@ -15,7 +15,7 @@
 //   3. NENHUMA COR AQUI. A cor da linha é uma CLASSE (.l1 … .l7) que o CSS
 //      resolve com os tokens. JS que escolhe hex é JS que fura o design system.
 
-import { placa, comValores, estados, ORIGEM, TIPO_DE_ORIGEM } from '../core/textos.js';
+import { placa, comValores, estados, jornada as J, ORIGEM, TIPO_DE_ORIGEM } from '../core/textos.js';
 import { abertura, tresNumeros, conexao, totalDeLinhas } from './telas/jornada-blocos.js';
 // S5 parte 2: a FOLHA saiu deste arquivo (ela é web/folha.js) e passou a ter
 // rota própria (#/estacao/<slug>). O ciclo de imports é deliberado: o metro.js
@@ -34,6 +34,10 @@ import { desenharFolha } from './folha.js';
 // DOM, fechada na tela). A correção mora aqui, no metrô, que é o dono da tela.
 import { carregarAulas } from './aulas-dados.js';
 import { estudoDoStorage, ligarAberturaDeAula } from './aulas-pedacos.js';
+// S20a: o topo da Jornada (J1 primeira visita / J5 a volta) é um módulo próprio,
+// pelo mesmo motivo da S4a dividir o metro.js: a regra de desenhá-lo não é a
+// regra do diagrama. A leitura do indice.json mora aqui dentro, nunca no core/.
+import { alvoDoTopo, carregarIndice, desenharTopo } from './telas/jornada-topo.js';
 import { hrefDe, lerRota } from '../core/rotas.js';
 import {
   ESTADOS,
@@ -488,13 +492,23 @@ export function desenharMetro(doc, root, estado) {
   // responde "o que é isto". As três peças moram em web/telas/jornada-blocos.js:
   // este arquivo tem 932 linhas, e a regra 15 manda dividir pela responsabilidade
   // em vez de engordar. Aqui só se chama.
-  const primeiraVisita = resumo.concluidas === 0 && resumo.emCurso === 0;
-  root.append(cascata(abertura(doc, {
-    resumo,
-    primeiraVisita,
-    estacoes: resumo.estacoes,
-    linhas: totalDeLinhas(catalogo)
-  }), 0));
+  // S20a: o TOPO no lugar da abertura (J1/J5). O quadro "Bem-vindo ao embarque"
+  // saiu — o topo novo faz o papel dele, e o `abertura` de S4a continua existindo
+  // em jornada-blocos.js para quem ainda o chama.
+  const estudoTela = estado.estudo || { aulas: {}, ultima: null };
+  const alvo = estado.alvo || alvoDoTopo(catalogo, estudoTela);
+  root.append(cascata(desenharTopo({
+    modo: alvo.modo, alvo, catalogo, progresso, resumo,
+    estudo: estudoTela, indice: estado.indice,
+    // A lista da estação do ALVO, nos dois modos: J1 quer «Aula 1 · 17 min» e
+    // J5 quer a duração da aula retomada. `ui.aulas` é outra coisa (a lista da
+    // estação da folha aberta) e misturar as duas daria duração de outra aula.
+    aulas: estado.aulasAlvo,
+    embarqueAberto: Boolean(estado.embarqueAberto),
+    // UM PRIMÁRIO POR TELA (S4b, estendido ao topo): com a folha aberta é o
+    // recurso dela que manda, e o botão do topo nasce sem a classe.
+    folhaAberta: Boolean(estado.folha)
+  }, doc), 0));
 
   // ── 1. a placa ──────────────────────────────────────────────────────────
   const proxima = resumo.proximaEstacao
@@ -601,35 +615,29 @@ export function desenharMetro(doc, root, estado) {
   // Aparece sozinho na primeira visita (0 concluídas) e fica enquanto a lista
   // estiver ABERTA: é o modo de marcação em lote, não um banner perpétuo.
   // Fechar a lista — ou marcar, que fecha — devolve a tela a quem já viajou.
-  if (catalogo.length > 0 && (estado.embarqueAberto || resumo.concluidas === 0)) {
+  // S20a: o QUADRO saiu, a LISTA de marcar ficou. O botão discreto do topo
+  // («Já estudei algumas disciplinas») usa o MESMO gancho `data-embarque` que o
+  // bindMetro já escuta, e o verbo continua `acoes.marcar` — nunca um segundo
+  // caminho de conclusão na tela.
+  if (catalogo.length > 0 && estado.embarqueAberto) {
     const emb = el(doc, 'section', 'embarque');
-    emb.append(el(doc, 'h2', 'embarque-titulo', { text: estados.primeiraVisita.titulo }));
-    emb.append(el(doc, 'p', 'embarque-texto', { text: estados.primeiraVisita.descricao }));
-    emb.append(el(doc, 'p', 'embarque-acao', { text: estados.primeiraVisita.acao }));
-    const abrir = el(doc, 'button', 'botao', {
-      type: 'button', 'data-embarque': 'abrir', text: estados.primeiraVisita.botao,
-      'aria-expanded': estado.embarqueAberto ? 'true' : 'false'
-    });
-    emb.append(abrir);
-
-    if (estado.embarqueAberto) {
-      // "Marcar de uma vez o que já estudei": uma estação por linha, e o verbo
-      // de concluir é o do núcleo (datas, marcos, tudo) — aqui só o
-      // botão. Nunca um segundo jeito de concluir na tela.
-      const lista = el(doc, 'ul', 'lista-marcar');
-      for (const c of estacoesMarcaveis(catalogo, progresso)) {
-        const nome = typeof c.title === 'string' ? c.title : c.id;
-        const item = el(doc, 'li');
-        item.append(el(doc, 'span', 'marcar-nome', { text: nome }));
-        item.append(el(doc, 'button', 'botao', {
-          type: 'button', 'data-marcar': c.id,
-          'aria-label': `${placa.marcar} — ${nome}`,
-          text: placa.marcar
-        }));
-        lista.append(item);
-      }
-      emb.append(lista);
+    emb.append(el(doc, 'h2', 'embarque-titulo', { text: J.topo.marcar }));
+    // "Marcar de uma vez o que já estudei": uma estação por linha, e o verbo
+    // de concluir é o do núcleo (datas, marcos, tudo) — aqui só o botão. Nunca
+    // um segundo jeito de concluir na tela.
+    const lista = el(doc, 'ul', 'lista-marcar');
+    for (const c of estacoesMarcaveis(catalogo, progresso)) {
+      const nome = typeof c.title === 'string' ? c.title : c.id;
+      const item = el(doc, 'li');
+      item.append(el(doc, 'span', 'marcar-nome', { text: nome }));
+      item.append(el(doc, 'button', 'botao', {
+        type: 'button', 'data-marcar': c.id,
+        'aria-label': `${placa.marcar} — ${nome}`,
+        text: placa.marcar
+      }));
+      lista.append(item);
     }
+    emb.append(lista);
     mapa.append(emb);
     nos.embarque = emb;
   }
@@ -899,6 +907,14 @@ export function bindMetro(doc, root, handlers) {
     const acaoPlaca = alvo.closest('[data-acao-placa]');
     if (acaoPlaca) { h.iniciar?.(acaoPlaca.getAttribute('data-acao-placa')); return; }
 
+    // S20a: o mapa do topo é um `[role="img"]` — um DESENHO, não uma grade de
+    // botões. O `core/mapa-rede.js` põe `data-linha` em cada `<line>` e em cada
+    // selo para pintar a cor da linha, e desde que a Jornada passou a chamar
+    // `mapaDaRede` esse atributo virou um alvo de delegação acidental: tocar no
+    // trilho trocaria de linha. A regra da casa é uma imagem não ter ação — o
+    // `aria-label` dela já diz tudo que ela comunica.
+    if (alvo.closest('[role="img"]')) return;
+
     const seloLinha = alvo.closest('[data-linha]');
     if (seloLinha) { h.abrirLinha?.(Number(seloLinha.getAttribute('data-linha'))); return; }
 
@@ -981,7 +997,11 @@ export async function subirMetro(deps = {}) {
     // S13c: a lista de aulas DA ESTACÃO À VISTA. `null` é honesto em dois
     // momentos — ainda não chegou, e chegou e falhou — e nos dois a folha desenhada
     // é exatamente a de hoje (folha.js:400 só monta o painel com lista).
-    aulas: null
+    aulas: null,
+    // S20a: o que o topo lê do aparelho e do disco. `alvo` é calculado UMA vez
+    // com o catálogo na mão — o mesmo objeto vai para o desenharTopo e para a
+    // busca das aulas, senão a tela mostraria uma aula e linkaria para outra.
+    indice: null, aulasAlvo: null, alvo: null
   };
   // O esqueleto é a PRIMEIRA PINTURA — ele é chamado logo abaixo, onde `pintar`
   // passa a existir, e antes de qualquer `await`.
@@ -1056,7 +1076,11 @@ export async function subirMetro(deps = {}) {
       // aparelho A CADA pintura, não guardado no `ui`: a pessoa abre a aula no
       // YouTube, volta sem recarregar, e a régua tem de dizer o que o storage diz.
       aulas: ui.aulas,
-      estudo: estudoDoStorage(storage)
+      estudo: estudoDoStorage(storage),
+      // S20a: o índice e as aulas do alvo entram pelo mesmo caminho do resto do
+      // estado de tela — `null` é honesto (ainda não chegaram) e o topo tem a
+      // frase sem número e a linha de apoio sem duração para esse caso.
+      indice: ui.indice, aulasAlvo: ui.aulasAlvo, alvo: ui.alvo
     });
 
     // `folhaVisivel` é por INSTÂNCIA, `devolverAposFechar` é do MÓDULO: entre o
@@ -1211,6 +1235,25 @@ export async function subirMetro(deps = {}) {
     ui.catalogo = comNotas(carregado?.courses || [], ui.notas);
     const resumo = resumoDaViagem(progresso, ui.catalogo);
     ui.linha = resumo.proximaEstacao?.linha ?? linhasDoCatalogo(ui.catalogo)[0] ?? 1;
+
+    // S20a: o alvo do topo é calculado UMA vez, com o catálogo na mão, e as
+    // aulas dele vêm pelo MESMO `buscar` e o MESMO cache da folha — trocar de
+    // estação e voltar não é motivo para buscar o mesmo JSON duas vezes. O
+    // índice (a contagem de aulas da rede) entra junto: a linha de medida do
+    // topo lê os dois números, não escreve nenhum.
+    ui.alvo = alvoDoTopo(ui.catalogo, estudoDoStorage(storage));
+    pintar();
+    const carregarTopo = async () => {
+      const [ind, aulas] = await Promise.all([
+        carregarIndice(buscar),
+        ui.alvo.curso ? carregarAulas(ui.alvo.curso.slug, buscar) : Promise.resolve({ ok: false, erro: 'sem-alvo' })
+      ]);
+      if (ind.ok) ui.indice = ind.dados;
+      if (ind.ok || ui.alvo.curso) aulasCache.set(ui.alvo.curso?.slug, aulas);
+      if (aulas.ok && Array.isArray(aulas.dados?.aulas)) ui.aulasAlvo = aulas.dados.aulas;
+      pintar();
+    };
+    await carregarTopo().catch(() => {});
   } catch (erro) {
     ui.carregando = false;
     root.textContent = '';

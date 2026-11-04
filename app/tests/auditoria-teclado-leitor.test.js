@@ -140,6 +140,25 @@ function excecaoDeVeu(no, raiz, escFecha) {
 }
 
 /**
+ * UMA IMAGEM NÃO É UM CONTROLE (S20a, 04/11/2026). O topo da Jornada desenha a
+ * rede com `mapaDaRede`, e esse SVG carrega `data-linha` em cada trilho e em
+ * cada selo para receber a cor da linha — um atributo de PINTURA que a régua lê
+ * como gancho de delegação. A isenção é uma CONDIÇÃO conferida em cada árvore,
+ * não uma lista de nomes: só vale para quem tem um ancestral `[role="img"]` com
+ * `aria-label` de verdade, porque é esse par que diz «isto é um desenho descrito
+ * por texto». Retirar o `role` ou o rótulo do mapa faz os nós voltarem a ser
+ * achados — e a Jornada, sem o mapa, nem chega a desenhar um.
+ */
+function excecaoDeImagem(no, raiz) {
+  const sobe = no.closest?.('[role="img"]') || null;
+  if (!sobe) return false;
+  if (typeof no.closest !== 'function') return false;
+  let dentro = false;
+  ande(raiz, (n) => { if (n === sobe) dentro = true; });
+  return dentro && sobe.getAttribute('aria-label') !== null;
+}
+
+/**
  * MEDIR em vez de contar ouvintes: dispara o Escape na árvore montada e pergunta
  * ao endereço se a folha saiu. Um `raiz.listeners.keydown.length > 0` diria
  * «tem Esc» com o ramo do Escape removido, porque o handler do Tab continua lá
@@ -172,6 +191,7 @@ function percorrer(nome, raiz, { escFecha = false } = {}) {
     if (no === raizDaTela && !porDelegacao) return; // o contêiner da delegação não é ação
     if (focavelSozinho(no)) return;
     if (excecaoDeVeu(no, raizDaTela, escFecha)) { visitados.isencoes += 1; return; }
+    if (excecaoDeImagem(no, raizDaTela)) { visitados.isencoes += 1; return; }
     achados.push(`${nome} → ${retrato(no)}: ${rotulo} sem foco; falta ${faltaParaTeclado(no).join(', ')}`);
   };
   ande(raiz, (no) => {

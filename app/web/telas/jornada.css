@@ -24,6 +24,85 @@
   margin: var(--espaco-6) 0 var(--espaco-4);
 }
 
+/* ════════════════ S20a — O TOPO DA JORNADA (J1 primeira visita, J5 a volta) ════════════════
+   O lugar do quadro "Bem-vindo ao embarque": mapa, título, medida, UM primário e
+   o link discreto de marcar. Herda a cor da linha (lN no ancestral, a mesma
+   família da página da aula) e não escolhe cor, tempo nem largura: só tokens. */
+.topo {
+  display: grid;
+  gap: var(--espaco-2);
+  margin: var(--espaco-6) 0 var(--espaco-4);
+}
+
+/* O mapa na largura da coluna. O SVG vem de core/mapa-rede.js com viewBox
+   próprio: aqui ele só é fluido, nunca um tamanho escrito à mão. */
+.topo-mapa svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.topo-titulo {
+  margin: 0;
+  font-family: var(--fonte-placa);
+  font-size: var(--tipo-estacao);
+  font-weight: var(--peso-placa);
+  line-height: var(--entrelinha-apertada);
+  letter-spacing: -0.01em;
+  color: var(--tinta);
+  overflow-wrap: anywhere;
+}
+
+.topo-medida {
+  margin: 0;
+  font-family: var(--fonte-corpo);
+  font-size: var(--tipo-corpo);
+  line-height: var(--entrelinha-nota);
+  color: var(--fosca);
+}
+
+.topo-acao { display: grid; gap: var(--espaco-2); justify-items: start; }
+
+.topo-apoio {
+  margin: 0;
+  font-size: var(--tipo-nota);
+  line-height: var(--entrelinha-nota);
+  color: var(--fosca);
+  overflow-wrap: anywhere;
+}
+
+/* O "Já estudei algumas disciplinas": o mesmo texto do topo, um degrau abaixo.
+   LINK DISCRETO de verdade — sem recheio, sem borda, na cor da linha quando a
+   houver. Não compete com o primário, que é um só por tela. */
+.topo-marcar {
+  background: none;
+  border: 0;
+  padding: 0;
+  justify-self: start;
+  font-family: var(--fonte-corpo);
+  font-size: var(--tipo-nota);
+  color: var(--fosca);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  min-height: var(--alvo-toque);
+}
+
+.topo-marcar:hover { color: var(--cor, var(--tinta)); }
+
+/* UM PRIMÁRIO POR TELA (S4b, estendido ao topo pela S20a): com a folha aberta o
+   recurso dela é o primário visível, e o botão do topo cede a forma para o
+   contorno da mesma família — o MESMO mecanismo do .placa-acao acima, não um
+   segundo jeito de esvaziar um botão. */
+.metro.com-folha .topo .botao.botao-primario {
+  background: none;
+  color: var(--cor, var(--tinta));
+  border: 1px solid var(--cor, var(--tinta));
+}
+
+@media (min-width: 1024px) {
+  .metro > .topo { grid-area: abertura; }
+}
+
 /* O maior texto da tela. --tipo-estacao é o MAIOR da escala, e é aqui que ele
    mora depois da estação na placa: um título por tela, e um só competindo. */
 .abertura-titulo {

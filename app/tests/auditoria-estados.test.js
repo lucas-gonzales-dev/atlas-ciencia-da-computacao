@@ -26,7 +26,7 @@ import { montar as montarExplorar } from '../web/telas/explorar.js';
 import { montar as montarRevisar } from '../web/telas/revisar.js';
 import { montar as montarPerfil } from '../web/telas/perfil.js';
 import { subirMetro } from '../web/metro.js';
-import { TEXTOS, comValores, estados, folha as tFolha, revisar as tRev, perfil as tPerf } from '../core/textos.js';
+import { TEXTOS, comValores, estados, folha as tFolha, jornada as J, revisar as tRev, perfil as tPerf } from '../core/textos.js';
 import { agendarConclusao, serializeRevisoes, STORAGE_KEY } from '../core/revisao.js';
 
 const CATALOGO = JSON.parse(readFileSync(fileURLToPath(new URL('../data/catalog.json', import.meta.url)), 'utf8'));
@@ -107,13 +107,20 @@ async function metro(opts = {}) {
   return { doc, raiz, inst };
 }
 
-test('estados: JORNADA viagem vazia — o embarque, com a ação de marcar', async () => {
+// S20a (04/11/2026): o estado «viagem vazia» mudou de cara. O quadro «Bem-vindo
+// ao embarque» saiu e o TOPO da Jornada faz o papel dele — mapa, título, medida
+// e UM primário que leva à primeira aula. A régua continua a mesma: a frase da
+// casa e uma saída. O que muda é QUAL frase, e ela vem de core/textos.js.
+test('estados: JORNADA viagem vazia — o topo com o mapa, o primeiro passo e o marcar', async () => {
   const { raiz } = await metro({ completed: [] });
   exigeTextoESaida(raiz, [
-    estados.primeiraVisita.titulo,
-    estados.primeiraVisita.acao,
-    estados.primeiraVisita.botao
+    J.topo.titulo,
+    J.topo.comecar,
+    J.topo.marcar
   ], 'Jornada vazia');
+  // A medida do compromisso, lida do catálogo (35 estações).
+  assert.match(textoDe(raiz), new RegExp(`${CATALOGO.courses.length} disciplinas`),
+    'a primeira visita não diz o tamanho da rede');
 });
 
 test('estados: JORNADA viagem no meio — o contador diz «6 de 35»', async () => {

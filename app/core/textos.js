@@ -414,6 +414,27 @@ export const jornada = {
     primeiraVisita:
       'Comece pela Linha 1: as estações dela abrem o resto da rede. Ou marque o que você já estudou — a rede se ajusta ao que você sabe.',
   },
+  // S20a (J1/J5): o topo da Jornada. Os números chegam prontos de quem lê o
+  // catálogo e o data/aulas/indice.json — nenhuma destas frases conhece um
+  // total. `medidaSemAulas` é a linha honesta de quando o índice não veio: sem
+  // ele não há 1.375 para escrever, e escrever um seria o defeito que o teste
+  // «os números do topo são lidos, nunca escritos» existe para pegar.
+  topo: Object.freeze({
+    titulo: 'Ciência da Computação, aula por aula',
+    medida: (disciplinas, fonte, aulas) =>
+      `${disciplinas} disciplinas da ${fonte}, ${aulas.toLocaleString('pt-BR')} aulas. Estude uma, lembre amanhã, e o mapa acende.`,
+    medidaSemAulas: (disciplinas, fonte) =>
+      `${disciplinas} disciplinas da ${fonte}. Estude uma, lembre amanhã, e o mapa acende.`,
+    comecar: 'Começar pela primeira aula',
+    marcar: 'Já estudei algumas disciplinas',
+    apoioComecar: (estacao, n, duracao) =>
+      [estacao, `Aula ${n}`, duracao].filter(Boolean).join(' · '),
+    apoioVolta: (estacao, linha, duracao) =>
+      [estacao, linha ? `Linha ${linha}` : null, duracao].filter(Boolean).join(' · '),
+    mapaAcessivel: (total, feitas) =>
+      `As ${total} estações da rede; ${feitas ? `${feitas} estudadas` : 'nenhuma estudada ainda'}`,
+  }),
+
   numeros: {
     rotulo: 'Sua viagem em números',
     viagem: 'Viagem',

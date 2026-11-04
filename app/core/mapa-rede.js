@@ -139,7 +139,11 @@ export function mapaDaRede(cursos, progresso, opcoes = {}) {
   }
 
   const total = lista.length;
-  const rotuloAcessivel = `Mapa da rede: ${concluidas.length} de ${total} estações concluídas`;
+  // S20a: quem desenha o topo da Jornada traz o rótulo do próprio lugar — na
+  // primeira visita não há «0 de 35 concluídas» a anunciar, há «nenhuma
+  // estudada ainda». Sem ooverride, o rótulo do cartão do link é o que vale.
+  const rotuloAcessivel = opcoes.acessivel
+    || `Mapa da rede: ${concluidas.length} de ${total} estações concluídas`;
   return `<svg xmlns="http://www.w3.org/2000/svg" class="mapa-rede" viewBox="0 0 ${largura} ${altura}" width="${largura}" height="${altura}" role="img" aria-label="${rotuloAcessivel}">` +
     `<g class="mapa-baldeacoes">${trilhos.join('')}</g>` +
     `<g class="mapa-linhas">${tracos.join('')}</g>` +
