@@ -389,7 +389,16 @@
 // livro de selos (S17), cada uma com a fonte de onde saiu. Sem subir a VERSAO,
 // quem tem v58 no cache continua vendo "[CIRCUITOS DIGITAIS] Aula 01 - ..." na
 // pagina de aulas.
-const VERSAO = 'atlas-v59';
+// atlas-v60: S13c, o FIO das aulas na folha (04/11/2026). web/metro.js passou a
+// chamar web/aulas-dados.js na rota da estacao (cache por slug, a guarda da
+// estacao que mudou durante a busca, o repaint de 100 ms) e a entregar
+// aulas/estudo ao desenharFolha; web/aulas-pedacos.js ganhou a volta por
+// visibilitychange e o redirect pelo location do window; web/telas/aulas.js
+// recebe o buscarAulas por deps. Mudou conteudo do precache (os tres estao na
+// lista), entao VERSAO e hash. Sem isto, quem tem v59 no cache recebe o
+// index.html novo com o metro.js velho na folha: a estacao abre sem o painel de
+// aulas e o clique nao grava nada.
+const VERSAO = 'atlas-v60';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
@@ -397,7 +406,12 @@ const VERSAO = 'atlas-v59';
 // Recalculado ao fechar a PARTE A da S13b (04/11/2026): web/folha.js ganhou o
 // bloco das aulas e core/textos.js as frases novas — os dois estao no precache,
 // entao quem instalou o app antes receberia a folha SEM a linha de progresso.
-const PRECACHE_HASH = 'sha256-26ada5721227a57641a85bcdbbd9a8411819765813be9319e853cbd412709873';
+// Recalculado na S13c (04/11/2026), com a arvore parada: web/metro.js (o fio),
+// web/aulas-pedacos.js (a volta por visibilitychange) e web/telas/aulas.js (o
+// buscarAulas por deps) mudaram de bytes. O sw.js mediu o MESMO sha256 antes e
+// depois de eu subir a VERSAO acima, e isto e a prova de que sw.js nao esta na
+// propria lista: quem guarda o hash nao pode estar dentro do que o hash cobre.
+const PRECACHE_HASH = 'sha256-9ad3b6d6f4750e03d7b1cf302e106b15bae82286e9eaf1dddb657a00956870d4';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.

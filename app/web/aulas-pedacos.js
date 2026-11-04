@@ -159,7 +159,12 @@ export function ligarAberturaDeAula({ win, storage, painel, aoMudar }) {
   const aoClique = (evento) => {
     const alvo = evento?.target?.closest?.('a[data-aula]');
     if (!alvo) return;
+    // A estação DO LINK, não do contêiner (S13c): o metrô escuta no root, que é
+    // PAI do painel .folha — e `closest` sobe, nunca desce. Partir do alvo é o
+    // único caminho que atravessa a árvore nas duas telas: na folha o
+    // `data-estacao` está no painel (folha.js:347), na página está na raiz.
     const estacao = alvo.getAttribute('data-estacao')
+      || alvo.closest?.('[data-estacao]')?.getAttribute('data-estacao')
       || painel?.closest?.('[data-estacao]')?.getAttribute('data-estacao')
       || '';
     const estudo = estudoDoStorage(storage);

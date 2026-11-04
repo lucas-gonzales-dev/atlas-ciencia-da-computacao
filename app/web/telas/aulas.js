@@ -108,7 +108,16 @@ export async function montar(raiz, ctx) {
   raiz.className = CLASSE;
   raiz.setAttribute('data-slug', slug);
 
-  const catalogo = (await ctx.catalogo) || [];
+  // O CATÁLOGO NA FORMA QUE O APP ENTREGA (defeito 1, julgado no Chrome em
+  // 04/11/2026): `ctx.catalogo` é a promessa do `loadCatalog()` (web/main.js:60),
+  // que resolve num OBJETO de dados — `{ courses: [...], origem: ... }` — e não
+  // numa lista. `catalogo.find` estourava TypeError, o casco capturava, e quem
+  // abria #/estacao/…/aulas via o casco no ar e o `<main>` vazio. A Explorar lê
+  // `catalogo.courses` (web/telas/explorar.js:315); esta tela lê a mesma forma.
+  // O teste passou por aqui durante todo o turno com `Promise.resolve([CIRCUITOS])`
+  // — uma forma que o app nunca tem. A régua é a linha do app, não o dublê.
+  const bruto = await ctx.catalogo;
+  const catalogo = bruto?.courses ?? [];
   const curso = catalogo.find((c) => c && (c.slug === slug || c.id === slug)) || null;
   // O nome lido do catálogo, nunca digitado. Sem estação no catálogo, o que se
   // ecoa é o que a pessoa pediu por endereço — não um nome inventado.

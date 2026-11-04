@@ -24,6 +24,16 @@ import { abertura, tresNumeros, conexao, totalDeLinhas } from './telas/jornada-b
 // módulo, e por isso o ciclo importa sem estourar. Reimplementar a origem na
 // folha era a segunda palavra para a mesma coisa que a crítica da v1 contou.
 import { desenharFolha } from './folha.js';
+// S13c (04/11/2026) — o FIO das aulas na folha. O defeito que estas duas linhas
+// pagam: `desenharFolha` sabia receber `aulas`/`estudo` desde a S13b, a folha
+// desenhava o painel com o primário e a régua, e NINGUÉM no app passava os dois.
+// Quem abria #/estacao/circuitos-digitais via a folha de sempre — "Começar a
+// estudar", botão Concluir, nenhuma linha de progresso. Os 584 testes verdes
+// mediam a peça, entregue pelo teste ao desenho, e não o desenho dentro do app.
+// Este é o segundo encontro com a mesma armadilha (defeito 1 da S11-0: aberta no
+// DOM, fechada na tela). A correção mora aqui, no metrô, que é o dono da tela.
+import { carregarAulas } from './aulas-dados.js';
+import { estudoDoStorage, ligarAberturaDeAula } from './aulas-pedacos.js';
 import { hrefDe, lerRota } from '../core/rotas.js';
 import {
   ESTADOS,
@@ -423,7 +433,8 @@ function limpar(doc, root) {
  * @param {Document} doc
  * @param {HTMLElement} root
  * @param {{catalogo:Array, completed:string[], progresso:object, linha:number,
- *          folha:string|null, despertas?:string[]}} estado
+ *          folha:string|null, despertas?:string[], notas?:object,
+ *          aulas?:object|null, estudo?:object|null}} estado
  * @returns {object} os nós que o teste e o bind procuram
  */
 export function desenharMetro(doc, root, estado) {
@@ -753,7 +764,14 @@ export function desenharMetro(doc, root, estado) {
     const desenhada = desenharFolha(doc, {
       catalogo, progresso, slug: slugDaFolha, notas: estado.notas || {},
       // S6: o miolo da folha troca pelo momento enquanto ele está de pé.
-      momento: estado.momento || null
+      momento: estado.momento || null,
+      // S13c: os dois campos que a folha já declarava e o app nunca entregava.
+      // `aulas` é o que o metrô buscou (null enquanto não chega, ou quando o
+      // arquivo faltou: aí a folha é exatamente a de hoje, sem erro na tela);
+      // `estudo` é lido do aparelho A CADA pintura, porque a pessoa abre aula no
+      // YouTube e volta sem recarregar nada.
+      aulas: estado.aulas || null,
+      estudo: estado.estudo || null
     });
     root.append(desenhada.root);
     nos.folha = desenhada.root;
@@ -943,6 +961,11 @@ export async function subirMetro(deps = {}) {
   // para o FECHAR do véu navegar: um `<div>` não tem href, e fingir clique com
   // history.pushState criaria entrada fantasma no histórico.
   const win = deps.window || (typeof window !== 'undefined' ? window : null);
+  // S13c: a rede das aulas entra por deps pelo MESMO caminho do storage e da
+  // janela — o teste precisa entregar o JSON real do disco sem abrir rede, e o
+  // navegador tem o fetch dele. A arrow é ligada por causa do `Illegal
+  // invocation` (aulas-dados.js, nota do header): `fetch` solto perde o `this`.
+  const buscar = deps.buscarAulas || ((url) => fetch(url));
 
   const ui = {
     // O catálogo é GUARDADO já com as anotações dentro: é a única forma de o
@@ -954,7 +977,11 @@ export async function subirMetro(deps = {}) {
     // pessoa está vendo vem do endereço e entra por `deps.folha` (o casco lê o
     // hash e entrega o slug). Guardar um `aberta` próprio seria ter duas fontes
     // para a mesma rota — e o "voltar" do navegador mostraria outra coisa.
-    folha: typeof deps.folha === 'string' && deps.folha ? deps.folha : null
+    folha: typeof deps.folha === 'string' && deps.folha ? deps.folha : null,
+    // S13c: a lista de aulas DA ESTACÃO À VISTA. `null` é honesto em dois
+    // momentos — ainda não chegou, e chegou e falhou — e nos dois a folha desenhada
+    // é exatamente a de hoje (folha.js:400 só monta o painel com lista).
+    aulas: null
   };
   // O esqueleto é a PRIMEIRA PINTURA — ele é chamado logo abaixo, onde `pintar`
   // passa a existir, e antes de qualquer `await`.
@@ -986,6 +1013,35 @@ export async function subirMetro(deps = {}) {
   // tela de quem olhava.
   let slugAberto = null;
 
+  // ── S13c: o FIO das aulas na folha ───────────────────────────────────────
+  // O cache é por slug e vive FORA do `ui` por um motivo e outro dentro dele:
+  // a LISTA da estação à vista é estado de tela (muda com a rota), mas o
+  // resultado da busca é dado do disco — trocar de estação e voltar não é
+  // motivo para buscar o mesmo JSON duas vezes, e o `ui` morre com a instância.
+  // O ouvinte de abertura também é fora: o painel é REMONTADO a cada pintura,
+  // então ligar dentro sem desligar empilharia um `<click>` por redesenho — o
+  // defeito do `bindMetro` dentro do `pintar` (2c-1), na mesma linha de código.
+  const aulasCache = new Map();
+  let desligarAbertura = null;
+
+  /** Busca (ou reusa) as aulas da estação da folha e repinta quando chegam. */
+  const pedirAulas = (slug) => {
+    const guardado = aulasCache.get(slug);
+    // `ok:false` vira `null` e a folha é a de hoje: o arquivo que falta não é
+    // erro de tela na folha — a frase de erro pertence à PÁGINA de aulas
+    // (aulas.js), onde a pessoa foi procurá-la de propósito.
+    ui.aulas = guardado?.ok ? guardado.dados : null;
+    if (guardado) return;
+    carregarAulas(slug, buscar).then((lido) => {
+      aulasCache.set(slug, lido);
+      // A pessoa já foi outra estação durante a busca: pintar aqui seria trocar
+      // a folha de A por B sem rota nenhuma.
+      if (!lido.ok || ui.folha !== slug) return;
+      ui.aulas = lido.dados;
+      pintar();
+    });
+  };
+
   const pintar = () => {
     if (ui.carregando) { desenharEsqueleto(doc, root); return; }
     const nos = desenharMetro(doc, root, {
@@ -994,7 +1050,13 @@ export async function subirMetro(deps = {}) {
       chegada: ui.chegada, despertas: ui.despertas, embarqueAberto: ui.embarqueAberto,
       // S6: o momento da chegada entra na folha pelo mesmo caminho do que a
       // chegada entra no mapa. Sem isto a folha conclui e não mostra nada.
-      momento: ui.momento
+      momento: ui.momento,
+      // S13c (defeito 2, Chrome real 04/11/2026): os dois campos que a folha
+      // declarava desde a S13b e que o app nunca entregou. O `estudo` é lido do
+      // aparelho A CADA pintura, não guardado no `ui`: a pessoa abre a aula no
+      // YouTube, volta sem recarregar, e a régua tem de dizer o que o storage diz.
+      aulas: ui.aulas,
+      estudo: estudoDoStorage(storage)
     });
 
     // `folhaVisivel` é por INSTÂNCIA, `devolverAposFechar` é do MÓDULO: entre o
@@ -1002,6 +1064,10 @@ export async function subirMetro(deps = {}) {
     // não existe mais. Por isso o sair não pergunta «havia folha antes?» — o que
     // o autoriza a mover o foco é o fechar ter armado, nada mais.
     const painel = nos.folha || null;
+    // S13c: o DESLIGAR vem antes de qualquer coisa porque este nó é novo a cada
+    // pintura, e o da pintura anterior já não está na árvore — sem desligar, a
+    // página de aulas cobra exatamente isso lá; aqui é o mesmo contrato, e ele
+    // mora no root (uma vez por instância, ao lado do bindMetro), não no painel.
     if (painel) {
       // S11-0 (defeito 1): o QUADRO SEGUINTE existe para a transição correr. O
       // navegador pinta o painel uma vez em translateY(100%) e só depois recebe
@@ -1027,6 +1093,10 @@ export async function subirMetro(deps = {}) {
         const primeiro = focaveisDaFolha(painel)[0];
         primeiro?.focus?.();
       }
+      // S13c: a rota trouxe a folha — a lista de aulas DELA é pedida aqui, não no
+      // boot: abrir a Jornada sem estação não tem o que buscar. Com cache por
+      // slug, o voltar do navegador não faz rede de novo.
+      pedirAulas(slugPainel);
       // Folha nova por cima de folha velha (pré-requisito, voltar do navegador):
       // o fechar anterior já foi respondido por esta pintura.
       devolverAposFechar = false;
@@ -1155,8 +1225,24 @@ export async function subirMetro(deps = {}) {
 
   ui.carregando = false;
   bindMetro(doc, root, acoes);
+  // S13c: o gesto da aula entra NO ROOT, junto do bindMetro, e não no painel.
+  // Dois motivos, os dois desta casa: (a) o painel é REMONTADO a cada pintura,
+  // então ligar nele exigiria desligar e religar dentro do `pintar` — a dívida
+  // que a 2c-1 já pagou com o bindMetro empilhado; (b) a auditoria de teclado
+  // (régua 1) varre a árvore atrás de quem tem ouvinte de clique próprio e não é
+  // focável, e o `.folha` é exatamente isso: um contêiner. No root a escuta é
+  // delegação, o mesmo contrato do concluir e do anotar. O `data-estacao` vem do
+  // painel mais perto (folha.js:347 o põe), então a gravação sabe em qual
+  // estação tocar.
+  desligarAbertura = ligarAberturaDeAula({ win, storage, painel: root, aoMudar: () => pintar() });
   pintar();
-  return { ok: true, pintar, acoes, ui, progresso: () => progresso };
+  // S13c: o casco chama `desmontar` na troca de tela (web/casco.js:118) e esta
+  // instância é devolvida por web/telas/jornada.js sem mexer. Sem isto, sair da
+  // Jornada deixava um ouvinte de clique/`visibilitychange` vivo no window,
+  // repintando uma árvore que já não está na página — o B9 da página de aulas
+  // cobra essa saída lá; aqui é a mesma dívida, do outro lado da tela.
+  const desmontar = () => { desligarAbertura?.(); desligarAbertura = null; };
+  return { ok: true, pintar, acoes, ui, desmontar, progresso: () => progresso };
 }
 
 /**

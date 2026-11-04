@@ -349,7 +349,14 @@ function estudoCom(...ns) {
 }
 
 /** Monta a página de aulas com o catálogo e o storage que o teste escolher. */
-async function pagina({ folha = CIRCUITOS.slug, catalogo = [CIRCUITOS], bruto = null, buscar = respostaDe(AULAS) } = {}) {
+// O CATÁLOGO NA FORMA DO APP (defeito 1, Chrome real 04/11/2026): antes esta
+// função entregava `[CIRCUITOS]`, uma lista que o app NUNCA tem — `ctx.catalogo`
+// é a promessa do `loadCatalog()` (web/main.js:60), que resolve num objeto
+// `{ courses, origem, electives, ... }`. A tela chamava `catalogo.find`, estourava
+// TypeError, e a página abria em branco com 584 testes verdes. A fixture agora é
+// o `data/catalog.json` lido do disco, cru: a página recebe byte a byte o que o
+// navegador entrega, e reverter a correção quebra este arquivo sozinho.
+async function pagina({ folha = CIRCUITOS.slug, catalogo = CATALOGO_BRUTO, bruto = null, buscar = respostaDe(AULAS) } = {}) {
   const doc = criarDoc();
   const win = janelaCom();
   win.localStorage = storageCom(bruto ? { [ESTUDO_KEY]: bruto } : {});
@@ -548,7 +555,7 @@ test('B11: estação que não está no catálogo não pede arquivo nenhum', asyn
   let chamou = 0;
   const { raiz } = await pagina({
     folha: 'nao-existe',
-    catalogo: [],
+    catalogo: { courses: [] },
     buscar: async () => { chamou += 1; return respostaDe(AULAS)(); }
   });
   assert.equal(chamou, 0, 'um endereço que não nomeia estação conhecida não tem arquivo a buscar');
