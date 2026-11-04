@@ -736,6 +736,14 @@ export const aula = Object.freeze({
    * folha, e a folha não abre mais nada — leva à aula).
    */
   assistir: 'Assistir no YouTube',
+  /**
+   * S14c (04/11/2026): o separador das linhas de apoio da casa — "Aberta · 20
+   * min". Mora aqui porque a tela não digita frase (regra 7), e o `·` entre dois
+   * nós `<span>` precisa de uma origem: sem ela, o pixel vem de um literal na
+   * tela e a frase completa vem de outro lugar, e os dois divergem.
+   */
+  separador: '·',
+
   /** O nome da região de navegação entre aulas, para quem percorre landmarks. */
   navRotulo: 'Aulas vizinhas',
   anterior: '← Aula anterior',

@@ -24,6 +24,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { criarDoc, storageCom, todos } from './hdom.js';
 import { aula as U, aulas as A, fechamento as F } from '../core/textos.js';
+import { duracaoLegivel } from '../core/aulas.js';
 import {
   CARTOES_KEY,
   criarCartao,
@@ -580,4 +581,90 @@ test('item 6: a última aula da estação não inventa uma próxima — leva às
   d.escrever('verso-0', 'O tempo que o sinal tem de antes da borda.');
   d.enviar();
   assert.ok(porData(d.raiz, 'data-proxima', '93'), 'a aula 92 perdeu a próxima');
+});
+
+// ───────────────── S14c, o acabamento (04/11/2026) ─────────────────
+//
+// DOIS itens, e os dois nasceram do Chrome do Claude, não da suíte: uma página
+// com dois primários depois de fechar a aula, e uma linha de apoio sem o
+// separador que o resto da casa tem. Os dois são invisíveis ao node por naturezas
+// diferentes — o primeiro porque a suíte nunca contava primários NESTA tela, o
+// segundo porque o `·` era só um furo no meio de dois `<span>`.
+
+test('S14c/item 1: antes de estudada, o Assistir é o primário da página', async () => {
+  const c = await pagina();
+  const classes = porData(c.raiz, 'data-assistir', 'sim').className.split(/\s+/);
+  assert.ok(classes.includes('botao-primario'),
+    'o Assistir perdeu o primário antes de a aula ser estudada');
+  assert.ok(!classes.includes('botao-secundario'), 'o Assistir já saiu secundário de casa');
+});
+
+test('S14c/item 1: depois do envio sobra UM primário na página, e ele é o Próxima', async () => {
+  const c = await pagina();
+  c.escrever('lembrar', 'O contador sincronizado conta com um pulso só.');
+  c.escrever('frente-0', 'O que é um contador síncrono?');
+  c.escrever('verso-0', 'Todos os flip-flops recebem o mesmo clock.');
+  c.enviar();
+
+  const primarios = comClasse(c.raiz, 'botao-primario');
+  assert.equal(primarios.length, 1,
+    'dois primários na mesma tela: a casa tem UM botão mais importante por página (folha, lista e metrô já cobrem isto)');
+  assert.ok(primarios[0].className.split(/\s+/).includes('fechamento-proxima'),
+    `o primário que sobrou não é a próxima aula: é .${primarios[0].className}`);
+
+  // O Assistir continua na página e continua funcionando — ele só desce de
+  // hierarquia. Sumir com ele seria tirar de quem quer rever o vídeo o caminho
+  // de voltar, e a aula estudada é justamente a que a pessoa mais revisita.
+  const assistir = porData(c.raiz, 'data-assistir', 'sim');
+  assert.ok(assistir, 'o fechar tirou o Assistir da página');
+  assert.ok(assistir.className.split(/\s+/).includes('botao-secundario'),
+    'o Assistir ficou primário em cima do Próxima');
+  assert.ok(!assistir.className.split(/\s+/).includes('botao-primario'),
+    'o Assistir virou secundário sem deixar de ser primário: as duas classes na tela é o defeito de novo');
+});
+
+test('S14c/item 1: reabrir uma aula já estudada também tem um primário só', async () => {
+  const quando = '2026-11-04T09:15';
+  const estudo = estudarAula(lerEstudo(null),
+    { estacao: CIRCUITOS.id, aula: TERCEIRA.id, n: 3 }, quando,
+    { recordacao: 'registrador desloca bits a cada pulso', conferencia: '' });
+  const cartoes = cartoesDe({ aula: TERCEIRA, n: 3, quando, pares: [['O que faz um registrador?', 'Desloca bits a cada pulso.']] });
+
+  const c = await pagina(3, { estudo: serializarEstudo(estudo), cartoes });
+  const primarios = comClasse(c.raiz, 'botao-primario');
+  assert.equal(primarios.length, 1, 'a vista de aula fechada abriu com mais de um primário');
+  assert.ok(primarios[0].className.split(/\s+/).includes('fechamento-proxima'),
+    'quem reabre uma aula estudada tem o Assistir como primário, não a próxima');
+  assert.ok(porData(c.raiz, 'data-assistir', 'sim').className.split(/\s+/).includes('botao-secundario'),
+    'o Assistir da volta não desceu de hierarquia');
+});
+
+test('S14c/item 2: a linha de apoio separa estado e duração com o · da casa', async () => {
+  const c = await pagina();
+  const esperado = [
+    A.estados['nao-iniciada'], U.separador, duracaoLegivel(TERCEIRA.duracaoS),
+    ...(TERCEIRA.exercicio ? [A.etiquetaExercicio] : [])
+  ].join(' ');
+  assert.equal(textoDo(um(c.raiz, 'aula-apoio', 'apoio do topo')), esperado,
+    'a linha do alto não é "Não iniciada · 20 min": falta o separador, ou ele veio literal da tela');
+
+  c.escrever('lembrar', 'A ULA soma e o seletor escolhe o caminho.');
+  c.escrever('frente-0', 'O que faz uma ULA?');
+  c.escrever('verso-0', 'Faz aritmética e lógica sobre dois operandos.');
+  c.enviar();
+
+  const depois = [
+    A.estados.estudada, U.separador, duracaoLegivel(TERCEIRA.duracaoS),
+    ...(TERCEIRA.exercicio ? [A.etiquetaExercicio] : [])
+  ].join(' ');
+  assert.equal(textoDo(um(c.raiz, 'aula-apoio', 'apoio depois do envio')), depois,
+    'o estado mudou e a linha não se refeita inteira: "Estudada" teria de vir colado no tempo com o separador');
+});
+
+test('S14c/item 2: o separador é texto do core, não caractere digitado na tela', () => {
+  const tela = readFileSync(new URL('../web/telas/aula.js', import.meta.url), 'utf8');
+  assert.match(tela, /U\.separador/,
+    'a tela montou a linha de apoio sem a frase do core (regra 7: nenhum texto digitado na tela)');
+  const secoes = tela.slice(tela.indexOf('const apoio = no('), tela.indexOf('raiz.append(assistir)'));
+  assert.ok(!/'·'|"·"/.test(secoes), 'o "·" foi escrito à mão na tela em vez de vir de aula.separador');
 });

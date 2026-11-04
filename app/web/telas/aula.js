@@ -806,7 +806,13 @@ export async function montar(raiz, ctx) {
   // apoio escuta o NOME, e a classe é o desenho (círculo cheio = estudada).
   const marca = no(doc, 'span', 'aula-marca', { 'aria-hidden': 'true' });
   const nomeEstado = no(doc, 'span', 'aula-estado', { text: A.estados['nao-iniciada'] });
+  // S14c/item 2: o separador da casa entre o estado e o tempo. É um nó à parte
+  // porque os dois vivem em `<span>` próprios (o teste da S14b1 lê o texto de
+  // cada um), e `aria-hidden`: um leitor de tela que percorrer a linha não deve
+  // ouvir "ponto" entre duas palavras. O caractere vem de `aula.separador`, não
+  // daqui — a tela não digita frase.
   apoio.append(marca, nomeEstado);
+  apoio.append(no(doc, 'span', 'aula-separador', { 'aria-hidden': 'true', text: U.separador }));
   apoio.append(no(doc, 'span', 'aula-duracao', { text: duracaoLegivel(aula.duracaoS) }));
   if (aula.exercicio) apoio.append(no(doc, 'span', 'aula-etiqueta', { text: A.etiquetaExercicio }));
   raiz.append(apoio);
@@ -830,10 +836,18 @@ export async function montar(raiz, ctx) {
   const storage = win?.localStorage;
   const pega = (k) => (typeof storage?.getItem === 'function' ? storage.getItem(k) : null);
 
-  /** Pinta a marca e o nome do estado no alto — o MESMO par, sempre. */
+  /** Pinta a marca, o nome do estado no alto e a hierarquia do Assistir. */
   const pintarMarca = (estado) => {
     marca.className = `aula-marca aula-marca-${estado}`;
     nomeEstado.textContent = A.estados[estado] || A.estados['nao-iniciada'];
+    // S14c/item 1: UM primário por tela. Quem já estudou não está sendo
+    // convidado a assistir de novo — o convite agora é a próxima aula, que nasce
+    // `botao-primario` em `botaoProxima`. Deixar o Assistir primário ao lado dele
+    // daria duas coisas "mais importantes da página" e uma terceira que é o
+    // formulário, exatamente o que a casa proíbe (tests/pages.test.js). Antes de
+    // estudada o Assistir continua primário: é o gesto que falta.
+    assistir.classList.remove('botao-primario', 'botao-secundario');
+    assistir.classList.add(estado === 'estudada' ? 'botao-secundario' : 'botao-primario');
   };
 
   const estudoLido = () => lerEstudo(pega(ESTUDO_KEY));

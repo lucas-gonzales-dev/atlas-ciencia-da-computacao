@@ -517,7 +517,30 @@
 // sem subir a VERSAO, quem tem v65 recebe a tela nova importando lerRascunho e
 // minutosDaFila de modulos que ainda nao tem esses nomes — TypeError no boot e a
 // pagina em branco no onibus.
-const VERSAO = 'atlas-v66';
+// atlas-v67: S14c, o ACABAMENTO da pagina da aula — dois itens que o Chrome do
+// Claude mediu e a suite de node nao via. (1) UM PRIMARIO POR TELA: depois de
+// fechar a aula ficavam dois `.botao-primario` na pagina, o Assistir e o
+// 'Proxima: Aula n'. Quem ja estudou nao esta sendo convidado a assistir de
+// novo, entao o Assistir desce para `.botao-secundario` (continua na pagina e
+// continua levando ao video: a aula estudada e a que mais se revisita) e o
+// primario passa a ser a proxima aula; antes de estudada, o Assistir segue
+// primario. A troca mora em pintarMarca, o unico lugar que sabe o estado, e por
+// isso as tres portas (envio agora, reabrir ja estudada, volta da outra aba)
+// herdam a mesma hierarquia sem linha repetida. (2) O SEPARADOR da casa na linha
+// de apoio: 'Aberta · 20 min', como o resto da tipografia. O '·' e um no a parte,
+// `aria-hidden` (quem percorre a linha nao deve ouvir 'ponto' entre duas
+// palavras), e o caractere vem de aula.separador no core — regra 7, nenhum texto
+// digitado na tela. O node nao alcanca os dois: nao pinta cascata nem mede peso
+// visual, entao as travas cobrem as CLASSES no DOM montado (um unico
+// .botao-primario, e ele o .fechamento-proxima; o texto da linha com o
+// separador do core) e o CSS dos dois primarios de volta e a ausencia do
+// separador cairem, cada uma com a mensagem medida.
+// Duas folhas do precache mudaram de bytes (core/textos.js e
+// web/telas/aula.js), entao VERSAO e hash: sem subir a VERSAO, quem tem v66 no
+// cache recebe a tela pedindo aula.separador de um modulo que nao tem
+// aula.separador — undefined no meio da linha de apoio e a frase quebrada no
+// onibus.
+const VERSAO = 'atlas-v67';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
@@ -547,7 +570,7 @@ const VERSAO = 'atlas-v66';
 // core/rotas.js (a rota da aula), core/aulas.js (pausasDaAula) e core/textos.js
 // (a seção fechamento). O sw.js mediu o mesmo sha256 antes e depois de eu subir a
 // VERSAO, o que é a prova de que ele não está na própria lista.
-const PRECACHE_HASH = 'sha256-9bcdec8dcc93b7ebc60b4a335f6e1f74ecf7122e8102b70a883198704b33544a';
+const PRECACHE_HASH = 'sha256-806185f77e429a4af8d2b52016c5ee4990d1a9fdfd1a7ca6a5a22c45f39fba44';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.
