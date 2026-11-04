@@ -362,12 +362,19 @@
 // vai montar. Sem estes arquivos no cache, a folha da estação pede o módulo e
 // recebe o index.html do fallback: tela em branco com o service worker
 // dizendo que foi um 200.
-const VERSAO = 'atlas-v55';
+// atlas-v56: decisao do Lucas sobre o continuarDe (04/11/2026), no nucleo. Sai o
+// motivo 'primeira-nao-aberta', que devolvia a Aula 1 a quem tinha aberto a 13 e
+// a 14 e leria, na folha, como se nada tivesse sido estudado; entram a aberta mais
+// recente da estacao (maior abertaEm, empate pelo maior n) e 'comecar' so quando
+// nao ha abertura nenhuma. Lista de arquivos igual a v55 — so o conteudo de
+// core/estudo.js mudou, e e justamente o caso que a trava de hash existe para
+// pegar: quem instalou o app antes veria a regra velha para sempre.
+const VERSAO = 'atlas-v56';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
 // deixa o cache antigo sem o nome novo. Recalcular: node tests/precache-hash.js.
-const PRECACHE_HASH = 'sha256-e2ae0f8f5959cc9ef7097c18040f539ec4a3e685f0197fdacc0568a711d0d471';
+const PRECACHE_HASH = 'sha256-c61f10f2203696cf3b9ebfda74cf8c9537eb79e4043e813a1905f6f7ec649182';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.
