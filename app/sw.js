@@ -369,12 +369,21 @@
 // nao ha abertura nenhuma. Lista de arquivos igual a v55 — so o conteudo de
 // core/estudo.js mudou, e e justamente o caso que a trava de hash existe para
 // pegar: quem instalou o app antes veria a regra velha para sempre.
-const VERSAO = 'atlas-v56';
+// atlas-v57: S13b comeca pelo compartido. Entra web/aulas-pedacos.js — a linha
+// de progresso, o primario da aula, a nota, o href do video com list= e o
+// gravar-no-clique que a FOLHA e a PAGINA DE AULAS vao usar juntas (regra 9: a
+// mesma duracao nao pode ser escrita de dois jeitos em duas telas) — e as frases
+// novas de core/textos.js (notaAbrir, tituloPagina, voltarPara, abrirPlaylist).
+// A tela aulas.js e o aulas.css entram no proximo commit, com o precache deles.
+const VERSAO = 'atlas-v57';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
 // deixa o cache antigo sem o nome novo. Recalcular: node tests/precache-hash.js.
-const PRECACHE_HASH = 'sha256-c61f10f2203696cf3b9ebfda74cf8c9537eb79e4043e813a1905f6f7ec649182';
+// Recalculado ao fechar a PARTE A da S13b (04/11/2026): web/folha.js ganhou o
+// bloco das aulas e core/textos.js as frases novas — os dois estao no precache,
+// entao quem instalou o app antes receberia a folha SEM a linha de progresso.
+const PRECACHE_HASH = 'sha256-db8c8eb0e220c3ef7359932319db4b1e7e8a2a1442247d5d3a48934aca017ed0';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.
@@ -430,6 +439,7 @@ const PRECACHE = [
   // vez de estouro. Sem este arquivo no cache, a lista de aulas não aparece
   // nem com rede, porque o import do index falharia em silencio.
   'web/aulas-dados.js',
+  'web/aulas-pedacos.js',
  // A FOLHA da estacao (S5): o index.html liga o CSS, e ela vira modulo quando o
  // metro.js trocar o clique pela rota. Os dois entram juntos pelo mesmo motivo
  // da v22 — HTML novo pedindo arquivo que o cache antigo nao tem.

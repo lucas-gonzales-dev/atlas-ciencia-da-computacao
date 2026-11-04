@@ -302,6 +302,9 @@ export const folha = Object.freeze({
   anotacaoCampo: (nome) => `Anotação de ${nome}`,
   salvo: 'Salvo',
   notaAbrir: 'O curso abre fora do Atlas, no site de quem o publicou.',
+  // S13b: "Concluir estação" saiu dos botões e virou link discreto — fechar a
+  // estação não é o gesto principal de quem está estudando aula por aula.
+  marcarConcluida: 'Marcar a estação como concluída',
   // O estado por texto (JORNADA §3.1): forma E palavra, nunca só a cor.
   estadoNome: Object.freeze({
     concluida: 'Concluída',
@@ -661,6 +664,16 @@ export const aulas = Object.freeze({
     // S14 acrescenta 'estudada'; estadoDaAula devolve a palavra e a tela lê daqui.
   }),
   assistir: 'Assistir no YouTube',
+  // A nota do primário da folha (J2, item 3 da fatia): o que acontece quando se
+  // toca. Dizer "aberta" e não "assistida" é a honestidade da S13b — o Atlas
+  // sabe que o vídeo foi aberto, não que a pessoa viu. A S14 troca a frase quando
+  // existir o estado 'estudada'.
+  notaAbrir: 'Abre no YouTube. A aula fica marcada como aberta.',
+  // O endereço da página de aulas, e o que o leitor de tela fala ao chegar nela.
+  // Com o nome da estação lido do catálogo, nunca digitado.
+  tituloPagina: (estacao) => `Aulas de ${estacao}`,
+  voltarPara: (estacao) => `← ${estacao}`,
+  abrirPlaylist: 'Abrir a playlist no YouTube',
   // As três partes de sempre (o que falhou, por quê, o que fazer agora), como
   // em `estados.erro`. O motivo é verdade literal: as aulas moram no aparelho
   // só depois de uma visita com rede, e o service worker ainda não as tinha

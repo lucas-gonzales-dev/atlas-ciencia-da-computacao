@@ -54,6 +54,15 @@ export function criarNo(tag, doc) {
     removeAttribute(k) { delete no.attrs[k]; },
     append(...ns) { for (const n of ns) { n.parent = no; no.children.push(n); } },
     addEventListener(tipo, fn) { (no.listeners[tipo] ||= []).push(fn); },
+    // S13b (04/11/2026): `removeEventListener` faltava, e sem ele nenhum teste
+    // consegue provar o DESLIGAR de uma tela. O casco monta e desmonta telas que
+    // ouvem clique e `visibilitychange`; se o desmontar não soltar os ouvintes, a
+    // tela antiga continua gravando no storage depois de ir embora, e só o
+    // navegador mostra isso. O dublê mentindo menos é o que a casa já fez com
+    // blur() e hasAttribute(): o método existe no DOM real, então existe aqui.
+    removeEventListener(tipo, fn) {
+      no.listeners[tipo] = (no.listeners[tipo] || []).filter((f) => f !== fn);
+    },
     dispatch(tipo, ev) { for (const fn of no.listeners[tipo] || []) fn(ev); },
     focus() { no.doc.foco = no; },
     // S10b (réguas 3 e 4): sem blur(), `doc.foco` nunca volta a null e um teste
@@ -247,6 +256,13 @@ export function janelaCom({ onLine = true } = {}) {
     setTimeout: () => 0,
     clearTimeout: () => {},
     addEventListener: (tipo, fn) => { (ouvintes[tipo] ||= []).push(fn); },
+    // S13b: sem isto, o `desligar()` de uma tela de teste nunca solta o ouvinte
+    // da janela, e um teste de "a tela desmontada não reage mais" passaria verde
+    // para a janela errada. A opçao de chamada (`win?.removeEventListener?.()`)
+    // esconderia o buraco em vez de mostra-lo.
+    removeEventListener: (tipo, fn) => {
+      ouvintes[tipo] = (ouvintes[tipo] || []).filter((f) => f !== fn);
+    },
     dispatch: (tipo) => {
       // S10b (item 7): no navegador o evento ANTES de mudar — quando `offline`
       // chega aos ouvintes, `navigator.onLine` já é false, e é isso que o selo

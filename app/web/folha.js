@@ -17,7 +17,17 @@
 // token (web/folha.css não escreve um número); frase à mão — tudo é
 // core/textos.js; um segundo botão primário — disponível tem UM (o curso), em
 // curso tem UM (concluir), trancada e concluída não têm nenhum.
-import { comValores, dataDeCalendario, estados, folha as F, jornada as J, placa, chegada as C } from '../core/textos.js';
+import { comValores, dataDeCalendario, estados, folha as F, jornada as J, placa, chegada as C, aulas as AU } from '../core/textos.js';
+import { hrefDe } from '../core/rotas.js';
+// O estudo vazio se obtem do proprio nucleo, com lerEstudo(null) -- nunca de um
+// objeto de mao propria aqui. Reescrever a forma do estudo na tela e a receita
+// do falso verde: a folha pintaria "0 de 93" para um estudo que o core nao le
+// como vazio nenhum (foi assim que o applyNote de 32469d9 passou nos testes).
+import { lerEstudo } from '../core/estudo.js';
+// S13b: a linha de progresso, o primário da aula e a nota são os MESMOS da
+// página de aulas. Importar em vez de reimplementar é a regra 9: duas telas
+// formatando a mesma duração de dois jeitos é o defeito que a casa proíbe.
+import { linhaProgresso, notaAbrirAula, painelDeAulas, primarioAula } from './aulas-pedacos.js';
 import { ESTADOS, fatosDaEstacao } from '../core/viagem.js';
 // `origemDoRecurso` e `naFonte` já existem no metro.js e já têm testes. A folha
 // IMPORTA, em vez de reimplementar: reimplementar é como nasce a segunda palavra
@@ -47,7 +57,7 @@ function seloLinha(doc, linha) {
  * A ação, por estado — a regra da 2d-2 continua de pé: UM primário por folha,
  * e nenhum na trancada e na concluída (JORNADA §3.1).
  */
-function acaoPorEstado(doc, f, curso, dataConclusao) {
+function acaoPorEstado(doc, f, curso, dataConclusao, painel = null) {
   const box = no(doc, 'div', 'folha-acoes');
 
   if (f.estado === ESTADOS.TRANCADA) {
@@ -87,6 +97,40 @@ function acaoPorEstado(doc, f, curso, dataConclusao) {
     // Desfazer conclusão é link discreto, não botão: voltar atrás é correção,
     // e o segundo botão cheio por folha é o defeito que a 2d-2 matou.
     box.append(no(doc, 'a', 'folha-desfazer', { href: '#/', 'data-desfazer': f.id, text: F.desfazerConclusao }));
+    return box;
+  }
+
+  // ── S13b: com as aulas carregadas, a folha ESTUDA, não só "abre o curso" ──
+  // A linha do progresso, o primário que é a aula, a nota de abrir, o secundário
+  // para a página de aulas e o concluir discreto. Faltando as aulas (o arquivo
+  // não está no aparelho), nada aqui toca no desenho de hoje: o bloco abaixo do
+  // else é exatamente a folha da S5, e a lista de aulas é que diz por quê.
+  if (painel) {
+    box.append(linhaProgresso(doc, painel.resumo));
+
+    const aulasAbertas = painel.resumo.abertas > 0;
+    box.append(primarioAula(doc, {
+      aula: painel.continuar.aula,
+      motivo: painel.continuar.motivo,
+      temAberta: aulasAbertas,
+      playlist: painel.playlist
+    }));
+    // A nota nova (aulas.notaAbrir): o que o toque faz — abre no YouTube e
+    // marca ABERTA. "Estudada" é a S14, e a folha não promete o que não aconteceu.
+    box.append(notaAbrirAula(doc));
+
+    box.append(no(doc, 'a', 'botao botao-secundario', {
+      href: hrefDe({ tela: 'estacao', slug: curso.slug || curso.id, painel: 'aulas' }),
+      text: AU.verTodas(painel.resumo.total)
+    }));
+
+    // "Concluir estação" saiu dos botões e virou link discreto (J2): até a S16
+    // trocar o concluir pela escada da estação, o mesmo data-concluir, o mesmo
+    // handler do metro.js — só mudou o peso visual, porque o gesto principal
+    // agora é a aula.
+    box.append(no(doc, 'a', 'folha-desfazer folha-concluir-discreto', {
+      href: '#/', 'data-concluir': f.id, text: F.marcarConcluida
+    }));
     return box;
   }
 
@@ -259,12 +303,20 @@ function blocoMomento(doc, corpo, momento, f) {
  * acerta o toque fora sem uma linha de JS no celular); o aparadeiro é
  * `.folha-corpo`, que sobe no celular e vira painel à direita no computador.
  *
+ * S13b acrescenta dois campos ao `estado`, e nenhum dos dois é obrigatório:
+ *   · `aulas` — o objeto lido de `data/aulas/<slug>.json` por
+ *     web/aulas-dados.js, ou null quando o arquivo não está no aparelho;
+ *   · `estudo` — o estudo cru de `localStorage` (core/estudo.js), ou null.
+ * Sem `aulas` a folha é exatamente a de sempre (S5): a linha de progresso, o
+ * primário de aula e o concluir discreto só aparecem com a lista carregada, e o
+ * erro de carga pertence à página de aulas, não à folha.
+ *
  * @param {Document} doc
- * @param {{catalogo: Array, progresso: object, slug: string, notas: object}} estado
+ * @param {{catalogo: Array, progresso: object, slug: string, notas: object, aulas?: object|null, estudo?: object|null}} estado
  * @returns {{root: Element, estacaoId: string|null}}
  */
 export function desenharFolha(doc, estado) {
-  const { catalogo = [], progresso = {}, slug, notas = {}, momento = null } = estado || {};
+  const { catalogo = [], progresso = {}, slug, notas = {}, momento = null, aulas = null, estudo = null } = estado || {};
   const curso = catalogo.find((c) => c && (c.slug === slug || c.id === slug));
 
   const raiz = no(doc, 'div', 'folha', {
@@ -345,8 +397,16 @@ export function desenharFolha(doc, estado) {
   // 5. o que o gesto abre, pelo nome, com a baldeação nomeada.
   corpo.append(blocoDeAbertura(doc, f));
 
-  // 6. a ação do estado.
-  corpo.append(acaoPorEstado(doc, f, curso, progresso.conclusoes?.[curso.id]));
+  // 6. a acao do estado. S13b: as aulas so entram onde ha estudo a fazer --
+  // disponivel ou em curso. Concluida e trancada manteria a linha de progresso a
+  // 100% ou a 0% sem nenhum gesto possivel, e o painel das duas ja existe (o mapa
+  // do que abriu, a data). A lista vem de fora (web/aulas-dados.js): a folha nao
+  // carrega nada e nao decide nada, so monta o que o nucleo calculou. Sem lista,
+  // acaoPorEstado desenha a folha exatamente como ela era hoje.
+  const comAulas = (f.estado === ESTADOS.DISPONIVEL || f.estado === ESTADOS.EM_CURSO)
+    ? painelDeAulas(estudo || lerEstudo(null), curso.id, { ...aulas, resourceUrl: curso.resourceUrl })
+    : null;
+  corpo.append(acaoPorEstado(doc, f, curso, progresso.conclusoes?.[curso.id], comAulas));
 
   // 7. a anotação. O nome acessível do campo leva a estação — é a lição da
   //    2c-3: desenhado nas 35 estações, o leitor de tela dizia "Anotação"

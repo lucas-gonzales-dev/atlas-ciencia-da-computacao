@@ -193,7 +193,16 @@ test('core/textos.js: nenhum texto de tela chega ao aluno sem o acento que o por
   // Só palavras que NÃO EXISTEM sem acento em português. Ficam de fora "ha",
   // "esta" e "era", que são palavras legítimas cruas — mesma lista do caso do
   // catálogo, ampliada com as duas formas que a S7 achou.
-  const CRUS = /\b(nao|disponivel|disponiveis|conteudo|construcao|indice|pagina|voce|proximo|proxima|numero|estacao|estacoes|acao|area|areas|dao|decisao|possivel|historia|relicao|opcao|aula|ultimo|ultima|publico|medico|extrato|serie)\b/;
+  //
+  // "aula" SAIU da lista (S13b, 04/11/2026). Ela entrou um dia ao lado de
+  // "aulas", mas "aula" se escreve assim mesmo, sem acento nenhum: era a única
+  // palavra da lista que não é grafia crua de nada. O efeito prático apareceu
+  // na frase nova da folha — "Abre no YouTube. A aula fica marcada como
+  // aberta." — que a régua acusava de texto sem acento, quando a régua é que
+  // estava errando. Deixar um falso positivo na casa é pior que a regra frouxa:
+  // na próxima vez que a régua reclamar, ninguém sabe se é defeito ou ruído. As
+  // frases de verdade continuavam presas pelas outras 29 palavras.
+  const CRUS = /\b(nao|disponivel|disponiveis|conteudo|construcao|indice|pagina|voce|proximo|proxima|numero|estacao|estacoes|acao|area|areas|dao|decisao|possivel|historia|relicao|opcao|ultimo|ultima|publico|medico|extrato|serie)\b/;
 
   const culpados = frases.filter((f) => CRUS.test(f));
   assert.deepEqual(culpados, [], `frase sem acento no texto de tela de core/textos.js: ${culpados.join(' | ')}`);
