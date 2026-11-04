@@ -22,7 +22,7 @@ import { criarDoc, janelaCom, storageCom, todos, textoDe } from './hdom.js';
 import { duracaoLegivel } from '../core/aulas.js';
 import { aulas as AU, folha as F } from '../core/textos.js';
 import { hrefDe } from '../core/rotas.js';
-import { ESTUDO_KEY, abrirAula, continuarDe, lerEstudo, serializarEstudo } from '../core/estudo.js';
+import { ESTUDO_KEY, abrirAula, continuarDe, estadoDaAula, lerEstudo, serializarEstudo } from '../core/estudo.js';
 import { desenharFolha } from '../web/folha.js';
 import { agoraLocal, hrefVideo, ligarAberturaDeAula, painelDeAulas } from '../web/aulas-pedacos.js';
 // A página das aulas (S13b parte B) e a rota que a monta.
@@ -442,9 +442,63 @@ test('B5: cada linha aponta para o vídeo DAQUELA aula, dentro da playlist da es
 
 test('B6: a aula por onde continuar é a única marcada com aria-current na lista', async () => {
   const { raiz } = await pagina({ bruto: estudoCom(2, 9) });
-  const marcadas = linksDeAula(raiz).filter((n) => n.getAttribute('aria-current') === 'true');
+  // `step`, não `true`: a aula é um passo de uma sequência (Aula 9 de 93). O
+  // pedido do acabamento escreveu step; a tela e esta trava estavam em true, e
+  // era isso que as duas liam uma da outra sem nunca confrontar o pedido.
+  const marcadas = linksDeAula(raiz).filter((n) => n.getAttribute('aria-current') === 'step');
   assert.equal(marcadas.length, 1, 'a marca de "por onde continuar" é um ponto, não a lista toda');
   assert.equal(marcadas[0].getAttribute('data-aula'), AULAS.aulas[8].id, 'regra 2: a aberta mais recente');
+});
+
+test('B6b: a linha carrega a marca do estado, e o nome do estado é texto escondido, não coluna', async () => {
+  // ACABAMENTO, item 4 (04/11/2026). No Chrome de 1280 px "Não iniciada" era
+  // desenhado por cima do título: as duas colunas deixavam a do título com zero.
+  // A trava é dupla — a marca existe com a classe do estado, e o nome do estado
+  // mora num nó com .so-leitor (escondido visualmente, dito ao leitor de tela).
+  const { raiz } = await pagina({ bruto: estudoCom(3) });
+  const linhas = linhasDa(raiz);
+  assert.equal(linhas.length, TOTAL_AULAS);
+
+  for (const [i, link] of linhas.entries()) {
+    const esperada = estadoDaAula(lerEstudo(estudoCom(3)), AULAS.aulas[i].id);
+    const marca = todos(link, (n) => n.className.split(/\s+/).includes('aula-marca'))[0];
+    assert.ok(marca, `linha ${i + 1}: sem a marca, o estado só existe como texto e a linha vira coluna disputada`);
+    assert.ok(marca.className.split(/\s+/).includes(`aula-marca-${esperada}`),
+      `linha ${i + 1}: a marca diz "${marca.className}", o registro diz "${esperada}"`);
+
+    const soLeitor = todos(link, (n) => n.className.split(/\s+/).includes('so-leitor'));
+    assert.equal(soLeitor.length, 1, `linha ${i + 1}: o nome do estado é um nó .so-leitor, nem zero nem dois`);
+    assert.ok(soLeitor[0].className.split(/\s+/).includes('aula-estado'),
+      `linha ${i + 1}: é o estado que se esconde, não outro texto: "${soLeitor[0].className}"`);
+    assert.ok(AU.estados[esperada] && soLeitor[0].textContent === AU.estados[esperada],
+      `linha ${i + 1}: o nome escondido é o do registro: "${soLeitor[0].textContent}"`);
+    // A marca é desenho; quem fala é o .so-leitor. As duas juntas dariam ao
+    // leitor de tela "Non iniciada Não iniciada" em cada uma das 93 linhas.
+    assert.equal(marca.getAttribute('aria-hidden'), 'true', `linha ${i + 1}`);
+  }
+
+  // A aula de continuar traz o anel, e o anel é da MARCA — não a barra de 6 px
+  // que empurrava o título para debaixo do estado.
+  const continuar = linksDeAula(raiz).find((n) => n.getAttribute('aria-current') === 'step');
+  assert.ok(continuar, 'alguma linha tem de ser o passo por onde continuar');
+  assert.ok(todos(continuar, (n) => n.className.split(/\s+/).includes('aula-marca')).length === 1,
+    'a linha de continuar tem a marca que recebe o anel');
+});
+
+test('B6c: só a aula de exercício leva a etiqueta, e ela é filha da célula do título', async () => {
+  const { raiz } = await pagina();
+  const etiquetas = todos(raiz, (n) => n.className.split(/\s+/).includes('aula-etiqueta'));
+  const exercicios = AULAS.aulas.filter((a) => a.exercicio);
+  assert.equal(etiquetas.length, exercicios.length,
+    `a etiqueta é do que a fonte marca: ${exercicios.length} exercícios, ${etiquetas.length} etiquetas`);
+  for (const e of etiquetas) assert.equal(e.textContent, AU.etiquetaExercicio);
+
+  // Quinto nó solto na linha cairia numa quinta coluna, que é como a segunda
+  // coluna nasceu. Dentro do título, a etiqueta quebra junto com ele.
+  const dentro = todos(raiz, (n) => n.className.split(/\s+/).includes('aula-titulo'))
+    .flatMap((c) => todos(c, (n) => n.className.split(/\s+/).includes('aula-etiqueta')));
+  assert.equal(dentro.length, etiquetas.length, 'toda etiqueta mora na célula do título');
+  assert.ok(exercicios.length > 0, 'a fonte de Circuitos Digitais tem aulas de exercício; sem elas esta trava não prova nada');
 });
 
 test('B7: a frase do progresso é BYTE A BYTE a mesma da folha com o mesmo estudo (regra 9)', async () => {
@@ -514,7 +568,7 @@ test('B8: tocar numa linha grava a abertura e a página se repinta ao redor dela
   // baixo de um primário velho e de uma barra que não se moveu.
   assert.equal(textoDo(um(raiz, 'aulas-primario', 'após o toque')), AU.continuar(5, AULAS.aulas[4].titulo));
   assert.equal(textoDo(um(raiz, 'aulas-progresso-texto', 'após o toque')), AU.progresso(1, TOTAL_AULAS, duracaoLegivel(SEGUNDOS_TODAS - AULAS.aulas[4].duracaoS)));
-  const marcadas = linhasDa(raiz).filter((n) => n.getAttribute('aria-current') === 'true');
+  const marcadas = linhasDa(raiz).filter((n) => n.getAttribute('aria-current') === 'step');
   assert.equal(marcadas.length, 1);
   assert.equal(marcadas[0].getAttribute('data-aula'), AULAS.aulas[4].id);
   assert.equal(todos(raiz, (n) => n.tag === 'li').length, TOTAL_AULAS, 'a repintura não duplicou a lista');

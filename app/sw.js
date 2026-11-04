@@ -398,7 +398,25 @@
 // lista), entao VERSAO e hash. Sem isto, quem tem v59 no cache recebe o
 // index.html novo com o metro.js velho na folha: a estacao abre sem o painel de
 // aulas e o clique nao grava nada.
-const VERSAO = 'atlas-v60';
+// atlas-v61: o ACABAMENTO da S13c (04/11/2026), julgado no Chrome em 375 e
+// 1280 px. web/folha.css: o primario e o secundario de aula passam a
+// .botao.botao-primario / .botao.botao-secundario (duas classes), porque o
+// metro.css carrega depois e o .botao dele, empatado em especificidade, os
+// deixava caixa clara; entra a.botao com text-decoration: none,
+// display: inline-flex e align-items: center, porque o link de aula nao pode
+// parecer texto. web/telas/aulas.css: box-sizing: border-box no .aulas (sem
+// ele, width 100% mais padding da 407 px numa tela de 375 e a pagina passa da
+// borda com a duracao cortada), sai o repeat(2, ...) da lista no computador (o
+// titulo encolhia a zero e "Nao iniciada" se desenhava por cima dele), a linha
+// vira auto auto minmax(0, 1fr) auto com a marca do estado de 16 px na --cor da
+// linha, o nome do estado em .so-leitor e o titulo com clamp de duas linhas; o
+// anel "voce esta aqui" passa a ser box-shadow na marca, no lugar da barra de
+// 6 px. web/telas/aulas.js escreve aria-current="step" (o pedido dizia step; a
+// tela e o teste estavam em true). core/textos.js ganha a etiqueta Exercício e
+// web/tokens.css o --largura-leitura: 720px. Mudou conteudo de cinco folhas do
+// precache, entao VERSAO e hash. Sem isto, quem tem v60 no cache continua com o
+// botao caixa clara, a lista de duas colunas e a pagina vazando da borda.
+const VERSAO = 'atlas-v61';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
@@ -411,7 +429,14 @@ const VERSAO = 'atlas-v60';
 // buscarAulas por deps) mudaram de bytes. O sw.js mediu o MESMO sha256 antes e
 // depois de eu subir a VERSAO acima, e isto e a prova de que sw.js nao esta na
 // propria lista: quem guarda o hash nao pode estar dentro do que o hash cobre.
-const PRECACHE_HASH = 'sha256-9ad3b6d6f4750e03d7b1cf302e106b15bae82286e9eaf1dddb657a00956870d4';
+// Recalculado no ACABAMENTO da S13c (04/11/2026): cinco folhas do precache
+// mudaram de bytes — web/folha.css (o primário recheado com duas classes e o
+// link sem sublinhado), web/telas/aulas.css (uma coluna, box-sizing, a marca de
+// 16 px), web/telas/aulas.js (a linha com marca + estado em .so-leitor),
+// core/textos.js (a etiqueta "Exercício") e web/tokens.css (--largura-leitura).
+// Sem subir a VERSAO aqui, quem tem v60 no cache continua com o botão caixa
+// clara e a lista de duas colunas, mesmo com o HTML novo.
+const PRECACHE_HASH = 'sha256-2bd6a3105d798b22c08525f8de56e91b48085750b131d55b79d317c21d93bd17';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.

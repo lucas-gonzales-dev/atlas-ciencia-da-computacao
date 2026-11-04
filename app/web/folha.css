@@ -253,12 +253,27 @@
  * os nomes com ele). O primário é recheado na cor da linha, o secundário é o
  * contorno da mesma família — era o que .recurso e .botao-concluir faziam no
  * metro.css, quando a folha morava dentro da linha. */
-.botao-primario {
+/* ACABAMENTO S13c (04/11/2026, julgado no Chrome em 375/768/1280/1920): o
+ * web/metro.css é carregado DEPOIS deste, declara `.botao { background:
+ * var(--fundo) }` com a MESMA especificidade de um `.botao-primario` de uma
+ * classe, e vence pela ordem. Resultado: o primário da aula saía caixa clara.
+ * Duas classes (.botao.botao-primario) sobem a especificidade acima do `.botao`
+ * da casa e o recheio na cor da linha volta, sem apagar a regra do metro. */
+.botao.botao-primario {
   background: var(--cor); border-color: var(--cor); color: var(--superficie);
 }
 
-.botao-secundario {
+.botao.botao-secundario {
   background: var(--superficie); border-color: var(--cor); color: var(--cor);
+}
+
+/* O primário e o secundário de aula são LINKS (o Atlas não é dono da aba do
+ * YouTube), e um <a> traz o sublinhado e o display inline do documento. Sem
+ * isto, a aula parece um link de texto no meio de uma fileira de botões. */
+a.botao {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
 }
 
 .folha-nota {

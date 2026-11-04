@@ -76,17 +76,35 @@ function itemDaAula(doc, { aula, estudo, playlist, continuar }) {
     'data-aula': String(aula.id),
     'data-n': String(aula.n)
   });
+  // O registro é por ID do vídeo (estadoDaAula lê `estudo.aulas[texto(aula)]`):
+  // passar o objeto faria `texto()` devolver '' e TODA linha sairia "Não
+  // iniciada" — o verde mudo de uma lista que nunca mostra o que já foi aberto.
+  const estado = estadoDaAula(estudo, aula.id);
+  const nomeEstado = A.estados[estado] || A.estados['nao-iniciada'];
+
+  // A célula do título: o texto que quebra em duas linhas e, quando a aula é de
+  // exercício, a etiqueta ao lado. `no()` desta casa só põe atributo e texto,
+  // então os filhos entram por append — não por um argumento que ele não tem.
+  const celulaTitulo = no(doc, 'span', 'aula-titulo');
+  celulaTitulo.append(no(doc, 'span', 'aula-titulo-texto', { text: aula.titulo }));
+  if (aula.exercicio) celulaTitulo.append(no(doc, 'span', 'aula-etiqueta', { text: A.etiquetaExercicio }));
+
   link.append(
+    // A marca: círculo vazio ou círculo com ponto, na cor da linha. O estado
+    // NÃO é texto visível na linha — no Chrome de 1280 px "Não iniciada" era
+    // desenhado por cima do título, porque a coluna dele encolhia a zero num
+    // grid de duas colunas (defeito 3 do acabamento). É texto escondido com a
+    // classe .so-leitor da base.css, que é como a casa dá um nome a uma marca.
+    no(doc, 'span', `aula-marca aula-marca-${estado}`, { 'aria-hidden': 'true' }),
     no(doc, 'span', 'aula-n', { text: String(aula.n) }),
-    no(doc, 'span', 'aula-titulo', { text: aula.titulo }),
-    // O registro é por ID do vídeo (estadoDaAula lê `estudo.aulas[texto(aula)]`):
-    // passar o objeto faria `texto()` devolver '' e TODA linha sairia "Não
-    // iniciada" — o verde mudo de uma lista que nunca mostra o que já foi aberto.
-    no(doc, 'span', 'aula-estado', { text: A.estados[estadoDaAula(estudo, aula.id)] || A.estados['nao-iniciada'] }),
+    celulaTitulo,
+    no(doc, 'span', 'aula-estado so-leitor', { text: nomeEstado }),
     no(doc, 'span', 'aula-duracao', { text: duracaoLegivel(aula.duracaoS) })
   );
-  // O ponto de retorno da estação, marcado na própria linha.
-  if (continuar && aula.id === continuar.id) link.setAttribute('aria-current', 'true');
+  // O ponto de retorno da estação, marcado na própria linha. `step` e não
+  // `true`: é o passo de uma sequência (Aula 3 de 93), que é o que
+  // aria-current aceita e o que a pessoa está lendo.
+  if (continuar && aula.id === continuar.id) link.setAttribute('aria-current', 'step');
   li.append(link);
   return li;
 }

@@ -189,6 +189,12 @@
    * se o tamanho morar num lugar só. */
   --altura-folha: 90dvh;          /* o teto da folha no celular */
   --largura-painel: 480px;        /* o painel da estação no computador */
+  /* S13b acabamento (04/11/2026): a página de AULAS é LEITURA corrida, 93 linhas
+   * de uma coluna. O --largura-painel (480) é a folha, que cabe o resumo de uma
+   * estação; numa lista com número + título + duração, 480 corta o título. 720 é
+   * a linha de leitura pedida pelo desenho, e mora aqui porque a regra 11 da casa
+   * não aceita número solto no CSS de uma tela. */
+  --largura-leitura: 720px;
   --espessura-borda-painel: 6px;  /* a borda esquerda, na cor da linha */
 
   --curva-mecanica: cubic-bezier(0, 0, 0.2, 1);

@@ -664,6 +664,10 @@ export const aulas = Object.freeze({
     // S14 acrescenta 'estudada'; estadoDaAula devolve a palavra e a tela lê daqui.
   }),
   assistir: 'Assistir no YouTube',
+  // A etiqueta da linha de exercício na página de aulas (acabamento, item 3).
+  // Sai do campo `exercicio` que core/aulas.js já calcula; nenhum texto é
+  // inventado aqui a partir do título.
+  etiquetaExercicio: 'Exercício',
   // A nota do primário da folha (J2, item 3 da fatia): o que acontece quando se
   // toca. Dizer "aberta" e não "assistida" é a honestidade da S13b — o Atlas
   // sabe que o vídeo foi aberto, não que a pessoa viu. A S14 troca a frase quando

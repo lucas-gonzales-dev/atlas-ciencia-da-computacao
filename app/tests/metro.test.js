@@ -1570,9 +1570,15 @@ test('jornada: um primário só na tela', () => {
   // S5 parte 2: os nomes mudaram com o arquivo. `.recurso`/`.botao-concluir`
   // eram da folha-desenhada-dentro-da-linha; a folha de rota usa
   // `.botao-primario`/`.botao-secundario`, e é neles que a regra vive.
-  assert.match(bloco('.botao-primario'), /background:\s*var\(--cor\)/,
-    'o recurso continua sendo o primário da folha');
-  assert.match(bloco('.botao-secundario'), /background:\s*(none|var\(--superficie\)|var\(--fundo\))/,
+  // ACABAMENTO (04/11/2026, Chrome em 375/1280): o primário e o secundário da
+  // folha saíam caixa clara. O metro.css é carregado DEPOIS do folha.css e o
+  // `.botao { background: var(--fundo) }` dele empata em especificidade com um
+  // `.botao-primario` de uma classe e vence pela ordem. As duas classes sobem a
+  // especificidade acima do `.botao` da casa. Esta trava lia o seletor de uma
+  // classe e caiu com a mudança — é ela que acompanha o desenho.
+  assert.match(bloco('.botao.botao-primario'), /background:\s*var\(--cor\)/,
+    'o recurso continua sendo o primário da folha, recheado na cor da linha');
+  assert.match(bloco('.botao.botao-secundario'), /background:\s*(none|var\(--superficie\)|var\(--fundo\))/,
     'e o concluir continua contorno');
   // O estado que cede o primário: a raiz da tela ganha a classe quando há folha aberta.
   assert.match(css, /\.metro\.com-folha \.placa-acao \{[^}]*background:\s*(none|var\(--superficie\)|var\(--fundo\))/,

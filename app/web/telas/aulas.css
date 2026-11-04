@@ -15,13 +15,24 @@
    "por onde continuar" vem do JS, nunca daqui. */
 
 /* ── a página inteira ───────────────────────────────────────────────────── */
+/* ACABAMENTO (04/11/2026, Chrome em 375 px): a página passava da borda — div,
+ * cabeçalho, h1, painel e lista, e a duração saindo cortada. A causa é esta
+ * regra: `width: 100%` com padding e o border-box do base.css não alcançar quem
+ * não o herdou. Sem box-sizing, 100% + 16px de padding dos dois lados é uma
+ * caixa de 407 px numa tela de 375, e a página inteira rola para o lado.
+ *
+ * UMA COLUNA SÓ, à esquerda da área de conteúdo: duas colunas de lista (o que
+ * estava aqui) transformavam cada linha em coluna estreita, o título encolhia a
+ * zero e o texto do estado era desenhado POR CIMA dele. 93 aulas em uma coluna é
+ * rolagem sem fim, e é assim mesmo que se lê uma ementa. */
 .aulas {
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   gap: var(--espaco-4);
   padding: var(--espaco-4) var(--espaco-4) calc(var(--espaco-6) + var(--margem-segura-baixo));
-  max-width: var(--largura-painel);
-  margin: 0 auto;
+  max-width: var(--largura-leitura);
+  margin: 0;
   width: 100%;
 }
 
@@ -119,15 +130,20 @@
   border-bottom: var(--espessura-borda-painel) solid var(--borda);
 }
 
-/* A linha é uma coisa tocável só: número, título, estado e duração. O `grid` dá
-   o alinhamento sem uma linha de posicionamento absoluto, e o título é a
-   coluna que encolhe (minmax(0, 1fr)) — sem o zero, uma aula com nome longo
-   empurra a duração para fora da tela, que foi o defeito da coluna de 32 px da
-   etiqueta (acabamento.test.js). */
+/* A linha é UMA coisa tocável: marca do estado, número, título, duração. O `grid`
+   dá o alinhamento sem posicionamento absoluto, e o título é a coluna que
+   encolhe (minmax(0, 1fr)) — sem o zero, uma aula com nome longo empurra a
+   duração para fora da tela, que foi o defeito da coluna de 32 px da etiqueta
+   (acabamento.test.js). O nome da aula é o que fica quando tudo aperta.
+
+   ACABAMENTO (04/11/2026): o estado NÃO é coluna. Com "Não iniciada" competindo
+   por largura, no computador ela virava texto desenhado por cima do título. O
+   estado agora é a marca de 16 px, com o nome em .so-leitor. */
 .aula-link {
+  box-sizing: border-box;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
-  align-items: baseline;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  align-items: center;
   gap: var(--espaco-3);
   padding: var(--espaco-3) var(--espaco-1);
   min-height: var(--alvo-toque);
@@ -139,22 +155,95 @@
   text-decoration: underline;
 }
 
+/* A marca do estado: círculo de 16 px na cor da linha, vazio ou com ponto no
+   centro. O --cor chega do JS (a cor da LINHA da estação, como na folha); sem
+   ela o cair-voltar é a tinta, nunca uma cor escrita à mão. Os dois tamanhos
+   são --espaco-4 (16 px), o mesmo número que o pedido deu. */
+.aula-marca {
+  box-sizing: border-box;
+  width: var(--espaco-4);
+  height: var(--espaco-4);
+  border-radius: var(--raio-estacao);
+  border: var(--anel-trancada) solid var(--cor, var(--tinta));
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.aula-marca-aberta::after {
+  content: "";
+  position: absolute;
+  inset: var(--espaco-1);
+  border-radius: var(--raio-estacao);
+  background: var(--cor, var(--tinta));
+}
+
+/* Parte C: a marca muda de não-iniciada para aberta quando a pessoa volta da aba
+   do YouTube. A transição é do CSS, com o tempo do token; --movimento-abrir é o
+   tempo da folha, e no prefers-reduced-motion o próprio token vai a zero, então
+   a casa já trata o "na hora" sem uma regra aqui. */
+.aula-marca {
+  transition: border-color var(--movimento-abrir) var(--curva-chegada);
+}
+
 .aula-n {
   color: var(--tinta);
+  font-family: var(--fonte-mono);
+  /* Largura fixa para alinhar: dois caracteres, porque uma estação chega a 93
+     aulas e o 1 da Aula 1 e o 9 da Aula 93 têm de cair no mesmo lugar. Não é
+     número à mão: é o --espaco-4 da casa medindo a coluna do maior número. */
+  min-width: var(--espaco-4);
+  text-align: right;
 }
 
-.aula-estado,
-.aula-duracao {
+.aula-titulo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--espaco-2);
+  min-width: 0;
+}
+
+/* Título longo quebra em até duas linhas e corta com reticências, sem estourar a
+   largura (folha e página, item A.2 e B.2). O clamp é da célula do texto, não do
+   contêiner: é o contêiner que segura a etiqueta, e clamp num flex cortaria a
+   etiqueta junto. */
+.aula-titulo-texto {
+  min-width: 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+/* A etiqueta de exercício, no mesmo estilo dos selos de estado do Explorar:
+   mono, --tipo-nota, maiúscula, --raio-selo. Não compete com o título: ela vem
+   depois e quebra junto. */
+.aula-etiqueta {
+  font-family: var(--fonte-mono);
+  font-size: var(--tipo-nota);
+  text-transform: uppercase;
+  letter-spacing: var(--espacamento-placa);
+  padding: 2px var(--espaco-2);
+  border-radius: var(--raio-selo);
+  background: var(--superficie);
   color: var(--tinta);
 }
 
-/* O ponto de retorno: a borda da cor da linha na esquerda diz onde a pessoa
-   está sem depender só do texto, que é o que o leitor de tela também recebe
-   pelo `aria-current`. */
-.aula-link[aria-current="true"] {
-  border-left: var(--espessura-borda-painel) solid var(--cor, var(--tinta));
-  padding-left: var(--espaco-2);
-  background: var(--superficie);
+.aula-duracao {
+  color: var(--tinta);
+  font-family: var(--fonte-mono);
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* O ponto de retorno é o anel "você está aqui" em volta da MARCA, o mesmo
+   box-shadow do selo da linha atual no metro.css (.linhas .selo[aria-pressed]).
+   Saiu a barra preta de 6 px na esquerda: com duas colunas ela empurrava o
+   título e o texto do estado se desenhava sobre ele. aria-current="step" é o que
+   a tela e o teste escrevem: é passo de uma sequência, não "true" genérico. */
+.aula-link[aria-current="step"] .aula-marca {
+  box-shadow: 0 0 0 var(--anel-foco) var(--tinta);
 }
 
 /* ── o erro honesto: o arquivo das aulas não está neste aparelho ───────── */
@@ -178,13 +267,13 @@
     padding: var(--espaco-6) var(--espaco-6) calc(var(--espaco-8) + var(--margem-segura-baixo));
   }
 
-  /* Duas colunas de leitura na lista comprida: 93 aulas em uma coluna é rolagem
-     sem fim, e a ordem continua sendo a da fonte (o `ol` percorre em coluna). */
-  .aulas-lista {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0 var(--espaco-6);
-  }
+  /* ACABAMENTO (04/11/2026, Chrome em 1280 px): as DUAS colunas da lista foram a
+     causa do texto sobreposto. Cada coluna ficava com ~340 px, a célula do título
+     encolhia até zero e "Não iniciada" era desenhado por cima do título. O desenho
+     pedido é uma coluna só de no máximo --largura-leitura, e é ela que fica: a
+     ordem da lista é a ordem da fonte e o `ol` continua percorrendo em coluna, só
+     que agora há uma coluna. Nenhuma regra de grade aqui — o que não existe não
+     pode voltar por cima. */
 
   .aula-item {
     border-bottom: var(--espessura-borda-painel) solid var(--borda);
