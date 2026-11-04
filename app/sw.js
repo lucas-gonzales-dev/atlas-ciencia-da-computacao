@@ -571,7 +571,14 @@
 // cache, responder a um cartão offline não agenda nada, e a frase «o seu cartão
 // volta amanhã» quebra justamente onde ela importa. Sem subir a VERSAO, quem tem
 // v71 recebe o cartoes.js novo chamando um módulo que não está no cache dele.
-const VERSAO = 'atlas-v72';
+// atlas-v73: S15b (04/11/2026) — a aba Revisar passou da revisão por ESTAÇÃO para
+// a fila de CARTÕES escritos no fechamento. Entram no precache o módulo novo
+// web/telas/revisar-fila.js (os quatro desenhos, pela regra 15: revisar.js tinha
+// 504 linhas) e, de bytes, web/telas/revisar.js, web/telas/revisar.css,
+// core/cartoes.js e core/textos.js. Sem subir a VERSAO, quem tem v72 recebe o
+// revisar.js novo importando um módulo que não está no cache dele: a aba abre em
+// branco, offline ou online.
+const VERSAO = 'atlas-v73';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
@@ -601,7 +608,7 @@ const VERSAO = 'atlas-v72';
 // core/rotas.js (a rota da aula), core/aulas.js (pausasDaAula) e core/textos.js
 // (a seção fechamento). O sw.js mediu o mesmo sha256 antes e depois de eu subir a
 // VERSAO, o que é a prova de que ele não está na própria lista.
-const PRECACHE_HASH = 'sha256-d4823e225110a5c5d947f34f1f3d3101f3968fb74008e78ca13a09c0b6e44085';
+const PRECACHE_HASH = 'sha256-43495d3951c0e83ea83caf0a13aeacba8fa62a5edfbf28b02eb11956d85d4587';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.
@@ -680,7 +687,12 @@ const PRECACHE = [
   // revisar.js e pelos dois arquivos da tela. HTML e JS novos pedindo arquivo
   // que o cache antigo não tem = branco no ônibus, sem erro na rede.
   'core/revisao.js',
+  // S15b (04/11/2026): `revisar.js` passou a importar `revisar-fila.js` — os
+  // desenhos dos quatro estados mudaram de arquivo pela regra 15 (ele chegou a
+  // 504 linhas). Esquecer esta linha é o mesmo branco no ônibus: o JS novo
+  // pede um arquivo que o cache antigo não tem.
   'web/telas/revisar.js',
+  'web/telas/revisar-fila.js',
   'web/telas/revisar.css',
   // O PERFIL (S9, 02/11/2026): os dados da pessoa têm casa própria
   // (core/dados-pessoa.js) e a tela importa web/metro.js pelo carregador da

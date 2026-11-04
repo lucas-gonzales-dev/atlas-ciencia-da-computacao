@@ -1,28 +1,43 @@
 /*
-  Projeto Atlas — a tela REVISAR (S8, 01/11/2026).
+  Projeto Atlas — a tela REVISAR: a fila de cartões (S15b, 04/11/2026).
 
-  POR QUE EXISTE: a aba precisa se parecer com as outras duas sem copiar o CSS
-  delas — e o que faz a tela ser "Atlas" é o tipo de placa, o trilho de espaço
-  entre blocos e nenhuma cor escrita à mão. Tudo aqui sai dos tokens; se um
-  número de espaço ou uma duração aparecer literal, os testes da casa param.
+  POR QUE EXISTE: é aqui que o cartão escrito ao fechar uma aula (S14b2) volta.
+  A S8 desenhava uma revisão por estação; o desenho novo (design/v3/00-desenho.md,
+  J3) trocou a unidade pelo cartão. Nenhum valor é à mão: cor, espaço, tipo e
+  tempo saem dos tokens, e a suíte lê este arquivo inteiro procurando hex,
+  propriedade de cor crua e duração sem token (design/README §2, §5, §7).
 
-  SEM DECORAÇÃO: nada de sombra de cartao, nada de animacao infinita, nada de
-  brilho correndo. O movimento desta tela e a entrada, com a curva que a v2 ja
-  declara, e o aviso que some sozinho na janela do desfazer.
+  O QUE SAIU JUNTO COM A TELA DA S8: o bloco `.revisar-anotacao*` (a anotação por
+  estação), `.revisar-aviso*` (o desfazer com temporizador) e `.revisar-como*` +
+  `.revisar-cartoes`/`.revisar-cartao*` (a caixa "Como funciona" com os três
+  passos). Nenhuma classe do estado antigo sobrevive: a tela nova desenha os
+  quatro estados com as classes abaixo, e um CSS órfão de tela apagada é a
+  próxima pessoa ler `.revisar-estacao` e achar que existe estação aqui.
+
+  A COR DA LINHA NÃO EXISTE AQUI, E ISSO É DECISÃO. `--cor` é o token da linha
+  (metro.css: `.l1 { --cor: var(--linha-1) }`), e a fila mistura cartões de
+  várias linhas: pintar o botão com a cor do cartão da vez faria a tela trocar de
+  cor a cada resposta, e `.botao.botao-primario` com `--cor` VAZIO sai com texto
+  `--superficie` sobre o fundo da página (1,1:1, medido no Chrome na S14b2 —
+  aula.css:17 conta o mesmo defeito). Então `.revisar` declara `--cor:
+  var(--tinta)`: o primário é tinta sobre superfície, o contraste mais alto que
+  os tokens têm, e a única cor que não promete uma linha que a tela não é.
 */
 
 .revisar {
+  --cor: var(--tinta);
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   gap: var(--espaco-8);
-  /* A margem da PAGINA, a mesma de toda tela (.metro e .explorar-raiz usam
-     --espaco-4 lateral). Critica no navegador real (S11-0, 03/11/2026): aqui
-     estava --largura-lateral, que e a COLUNA DIREITA do computador, 360px. No
-     celular de 375px sobravam 15px de conteudo para 720px de padding: a tela
-     do Revisar media 0 px de conteudo e a suinte toda verde nao via nada,
-     porque node nao resolve CSS. */
-  padding: var(--espaco-6) var(--espaco-4);
+  /* A margem da PÁGINA, a mesma de toda tela. Crítica no navegador real
+     (S11-0, 03/11/2026): aqui estava --largura-lateral, que é a COLUNA DIREITA
+     do computador, 360px. No celular de 375px sobravam 15px de conteúdo para
+     720px de padding: a tela do Revisar media 0 px de conteúdo e a suíte toda
+     verde não via nada, porque node não resolve CSS. */
+  padding: var(--espaco-6) var(--espaco-4) calc(var(--espaco-6) + var(--margem-segura-baixo));
   max-width: var(--largura-painel);
+  width: 100%;
   font-family: var(--fonte-corpo);
   color: var(--tinta);
 }
@@ -33,20 +48,18 @@
   gap: var(--espaco-6);
 }
 
-/* A placa do estado. Caixa alta e espaço entre letras, como toda placa do app. */
-.revisar-placa,
-.revisar-como-titulo {
-  font-family: var(--fonte-placa);
-  font-size: var(--tipo-placa);
-  font-weight: var(--peso-placa);
-  letter-spacing: var(--espacamento-placa);
-  text-transform: uppercase;
-  line-height: var(--entrelinha-placa);
-  color: var(--fosca);
+/* Um estado por vez na tela. O `<section>` não tem borda nem caixa: a distinção
+   entre os quatro é o CONTEÚDO, e uma caixa em cada um daria à fila o peso
+   visual de um formulário. */
+.revisar-estado {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-3);
 }
 
-/* O nome da estação é o que a pessoa veio ler: o maior tipo da tela. */
-.revisar-estacao,
+/* A Abertura e o Fim são placas de tela: o maior tipo da casa, como o nome da
+   estação era na S8. O cartão NÃO usa este tipo na frente — lá o maior texto é
+   a pergunta (abaixo), e dois títulos grandes na mesma tela deixam de ser título. */
 .revisar-titulo {
   margin: 0;
   font-family: var(--fonte-placa);
@@ -56,63 +69,151 @@
   color: var(--tinta);
 }
 
-.revisar-convite {
-  margin: var(--espaco-3) 0 0;
-  font-size: var(--tipo-corpo);
-  line-height: var(--entrelinha-corpo);
-  color: var(--fosca);
-}
-
 .revisar-sub,
-.revisar-nota {
-  margin: var(--espaco-2) 0 0;
+.revisar-corte,
+.revisar-nota,
+.revisar-lembrada,
+.revisar-metodo {
+  margin: 0;
   font-size: var(--tipo-corpo);
   line-height: var(--entrelinha-corpo);
   color: var(--fosca);
 }
 
+/* O corte da fila ("Você vai ver os 20 mais antigos") é a frase que explica por
+   que o número do alto e o tempo prometido não batem. Fica junto do título e
+   com a mesma tinta do corpo: é informação, não aviso — nada de borda vermelha
+   para uma espera que não é falha. */
+.revisar-corte {
+  color: var(--tinta);
+}
+
+/* As aulas que passaram a "lembradas" nesta sessão: uma linha cada, lida como
+   lista de conquistas sem ser lista de mérito. */
+.revisar-lembrada {
+  color: var(--tinta);
+}
+
+/* A linha discreta que substituiu a caixa "Como funciona" (item 3 do pedido). */
+.revisar-metodo,
 .revisar-nota {
   font-size: var(--tipo-nota);
   line-height: var(--entrelinha-nota);
 }
 
-/* A anotação é citação da própria pessoa, e não um bloco de destaque. */
-.revisar-anotacao {
-  margin: var(--espaco-4) 0 0;
-  padding-left: var(--espaco-4);
-  border-left: var(--espessura-borda-painel) solid var(--borda);
+/* ── o cartão ───────────────────────────────────────────────────────────── */
+/* Origem e posição na mesma linha, em cima da pergunta: "de onde vem" e "onde
+   estou" são o cabeçalho, e a pergunta é o corpo. Em 360px a linha quebra. */
+.revisar-cabeca {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--espaco-2);
 }
 
-.revisar-anotacao-texto,
-.revisar-anotacao-vazia {
+.revisar-origem {
   margin: 0;
+  font-family: var(--fonte-placa);
+  font-size: var(--tipo-legenda);
+  font-weight: var(--peso-placa);
+  letter-spacing: var(--espacamento-placa);
+  text-transform: uppercase;
+  color: var(--fosca);
+}
+
+/* "1 de 6" é POSIÇÃO, não placar (design/README §9). A fonte mono deixa claro
+   que é um contador de lugar; se ele crescesse ou mudasse de cor a cada
+   resposta, viraria pontuação. */
+.revisar-posicao {
+  margin: 0;
+  font-family: var(--fonte-mono);
+  font-size: var(--tipo-nota);
+  color: var(--fosca);
+}
+
+/* A frente do cartão é o maior texto da tela: é a única coisa que a pessoa tem
+   de ler antes de decidir. --tipo-estacao é o maior da escala e é o tipo da
+   pergunta, não do título da aba. */
+.revisar-frente {
+  margin: 0;
+  font-family: var(--fonte-placa);
+  font-size: var(--tipo-estacao);
+  font-weight: var(--peso-placa);
+  line-height: var(--entrelinha-apertada);
+  color: var(--tinta);
+}
+
+.revisar-convite {
+  margin: 0;
+  font-size: var(--tipo-corpo);
+  line-height: var(--entrelinha-corpo);
+  color: var(--fosca);
+}
+
+/* O verso é citação da própria pessoa (mesma decisão da anotação na S8): o
+   Atlas não escreveu aquilo, só devolve. Por isso a barra à esquerda e nenhum
+   destaque de fundo. */
+.revisar-verso {
+  margin: var(--espaco-2) 0 0;
+  padding-left: var(--espaco-4);
+  border-left: var(--espessura-borda-painel) solid var(--borda);
+  font-family: var(--fonte-corpo);
   font-size: var(--tipo-corpo);
   line-height: var(--entrelinha-corpo);
   color: var(--tinta);
 }
 
-.revisar-anotacao-vazia {
+/* ── a confiança opcional ───────────────────────────────────────────────── */
+.revisar-confianca {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-2);
+}
+
+.revisar-confianca-pergunta {
+  margin: 0;
+  font-size: var(--tipo-nota);
+  line-height: var(--entrelinha-nota);
   color: var(--fosca);
 }
 
-.revisar-link-curso {
-  display: inline-block;
-  margin-top: var(--espaco-2);
+/* Três escolhas do MESMO peso: mesmo tipo, mesma borda, mesmo recheio, e a
+   escolhida se marca só pelo anel. Se uma delas tivesse cor de "acertei", a
+   pessoa estaria sendo elogiada por chutar alto. */
+.revisar-confianca-opcao {
+  min-height: var(--alvo-toque);
+  padding: var(--espaco-2) var(--espaco-4);
+  font: inherit;
   font-size: var(--tipo-nota);
-  color: var(--linha-1);
+  font-weight: var(--peso-forte);
+  color: var(--fosca);
+  background: none;
+  border: var(--espessura-borda-painel) solid var(--borda);
+  border-radius: var(--raio-placa);
+  cursor: pointer;
+  transition: border-color var(--movimento-toque) var(--curva-atlas),
+    color var(--movimento-toque) var(--curva-atlas);
 }
 
-/* Os tres botoes do mesmo peso: nenhum e primario, e o CSS nao pode fingir que
-   um deles e. Borda e tinta iguais, sem preenchimento. */
+.revisar-confianca-opcao[aria-pressed='true'] {
+  border-color: var(--tinta);
+  color: var(--tinta);
+}
+
+/* ── as ações do cartão ─────────────────────────────────────────────────── */
+/* Errei e Lembrei do MESMO peso e de nenhuma cor de certo ou errado: as duas
+   fileiras de botões da tela (confiança e resposta) usam a MESMA classe, e foi
+   assim que a S8 tinha três botões e a régua 4 do teclado precisava conferir
+   cada um. */
 .revisar-respostas {
   display: flex;
   flex-wrap: wrap;
   gap: var(--espaco-3);
-  margin-top: var(--espaco-6);
+  margin-top: var(--espaco-3);
 }
 
-.revisar-resposta,
-.revisar-secundario {
+.revisar-resposta {
   min-height: var(--alvo-toque);
   padding: var(--espaco-2) var(--espaco-4);
   font: inherit;
@@ -123,123 +224,47 @@
   border: var(--espessura-borda-painel) solid var(--borda);
   border-radius: var(--raio-placa);
   cursor: pointer;
-  transition: border-color var(--movimento-toque) var(--curva-atlas),
-    background-color var(--movimento-toque) var(--curva-atlas);
+  transition: border-color var(--movimento-toque) var(--curva-atlas);
 }
 
-.revisar-resposta:hover,
-.revisar-secundario:hover {
+.revisar-resposta:hover {
   border-color: var(--tinta);
 }
 
+/* O foco é a régua da casa em todo controle tocável. `--alerta` é o anel que o
+   app já usa (S8 herdava a mesma linha) e não um apelo: sem ele, quem navega
+   por Tab não sabe onde está numa tela de fundo único. */
 .revisar-resposta:focus-visible,
-.revisar-secundario:focus-visible,
-.revisar-primario:focus-visible,
-.revisar-link-curso:focus-visible,
-.revisar-aviso-desfazer:focus-visible {
+.revisar-confianca-opcao:focus-visible,
+.revisar-primario:focus-visible {
   outline: var(--anel-foco) solid var(--alerta);
   outline-offset: var(--afastamento-foco);
 }
 
-/* O unico primario da tela e a saida para quem ainda nao tem nada a revisar. */
+/* ── o primário, um só por estado ───────────────────────────────────────── */
+/* A FORMA é do design system: as classes `.botao .botao-primario` vêm junto no
+   className que o JS põe, e o recheio em `--cor` (declarada acima como tinta) é
+   do folha.css, carregado antes deste arquivo. Restam só as classes `revisar-*`
+   para a régua que CONTA primários no DOM montado — contar por `.botao-primario`
+   seria contar os botões do restante do app que a folha tem aberta por cima. */
 .revisar-primario {
-  display: inline-block;
   align-self: flex-start;
   margin-top: var(--espaco-4);
-  padding: var(--espaco-3) var(--espaco-6);
-  font-size: var(--tipo-corpo);
-  font-weight: var(--peso-forte);
-  color: var(--superficie);
-  background: var(--tinta);
-  border-radius: var(--raio-placa);
-  text-decoration: none;
+  text-align: center;
 }
 
-.revisar-vazio {
-  display: flex;
-  flex-direction: column;
-  gap: var(--espaco-2);
-}
-
-/* O aviso de baixo: texto e o desfazer na mesma linha, e some sozinho. */
-.revisar-aviso {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--espaco-4);
-  margin-top: var(--espaco-4);
-  padding: var(--espaco-3) var(--espaco-4);
-  font-size: var(--tipo-nota);
-  line-height: var(--entrelinha-nota);
-  color: var(--tinta);
-  background: var(--superficie);
-  border: var(--espessura-borda-painel) solid var(--borda);
-  border-radius: var(--raio-placa);
-}
-
-.revisar-aviso-texto {
-  margin: 0;
-}
-
-.revisar-aviso-desfazer {
-  min-height: var(--alvo-toque);
-  padding: 0;
-  font: inherit;
-  font-weight: var(--peso-forte);
-  color: var(--tinta);
-  background: none;
-  border: 0;
-  border-bottom: var(--espessura-borda-painel) solid var(--tinta);
-  cursor: pointer;
-}
-
-/* "Como funciona": tres passos numerados, ordem de lista (o 01/02/03 e numero
-   de passo, nao placar). */
-.revisar-como {
-  display: flex;
-  flex-direction: column;
-  gap: var(--espaco-4);
-  padding-top: var(--espaco-6);
-  border-top: var(--espessura-borda-painel) solid var(--borda);
-}
-
-.revisar-cartoes {
-  display: grid;
-  gap: var(--espaco-4);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.revisar-cartao {
-  display: flex;
-  flex-direction: column;
-  gap: var(--espaco-1);
-}
-
-.revisar-cartao-numero {
-  font-family: var(--fonte-mono);
-  font-size: var(--tipo-nota);
-  letter-spacing: var(--espacamento-placa);
-  color: var(--fosca);
-}
-
-.revisar-cartao-titulo {
-  font-size: var(--tipo-corpo);
-  font-weight: var(--peso-forte);
-  color: var(--tinta);
-}
-
-.revisar-cartao-texto {
-  margin: 0;
-  font-size: var(--tipo-nota);
-  line-height: var(--entrelinha-nota);
-  color: var(--fosca);
+@media (min-width: 1024px) {
+  /* No computador a fila fica na coluna de leitura, à esquerda do painel: 720px
+     de pergunta a uma distância de braço, e o texto corrido até a borda de 1920
+     cansa (a mesma razão do --largura-leitura da página da aula). */
+  .revisar {
+    max-width: var(--largura-leitura);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .revisar-resposta,
-  .revisar-secundario {
+  .revisar-confianca-opcao {
     transition: none;
   }
 }

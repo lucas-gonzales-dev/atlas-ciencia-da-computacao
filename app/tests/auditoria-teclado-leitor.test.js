@@ -51,8 +51,10 @@ import { montar as montarPerfil } from '../web/telas/perfil.js';
 import { subirMetro } from '../web/metro.js';
 import { iniciar as iniciarCasco } from '../web/casco.js';
 import { ABAS, lerRota } from '../core/rotas.js';
-import { casco } from '../core/textos.js';
-import { agendarConclusao, serializeRevisoes, STORAGE_KEY } from '../core/revisao.js';
+import { casco, revisar as tRev } from '../core/textos.js';
+// S15b: a aba Revisar passou do cartão de ESTação ao CARTÃO escrito no
+// fechamento, e a peça do dia que esta régua percorre é a dele.
+import { CARTOES_KEY, criarCartao, serializarCartoes } from '../core/cartoes.js';
 
 const CATALOGO = JSON.parse(readFileSync(fileURLToPath(new URL('../data/catalog.json', import.meta.url)), 'utf8'));
 const IDS = CATALOGO.courses.map((c) => c.id);
@@ -297,24 +299,48 @@ test('teclado 1: cada ação desenhada nas cinco telas está ao alcance do Tab',
     resultados.push(percorrer('EXPLORAR (busca sem resultado)', raiz));
   }
 
-  // REVISAR com uma revisão na fila: mostrar-anotação + três respostas + desfazer.
+  // REVISAR (S15b): a fila de CARTÕES, nos dois estados em que ela tem peça — a
+  // abertura, com o «Começar», e o cartão, com a confiança opcional e o
+  // «Mostrar a resposta»; depois do Mostrar, as duas respostas do mesmo peso.
+  // Percorrer os três é o que a casa sempre quis dizer: cada ação que a tela
+  // desenha tem de estar ao alcance do Tab, e a fila desenha ações diferentes
+  // conforme a pessoa anda por ela. O «Desfazer» saiu da tela com a S8, e com
+  // ele saiu daqui.
   {
     const id = IDS[0];
+    // Criado DOIS dias antes do HOJE da casa (02/11): o cartão novo vence
+    // amanhã, e dois dias para trás é o que o põe na fila de hoje. Criado hoje
+    // daria um «em dia» sem peça nenhuma — o falso negativo que esta casa existe
+    // para impedir, e que ela acabou de medir ao trocar o cenário.
+    const criado = criarCartao(
+      { versao: 1, cartoes: {} },
+      { estacao: id, aula: 'aula-1', n: 1, frente: 'O que é um bit?', verso: 'O menor pedaço de informação.' },
+      '2026-10-31T10:00',
+      'teclado-revisar'
+    );
+    assert.equal(criado.ok, true, `fixture: cartão recusado (${criado.erro})`);
     const storage = storageCom({
       'atlas.progresso.v1': JSON.stringify([id]),
-      [STORAGE_KEY]: serializeRevisoes(agendarConclusao({}, id, '2026-11-02'))
+      [CARTOES_KEY]: serializarCartoes({ versao: 1, cartoes: criado.cartoes })
     });
     const doc = criarDoc();
     const raiz = doc.createElement('div');
-    await montarRevisar(raiz, contexto(doc, { completed: [id], storage, hoje: '2027-06-01' }));
+    await montarRevisar(raiz, contexto(doc, { completed: [id], storage }));
     await esperar();
-    const peca = porTag(raiz, 'button');
-    assert.ok(peca.length >= 4, `Revisar sem a peça do dia: ${peca.length} botões`);
-    resultados.push(percorrer('REVISAR (fila do dia)', raiz));
-    // e o aviso com o desfazer, que é desenhado depois do gesto:
-    peca.find((b) => b.dataset?.resultado)?.dispatch('click', { target: peca[0] });
+    const botões = () => porTag(raiz, 'button');
+    const peloTexto = (texto) => botões().find((b) => b.textContent === texto);
+    assert.ok(botões().length >= 1, `Revisar na abertura sem peça: ${botões().length} botões`);
+    resultados.push(percorrer('REVISAR (abertura)', raiz));
+
+    peloTexto(tRev.comecar).dispatch('click', { target: raiz });
     await esperar();
-    resultados.push(percorrer('REVISAR (aviso com desfazer)', raiz));
+    assert.ok(botões().length >= 4, `Revisar no cartão sem a confiança e o Mostrar: ${botões().length} botões`);
+    resultados.push(percorrer('REVISAR (cartão, antes do verso)', raiz));
+
+    peloTexto(tRev.mostrarResposta).dispatch('click', { target: raiz });
+    await esperar();
+    assert.ok(peloTexto(tRev.errei) && peloTexto(tRev.lembrei), 'o cartão não deu as duas respostas');
+    resultados.push(percorrer('REVISAR (cartão, com as duas respostas)', raiz));
   }
 
   // PERFIL com viagem feita: o botão de exportar (ouvinte próprio) e o input de arquivo.

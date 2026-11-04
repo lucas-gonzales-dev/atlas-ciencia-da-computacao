@@ -28,6 +28,7 @@ import { montar as montarPerfil } from '../web/telas/perfil.js';
 import { subirMetro } from '../web/metro.js';
 import { TEXTOS, comValores, estados, folha as tFolha, jornada as J, revisar as tRev, perfil as tPerf } from '../core/textos.js';
 import { agendarConclusao, serializeRevisoes, STORAGE_KEY } from '../core/revisao.js';
+import { CARTOES_KEY, criarCartao, serializarCartoes } from '../core/cartoes.js';
 
 const CATALOGO = JSON.parse(readFileSync(fileURLToPath(new URL('../data/catalog.json', import.meta.url)), 'utf8'));
 const IDS = CATALOGO.courses.map((c) => c.id);
@@ -211,17 +212,35 @@ async function revisar(opts = {}) {
   return { doc, raiz, inst };
 }
 
-test('estados: REVISAR nenhuma concluída — diz por onde começar', async () => {
+// S15b (04/11/2026): a unidade da aba deixou de ser a ESTAÇÃO e passou a ser o
+// CARTÃO que a pessoa escreveu no fechamento. Os dois estados daqui são os novos
+// (design/v3/00-desenho.md J3): "sem cartão nenhum" — quem nunca fechou uma aula,
+// e por isso a fila ainda não começou — e "em dia" — há cartões, nenhum para hoje.
+// O QUE ESTAS DUAS CASAS CONTINUAM CONFERINDO, sem afrouxar: a frase da casa
+// (vinda de core/textos.js, nunca uma palavra da tela) e uma saída (link ou
+// botão). Só o cenário mudou, porque a tela mudou.
+test('estados: REVISAR nenhum cartão escrito — diz por onde começar', async () => {
   const { raiz } = await revisar({ completed: [], catalogo: prometido(CATALOGO) });
-  exigeTextoESaida(raiz, [tRev.nadaParaRevisar, tRev.irParaProxima], 'Revisar sem nada concluído');
+  exigeTextoESaida(raiz, [tRev.comecaNoCartao, tRev.proximaAula], 'Revisar sem cartão nenhum');
 });
 
 test('estados: REVISAR em dia — a próxima revisão em data legível', async () => {
   const id = IDS[0];
-  const fila = agendarConclusao({}, id, '2026-11-02');
+  // Um cartão de fechamento de verdade, criado pelo núcleo, vencendo depois do
+  // HOJE desta cena (01/06/2027): é isso que "em dia" quer dizer — a fila existe,
+  // e nada dela está para hoje. A chave antiga atlas.revisoes.v1 entra com uma
+  // anotação VAZIA de propósito: sem anotação a migração não inventa cartão, e o
+  // que esta casa olha é o cartão do fechamento, não a migração.
+  const criado = criarCartao(
+    { versao: 1, cartoes: {} },
+    { estacao: id, aula: 'aula-1', n: 1, frente: 'O que é um bit?', verso: 'O menor pedaço de informação.' },
+    '2027-06-01T10:00',
+    'estados-em-dia'
+  );
+  assert.equal(criado.ok, true, `fixture: cartão recusado (${criado.erro})`);
   const storage = storageCom({
     'atlas.progresso.v1': JSON.stringify([id]),
-    [STORAGE_KEY]: serializeRevisoes(fila)
+    [CARTOES_KEY]: serializarCartoes({ versao: 1, cartoes: criado.cartoes })
   });
   const doc = criarDoc();
   const raiz = doc.createElement('div');

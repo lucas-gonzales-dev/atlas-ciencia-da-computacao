@@ -1,88 +1,88 @@
-// Projeto Atlas — a tela REVISAR: reencontrar no momento certo (S8, 01/11/2026).
+// Projeto Atlas — a tela REVISAR: a fila de CARTÕES do dia (S15b, 04/11/2026).
 //
-// POR QUE EXISTE: quem conclui uma estação guarda uma ideia que o tempo leva. O
-// Lovable inventava perguntas de aula que ninguém tem; aqui o conteúdo da revisão
-// é a ANOTAÇÃO DA PRÓPRIA PESSOA, e o método é o de sempre: tentar lembrar antes
-// de ler, conferir, voltar depois.
+// POR QUE MUDOU: a S8 desenhava uma revisão por ESTAÇÃO, com a anotação e três
+// botões. O desenho novo (design/v3/00-desenho.md, J3) trocou a unidade pelo
+// CARTÃO que a própria pessoa escreveu ao fechar a aula (S14b2). Enquanto esta
+// aba mostrasse a revisão por estação, o cartão escrito no fechamento não voltava
+// para lugar nenhum — ele existia no storage e não tinha tela.
 //
-// REGRA DA CASA: nada de regra de calendário aqui. O degrau, a data e a fila
-// moram em core/revisao.js, com 19 testes; o que a estação abriu mora em
-// core/viagem.js. Este arquivo só traduz estado em DOM e devolve o que a pessoa
-// escolheu. Se aparecer um `if` que soma dias, está no lugar errado.
+// O QUE ESTE ARQUIVO É, E O QUE NÃO É: a máquina de ESTADO da sessão — o que está
+// devido, qual cartão, se o verso foi visto, o arquivo do antes/depois e os
+// gestos. Os DESENHOS dos quatro estados mudaram para `web/telas/revisar-fila.js`:
+// este arquivo chegou a 504 linhas e a regra 15 do design/v2/00-regras.md manda
+// dividir além de 400 pela responsabilidade. O mesmo corte já foi feito em
+// `jornada-blocos.js` (S4a) e `aulas-pedacos.js` (S13b).
 //
-// SEM PUNIÇÃO, EM CÓDIGO: atrasar não muda nada (a fila só mostra o que está
-// vencido, da mais atrasada para a mais recente, no máximo 3) e "Não lembrei"
-// reagenda sem culpa. Nenhuma frase daqui conta dias sem fazer, nenhum número é
-// placar — a lista do proibido (design/README §9) é teste, não decoro.
+// REGRA DA CASA, E ELA NÃO É ENFEITE: nenhuma regra de calendário, de fila ou de
+// memória mora aqui. O que está devido é `cartoesDevidos`, o que uma resposta faz
+// ao cartão é `revisarCartao`, o placar da sessão é `resumoDaSessao`, e QUAL AULA
+// virou lembrada é `aulasLembradasNaSessao` — todos em core/cartoes.js, com
+// testes próprios. Se aparecer aqui um `if` que soma dias ou que vasculha o
+// `historico`, está no lugar errado: é assim que a S8 teve duas definições de
+// "revisado", a da tela e a do núcleo. Nenhuma frase de tela é escrita aqui — a
+// fonte é `core/textos.js` (bloco `revisar`), e o nome de uma estação o catálogo.
 //
-// O TEMPORIZADOR É INJETADO (lição da 2c-1/2d): o aviso de "Desfazer" usa o
-// setTimeout que chega em `ctx`, nunca o relógio de verdade, senão o teste dorme
-// até estourar a cota do turno.
+// O QUE SAIU DA TELA (item 3): os três botões por estação, o "Desfazer" com
+// temporizador e a caixa "Como funciona". Sem o temporizador, este arquivo não
+// injeta `setTimeout` nem conhece `JANELA_DESFAZER_MS`.
+//
+// A MIGRAÇÃO RODA AQUI, uma vez por montagem, DEPOIS de o catálogo chegar: ela
+// precisa do NOME das estações para escrever a frente (regra 7), e o id
+// determinístico `migr-<estacao>` é o que a torna idempotente numa segunda
+// montagem. A chave `atlas.revisoes.v1` NÃO é apagada (decisão da S15a).
 import {
-  STORAGE_KEY,
-  conciliar,
-  registrarRevisao,
-  filaDoDia,
-  proximaData,
-  contarRevisoes,
-  parseRevisoes,
-  serializeRevisoes,
-} from '../../core/revisao.js';
-import { dataLocal } from '../../core/viagem.js';
-import { JANELA_DESFAZER_MS, carregarViagem } from '../metro.js';
-import { hrefDe } from '../../core/rotas.js';
-import { estados, revisar as T } from '../../core/textos.js';
-
-const CLASSE = 'revisar';
-
-function el(doc, classe, texto, tag) {
-  const no = doc.createElement(tag || 'div');
-  if (classe) no.className = classe;
-  if (texto !== undefined) no.textContent = texto;
-  return no;
-}
-
-function botao(doc, classe, texto, tipo) {
-  const b = doc.createElement('button');
-  b.type = tipo || 'button';
-  b.className = classe;
-  b.textContent = texto;
-  return b;
-}
-
-/**
- * A data que o leitor de tela e os olhos recebem: dd/mm/aaaa. ISO no bilhete de
- * ninguém (lição da 2d-2 — formata a string, sem fuso que vire o dia).
- */
-function diaLegivel(iso) {
-  if (typeof iso !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return null;
-  const [a, m, d] = iso.split('-');
-  return `${d}/${m}/${a}`;
-}
-
-/** A data local, uma vez só por pintura: `new Date()` espalhado é instável. */
-function hojeDe(ctx) {
-  if (typeof ctx.hoje === 'string') return ctx.hoje;
-  if (ctx.hoje instanceof Date) return dataLocal(ctx.hoje);
-  return dataLocal();
-}
+  CARTOES_KEY,
+  LIMITE_FILA,
+  aulasLembradasNaSessao,
+  cartoesDevidos,
+  diasEntre,
+  lerCartoes,
+  proximoDevido,
+  resumoDaSessao,
+  revisarCartao,
+  serializarCartoes,
+} from '../../core/cartoes.js';
+import { STORAGE_KEY, migrarRevisoesAntigas, parseRevisoes } from '../../core/revisao.js';
+import { dataDeCalendario, estados, revisar as T } from '../../core/textos.js';
+import { dataLocal, resumoDaViagem } from '../../core/viagem.js';
+import { carregarViagem } from '../metro.js';
+import {
+  CLASSE,
+  el,
+  desenhaAbertura,
+  desenhaCartao,
+  desenhaEmDia,
+  desenhaFim,
+  desenhaSemCartao,
+} from './revisar-fila.js';
 
 /**
  * Monta a aba Revisar na raiz que o casco escolheu.
  *
  * @param {Element} raiz contêiner da tela
- * @param {object} ctx {catalogo, modulos, document?, window?, hoje?, setTimeout?}
+ * @param {object} ctx {catalogo, modulos, storage?, document?, window?, hoje?}
+ * @returns {{desmontar: () => void, pintar: () => void}}
  */
 export async function montar(raiz, ctx) {
   const doc = ctx.document || document;
-  const win = ctx.window || window;
-  const storage = win.localStorage || null;
-  const marcar = ctx.setTimeout || ((fn, ms) => win.setTimeout(fn, ms));
-  const desmarcar = ctx.clearTimeout || ((id) => win.clearTimeout(id));
+  const win = ctx.window || (typeof window !== 'undefined' ? window : null);
+  const storage = ctx.storage || (win && win.localStorage) || null;
   const modulos = ctx.modulos || {};
 
   let montado = true;
-  let desfazerId = null;
+  let migrou = false;
+  let catalogo = null;
+
+  // O estado da tela vive aqui, e em nenhum outro lugar. `sessao` guarda o
+  // arquivo do INÍCIO da sessão porque `resumoDaSessao` e
+  // `aulasLembradasNaSessao` comparam antes e depois: contar os acertos na tela
+  // seria ter duas definições de "revisado".
+  let tela = 'abertura';
+  let fila = [];
+  let indice = 0;
+  let visto = false;
+  let confianca = null;
+  let sessao = null;
 
   const corpo = el(doc, `${CLASSE}-corpo`);
   const raizEl = el(doc, CLASSE);
@@ -90,216 +90,306 @@ export async function montar(raiz, ctx) {
   raiz.append(raizEl);
 
   // ── dados ────────────────────────────────────────────────────────────────
-  function lerProgressoBruto() {
-    const completed = typeof modulos.loadCompleted === 'function' ? modulos.loadCompleted() : [];
-    // As DATAS de conclusão vêm do detalhe da viagem (o mesmo lugar onde o metrô
-    // as guarda): sem elas, uma conclusão de agosto entraria na fila como se
-    // tivesse sido feita hoje.
-    const detalhe = carregarViagem(storage, completed);
-    return { completed: detalhe.completed, emCurso: detalhe.emCurso, conclusoes: detalhe.conclusoes };
+  function hoje() {
+    if (typeof ctx.hoje === 'string') return ctx.hoje;
+    if (ctx.hoje instanceof Date) return dataLocal(ctx.hoje);
+    return dataLocal();
   }
 
-  function lerRevisoes(hoje) {
-    let guardadas = {};
-    if (storage) {
-      try {
-        guardadas = parseRevisoes(storage.getItem(STORAGE_KEY));
-      } catch {
-        guardadas = {};
-      }
-    }
-    return conciliar(guardadas, lerProgressoBruto(), hoje);
-  }
-
-  function gravar(revisoes) {
-    if (!storage) return false;
+  function lerArquivo() {
+    if (!storage || typeof storage.getItem !== 'function') return lerCartoes(null);
+    let bruto = null;
     try {
-      storage.setItem(STORAGE_KEY, serializeRevisoes(revisoes));
+      bruto = storage.getItem(CARTOES_KEY);
+    } catch {
+      bruto = null;
+    }
+    return lerCartoes(bruto);
+  }
+
+  function gravar(arquivo) {
+    if (!storage || typeof storage.setItem !== 'function') return false;
+    try {
+      storage.setItem(CARTOES_KEY, serializarCartoes(arquivo));
       return true;
     } catch {
-      // Modo privado, cota cheia: a fila continua na tela, e a pessoa não perde
-      // o que já tinha. Falar de erro aqui seria cobrança sobre algo que ela não
-      // controla.
+      // Modo privado ou cota cheia: a fila continua na tela. Falar de erro aqui
+      // seria cobrança sobre algo que a pessoa não controla (mesma decisão S8).
       return false;
     }
   }
 
-  function notaDe(id) {
-    if (typeof modulos.loadNotas !== 'function') return null;
-    const notas = modulos.loadNotas() || {};
-    const texto = notas[id];
-    return typeof texto === 'string' && texto.trim() !== '' ? texto.trim() : null;
+  /**
+   * A migração da S15a, uma vez por montagem.
+   *
+   * Só roda com o catálogo na mão: sem ele não há nome para a frente do cartão,
+   * e um cartão "O que você leva de undefined?" na fila é pior que nenhum.
+   * Devolve o arquivo já com os cartões migrados, para a primeira pintura não
+   * reler o storage atrás do que acabou de gravar.
+   */
+  function migrar(arquivo) {
+    if (migrou || !storage) return arquivo;
+    migrou = true;
+    if (!catalogo) return arquivo;
+    let antigas = {};
+    try {
+      antigas = parseRevisoes(storage.getItem(STORAGE_KEY));
+    } catch {
+      return arquivo;
+    }
+    const notas = typeof modulos.loadNotas === 'function' ? modulos.loadNotas() || {} : {};
+    // `nomesDoCatalogo` exige o ARRAY de estações: passar `{courses}` daria
+    // `nomes` vazio, `ignorados` 0 e uma migração que finge ter rodado.
+    const estacoes = Array.isArray(catalogo) ? catalogo : catalogo.courses || [];
+    // `T00:00` do dia, e não o relógio de agora: a migração não pode afirmar a
+    // hora em que a pessoa escreveu a anotação antiga, e `devidoEm` é dia.
+    const r = migrarRevisoesAntigas(antigas, notas, estacoes, arquivo, `${hoje()}T00:00`);
+    if (!r.criados) return arquivo;
+    const novo = { versao: arquivo.versao, cartoes: r.cartoes };
+    gravar(novo);
+    return novo;
   }
 
-  // ── as três telas dentro da tela ─────────────────────────────────────────
-  function pecaDoDia(doc, curso, hoje) {
-    const caixa = el(doc, `${CLASSE}-peca`);
-    const placa = el(doc, `${CLASSE}-placa`, T.rotulo);
-    caixa.append(placa);
+  const nomeDe = (idEstacao) => {
+    const curso = catalogo && (catalogo.courses || []).find((c) => c && c.id === idEstacao);
+    return curso ? curso.title || curso.id : String(idEstacao || '');
+  };
 
-    const nome = curso ? curso.title || curso.id : '';
-    const linha = curso && Number.isInteger(curso.line) ? T.naLinha(nome, curso.line) : T.semLinha(nome);
-    const titulo = el(doc, `${CLASSE}-estacao`, linha, 'h1');
-    caixa.append(titulo);
+  /** O rótulo de origem do cartão: "Aula 3 de Circuitos Digitais", ou a estação. */
+  function rotuloDeOrigem(cartao) {
+    const estacao = nomeDe(cartao.estacao);
+    return cartao.n === null || cartao.n === undefined
+      ? T.origemEstacao(estacao)
+      : T.origemAula(cartao.n, estacao);
+  }
 
-    caixa.append(el(doc, `${CLASSE}-convite`, T.tentarLembrar, 'p'));
+  /** A mesma frase, na lista do fim: de onde veio a aula que virou «lembrada». */
+  const rotuloDaAula = (aula) => (aula.n === null || aula.n === undefined
+    ? T.origemEstacao(nomeDe(aula.estacao))
+    : T.origemAula(aula.n, nomeDe(aula.estacao)));
 
-    // A anotação não aparece antes do pedido: lembrar vem primeiro, e mostrar de
-    // cara seria responder a pergunta com a resposta na frente.
-    const caixaNota = el(doc, `${CLASSE}-anotacao`);
-    caixaNota.hidden = true;
-    const mostrar = botao(doc, `${CLASSE}-secundario`, T.mostrarAnotacao);
-    mostrar.addEventListener('click', () => {
-      caixaNota.textContent = '';
-      const texto = notaDe(curso.id);
-      if (texto) {
-        caixaNota.append(el(doc, `${CLASSE}-anotacao-texto`, texto, 'blockquote'));
-      } else {
-        caixaNota.append(el(doc, `${CLASSE}-anotacao-vazia`, T.semAnotacao, 'p'));
-        const url = curso.resourceUrl;
-        if (typeof url === 'string' && url !== '') {
-          const a = doc.createElement('a');
-          a.className = `${CLASSE}-link-curso`;
-          a.href = url;
-          a.rel = 'noopener noreferrer';
-          a.target = '_blank';
-          a.textContent = T.verCurso;
-          caixaNota.append(a);
-        }
-      }
-      caixaNota.hidden = false;
-      mostrar.textContent = T.esconderAnotacao;
+  // ── os gestos ────────────────────────────────────────────────────────────
+  function comecar() {
+    const arquivo = lerArquivo();
+    fila = cartoesDevidos(arquivo, hoje(), LIMITE_FILA);
+    sessao = { antes: arquivo, depois: arquivo, ids: [], resumo: null, lembradas: [] };
+    indice = 0;
+    visto = false;
+    confianca = null;
+    tela = 'cartao';
+    if (!fila.length) {
+      // A fila evaporou entre o "Começar" e o clique (importou outra viagem,
+      // desfez a aula): volta à abertura, que é o estado honesto de agora.
+      sessao = null;
+      tela = 'abertura';
+    }
+    pintar();
+  }
+
+  function escolherConfianca(chave) {
+    // Escolher e desescolher: três botões do mesmo peso, nenhum obrigatório, e
+    // ninguém é obrigado a dizer que não sabe porque tocou uma vez.
+    confianca = confianca === chave ? null : chave;
+    pintar();
+  }
+
+  function mostrarVerso() {
+    visto = true;
+    pintar();
+  }
+
+  function responder(nota) {
+    const cartao = fila[indice];
+    if (!cartao || !sessao) return;
+    const resultado = revisarCartao(
+      sessao.depois,
+      cartao.id,
+      { nota, confianca },
+      `${hoje()}T${horaAtual()}`
+    );
+    if (!resultado.ok) {
+      // O cartão não está mais ali: a fila é recalculada do storage em vez de
+      // fingir que respondeu, e o erro do núcleo não vira mensagem na tela.
+      sessao.depois = lerArquivo();
+      proximo();
+      return;
+    }
+    sessao.depois = { versao: sessao.depois.versao, cartoes: resultado.cartoes };
+    sessao.ids.push(cartao.id);
+    gravar(sessao.depois);
+    proximo();
+  }
+
+  function proximo() {
+    visto = false;
+    confianca = null;
+    if (indice + 1 < fila.length) {
+      indice += 1;
+      pintar();
+      return;
+    }
+    fecharSessao();
+    pintar();
+  }
+
+  /** O fecho da sessão: os dois números e as aulas lembradas, todos do núcleo. */
+  function fecharSessao() {
+    if (!sessao) return;
+    sessao.resumo = resumoDaSessao(sessao.antes, sessao.depois, sessao.ids, hoje());
+    sessao.lembradas = aulasLembradasNaSessao(sessao.antes, sessao.depois);
+    tela = 'fim';
+  }
+
+  /** A hora local do gesto, no formato que o núcleo aceita (`aaaa-mm-ddThh:mm`). */
+  function horaAtual() {
+    const d = ctx.hoje instanceof Date ? ctx.hoje : new Date();
+    const p = (v) => String(v).padStart(2, '0');
+    return `${p(d.getHours())}:${p(d.getMinutes())}`;
+  }
+
+  /** "em 2 dias", "amanhã", ou a data legível quando o intervalo é longo. */
+  function prazoLegivel(proximaEm) {
+    if (!proximaEm) return null;
+    const dias = diasEntre(hoje(), proximaEm);
+    if (dias === 1) return T.prazoAmanha;
+    if (dias > 1 && dias <= 30) return T.prazoEmDias(dias);
+    return dataDeCalendario(proximaEm);
+  }
+
+  // ── a pintura ────────────────────────────────────────────────────────────
+  /** O FIM, montado a partir do resumo que o núcleo devolveu ao fechar a sessão. */
+  function desenharFim() {
+    const r = sessao.resumo;
+    return desenhaFim(doc, {
+      revisados: r.revisados,
+      lembrados: r.lembrados,
+      prazo: prazoLegivel(r.proximaEm),
+      lembradas: sessao.lembradas.map(rotuloDaAula)
     });
-    caixa.append(mostrar);
-    caixa.append(caixaNota);
-
-    // Os três do mesmo peso: nenhum primário, porque nenhum dos três é "certo".
-    const fileira = el(doc, `${CLASSE}-respostas`);
-    for (const resultado of Object.keys(T.resultados)) {
-      const b = botao(doc, `${CLASSE}-resposta`, T.resultados[resultado]);
-      b.dataset.resultado = resultado;
-      b.addEventListener('click', () => responder(curso.id, resultado, hoje));
-      fileira.append(b);
-    }
-    caixa.append(fileira);
-    return caixa;
   }
 
-  function emDia(doc, revisoes) {
-    const caixa = el(doc, `${CLASSE}-vazio`);
-    caixa.append(el(doc, `${CLASSE}-titulo`, T.emDia, 'h1'));
-    const proxima = diaLegivel(proximaData(revisoes));
-    if (proxima) caixa.append(el(doc, `${CLASSE}-sub`, T.proximaEm(proxima), 'p'));
-    caixa.append(el(doc, `${CLASSE}-nota`, T.semPressao, 'p'));
-    // S10a (regua 1): estado com texto e sem saida e beco. "Em dia" nao e tela
-    // morta — quem esta em dia pode seguir a viagem, entao a saida e o mesmo
-    // link da Jornada que o estado de nada-concluida ja usa.
-    const ir = el(doc, `${CLASSE}-primario`, T.irParaProxima, 'a');
-    ir.setAttribute('href', hrefDe({ tela: 'jornada' }));
-    caixa.append(ir);
-    return caixa;
-  }
-
-  function nadaParaRevisar(doc) {
-    const caixa = el(doc, `${CLASSE}-vazio`);
-    caixa.append(el(doc, `${CLASSE}-titulo`, T.nadaParaRevisar, 'h1'));
-    const a = doc.createElement('a');
-    a.className = `${CLASSE}-primario`;
-    a.href = hrefDe({ tela: 'jornada' });
-    a.textContent = T.irParaProxima;
-    caixa.append(a);
-    return caixa;
-  }
-
-  /** "Como funciona", sempre no fim: o método se explica, não se cobra. */
-  function comoFunciona(doc) {
-    const secao = el(doc, `${CLASSE}-como`);
-    secao.append(el(doc, `${CLASSE}-como-titulo`, T.comoFunciona, 'h2'));
-    const lista = el(doc, `${CLASSE}-cartoes`, null, 'ol');
-    for (const c of T.cartoes) {
-      const li = doc.createElement('li');
-      li.className = `${CLASSE}-cartao`;
-      li.append(el(doc, `${CLASSE}-cartao-numero`, c.numero, 'span'));
-      li.append(el(doc, `${CLASSE}-cartao-titulo`, c.titulo, 'strong'));
-      li.append(el(doc, `${CLASSE}-cartao-texto`, c.texto, 'p'));
-      lista.append(li);
-    }
-    secao.append(lista);
-    return secao;
-  }
-
-  // ── a ação que grava ─────────────────────────────────────────────────────
+  /**
+   * A classe do estado na raiz é posta DEPOIS do conteúdo: `desenhar()` troca o
+   * `tela` no meio (a abertura que descobre que não há nada devido vira
+   * "em-dia"), e uma classe fixada antes diria `revisar-abertura` sobre uma tela
+   * de Em dia. É a classe que a régua dos primários e o CSS leem.
+   */
   function pintar() {
     if (!montado) return;
-    const hoje = hojeDe(ctx);
-    const revisoes = lerRevisoes(hoje);
-    const fila = filaDoDia(revisoes, hoje, 3);
     corpo.textContent = '';
+    desenhar();
+    raizEl.className = `${CLASSE} ${CLASSE}-${tela}`;
+  }
 
-    if (fila.length > 0) {
-      const cat = ctx.estadoCatalogo;
-      const curso = cat ? (cat.courses || []).find((c) => c.id === fila[0]) : null;
-      corpo.append(pecaDoDia(doc, curso || { id: fila[0], title: fila[0] }, hoje));
-    } else if (contarRevisoes(revisoes) > 0) {
-      corpo.append(emDia(doc, revisoes));
-    } else {
-      corpo.append(nadaParaRevisar(doc));
+  function desenhar() {
+    if (tela === 'fim') {
+      corpo.append(desenharFim());
+      return;
     }
-    corpo.append(comoFunciona(doc));
+
+    const arquivo = lerArquivo();
+    if (tela === 'cartao') {
+      fila = fila.filter((c) => c && (arquivo.cartoes || {})[c.id]);
+      if (!fila.length || indice >= fila.length) {
+        if (sessao && sessao.ids.length) {
+          fecharSessao();
+          corpo.append(desenharFim());
+          return;
+        }
+        tela = 'abertura';
+      } else {
+        const cartao = fila[indice];
+        corpo.append(desenhaCartao(doc, {
+          cartao,
+          origem: rotuloDeOrigem(cartao),
+          posicao: T.posicao(indice + 1, fila.length),
+          visto,
+          confianca,
+          escolher: escolherConfianca,
+          mostrar: mostrarVerso,
+          responder
+        }));
+        return;
+      }
+    }
+
+    if (tela === 'abertura') {
+      const devidos = cartoesDevidos(arquivo, hoje(), Infinity);
+      const mostra = cartoesDevidos(arquivo, hoje(), LIMITE_FILA);
+      const temAlgum = Object.keys(arquivo.cartoes || {}).length > 0;
+      if (!temAlgum) {
+        // O `tela` acompanha o que foi PINTADO, e não o que se pediu: quem abre a
+        // aba pede a abertura, e a abertura descobre que não há fila nenhuma. A
+        // classe da raiz é lida pela régua dos primários e pelo CSS — se ela
+        // dissesse `revisar-abertura` sobre uma tela de sem-cartão, as duas
+        // olhariam um estado que não é o da pessoa.
+        tela = 'sem-cartao';
+        corpo.append(desenhaSemCartao(doc, { proxima: proximaEstacaoDaViagem() }));
+        return;
+      }
+      if (!mostra.length) {
+        corpo.append(desenharEmDia(arquivo));
+        return;
+      }
+      corpo.append(desenhaAbertura(doc, {
+        total: devidos.length,
+        naSessao: mostra.length,
+        comecar
+      }));
+      return;
+    }
+
+    corpo.append(desenharEmDia(arquivo));
   }
 
-  function responder(id, resultado, hoje) {
-    const antes = lerRevisoes(hoje);
-    const depois = registrarRevisao(antes, id, resultado, hoje);
-    gravar(depois);
-    desfazerId = desfazerId === null ? null : desfazerId;
-    pintar();
-
-    // O aviso de baixo oferece "Desfazer" pela MESMA janela do metrô: desfazer o
-    // que acabou de acontecer é o único conserto que não pede que a pessoa
-    // remember o que fez.
-    const aviso = el(doc, `${CLASSE}-aviso`);
-    const curso = ctx.estadoCatalogo
-      ? (ctx.estadoCatalogo.courses || []).find((c) => c.id === id)
-      : null;
-    aviso.append(el(doc, `${CLASSE}-aviso-texto`, T.anuncia(curso ? curso.title || id : id), 'p'));
-    const desfazer = botao(doc, `${CLASSE}-aviso-desfazer`, T.desfazer);
-    desfazer.addEventListener('click', () => {
-      if (desfazerId) desmarcar(desfazerId);
-      gravar(antes);
-      limparAviso();
-      pintar();
-    });
-    aviso.append(desfazer);
-    corpo.append(aviso);
-    desfazerId = marcar(() => {
-      desfazerId = null;
-      limparAviso();
-    }, JANELA_DESFAZER_MS);
+  /** O estado Em dia: a próxima data já legível, resolvida a partir do arquivo. */
+  function desenharEmDia(arquivo) {
+    tela = 'em-dia';
+    const proxima = proximoDevido(arquivo, hoje());
+    return desenhaEmDia(doc, { proximaData: proxima ? dataDeCalendario(proxima) : null });
   }
 
-  function limparAviso() {
-    const aviso = corpo.querySelector ? corpo.querySelector(`.${CLASSE}-aviso`) : null;
-    if (aviso && aviso.remove) aviso.remove();
+  /**
+   * A estação para onde a pessoa vai escrever o primeiro cartão. É o MESMO
+   * cálculo do resto do app (`resumoDaViagem.proximaEstacao`), pela regra da
+   * fonte única que a S13a registrou: duas contas de "próxima" na tela é ter duas
+   * próximas.
+   *
+   * O ARRAY, como o metro.js:1353 monta `ui.catalogo`. `resumoDaViagem` espera a
+   * lista de cursos: medido no catálogo real, o objeto devolve
+   * `proximaEstacao: null`, e um null aqui mandaria a pessoa de volta ao '#/'
+   * com uma fila que ela nunca viu.
+   */
+  function proximaEstacaoDaViagem() {
+    if (!catalogo) return null;
+    const cursos = Array.isArray(catalogo) ? catalogo : catalogo.courses || [];
+    const proxima = resumoDaViagem(lerViagem(), cursos).proximaEstacao;
+    return proxima ? cursos.find((c) => c && c.id === proxima.id) || null : null;
+  }
+
+  function lerViagem() {
+    const completed = typeof modulos.loadCompleted === 'function' ? modulos.loadCompleted() : [];
+    return carregarViagem(storage, completed);
   }
 
   // O catálogo é a promessa do casco — nunca uma segunda busca ao mesmo JSON.
   Promise.resolve(ctx.catalogo)
-    .then((catalogo) => {
+    .then((c) => {
       if (!montado) return;
-      ctx.estadoCatalogo = catalogo;
+      catalogo = c;
+      migrar(lerArquivo());
       pintar();
     })
     .catch(() => {
       if (!montado) return;
       corpo.textContent = '';
+      raizEl.className = `${CLASSE} ${CLASSE}-erro`;
       corpo.append(el(doc, `${CLASSE}-sub`, estados.offline.descricao, 'p'));
     });
 
   return {
     desmontar() {
       montado = false;
-      if (desfazerId) desmarcar(desfazerId);
     },
     pintar,
   };

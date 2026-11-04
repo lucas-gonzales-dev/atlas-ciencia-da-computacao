@@ -109,7 +109,7 @@ export function diaDepois(quando, dias) {
  * fantasma a cada virada de fuso. `round` sobre a média de 24 h é o que faz "um dia
  * depois" ser um dia depois em qualquer calendário.
  */
-function diasEntre(de, ate) {
+export function diasEntre(de, ate) {
   const parsear = (v) => {
     const partes = String(v ?? '').slice(0, 10).split('-').map(Number);
     if (!partes.every(Number.isFinite)) return NaN;
@@ -142,7 +142,13 @@ function conferirCartao(bruto, id) {
   const criadoEm = typeof bruto.criadoEm === 'string' ? bruto.criadoEm : '';
   const devidoEm = typeof bruto.devidoEm === 'string' ? bruto.devidoEm : '';
   if (!HE_QUANDO.test(criadoEm) || !HE_DIA.test(devidoEm)) return null;
+  // `Number(null)` é 0, e 0 é a posição de uma aula que não existe. O cartão
+  // migrado da revisão antiga chega com `n: null` (revisao.js) — lido por esta
+  // linha, ele voltava como `n: 0` e a tela dizia "Aula 0 de Circuitos Digitais"
+  // de uma estação que nunca teve aula. A mesma regra do criarCartao logo abaixo:
+  // inteiro a partir de 1 entra, o resto é null, que é o que "não é de aula" é.
   const n = Number(bruto.n);
+  const numero = Number.isInteger(n) && n >= 1 ? n : null;
   return {
     // O `...bruto` preserva o que a S15 gravar ao lado (fsrs com estabilidade,
     // historico com notas): perder `fsrs` no round-trip ler->escrever seria
@@ -151,7 +157,7 @@ function conferirCartao(bruto, id) {
     id,
     estacao: typeof bruto.estacao === 'string' ? bruto.estacao : '',
     aula: typeof bruto.aula === 'string' ? bruto.aula : '',
-    n: Number.isFinite(n) && n >= 0 ? n : null,
+    n: numero,
     frente,
     verso,
     criadoEm,
@@ -388,6 +394,67 @@ export function resumoDaSessao(antes, depois, idsRevisados, hoje) {
   return { revisados, lembrados, proximaEm };
 }
 
+/**
+ * Quais AULAS esta sessão fez entrar em "lembrada" pela primeira vez (S15b, J3.3).
+ *
+ * Por que mora no núcleo e não na tela: a regra não é "a pessoa respondeu Lembrei",
+ * é "este foi o PRIMEIRO Lembrei desta aula, num dia depois do dia em que o cartão
+ * foi escrito". Duas telas pintando essa frase a partir do `historico` são duas
+ * definições de "lembrada", e a segunda divergiria da primeira sem ninguém ver —
+ * foi exatamente o defeito da régua de primários (S4b) repetido do lado do texto.
+ *
+ * As três condições, e o motivo de cada uma:
+ *   · o último `historico` do cartão é `lembrei` — é a resposta desta sessão;
+ *   · NENHUMA resposta anterior daquela sessão já foi `lembrei` — senão o cartão
+ *     estaria "lembrado" desde ontem e a tela diria hoje uma novidade falsa;
+ *   · o dia da resposta é DEPOIS do dia em que o cartão foi escrito — responder no
+ *     mesmo dia em que se escreve é conferir, não lembrar. É o que impede o
+ *     fechamento de aula de se autodeclarar lembrado antes de a memória ter
+ *     esperada uma noite.
+ *
+ * Cartões sem `aula` (os migrados da revisão antiga, S15a) ficam de fora: eles
+ * nomeiam uma estação, não uma aula, e nenhuma aula deles foi estudada.
+ * Se dois cartões da mesma aula viram lembrados na mesma sessão, a aula é dita
+ * UMA vez — a tela lista aulas, não cartões.
+ *
+ * @param {object} antes o arquivo como estava no início da sessão
+ * @param {object} depois o arquivo como ficou
+ * @returns {Array<{estacao: string, aula: string, n: number|null}>}
+ */
+export function aulasLembradasNaSessao(antes, depois) {
+  const mapa = (v) => v?.cartoes ?? v ?? {};
+  const deAntes = mapa(antes);
+  const deDepois = mapa(depois);
+  const achadas = [];
+  const vistas = new Set();
+
+  for (const [id, cartao] of Object.entries(deDepois)) {
+    if (!cartao || !face(cartao.aula)) continue;
+    const agora = (Array.isArray(cartao.historico) ? cartao.historico : []).at(-1);
+    if (!agora || agora.nota !== 'lembrei') continue;
+
+    const antesDeSessao = deAntes[id];
+    const respostasAnteriores = Array.isArray(antesDeSessao?.historico) ? antesDeSessao.historico : [];
+    if (respostasAnteriores.some((r) => r?.nota === 'lembrei')) continue;
+
+    const diaResposta = String(agora.em ?? '').slice(0, 10);
+    const diaCriacao = String(cartao.criadoEm ?? '').slice(0, 10);
+    if (!HE_DIA.test(diaResposta) || !HE_DIA.test(diaCriacao)) continue;
+    if (diaResposta <= diaCriacao) continue;
+
+    const chave = `${cartao.estacao}::${cartao.aula}`;
+    if (vistas.has(chave)) continue;
+    vistas.add(chave);
+    const lido = Number(cartao.n);
+    achadas.push({
+      estacao: face(cartao.estacao),
+      aula: face(cartao.aula),
+      n: Number.isInteger(lido) && lido >= 1 ? lido : null,
+    });
+  }
+  return achadas;
+}
+
 /** ARBITRADO (S14b2, 04/11/2026): quanto tempo um cartão leva respondido. Vinte segundos é o meio-termo honesto entre "lero-Lero" e o custo real de uma frente + um verso dito em voz alta; o FSRS da S15 afina este número com a medida de cada pessoa. */
 export const SEGUNDOS_POR_CARTAO = 20;
 
@@ -436,13 +503,22 @@ export function cartoesDaAula(cartoes, aula) {
  * total da fila é lido à parte por quem desenha "214 cartões, você vai ver 20".
  * Uma fila sem teto é a forma mais rápida de fazer alguém não abrir o app.
  *
+ * O teto é PARÂMETRO desde a S15b, e o default é o LIMITE_FILA: a tela da fila
+ * precisa dos dois números na mesma frase — quantos cartões estão devidos de
+ * verdade («Revisões de hoje: 214 cartões») e quantos ela vai mostrar («você vê
+ * os 20 mais antigos»). Com o corte fixo dentro da função, a segunda contagem
+ * obrigaria a tela a refazer o `filter` e o `sort` à mão: duas definições de
+ * "devido", que é exatamente o defeito que esta casa persegue.
+ *
  * @param {{cartoes: object}} cartoes
  * @param {string} hoje `aaaa-mm-dd` local
+ * @param {number} limite quantos cartões cabem na sessão (Infinity = a fila toda)
  * @returns {Array<object>}
  */
-export function cartoesDevidos(cartoes, hoje) {
+export function cartoesDevidos(cartoes, hoje, limite = LIMITE_FILA) {
   if (!HE_DIA.test(String(hoje ?? ''))) return [];
   const atuais = cartoes?.cartoes ?? cartoes ?? {};
+  const teto = Number(limite);
   return Object.values(atuais)
     .filter((c) => c && HE_DIA.test(String(c.devidoEm ?? '')) && c.devidoEm <= hoje)
     .sort((a, b) =>
@@ -450,7 +526,28 @@ export function cartoesDevidos(cartoes, hoje) {
       String(a.criadoEm).localeCompare(String(b.criadoEm)) ||
       String(a.id).localeCompare(String(b.id))
     )
-    .slice(0, LIMITE_FILA);
+    .slice(0, Number.isFinite(teto) ? teto : Infinity);
+}
+
+/**
+ * A próxima data da fila quando HOJE não há nada devido — `aaaa-mm-dd` ou null.
+ *
+ * É o número do estado "Em dia" ("Próxima revisão em 12/11/2026"). `resumoDaSessao`
+ * devolve o mesmo cálculo, mas só existe depois de uma sessão respondida; quem
+ * abre a aba vazia precisa dele antes de qualquer resposta, e reimplementar o
+ * "menor `devidoEm` maior que hoje" na tela seria a segunda definição de quando
+ * o Atlas volta a ter alguma coisa a dizer.
+ */
+export function proximoDevido(cartoes, hoje) {
+  if (!HE_DIA.test(String(hoje ?? ''))) return null;
+  const atuais = cartoes?.cartoes ?? cartoes ?? {};
+  let maisPerto = null;
+  for (const c of Object.values(atuais)) {
+    const devido = c?.devidoEm;
+    if (!HE_DIA.test(String(devido ?? '')) || devido <= hoje) continue;
+    if (maisPerto === null || devido < maisPerto) maisPerto = devido;
+  }
+  return maisPerto;
 }
 
 /**

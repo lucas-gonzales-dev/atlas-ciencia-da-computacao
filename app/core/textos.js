@@ -574,37 +574,58 @@ export const chegada = Object.freeze({
 export const revisar = Object.freeze({
   rotulo: 'Fortaleça o que você conectou',
   titulo: 'Revisar é reencontrar uma ideia no momento certo.',
-  // A placa do item da fila: o nome e a linha vêm do catálogo, nunca daqui.
-  naLinha: (nome, linha) => `${nome}, na Linha ${linha}`,
-  semLinha: (nome) => nome,
-  tentarLembrar: 'Tente lembrar antes de abrir sua anotação.',
-  mostrarAnotacao: 'Mostrar minha anotação',
-  esconderAnotacao: 'Guardar minha anotação',
-  semAnotacao: 'Você não deixou anotação nesta estação.',
-  verCurso: 'Ver o curso desta estação',
-  // Os três do mesmo peso — nenhum deles é primário de propósito.
-  resultados: Object.freeze({
-    lembrei: 'Lembrei',
-    'em-parte': 'Lembrei em parte',
-    'nao-lembrei': 'Não lembrei',
+  // ── ESTADO 1: a abertura da fila (S15b, J3.1) ─────────────────────────
+  // Os dois números chegam de fora: o total é `cartoesDevidos` sem corte, o
+  // minuto é `minutosDaFila`. Nenhuma destas frases conhece um total.
+  hoje: (cartoes, minutos) => `Revisões de hoje: ${cartoes} cartões, ~${minutos} min`,
+  // A linha do teto, que só existe quando a fila passa dele: o número é o
+  // LIMITE_FILA do núcleo, lido pela tela, e nunca um "20" grafado aqui.
+  corte: (limite) => `Você vai ver os ${limite} mais antigos; o resto espera sem pressa.`,
+  comecar: 'Começar',
+  // ── ESTADO 2: o cartão (J3.2) ─────────────────────────────────────────
+  tentarLembrar: 'Tente lembrar antes de ver.',
+  // A ORIGEM do cartão: "Aula 3 de Circuitos Digitais", ou só a estação quando
+  // `n` é nulo (o cartão migrado da revisão antiga não é de aula nenhuma).
+  origemAula: (n, estacao) => `Aula ${n} de ${estacao}`,
+  origemEstacao: (estacao) => estacao,
+  mostrarResposta: 'Mostrar a resposta',
+  // Os dois do mesmo peso: nenhum é primário e nenhum tem cor de "certo".
+  errei: 'Errei',
+  lembrei: 'Lembrei',
+  // A pergunta opcional. "Opcional" é da tela, não do texto: ninguém é obrigado
+  // a avaliar a própria certeza, e a resposta sem confiança vale igual.
+  seguro: 'Quão seguro você está?',
+  confiancas: Object.freeze({
+    certeza: 'Certeza',
+    acho: 'Acho que sei',
+    chute: 'Chute',
   }),
-  voltaEm: (dias) => `Volta em ${dias} dias.`,
-  desfazer: 'Desfazer',
-  anuncia: (nome) => `Registrado: ${nome}.`,
-  // Estado "em dia": há revisões agendadas, nenhuma para hoje.
+  // A posição na fila, lida como "onde estou", não como placar.
+  posicao: (atual, total) => `${atual} de ${total}`,
+  // ── ESTADO 3: o fim da sessão (J3.3) ──────────────────────────────────
+  fim: (revisados, lembrados) => `${revisados} revisados, ${lembrados} lembrados.`,
+  // "amanhã" é palavra, e não "em 1 dias": a frase é lida em voz alta.
+  prazoAmanha: 'amanhã',
+  prazoEmDias: (dias) => `em ${dias} dias`,
+  proximaRevisao: (prazo) => `Próxima revisão ${prazo}.`,
+  // A aula que passou a "lembrada" nesta sessão. Recebe o MESMO rótulo de origem
+  // que o cartão mostra («Aula 3 de Circuitos Digitais»), e a lista de quais
+  // aulas são decidida no núcleo (aulasLembradasNaSessao) — a tela só nomeia.
+  aulaLembrada: (rotulo) => `${rotulo} agora está lembrada.`,
+  voltarJornada: 'Voltar à Jornada',
+  // ── ESTADO 4: em dia / sem cartão nenhum ──────────────────────────────
+  // Estado "em dia": há cartões agendados, nenhum para hoje.
   emDia: 'Em dia.',
   proximaEm: (data) => `Próxima revisão em ${data}.`,
   semPressao: 'Sem pressão: se não puder revisar no dia, a revisão espera.',
-  // Estado "nada para revisar": nenhuma estação concluída ainda.
-  nadaParaRevisar: 'Revisar começa na primeira estação concluída.',
-  irParaProxima: 'Ir para a próxima estação',
-  // "Como funciona" aparece sempre, no fim — o método se explica, não se cobra.
-  comoFunciona: 'Como funciona',
-  cartoes: Object.freeze([
-    Object.freeze({ numero: '01', titulo: 'Tente lembrar', texto: 'Antes de ler, puxe da memória.' }),
-    Object.freeze({ numero: '02', titulo: 'Confira', texto: 'Sua anotação mostra o que você levou.' }),
-    Object.freeze({ numero: '03', titulo: 'Volte depois', texto: 'O Atlas sugere quando vale reencontrar.' }),
-  ]),
+  // Sem cartão nenhum: a fila é consequência do fechamento de aula, e é por lá
+  // que ela começa. Não é "nenhuma revisão" — é "ainda não há o que revisar".
+  comecaNoCartao: 'A revisão começa no primeiro cartão que você escrever ao fechar uma aula.',
+  proximaAula: 'Ver a próxima aula',
+  // S15b, item 3: os três passos numerados saíram da aba. O método cabe em uma
+  // linha discreta, e ela só aparece no estado Em dia — quem está revisando não
+  // precisa ler explicação no meio da sessão, e quem terminou tem calma para ler.
+  metodo: 'Lembre antes de ver, responda com sinceridade, e o Atlas escolhe quando voltar.',
   /**
    * S15a — a migração da revisão antiga. Cada estação concluída COM anotação vira
    * um cartão, e a frente é a pergunta que a aba Revisar já fazia, agora escrita
