@@ -20,6 +20,7 @@
 //     um href sem ele abriria o vídeo fora da fila — a pessoa terminaria o vídeo
 //     e o YouTube sugeiria outra coisa. Ele não é inventado nem chutado.
 import { duracaoLegivel, playlistDoRecurso } from '../core/aulas.js';
+import { hrefDe } from '../core/rotas.js';
 import { aulas as A } from '../core/textos.js';
 import { ESTUDO_KEY, abrirAula, continuarDe, estadoDaAula, lerEstudo, resumoDaEstacao, serializarEstudo } from '../core/estudo.js';
 
@@ -33,6 +34,28 @@ function no(doc, tag, classe, attrs) {
     else n.setAttribute(chave, String(attrs[chave]));
   }
   return n;
+}
+
+/**
+ * O número da linha dentro do selo, na classe de cor da linha.
+ *
+ * S14b1: VEIO DA folha.js PARA CÁ. A página de aulas precisava do MESMO círculo
+ * da folha, e importar `web/folha.js` por causa de uma função de nove linhas
+ * trazia `web/metro.js` junto (folha.js:30 importa metro.js, que importa
+ * folha.js de volta): a tela de aulas pagava o metrô inteiro, um ciclo real no
+ * grafo de imports e nenhuma forma de o teste ver. Uma função, uma classe, um
+ * CSS — e nenhum ciclo.
+ *
+ * A folha define o recheio em `.folha .selo` (folha.css) e a página em
+ * `.aulas .selo` (aulas.css); as duas apontam para a MESMA classe `selo` e para
+ * a MESMA função, que é o que a regra 9 cobra.
+ */
+export function seloLinha(doc, linha) {
+  const n = Number(linha);
+  const temNumero = Number.isFinite(n) && n > 0;
+  const selo = no(doc, 'span', temNumero ? `selo l${n}` : 'selo', { 'aria-hidden': 'true' });
+  selo.textContent = temNumero ? String(n) : '—';
+  return selo;
 }
 
 /** O endereço de um vídeo dentro da playlist da estação. Sem playlist, só o vídeo. */
@@ -84,18 +107,33 @@ export function linhaProgresso(doc, resumo) {
  * retorno de quem já está dentro. Não existe um terceiro texto porque não existe
  * um terceiro motivo — foi a saída do 'primeira-nao-aberta'.
  */
-export function primarioAula(doc, { aula, motivo, temAberta, playlist }) {
+export function primarioAula(doc, { aula, motivo, temAberta, estacao }) {
   const frase = motivo === 'comecar' || !temAberta
     ? A.comecar(aula.n, aula.titulo)
     : A.continuar(aula.n, aula.titulo);
-  return no(doc, 'a', 'botao botao-primario aulas-primario', {
-    href: hrefVideo(aula, playlist),
+  const link = no(doc, 'a', 'botao botao-primario aulas-primario', {
+    href: paginaDaAula(estacao, aula.n),
     rel: 'noopener',
-    target: '_blank',
     'data-aula': aula.id,
     'data-n': String(aula.n),
     text: frase
   });
+  // O `data-pagina` é a marca de que este link não sai do Atlas. Sem ele, a
+  // mesma classe serviria para dois destinos diferentes e o teste de fluxo
+  // (aulas-tela) teria de adivinhar pelo href.
+  link.setAttribute('data-pagina', 'aula');
+  return link;
+}
+
+/**
+ * O endereço da PÁGINA DA AULA dentro do Atlas (S14b1, item 5 do pedido).
+ *
+ * Antes a folha e a lista mandavam a pessoa direto para o YouTube; agora mandam
+ * para a casa da aula, e é de lá que se sai para o vídeo. O `n` vai no endereço
+ * porque é o que a pessoa lê ("aula 3"), e o id do vídeo não diz nada a ninguém.
+ */
+export function paginaDaAula(slug, n) {
+  return hrefDe({ tela: 'estacao', slug, painel: 'aula', n });
 }
 
 /** A nota embaixo do primário: o que acontece quando se toca. */
@@ -153,12 +191,23 @@ export function estudoDoStorage(storage) {
  *
  * @returns {() => void} desligar, para o desmontar da tela
  */
-export function ligarAberturaDeAula({ win, storage, painel, aoMudar }) {
+export function ligarAberturaDeAula({ win, storage, painel, aoMudar, aoRetornar }) {
   const doc = painel?.ownerDocument;
+  // Qual link levou a pessoa para fora do Atlas, desde o último clique. `null`
+  // na montagem: trocar de aba sem ter tocado em nada não é voltar de vídeo.
+  let quemSaiu = null;
 
   const aoClique = (evento) => {
     const alvo = evento?.target?.closest?.('a[data-aula]');
     if (!alvo) return;
+    // S14b1: SÓ um link que SAI do Atlas abre uma aula. Desde esta fatia a
+    // folha e a lista apontam para a PÁGINA da aula (link interno), e a pessoa
+    // abre o vídeo dentro dela. Marcar a aula como aberta no toque interno
+    // diria "você abriu a Aula 7" para quem só foi ler o título dela — e o
+    // progresso da estação subiria sozinho, sem ninguém assistir nada.
+    // O href é a pergunta honesta: um endereço do próprio app começa com '#'.
+    const href = alvo.getAttribute('href') || '';
+    if (href.startsWith('#')) return;
     // A estação DO LINK, não do contêiner (S13c): o metrô escuta no root, que é
     // PAI do painel .folha — e `closest` sobe, nunca desce. Partir do alvo é o
     // único caminho que atravessa a árvore nas duas telas: na folha o
@@ -176,12 +225,22 @@ export function ligarAberturaDeAula({ win, storage, painel, aoMudar }) {
     try {
       storage?.setItem?.(ESTUDO_KEY, serializarEstudo(novo));
     } catch { /* aparelho sem espaço: a tela continua, só não lembra amanhã */ }
+    // S14b1: GUARDA-SE qual link levou a pessoa embora. A página da aula usa
+    // isto para decidir se a volta é um gesto ou não: voltar de um vídeo que ela
+    // não abriu não pode rolar a tela até o fechamento — seria o app movendo a
+    // leitura de quem só trocou de aba.
+    quemSaiu = alvo;
     if (typeof aoMudar === 'function') aoMudar();
   };
 
   const aoVoltar = () => {
     const visivel = (doc?.visibilityState ?? win?.document?.visibilityState) === 'visible';
     if (!visivel) return;
+    // S14b1: no retorno pode haver um gesto diferente da repintura. A página da
+    // aula não pinta progresso nenhum — ela rola até o "Fechar a aula" e põe o
+    // foco ali (item 2 do pedido). `aoVoltar` existe para isso; onde ele não é
+    // dado (folha, lista de aulas), o comportamento é exatamente o de antes.
+    if (typeof aoRetornar === 'function') { aoRetornar(quemSaiu); return; }
     if (typeof aoMudar === 'function') aoMudar();
   };
 

@@ -142,3 +142,47 @@ test('acabamento: os três fatos da folha são uma grade só, com a etiqueta do 
   assert.match(fato, /display:\s*contents/, 'cada fato com a própria grade desalinha os valores entre as linhas');
   assert.doesNotMatch(semComentario(css), /minmax\(0,\s*var\(--espaco-8\)\)/, 'a coluna de 32 px da etiqueta voltou');
 });
+
+/* ── S14b1 item 0 (04/11/2026): o ciclo de imports que a suíte não via ──────
+ * `web/telas/aulas.js` importava `web/folha.js` por causa de UMA função de nove
+ * linhas (`seloLinha`), e folha.js importa `web/metro.js`, que importa folha.js
+ * de volta: toda página de lista pagava o metrô inteiro, e nada em 650 testes
+ * via o ciclo, porque nenhum teste lia o grafo de imports. O conserto foi mover
+ * `seloLinha` para `web/aulas-pedacos.js` — o arquivo que já existe para as peças
+ * que duas telas montam (regra 9). Esta trava é o que impede a volta do atalho:
+ * ela não lê o CSS, lê o texto das telas. É o mesmo estilo de guarda que
+ * `tests/rotas.test.js` faz com `lerRota`: quando o defeito é de estrutura, a
+ * régua é o fonte.
+ */
+const TELAS_SEM_FOLHA = [
+  ['web/telas/aulas.js', 'a página da LISTA de aulas'],
+  ['web/telas/aula.js', 'a PÁGINA DA AULA (S14b1)']
+];
+
+test('S14b1: nenhuma tela de aula importa folha.js nem metro.js (o ciclo de imports)', () => {
+  for (const [caminho, nome] of TELAS_SEM_FOLHA) {
+    const fonte = ler(caminho);
+    // Só o que o arquivo IMPORTA: a palavra `metro.js` pode aparecer num
+    // comentário explicando de onde o --cor vem, e isso não é dependência.
+    const importados = [...fonte.matchAll(/(?:^|\n)\s*(?:import|export)[\s\S]*?from\s+['"]([^'"]+)['"]/g)].map((m) => m[1]);
+    const sujos = importados.filter((i) => /folha\.js$/.test(i) || /(^|\/)metro\.js$/.test(i));
+    assert.deepEqual(sujos, [],
+      `${nome} importa ${sujos.join(', ')}: folha.js puxa metro.js e metro.js puxa folha.js de volta — o ciclo da S13e. A peça compartilhada mora em web/aulas-pedacos.js`);
+  }
+});
+
+test('S14b1: o selo da linha tem UM dono, e as três telas o importam do mesmo lugar', () => {
+  // O motivo de a trava acima não poder ser só "não importa folha.js": se cada
+  // tela reimplementasse o círculo para fugir do ciclo, o defeito voltaria pela
+  // regra 9 (duas telas, dois desenhos do mesmo selo) e nenhuma destas duas
+  // travas veria. O `seloLinha` tem de existir UMA vez e ser importado.
+  const tres = ['web/aulas-pedacos.js', 'web/folha.js', ...TELAS_SEM_FOLHA.map(([c]) => c)];
+  const definitiones = tres.filter((c) => /export function seloLinha/.test(ler(c)));
+  assert.deepEqual(definitiones, ['web/aulas-pedacos.js'],
+    'seloLinha mora em web/aulas-pedacos.js e só lá: folha, lista e página da aula importam a mesma função');
+
+  for (const [caminho, nome] of TELAS_SEM_FOLHA.concat([['web/folha.js', 'a folha']])) {
+    assert.match(ler(caminho), /seloLinha[^;]*\}?\s*from\s*['"]\.\.?\/(?:web\/)?aulas-pedacos\.js['"]|from\s*['"]\.\.?\/aulas-pedacos\.js['"][\s\S]{0,400}seloLinha/,
+      `${nome} não importa seloLinha de web/aulas-pedacos.js`);
+  }
+});

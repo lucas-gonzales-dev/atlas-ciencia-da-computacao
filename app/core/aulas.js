@@ -206,6 +206,22 @@ const PAUSA_LONGE_DO_FIM = 3 * 60;
  * @param {number} duracaoS a duração do vídeo em segundos
  * @returns {number[]} os segundos de cada pausa, em ordem
  */
+/**
+ * A MARCA DE TEMPO como ela aparece escrita: 480 -> "8:00", 5.152 -> "85:52".
+ *
+ * S14b1: `duracaoLegivel` arredonda ao minuto porque ela responde "quanto dura"
+ * — e "8 min" não serve para apontar um instante de vídeo, nem cabe no link do
+ * `&t=`. A marca de pausa é um PONTO na linha do tempo, e ponto se escreve com
+ * o minuto e o segundo que a própria barra do YouTube mostra. Mora aqui e não na
+ * tela pela regra 9: um `Math.floor(s/60)` dentro de um `.js` de tela é a mesma
+ * conta escrita de dois jeitos quando a segunda tela chegar.
+ */
+export function marcaDeTempo(segundos) {
+  const s = Math.max(0, Math.floor(Number(segundos) || 0));
+  const m = Math.floor(s / 60);
+  return `${m}:${String(s % 60).padStart(2, '0')}`;
+}
+
 export function pausasDaAula(duracaoS) {
   const total = Number(duracaoS) || 0;
   if (total < PAUSA_DESDE) return [];

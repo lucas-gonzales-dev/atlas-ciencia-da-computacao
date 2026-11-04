@@ -33,10 +33,15 @@ import { hrefDe } from '../../core/rotas.js';
 import { estadoDaAula } from '../../core/estudo.js';
 import { comValores, aulas as A } from '../../core/textos.js';
 import { fatosDaEstacao } from '../../core/viagem.js';
-import { seloLinha } from '../folha.js';
+// S14b1: o selo vem do compartilhado, não da folha. Esta tela é montada pelo
+// CASCO e a folha é montada pelo METRÔ: importar folha.js por causa de uma
+// função de nove linhas puxava web/metro.js inteiro para dentro de uma página
+// de lista, e fechava um ciclo (metro.js <-> folha.js). A trava está no
+// acabamento.test.js, que lê o texto deste arquivo.
 import {
+  seloLinha,
   estudoDoStorage,
-  hrefVideo,
+  paginaDaAula,
   ligarAberturaDeAula,
   linhaProgresso,
   notaAbrirAula,
@@ -69,12 +74,16 @@ function avisoSemAulas(doc) {
 }
 
 /** Um item da lista. Nenhum texto é daqui: número e título são dados, o resto vem de textos.js. */
-function itemDaAula(doc, { aula, estudo, playlist, continuar }) {
+function itemDaAula(doc, { aula, estudo, slug, continuar }) {
   const li = no(doc, 'li', 'aula-item');
+  // S14b1 (item 5): o item da lista não abre mais o YouTube. Abre a PÁGINA da
+  // aula, no mesmo app, e é lá que o botão "Assistir" leva ao vídeo e grava a
+  // abertura. Um `target="_blank"` aqui seria a pessoa sair do Atlas para ler um
+  // título que ela já estava lendo. O `data-aula` fica: é a âncora do teste de
+  // fluxo, e o gravador do clique ignora endereço que começa com '#'.
   const link = no(doc, 'a', 'aula-link', {
-    href: hrefVideo(aula, playlist),
+    href: paginaDaAula(slug, aula.n),
     rel: 'noopener',
-    target: '_blank',
     'data-aula': String(aula.id),
     'data-n': String(aula.n)
   });
@@ -221,7 +230,7 @@ export async function montar(raiz, ctx) {
       aula: painel.continuar.aula,
       motivo: painel.continuar.motivo,
       temAberta: painel.resumo.abertas > 0,
-      playlist: painel.playlist
+      estacao: slug
     }));
     painelBox.append(notaAbrirAula(doc));
     // A playlist da estação inteira, no link que o catálogo já traz. Nenhum
@@ -236,7 +245,7 @@ export async function montar(raiz, ctx) {
       itens.append(itemDaAula(doc, {
         aula,
         estudo,
-        playlist: painel.playlist,
+        slug,
         continuar: painel.continuar.aula
       }));
     }

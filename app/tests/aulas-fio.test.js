@@ -115,10 +115,15 @@ test('fio: #/estacao/<slug> traz as aulas e pinta o primário da aula, sem o tes
   assert.equal(primario.tag, 'a', 'o primário é o link da aula');
   assert.equal(primario.getAttribute('data-aula'), PRIMEIRA.id);
   assert.equal(primario.getAttribute('data-n'), '1');
+  // S14b1, item 5 — O DESTINO MUDOU: a folha não abre mais o YouTube, abre a
+  // PÁGINA da aula dentro do Atlas. O `list=` passou a ser do Assistir, que mora
+  // lá. Expectativa reescrita porque o pedido mudou o contrato, não porque a
+  // tela errou: é a diferença entre consertar e amolecer a trava.
   const href = primario.getAttribute('href');
-  assert.ok(href.includes(`v=${encodeURIComponent(PRIMEIRA.id)}`), `falta o vídeo: ${href}`);
-  assert.ok(href.includes(`list=${encodeURIComponent(AULAS.playlist)}`),
-    `falta o list= da playlist da estação: ${href}`);
+  assert.equal(href, `#/estacao/${CIRCUITOS.slug}/aula/1`,
+    `o primário da folha não leva à página da aula: ${href}`);
+  assert.equal(primario.getAttribute('target'), null,
+    'link interno com target _blank tiraria a pessoa do app para ler um título');
   assert.ok(textoDo(primario).startsWith(`Começar: Aula 1 — `), textoDo(primario));
 });
 
@@ -198,15 +203,44 @@ test('fio: a folha é desenhada antes das aulas chegarem, e a chegada repinta', 
 
 // ═══════════════════════════ 3. o clique grava, a volta repinta ═══════════════════════════
 
-test('fio: tocar no primário grava abertaEm no storage e a folha passa a dizer 1 de 93', async () => {
+test('fio: S14b1 — o toque no primário NÃO grava; quem abre a aula é o Assistir da página', async () => {
   const { root, storage } = await metrôComFolha();
   const painel = um(root, 'folha', 'folha da rota com aulas');
   const primario = um(painel, 'aulas-primario', 'primário');
 
   root.dispatch('click', { target: primario, preventDefault() {} });
 
+  // O CONTRATO MUDOU DE PROPÓSITO (item 5 do pedido): a folha agora aponta para
+  // a página da aula, e ir ler uma aula não é abri-la. Se o link interno
+  // gravasse, o "0 de 93" subiria sozinho sem ninguém ter assistido nada — a
+  // régua mentiria, e a S14b fecharia aula que nunca foi aberta.
+  assert.equal(storage.getItem(ESTUDO_KEY), null,
+    'o toque interno marcou uma aula como aberta sem sair do Atlas');
+  const quieta = textoDo(um(root, 'aulas-progresso-texto', 'folha depois do toque interno'));
+  assert.equal(quieta, AU.progresso(0, TOTAL, duracaoLegivel(AULAS.total.segundos)),
+    `a régua andou com um toque que não abre nada: "${quieta}"`);
+  // Que a volta repinta quando a gravação EXISTE (feita pelo Assistir da página)
+  // é o teste seguinte, 'voltar da aba do YouTube repinta', que escreve no
+  // storage por fora e bate no visibilitychange: a cobertura não se perdeu, o
+  // gatilho é que mudou de lugar.
+});
+test('fio: S14b1 — o Assistir da página é quem grava, e a régua da folha lê o que ele gravou', async () => {
+  // O TRIGGO MUDOU DE CASA, a coberta continua a mesma. Este caso cobrava a
+  // gravação pelo toque na folha; desde o item 5 do pedido a folha é link
+  // interno, e quem abre a aula é o botão Assistir DA PÁGINA. A gravação entra
+  // aqui pelo mesmo caminho de antes — o clique num `a[data-aula]` que SAI do
+  // app, com o `data-estacao` que a folha põe no painel — e as três asserções
+  // velhas (estação, n, abertaEm local) passam a valer sobre esse link.
+  const { root, storage } = await metrôComFolha();
+  const painel = um(root, 'folha', 'folha da rota com aulas');
+  const queSai = um(painel, 'aulas-primario', 'primário');
+  const assistindo = { ...queSai, tag: 'a' };
+  assistindo.setAttribute('href', `https://www.youtube.com/watch?v=${PRIMEIRA.id}`);
+
+  root.dispatch('click', { target: assistindo, preventDefault() {} });
+
   const bruto = storage.getItem(ESTUDO_KEY);
-  assert.ok(bruto, 'o clique não escreveu nada no storage: o fio do abrirAula está solto');
+  assert.ok(bruto, 'o clique que sai para o vídeo não escreveu nada: o fio do abrirAula está solto');
   const estudo = lerEstudo(bruto);
   assert.equal(estudo.aulas[PRIMEIRA.id].estacao, CIRCUITOS.id,
     'a gravação perdeu a estação: a volta de outra estação não vai saber donde continuar');

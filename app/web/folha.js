@@ -27,7 +27,7 @@ import { lerEstudo } from '../core/estudo.js';
 // S13b: a linha de progresso, o primário da aula e a nota são os MESMOS da
 // página de aulas. Importar em vez de reimplementar é a regra 9: duas telas
 // formatando a mesma duração de dois jeitos é o defeito que a casa proíbe.
-import { linhaProgresso, notaAbrirAula, painelDeAulas, primarioAula } from './aulas-pedacos.js';
+import { linhaProgresso, notaAbrirAula, painelDeAulas, primarioAula, seloLinha } from './aulas-pedacos.js';
 import { ESTADOS, fatosDaEstacao } from '../core/viagem.js';
 // `origemDoRecurso` e `naFonte` já existem no metro.js e já têm testes. A folha
 // IMPORTA, em vez de reimplementar: reimplementar é como nasce a segunda palavra
@@ -44,22 +44,11 @@ function no(doc, tag, classe, attrs) {
   return n;
 }
 
-/**
- * O número da linha dentro do selo, na classe de cor da linha.
- *
- * S13e: EXPORTADO. A página de aulas (`web/telas/aulas.js`) tem de montar o
- * MESMO círculo da folha (item 2 do pedido), e a folha define `--cor` no
- * `.folha .selo` do folha.css. Reescrever o selo lá com outra classe daria duas
- * regras de recheio para um mesmo círculo, e o --cor cairia no `var(--trancada)`
- * da folha sem que ninguém visse. Uma função, uma classe, um CSS.
- */
-export function seloLinha(doc, linha) {
-  const n = Number(linha);
-  const temNumero = Number.isFinite(n) && n > 0;
-  const selo = no(doc, 'span', temNumero ? `selo l${n}` : 'selo', { 'aria-hidden': 'true' });
-  selo.textContent = temNumero ? String(n) : '—';
-  return selo;
-}
+// O selo da linha MORAVA aqui e foi para web/aulas-pedacos.js na S14b1: as duas
+// páginas de aula precisavam do mesmo círculo, e importar folha.js por causa dele
+// trazia metro.js (folha.js importa metro.js, que importa folha.js de volta).
+// A folha agora importa `seloLinha` de ./aulas-pedacos.js, junto do progresso e
+// do primário — o mesmo caminho, nenhum ciclo.
 
 /**
  * A ação, por estado — a regra da 2d-2 continua de pé: UM primário por folha,
@@ -121,10 +110,14 @@ function acaoPorEstado(doc, f, curso, dataConclusao, painel = null) {
       aula: painel.continuar.aula,
       motivo: painel.continuar.motivo,
       temAberta: aulasAbertas,
-      playlist: painel.playlist
+      // S14b1 (item 5): o destino do toque mudou. A folha não abre mais o
+      // YouTube — abre a PÁGINA DA AULA dentro do Atlas, e é de lá que se vai
+      // ao vídeo. O slug é o mesmo que a folha usou para se desenhar.
+      estacao: curso.slug || curso.id
     }));
-    // A nota nova (aulas.notaAbrir): o que o toque faz — abre no YouTube e
-    // marca ABERTA. "Estudada" é a S14, e a folha não promete o que não aconteceu.
+    // A nota (aulas.notaAbrir) diz o que o toque faz AGORA: "Abre a aula no
+    // Atlas, e de lá o vídeo." Não diz "marcada como aberta", porque o toque
+    // interno não marca nada — quem grava a abertura é o Assistir da página.
     box.append(notaAbrirAula(doc));
 
     box.append(no(doc, 'a', 'botao botao-secundario', {

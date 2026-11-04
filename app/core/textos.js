@@ -102,6 +102,16 @@ export const comValores = {
   posicaoNaLinha: (n, posicao, total) => `Linha ${n} · estação ${posicao} de ${total}`,
 
   /**
+   * S14b1: o selo da PÁGINA DA AULA — "Linha 1 · Circuitos Digitais".
+   *
+   * Não é o `posicaoNaLinha` da folha: a página da aula não precisa dizer em que
+   * posição da linha a estação fica (quem está na Aula 3 de 93 de uma estação já
+   * sabe qual estação é — está no título logo abaixo), e dizer estaria trocando
+   * a informação que a pessoa procura — a aula — por uma que ela não pediu.
+   */
+  linhaComEstacao: (n, estacao) => `Linha ${n} · ${estacao}`,
+
+  /**
    * S4b: a linha de apoio do CARTÃO do diagrama. É a mesma informação da
    * `trancadaFalta`, mas curta: no cartão cabe uma linha, e "trancada:" já está
    * escrito no rótulo de estado logo acima — repetir seria a tela dizendo duas
@@ -671,11 +681,11 @@ export const aulas = Object.freeze({
   // Sai do campo `exercicio` que core/aulas.js já calcula; nenhum texto é
   // inventado aqui a partir do título.
   etiquetaExercicio: 'Exercício',
-  // A nota do primário da folha (J2, item 3 da fatia): o que acontece quando se
-  // toca. Dizer "aberta" e não "assistida" é a honestidade da S13b — o Atlas
-  // sabe que o vídeo foi aberto, não que a pessoa viu. A S14 troca a frase quando
-  // existir o estado 'estudada'.
-  notaAbrir: 'Abre no YouTube. A aula fica marcada como aberta.',
+  // A nota do primário da folha. S14b1 trocou o destino do toque: o primário
+  // não abre mais o YouTube, abre a PÁGINA DA AULA dentro do Atlas, e é de lá
+  // que se vai ao vídeo. A frase acompanha o que acontece, e não o que a S13b
+  // fazia: "o Atlas te leva à aula", não "o YouTube te leva ao vídeo".
+  notaAbrir: 'Abre a aula no Atlas, e de lá o vídeo.',
   // O endereço da página de aulas, e o que o leitor de tela fala ao chegar nela.
   // Com o nome da estação lido do catálogo, nunca digitado.
   tituloPagina: (estacao) => `Aulas de ${estacao}`,
@@ -689,6 +699,49 @@ export const aulas = Object.freeze({
     parteUm: 'As aulas desta estação não carregaram.',
     parteDois: 'O arquivo das aulas não está neste aparelho.',
     parteTres: 'Abra o Atlas com internet uma vez para guardar as aulas.',
+  }),
+});
+
+/**
+ * A PÁGINA DA AULA (S14b1, 04/11/2026) — design/v3/00-desenho.md, J2, passo 1.
+ *
+ * É a casa de uma aula dentro do Atlas. Antes dela o toque ia direto ao
+ * YouTube e o Atlas só sabia que a aula fora aberta; agora o Atlas tem um lugar
+ * para a pessoa VOLTAR — e é esse lugar que a S14b2 usa para fechar a aula.
+ *
+ * `anterior` e `proxima` andam em pares com a regra da tela: não há anterior na
+ * primeira nem próxima na última, e por isso nenhuma das duas frases carrega o
+ * "de mais nada" — a ausência é não desenhar o link, não um link que diz "não
+ * tem".
+ *
+ * `naoExiste` são as três partes de sempre (o que falhou, por quê, o que fazer
+ * agora), como em `aulas.semAulas`: um endereço com a aula 999 de uma estação de
+ * 93 não é erro de sistema, é um pedido que o arquivo não atende, e a resposta
+ * diz o tamanho real da estação em vez de "não encontrado".
+ */
+export const aula = Object.freeze({
+  /** "Aula 3 de 93" — a posição, lida da playlist, nunca um índice de array. */
+  de: (n, total) => `Aula ${n} de ${total}`,
+  /** O nome que o casco põe na aba ("<rótulo> · Atlas") e no anúncio. */
+  rotulo: (n, estacao) => `Aula ${n} · ${estacao}`,
+  /** O anúncio de quem chega: diz qual aula, e o título dela vem da fonte. */
+  anuncio: (n, total, titulo) => `Aula ${n} de ${total}: ${titulo}`,
+  voltarParaAulas: (estacao) => `← Aulas de ${estacao}`,
+  /**
+   * O texto do primário. É o único botão da página que SAI do Atlas, e o verbo
+   * diz a verdade: a pessoa vai ASSISTIR, não "abrir" (o abrir era a frase da
+   * folha, e a folha não abre mais nada — leva à aula).
+   */
+  assistir: 'Assistir no YouTube',
+  /** O nome da região de navegação entre aulas, para quem percorre landmarks. */
+  navRotulo: 'Aulas vizinhas',
+  anterior: '← Aula anterior',
+  proxima: 'Próxima aula →',
+  naoExiste: Object.freeze({
+    parteUm: 'Essa aula não está nesta estação.',
+    /** "A estação tem 93 aulas." — o número é o do arquivo, lido na hora. */
+    parteDois: (total) => `A estação tem ${total} ${total === 1 ? 'aula' : 'aulas'}.`,
+    voltarParaAulas: (estacao) => `Ver as aulas de ${estacao}`,
   }),
 });
 
@@ -731,6 +784,11 @@ export const modelosDeFrente = Object.freeze([
  */
 export const fechamento = Object.freeze({
   titulo: 'Fechar a aula',
+  // S14b1: a frase que mora no lugar do formulário, antes dele existir. Não é
+  // um aviso de "em breve" nem um placeholder: diz exatamente o que a pessoa
+  // faz naquele ponto do caminho — assiste, volta, fecha aqui. A S14b2 põe o
+  // formulário dentro do mesmo `<section>` e esta frase continua válida.
+  quandoTerminar: 'Quando terminar de assistir, feche a aula aqui.',
   passoLembrar: Object.freeze({
     titulo: 'Sem olhar',
     pergunta: 'Sem rever nada: o que você lembra desta aula?',
@@ -761,6 +819,6 @@ export const fechamento = Object.freeze({
 });
 
 /** Tudo junto, para quem precisa percorrer (o teste percorre). */
-export const TEXTOS = { placa, comValores, folha, estados, legenda, proibido, ORIGEM, TIPO_DE_ORIGEM, casco, jornada, explorar, chegada, revisar, perfil, aulas, modelosDeFrente, fechamento };
+export const TEXTOS = { placa, comValores, folha, estados, legenda, proibido, ORIGEM, TIPO_DE_ORIGEM, casco, jornada, explorar, chegada, revisar, perfil, aulas, aula, modelosDeFrente, fechamento };
 
 export default TEXTOS;

@@ -128,11 +128,16 @@ test('A2: o primário é a aula, com o endereço do vídeo dentro da playlist da
 
   assert.equal(primario.tag, 'a', 'o primário é um link: o Atlas não é dono da aba do YouTube');
   assert.ok(primario.className.split(/\s+/).includes('botao-primario'), 'e continua sendo o primário da folha');
+  // S14b1 (item 5): o destino do toque mudou. A folha não abre o YouTube —
+  // abre a PÁGINA da aula, e é de lá que se sai para o vídeo. O `list=` continua
+  // existindo, mas no href do Assistir (tests/aula-pagina.test.js); cobrá-lo
+  // aqui seria travar o caminho antigo que esta fatia apagou de propósito.
   assert.equal(primario.getAttribute('href'),
-    `https://www.youtube.com/watch?v=${encodeURIComponent(AULAS.aulas[0].id)}&list=${encodeURIComponent(AULAS.playlist)}`,
-    'sem o list= a pessoa termina o vídeo e o YouTube sugere fora da estação');
-  assert.equal(primario.getAttribute('target'), '_blank');
-  assert.equal(primario.getAttribute('rel'), 'noopener', 'target _blank sem noopener dá acesso à janela de quem abriu');
+    hrefDe({ tela: 'estacao', slug: CIRCUITOS.slug, painel: 'aula', n: 1 }),
+    'o primário da folha tem de apontar para a página da aula, no mesmo app');
+  assert.equal(primario.getAttribute('href'), '#/estacao/circuitos-digitais/aula/1');
+  assert.equal(primario.getAttribute('target'), null, 'link interno não abre aba nova');
+  assert.equal(primario.getAttribute('rel'), 'noopener');
   assert.equal(primario.getAttribute('data-aula'), AULAS.aulas[0].id, 'o clique grava pelo id do vídeo');
   assert.equal(primario.getAttribute('data-n'), '1');
   assert.equal(textoDo(primario), AU.comecar(1, AULAS.aulas[0].titulo),
@@ -153,7 +158,9 @@ test('A2b: aberta a aula 3, o primário vira o ponto de retorno — Continuar: A
 test('A3: abaixo do primário, a nota diz o que o toque faz — aberta, não estudada', () => {
   const { root } = folhaCom({});
   const nota = um(root, 'aulas-nota', 'folha com aulas');
-  assert.equal(textoDo(nota), 'Abre no YouTube. A aula fica marcada como aberta.');
+  // A frase acompanha o destino novo (S14b1). "Marcada como aberta" saiu: o
+  // toque interno não marca nada — quem grava a abertura é o Assistir.
+  assert.equal(textoDo(nota), 'Abre a aula no Atlas, e de lá o vídeo.');
   assert.equal(nota.tag, 'p', 'é uma nota, não um botão: ninguém toca nela');
 });
 
@@ -223,7 +230,7 @@ test('os textos que a S13b lê existem e saem de core/textos.js, não das telas'
   assert.equal(AU.comecar(1, 'X'), 'Começar: Aula 1 — X');
   assert.equal(AU.continuar(3, 'X'), 'Continuar: Aula 3 — X');
   assert.equal(AU.verTodas(93), 'Ver as 93 aulas');
-  assert.equal(AU.notaAbrir, 'Abre no YouTube. A aula fica marcada como aberta.');
+  assert.equal(AU.notaAbrir, 'Abre a aula no Atlas, e de lá o vídeo.');
   // S14a: 'estudada' entrou na escada do núcleo, e o nome tinha de entrar junto —
   // a lista de aulas lê o nome do estado daqui, e um estado sem nome é o leitor de
   // tela dizendo "aberta" sobre uma aula que a pessoa já fechou.
@@ -448,10 +455,13 @@ test('B5: cada linha aponta para o vídeo DAQUELA aula, dentro da playlist da es
   assert.equal(linhas.length, TOTAL_AULAS);
   assert.equal(linksDeAula(raiz).length, TOTAL_AULAS + 1, 'um link por linha mais o primário, e nada de duplicata');
   for (const [i, link] of linhas.entries()) {
+    // S14b1 (item 5): cada linha aponta para a PÁGINA daquela aula. O `n` do
+    // endereço é o da linha — linha 5 é /aula/5, e um off-by-one aqui levaria a
+    // pessoa à aula errada sem que nada na tela parecesse errado.
     assert.equal(link.getAttribute('href'),
-      `https://www.youtube.com/watch?v=${encodeURIComponent(AULAS.aulas[i].id)}&list=${encodeURIComponent(AULAS.playlist)}`,
-      `linha ${i + 1}: sem o list= a pessoa termina o vídeo e o YouTube sugere fora da estação`);
-    assert.equal(link.getAttribute('target'), '_blank');
+      hrefDe({ tela: 'estacao', slug: CIRCUITOS.slug, painel: 'aula', n: i + 1 }),
+      `linha ${i + 1}: o link tem de apontar para a página DAQUELA aula`);
+    assert.equal(link.getAttribute('target'), null, 'link interno não abre aba nova');
     assert.equal(link.getAttribute('rel'), 'noopener');
     assert.equal(link.getAttribute('data-aula'), AULAS.aulas[i].id);
     assert.equal(link.getAttribute('data-n'), String(i + 1));
@@ -555,21 +565,33 @@ test('B7: a frase do progresso é BYTE A BYTE a mesma da folha com o mesmo estud
   assert.equal(textoDo(playlist), AU.abrirPlaylist);
 });
 
-test('B7b: a playlist vem do CATÁLOGO, não do arquivo de aulas — nenhum href cai no vídeo solto', async () => {
-  // O JSON de `data/aulas/<slug>.json` (S12) traz id, título e duração; a
-  // playlist é do catálogo. Se a tela esquecer a costura, o `list=` some de
-  // TODOS os links e a pessoa sai da fila da estação — e nenhum outro teste
-  // veria isso, porque o primário e a lista vêm do mesmo painel.
-  const semPlaylistNoArquivo = { ...AULAS };
-  delete semPlaylistNoArquivo.playlist;
-  const { raiz } = await pagina({ buscar: respostaDe(semPlaylistNoArquivo) });
+test('B7b: S14b1 — nenhum link desta página sai do Atlas; o `list=` passou a ser do Assistir', async () => {
+  // A trava da playlist NÃO morreu, mudou de casa. Até a S13b esta página era o
+  // último clique antes do vídeo, e o `list=` tinha de estar em cada href; desde
+  // a S14b1 ela é uma página de LINKS INTERNOS e o vídeo só se abre na página da
+  // aula, onde a costura catálogo→playlist é travada em tests/aula-pagina.test.js.
+  // Cobrar `list=` aqui seria travar o caminho que esta fatia apagou de propósito.
+  // O que se trava neste lugar é a OUTRA metade do defeito antigo: um link que
+  // vazasse para o YouTube sem playlist. Se qualquer href desta página apontar
+  // para fora, o teste novo deixa de ser a única guarda do `list=` e isto cai.
+  const { raiz } = await pagina();
   for (const link of linksDeAula(raiz)) {
-    assert.ok(link.getAttribute('href').includes('list=PLXyWBo_coJnMYO9Na3t-oYsc2X4kPJBWf'),
-      `href sem a playlist da estação: ${link.getAttribute('href')}`);
+    const href = link.getAttribute('href');
+    assert.ok(href.startsWith('#/estacao/circuitos-digitais'),
+      `link desta página não é interno: ${href}`);
+    assert.equal(link.getAttribute('target'), null, 'link interno com target _blank sai do app');
   }
 });
 
-test('B8: tocar numa linha grava a abertura e a página se repinta ao redor dela', async () => {
+// MUTOU na S14b1 (04/11/2026), item 5 do pedido: esta página virou uma tela de
+// LINKS INTERNOS. Tocar numa linha vai para a página da aula; quem grava a
+// abertura é o botão Assistir, que é o único clique daqui que sai do app. Se a
+// lista continuasse gravando no toque, passear pelas 93 aulas e ler títulos
+// encheria o estudo de "aberta" sem ninguém ter assistido nada — e o "0 de 93"
+// da folha e da estação subiria sozinho. A segunda metade do caso (a repintura
+// ao redor da aula aberta) fica intacta: ela só muda de gatilho, do clique para
+// a volta da aba, que é o que acontece na cena real.
+test('B8: S14b1 — tocar numa linha NÃO grava; a volta da aba repinta ao redor da aberta', async () => {
   const { raiz, win } = await pagina();
   assert.equal(win.localStorage.getItem(ESTUDO_KEY), null);
 
@@ -582,6 +604,18 @@ test('B8: tocar numa linha grava a abertura e a página se repinta ao redor dela
   // que o navegador entrega à escuta delegada.
   painel.dispatch('click', { target: link });
 
+  assert.equal(win.localStorage.getItem(ESTUDO_KEY), null,
+    'o toque num link interno marcou a aula como aberta sem sair do Atlas');
+
+  // A cena real de hoje: a pessoa toca na linha, cai na página da aula, aperta
+  // Assistir (que grava — travado em tests/aula-pagina.test.js), e VOLTA. A
+  // gravação entra aqui pelo storage, como o Assistir a deixaria, e o que se
+  // mede é a repintura.
+  const painelDaLista = um(raiz, 'aulas-painel', 'página de aulas');
+  assert.equal(painelDaLista.getAttribute('data-estacao') || raiz.getAttribute('data-estacao'), CIRCUITOS.id);
+  win.localStorage.setItem(ESTUDO_KEY, estudoCom(5));
+  win.dispatch('visibilitychange');
+
   const gravado = lerEstudo(win.localStorage.getItem(ESTUDO_KEY));
   assert.equal(gravado.aulas[AULAS.aulas[4].id].n, 5);
   assert.equal(gravado.aulas[AULAS.aulas[4].id].estacao, CIRCUITOS.id);
@@ -589,7 +623,7 @@ test('B8: tocar numa linha grava a abertura e a página se repinta ao redor dela
 
   // A repintura é o que fecha o ciclo: sem ela a pessoa veria a lista nova por
   // baixo de um primário velho e de uma barra que não se moveu.
-  assert.equal(textoDo(um(raiz, 'aulas-primario', 'após o toque')), AU.continuar(5, AULAS.aulas[4].titulo));
+  assert.equal(textoDo(um(raiz, 'aulas-primario', 'após a volta')), AU.continuar(5, AULAS.aulas[4].titulo));
   // S14a: o toque ABRE, e abrir não desconta tempo — o restante soma as aulas não
   // estudadas. O número de abertas se move na hora; o tempo espera o fecho da S14b.
   assert.equal(textoDo(um(raiz, 'aulas-progresso-texto', 'após o toque')), AU.progresso(1, TOTAL_AULAS, duracaoLegivel(SEGUNDOS_TODAS)),

@@ -447,6 +447,8 @@ test('textos: as funções com valor usam o valor que recebem', async () => {
     // valor por parâmetro, e esta guarda exige que o valor apareça na frase.
     abreItem: ['Estruturas de Dados', 2],
     fatosConexoes: [1, 2],
+    // S14b1: o selo da página da aula, "Linha 1 · Circuitos Digitais".
+    linhaComEstacao: [1, 'Circuitos Digitais'],
   };
   for (const [nome, fn] of Object.entries(comValores)) {
     assert.equal(typeof fn, 'function', `comValores.${nome} não é função`);

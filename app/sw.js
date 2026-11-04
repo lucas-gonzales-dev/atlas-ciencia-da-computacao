@@ -453,7 +453,22 @@
 // (core/cartoes.js), entao VERSAO e hash. Sem subir a VERSAO, quem tem v62 no
 // cache recebe a tela que chama cartoes.js de um modulo que nao esta no cache:
 // JavaScript fail no boot e o app inteiro em branco no onibus.
-const VERSAO = 'atlas-v63';
+// atlas-v64: S14b1, a PÁGINA DA AULA. Entram web/telas/aula.js (a casa de uma
+// aula, montada pelo casco em #/estacao/<slug>/aula/<n>) e web/telas/aula.css.
+// O fluxo mudou de destino: web/folha.js e web/telas/aulas.js passaram a apontar
+// para a página em vez de abrir o YouTube direto, e web/aulas-pedacos.js ganhou
+// paginaDaAula, o seloLinha (que veio da folha para quebrar o ciclo
+// telas/aulas.js -> folha.js -> metro.js -> folha.js) e o filtro que só grava
+// abrirAula num link que SAI do app — um toque interno não pode marcar aula como
+// aberta. web/casco.js ganhou a tela 'aula', o 'n' no contexto, o anúncio
+// próprio da tela e a aba Jornada marcada por baixo dela. core/textos.js ganhou a
+// seção aula, fechamento.quandoTerminar, comValores.linhaComEstacao e a nota
+// nova do primário; core/aulas.js ganhou marcaDeTempo (o "8:00" que a duração
+// arredondada não sabe escrever). Seis folhas do precache mudaram de bytes e duas
+// entraram: sem subir a VERSAO, quem tem v63 recebe o HTML que liga o aula.css e
+// o módulo que importa core/aulas.js pedindo marcaDeTempo de um arquivo velho —
+// TypeError no boot e a página em branco no ônibus.
+const VERSAO = 'atlas-v64';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
@@ -483,7 +498,7 @@ const VERSAO = 'atlas-v63';
 // core/rotas.js (a rota da aula), core/aulas.js (pausasDaAula) e core/textos.js
 // (a seção fechamento). O sw.js mediu o mesmo sha256 antes e depois de eu subir a
 // VERSAO, o que é a prova de que ele não está na própria lista.
-const PRECACHE_HASH = 'sha256-8518b38c569005a511384b4108f5a67cff216f2a691fb5a6c9033f94b67e565b';
+const PRECACHE_HASH = 'sha256-b6b5fa10a8e57ffd6e5bea8ce8264a488d147f1ec91448c3d830d44ef7d1ac6a';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.
@@ -542,6 +557,10 @@ const PRECACHE = [
   'web/aulas-pedacos.js',
   'web/telas/aulas.js',
   'web/telas/aulas.css',
+  // S14b1: a página de UMA aula e o CSS dela. O index.html liga o CSS e o casco
+  // importa o módulo — os dois no mesmo commit, senão é branco no ônibus.
+  'web/telas/aula.js',
+  'web/telas/aula.css',
  // A FOLHA da estacao (S5): o index.html liga o CSS, e ela vira modulo quando o
  // metro.js trocar o clique pela rota. Os dois entram juntos pelo mesmo motivo
  // da v22 — HTML novo pedindo arquivo que o cache antigo nao tem.

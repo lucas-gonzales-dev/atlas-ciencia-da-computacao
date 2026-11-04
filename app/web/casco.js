@@ -36,13 +36,16 @@ const TELAS = Object.freeze({
   perfil: () => import('./telas/perfil.js'),
   // S13b: a página de aulas é tela, não folha. `#/estacao/<slug>/aulas` já era
   // lido pelo núcleo desde a S13a e apontava para nada.
-  aulas: () => import('./telas/aulas.js')
+  aulas: () => import('./telas/aulas.js'),
+  // S14b1: a casa de uma aula. É a tela que a folha e a lista passaram a
+  // apontar, e é o lugar onde a S14b2 vai fechar a aula.
+  aula: () => import('./telas/aula.js')
 });
 
 // A classe que a CSS ancora para a tela inteira: metro.css abre com `.metro`,
 // grade.css com `.grade`. Sem ela a tela montada dentro do main chegaria sem
 // layout nenhum — o casco não desenha nada, só escolhe onde desenhar.
-const CLASSE_DA_TELA = Object.freeze({ jornada: 'metro', explorar: '', revisar: '', perfil: 'perfil', aulas: 'aulas' });
+const CLASSE_DA_TELA = Object.freeze({ jornada: 'metro', explorar: '', revisar: '', perfil: 'perfil', aulas: 'aulas', aula: 'aula' });
 
 /**
  * Decide a tela para uma rota, e QUAL FOLHA abrir por cima dela (S5).
@@ -59,6 +62,13 @@ export function telaDaRota(rota) {
   // página da lista, com `folha` carregando o slug para ela ler o catálogo.
   if (rota?.tela === 'estacao' && rota.painel === 'aulas') {
     return { tela: 'aulas', folha: String(rota.slug || '') };
+  }
+  // S14b1: a PÁGINA DA AULA é tela, não folha — `#/estacao/<slug>/aula/<n>` é
+  // lida pelo núcleo desde a S14a e apontava para nada. O `n` viaja no objeto
+  // devolvido porque a tela não sabe ler endereço: quem lê rota é o casco, e o
+  // número da aula é decisão de rota (core/rotas.js), não de tela.
+  if (rota?.tela === 'estacao' && rota.painel === 'aula') {
+    return { tela: 'aula', folha: String(rota.slug || ''), n: Number(rota.n) || 0 };
   }
   if (rota?.tela === 'estacao') return { tela: 'jornada', folha: String(rota.slug || '') };
   return { tela: TELAS[rota.tela] ? rota.tela : 'jornada', folha: null };
@@ -87,11 +97,31 @@ export async function iniciar(deps = {}) {
   const contexto = {
     document: doc, window: win, modulos,
     get catalogo() { return catalogo; },
-    get folha() { return folhaPedida; }
+    get folha() { return folhaPedida; },
+    // S14b1: o número da aula. A tela não lê endereço — quem lê é o casco
+    // (core/rotas.js), e o que ela recebe é o número já decidido pela rota.
+    get n() { return numeroPedido; }
   };
   let folhaPedida = null;
+  let numeroPedido = 0;
   let atual = null; // { tela, instancia } — para o desmontar da saída
   let primeira = true;
+
+  /**
+   * Qual aba da barra a rota ativa — nem toda tela é uma aba (S14b1).
+   *
+   * A página da aula é filha da Jornada: quem está em `#/estacao/x/aula/3` está
+   * percorrendo a viagem, e uma barra sem nada marcado diria "você saiu do app".
+   * `aulas` ficou de fora de propósito, e é uma decisão a conferir: a página de
+   * listas é um desvio para olhar ementas, não um ponto do caminho — marcar
+   * Jornada nela seria a barra dizendo que a pessoa está onde não está. Se a
+   * pessoa achar que deveria marcar, a linha abaixo ganha `|| nome === 'aulas'`
+   * e a trava do teste muda junto.
+   */
+  function abaDaRota(nome, rota) {
+    if (rota?.tela === 'estacao' && rota.painel === 'aula') return 'jornada';
+    return nome;
+  }
 
   function abaAtiva(nome) {
     for (const link of nav.querySelectorAll('a')) {
@@ -105,8 +135,9 @@ export async function iniciar(deps = {}) {
     // Âncora comum (#conteudo do "Pular"): não é rota, não se pinta nada.
     // Ignorar aqui é o que impede o link de pular de trocar a tela no clique.
     if (!rota) return;
-    let { tela: nome, folha } = telaDaRota(rota);
+    let { tela: nome, folha, n } = telaDaRota(rota);
     folhaPedida = folha;
+    numeroPedido = Number(n) || 0;
     if (rota.desconhecida) {
       // Rota que ninguém reconhece: volta para #/ SEM criar entrada no
       // histórico — o botão "voltar" do aluno não pode ficar preso num
@@ -130,8 +161,9 @@ export async function iniciar(deps = {}) {
     const instancia = await mod.montar(box, contexto);
     atual = { tela: nome, instancia };
 
-    const aba = ABAS.find((a) => a.tela === nome) || ABAS[0];
-    abaAtiva(nome);
+    const nomeDaAba = abaDaRota(nome, rota);
+    const aba = ABAS.find((a) => a.tela === nomeDaAba) || ABAS[0];
+    abaAtiva(nomeDaAba);
     // S13b (painel de aulas): uma tela que NÃO é aba se nomeia sozinha, pelo
     // `rotulo` que o `montar` devolve. Sem isto, `#/estacao/x/aulas` receberia o
     // rótulo da ABAS[0] e o app announced "Jornada" sobre uma lista de aulas —
@@ -151,7 +183,12 @@ export async function iniciar(deps = {}) {
       primeira = false;
       return;
     }
-    anuncio.textContent = casco.anuncio(rotulo);
+    // S14b1: a tela pode dizer outra frase para o leitor de tela. Na página da
+    // aula o TÍTULO da aba é "Aula 3 · Circuitos Digitais" (onde eu estou) e o
+    // ANÚNCIO é "Aula 3 de 93: <título da aula>" (o que eu abri) — a posição na
+    // playlist e o nome do vídeo não cabem numa frase só, e nenhum dos dois é
+    // menos importante. Sem `anuncio` na tela, o comportamento é o de sempre.
+    anuncio.textContent = instancia?.anuncio || casco.anuncio(rotulo);
     const alvo = box.querySelector('h1') || main;
     alvo.setAttribute('tabindex', '-1');
     alvo.focus?.({ preventScroll: true });

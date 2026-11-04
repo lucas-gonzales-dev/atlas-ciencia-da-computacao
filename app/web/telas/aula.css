@@ -1,0 +1,222 @@
+/* Projeto Atlas — a página da AULA (S14b1, 04/11/2026).
+
+   POR QUE EXISTE: é a casa de uma aula dentro do Atlas. A folha e a lista trazem
+   a pessoa até aqui, daqui ela sai para o YouTube, e é aqui que volta para fechar
+   a aula (S14b2). Nenhum valor é à mão: cor, tempo, espaçamento e largura vêm dos
+   tokens (design/README §5 e §7), e a suíte lê este arquivo inteiro procurando hex,
+   cor escrita e duração sem token.
+
+   O QUE ESTA PÁGINA HERDA E NÃO REESCREVE (regra 9): o círculo da linha
+   (`.selo`, montado por `seloLinha`), a etiqueta de exercício (`.aula-etiqueta`),
+   a caixa de aviso (`.aulas-erro`) e o voltar (`.aulas-voltar`) são as MESMAS
+   classes do folha.css e do aulas.css, que o index.html já carrega antes deste
+   arquivo. Reescrevê-las aqui daria dois desenhos para uma mesma informação, e foi
+   assim que o contraste do primário caiu a 1,1:1 na S13e.
+
+   A COR DA LINHA CHEGA PELA CLASSE `lN` NA RAIZ, POSTA PELO JS. Sem ela,
+   `--cor` é vazia: o `.botao.botao-primario` sai com texto `--superficie` sobre o
+   fundo da página (1,1:1, medido no Chrome), o selo sai cinza e o anel do
+   exercício some. A trava é no DOM montado, porque o node lê a regra certa e não o
+   escopo resolvido. */
+
+/* ── a página inteira ───────────────────────────────────────────────────── */
+/* O `box-sizing` é o defeito da S13e repetido: `width: 100%` com padding e sem
+ * border-box faz 407 px numa tela de 375, e a página inteira rola para o lado. O
+ * max-width é o token de leitura (--largura-leitura, 720 px) — a linha de texto
+ * larga demais cansa, e o item 6 do pedido pede os 720 px à esquerda. */
+.aula {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-4);
+  padding: var(--espaco-4) var(--espaco-4) calc(var(--espaco-6) + var(--margem-segura-baixo));
+  max-width: var(--largura-leitura);
+  margin: 0;
+  width: 100%;
+}
+
+/* ── o cabeçalho: voltar, selo da linha, "Aula n de N" ──────────────────── */
+.aula-cabecalho {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-1);
+}
+
+/* O círculo da linha e o rótulo ao lado. São as MESMAS classes da folha
+ * (`aulas-selo folha-cabecalho` em aulas.css fez o mesmo); a faixa é daqui só
+ * pelo layout, e por isso reusa o `folha-cabecalho` em vez de declarar flex de
+ * novo. O recheio do círculo vem de `.folha .selo` (folha.css) e de `.aulas .selo`
+ * (aulas.css) — nenhum dos dois escopos é este, então a casa do selo mora aqui. */
+.aula .selo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--alvo-toque);
+  height: var(--alvo-toque);
+  border-radius: var(--raio-estacao);
+  background: var(--cor);
+  color: var(--superficie);
+  flex: 0 0 auto;
+}
+
+/* "Aula 3 de 93" — a posição na playlist, na mono (item 1 do pedido: o número
+ * é dado, e dado se lê na fonte dos dados, não na do texto corrido). */
+.aula-posicao {
+  margin: 0;
+  font-family: var(--fonte-mono);
+  color: var(--fosca);
+}
+
+.aula-nome {
+  margin: 0;
+  color: var(--tinta);
+  /* O título da aula pode ser longo (as ementas da UBL têm duas linhas). Sem
+   * overflow-wrap ele estoura a janela de 375 px numa palavra composta, que foi o
+   * defeito do texto sobreposto da S13c. */
+  overflow-wrap: break-word;
+}
+
+/* A linha de apoio: duração e a etiqueta de exercício lado a lado. */
+.aula-apoio {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--espaco-2);
+  margin: 0;
+}
+
+/* ── o primário: Assistir no YouTube ────────────────────────────────────── */
+/* O recheio na cor da linha é do folha.css (`.botao.botao-primario`), que o
+ * index.html carrega antes. Aqui só o lugar: à esquerda, como o primário da
+ * folha e da lista — um botão centrado numa coluna de 375 px empurra o texto do
+ * vídeo para baixo sem necessidade. */
+.aula-assistir {
+  align-self: flex-start;
+}
+
+/* ── as pausas sugeridas ────────────────────────────────────────────────── */
+.aula-pausas-caixa {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-2);
+}
+
+/* As marcas em linha, separadas por espaçamento: são três ou quatro links de
+ * cinco caracteres, e uma lista vertical ocuparia a tela inteira por informação
+ * que se lê de uma vez. */
+.aula-pausas {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espaco-2);
+}
+
+.aula-pausa {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--alvo-toque);
+  min-height: var(--alvo-toque);
+  padding: 0 var(--espaco-2);
+  border: var(--anel-trancada) solid var(--cor, var(--borda));
+  border-radius: var(--raio-selo);
+  font-family: var(--fonte-mono);
+  color: var(--tinta);
+  text-decoration: none;
+  /* Tocar numa marca abre o vídeo naquele segundo: o tempo do toque, não o da
+     chegada. Com prefers-reduced-motion o token vai a zero sozinho. */
+  transition: border-color var(--movimento-toque) var(--curva-chegada);
+}
+
+.aula-pausa:hover {
+  border-color: var(--cor, var(--tinta));
+}
+
+.aula-pausas-convite {
+  margin: 0;
+  color: var(--fosca);
+  font-size: var(--tipo-nota);
+}
+
+/* ── o lugar do fechamento ──────────────────────────────────────────────── */
+/* É a peça que a S14b2 preenche com o formulário. O destaque é a borda
+   ESQUERDA na cor da linha — o mesmo gesto do `.aulas-erro` e do painel da
+   folha: é um lugar do caminho, não um botão.
+
+   `scroll-margin-top`: no celular e no tablet quem rola é este contêiner, sob a
+   barra de abas fixa. Sem ele, o `scrollIntoView` da volta encosta o h2 DEBAIXO
+   da barra e a pessoa ouve o anúncio sem ver o que o causou. */
+.aula-fim {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-2);
+  padding: var(--espaco-4);
+  border-radius: var(--raio-placa);
+  background: var(--superficie);
+  border-left: var(--espessura-borda-painel) solid var(--cor, var(--tinta));
+  scroll-margin-top: var(--espaco-6);
+}
+
+.aula-fim-titulo {
+  margin: 0;
+  color: var(--tinta);
+}
+
+/* O foco vai para o h2 por programa (tabindex -1) e NADA aqui tira o anel dele.
+   Minha primeira tentativa, em 04/11/2026, tinha `outline: none` com o argumento
+   de que o anel é para quem usa Tab — e a régua 2 da S10
+   (auditoria-teclado-leitor.test.js) reprovou na hora, com razão: foco sem anel
+   é foco invisível, e quem voltou do vídeo é justamente quem precisa ver onde a
+   página parou. O anel vem do base.css; o trabalho desta tela é não estorvá-lo. */
+
+.aula-fim-aviso {
+  margin: 0;
+}
+
+/* ── a navegação entre aulas ────────────────────────────────────────────── */
+/* Os dois lados em linha, cada um em sua ponta: "anterior" e "próxima" são
+   direções, e direção se lê da posição. `flex-wrap` porque quando só existe um
+   (aula 1, última aula) ele não pode ser esticado pela metade da linha. */
+.aula-nav {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--espaco-3);
+}
+
+.aula-nav-antes,
+.aula-nav-depois {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--alvo-toque);
+  color: var(--tinta);
+  text-decoration: none;
+}
+
+.aula-nav-antes:hover,
+.aula-nav-depois:hover {
+  text-decoration: underline;
+}
+
+/* Sem anterior, o próximo vai para a direita sozinho; sem próxima, o anterior
+   fica à esquerda. O `margin-left: auto` não é decoração: sem ele, "Próxima →"
+   na aula 1 apareceria na esquerda e a pessoa leria a seta apontando para um
+   lugar que não é o dela. */
+.aula-nav-depois:first-child {
+  margin-left: auto;
+}
+
+/* ── o computador ───────────────────────────────────────────────────────── */
+/* Item 6: no desktop a página continua com --largura-leitura, À ESQUERDA, com a
+   margem das outras telas — o `margin: 0` da base faz isso, e não há regra nova
+   aqui. O que muda é só o fôlego, e é o mesmo --espaco-6 da lista de aulas: duas
+   telas irmãs com padding diferente é a regra 9 outra vez. */
+@media (min-width: 1024px) {
+  .aula {
+    padding: var(--espaco-6) var(--espaco-6) calc(var(--espaco-8) + var(--margem-segura-baixo));
+  }
+}
