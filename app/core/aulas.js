@@ -60,23 +60,32 @@ function indisponivel(item) {
  *
  * @param {Array<object>} itens os `items` de todas as páginas de playlistItems, na ordem
  * @param {Record<string,string>} duracoes videoId → duração ISO 8601 (de videos.list)
- * @param {{de?: number, ate?: number}} [recorte] posições 1-based, inclusive, quando duas
- *   estações dividem a mesma playlist na fonte (Python I e II); ausente = a playlist inteira
+ * @param {{de?: number, ate?: number, trechos?: Array<[number, number]>}} [recorte] posições
+ *   1-based, inclusive, entre os vídeos visíveis, quando duas estações dividem a mesma playlist
+ *   na fonte (Python I e II). `trechos` aceita mais de um pedaço, na ordem dada: a playlist da
+ *   USP tem uma aula da Parte 1 (as dicas do COH-PIAH) no fim. Ausente = a playlist inteira.
  * @returns {Array<{id:string, n:number, titulo:string, original:string, duracaoS:number, exercicio:boolean}>}
  */
 export function aulasDaPlaylist(itens, duracoes = {}, recorte = {}) {
   const visiveis = (Array.isArray(itens) ? itens : [])
     .filter((it) => it?.contentDetails?.videoId && !indisponivel(it));
-  const de = Math.max(1, Number(recorte.de ?? 1));
-  const ate = Math.min(visiveis.length, Number(recorte.ate ?? visiveis.length));
-  return visiveis.slice(de - 1, ate).map((it, i) => {
+  const trechos = Array.isArray(recorte.trechos) && recorte.trechos.length
+    ? recorte.trechos
+    : [[recorte.de ?? 1, recorte.ate ?? visiveis.length]];
+  const escolhidos = trechos.flatMap(([de, ate]) => {
+    const inicio = Math.max(1, Number(de));
+    const fim = Math.min(visiveis.length, Number(ate));
+    return visiveis.slice(inicio - 1, Math.max(inicio - 1, fim));
+  });
+  return escolhidos.map((it, i) => {
     const original = String(it.snippet?.title ?? '');
     const titulo = tituloDaAula(original);
     return {
       id: it.contentDetails.videoId,
       n: i + 1,
       titulo,
-      original,
+      // o título da fonte só quando a limpeza mudou alguma coisa: 1.375 aulas pagam cada byte no cache
+      ...(original !== titulo ? { original } : {}),
       duracaoS: segundosDaDuracao(duracoes[it.contentDetails.videoId]),
       exercicio: ehAulaDeExercicio(titulo)
     };

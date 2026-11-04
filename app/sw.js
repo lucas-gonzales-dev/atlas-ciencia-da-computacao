@@ -347,12 +347,17 @@
 // duração, o título sem a etiqueta do curso e a aula de exercício marcada pelo
 // título da fonte. Nenhuma tela o importa ainda; os dados (app/data/aulas/) entram
 // quando o tools/aulas-do-youtube.mjs rodar com a chave.
-const VERSAO = 'atlas-v53';
+// atlas-v54: S12, os dados das aulas (04/11/2026). Entram app/data/aulas/ (35
+// estações e o índice: 1.375 aulas, 719 h, gerados pela YouTube Data API em
+// 04/11, válidos até 04/12) e o data/aulas-recortes.json, que divide a playlist
+// única de Python I e II. Sem estes arquivos no cache, a lista de aulas some
+// quando a rede cai.
+const VERSAO = 'atlas-v54';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
 // deixa o cache antigo sem o nome novo. Recalcular: node tests/precache-hash.js.
-const PRECACHE_HASH = 'sha256-86fb11a398446bf86124038727a683b120ea0b777850f9561e60ac78a7cb6764';
+const PRECACHE_HASH = 'sha256-72f7b47b18bb58bce838dcf147d080ac848ee9e0d7a60d942548630deccd4ff0';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.
@@ -463,6 +468,47 @@ const PRECACHE = [
   'data/specializations-seed.json',
   'data/specialization-resources-seed.json',
   'data/specializations-unindexed-overlay.json',
+  // As aulas de cada estação (S12): uma estação por arquivo, mais o índice dos totais,
+  // gerados pelo tools/aulas-do-youtube.mjs a partir da YouTube Data API e regerados
+  // uma vez por mês (os termos da API limitam guardar os dados por 30 dias). O
+  // aulas-recortes.json é o insumo editorial que divide Python I e II.
+  'data/aulas-recortes.json',
+  'data/aulas/indice.json',
+  'data/aulas/algebra-linear-i.json',
+  'data/aulas/algoritmos-em-grafos.json',
+  'data/aulas/analise-algoritmos.json',
+  'data/aulas/arquitetura-computadores-i.json',
+  'data/aulas/arquitetura-computadores-ii.json',
+  'data/aulas/banco-de-dados.json',
+  'data/aulas/calculo-i.json',
+  'data/aulas/calculo-ii.json',
+  'data/aulas/calculo-iii.json',
+  'data/aulas/circuitos-digitais.json',
+  'data/aulas/compiladores.json',
+  'data/aulas/computacao-quantica.json',
+  'data/aulas/deep-learning.json',
+  'data/aulas/engenharia-software.json',
+  'data/aulas/estruturas-de-dados.json',
+  'data/aulas/fundamentos-computacao-grafica.json',
+  'data/aulas/geometria-analitica.json',
+  'data/aulas/inteligencia-artificial.json',
+  'data/aulas/introducao-cc-python-i.json',
+  'data/aulas/introducao-cc-python-ii.json',
+  'data/aulas/laboratorio-poo-i.json',
+  'data/aulas/linguagens-de-programacao.json',
+  'data/aulas/linguagens-formais-automatos.json',
+  'data/aulas/matematica-discreta.json',
+  'data/aulas/metodologia-pesquisa.json',
+  'data/aulas/metodos-numericos-i.json',
+  'data/aulas/probabilidade-estatistica.json',
+  'data/aulas/programacao-funcional-haskell.json',
+  'data/aulas/programacao-logica.json',
+  'data/aulas/programacao-matematica.json',
+  'data/aulas/redes-computadores.json',
+  'data/aulas/sistemas-distribuidos.json',
+  'data/aulas/sistemas-operacionais.json',
+  'data/aulas/teoria-computacao.json',
+  'data/aulas/teoria-grafos.json',
   // Os dois abaixo NAO sao assets de navegador (package.json e metadado,
   // serve.js e o servidor node). Estao aqui so porque o teste de sincronia
   // deriva a lista de TODOS os .js/.json fora de tests/. Mantidos no cache:

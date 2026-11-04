@@ -66,6 +66,15 @@ test('aulas: o recorte divide uma playlist entre duas estações e renumera cada
   assert.deepEqual(parte2.map((a) => [a.n, a.id]), [[1, 'v4'], [2, 'v5']]);
 });
 
+test('aulas: o recorte em trechos junta pedaços da playlist, na ordem dada (a aula da Parte 1 que ficou no fim)', () => {
+  const itens = ['v1', 'v2', 'v3', 'v4', 'v5', 'v6'].map((v, i) => item(v, `Aula ${i + 1}`));
+  const parte1 = aulasDaPlaylist(itens, {}, { trechos: [[1, 2], [5, 5]] });
+  const parte2 = aulasDaPlaylist(itens, {}, { trechos: [[3, 4], [6, 6]] });
+  assert.deepEqual(parte1.map((a) => [a.n, a.id]), [[1, 'v1'], [2, 'v2'], [3, 'v5']]);
+  assert.deepEqual(parte2.map((a) => [a.n, a.id]), [[1, 'v3'], [2, 'v4'], [3, 'v6']]);
+  assert.equal(parte1.length + parte2.length, itens.length, 'nenhuma aula some nem se repete entre as duas');
+});
+
 test('aulas: o total da estação e a duração como a placa diz', () => {
   const aulas = aulasDaPlaylist([item('a', 'Aula 1'), item('b', 'Exercícios')], { a: 'PT50M', b: 'PT25M' });
   assert.deepEqual(totalDasAulas(aulas), { aulas: 2, exercicios: 1, segundos: 4500 });

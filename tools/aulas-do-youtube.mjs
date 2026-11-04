@@ -54,7 +54,8 @@ function chave() {
   if (!existsSync(arquivo)) {
     throw new Error(`sem chave da YouTube Data API: defina YOUTUBE_API_KEY ou crie ${arquivo} (fora de qualquer repositório)`);
   }
-  return readFileSync(arquivo, 'utf8').trim();
+  // o Bloco de Notas pode salvar com BOM, e a chave com BOM é recusada pela API
+  return readFileSync(arquivo, 'utf8').replace(/^﻿/, '').trim();
 }
 
 async function pedir(caminho, parametros, k) {
@@ -113,15 +114,16 @@ async function gerar() {
     const { itens, duracoes } = porPlaylist.get(e.playlist);
     const aulas = aulasDaPlaylist(itens, duracoes, e.recorte);
     const total = totalDasAulas(aulas);
+    // JSON compacto: os 36 arquivos entram no precache e cada byte pesa na instalação do app
     writeFileSync(join(PASTA, `${e.slug}.json`), `${JSON.stringify({
       estacao: e.id, slug: e.slug, playlist: e.playlist, fonte: indice.fonte, geradoEm: hoje, validoAte,
-      ...(e.recorte.de || e.recorte.ate ? { recorte: e.recorte } : {}), total, aulas
-    }, null, 1)}\n`);
+      ...(e.recorte.de || e.recorte.ate || e.recorte.trechos ? { recorte: e.recorte } : {}), total, aulas
+    })}\n`);
     indice.estacoes[e.id] = { slug: e.slug, ...total };
     for (const k2 of Object.keys(indice.total)) indice.total[k2] += total[k2];
     console.log(`${e.slug.padEnd(48)} ${String(total.aulas).padStart(4)} aulas  ${String(total.exercicios).padStart(3)} de exercício`);
   }
-  writeFileSync(join(PASTA, 'indice.json'), `${JSON.stringify(indice, null, 1)}\n`);
+  writeFileSync(join(PASTA, 'indice.json'), `${JSON.stringify(indice)}\n`);
   console.log(`\n${lista.length} estações, ${indice.total.aulas} aulas, ${Math.round(indice.total.segundos / 3600)} h; válido até ${validoAte}`);
 }
 

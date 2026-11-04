@@ -56,7 +56,7 @@ Hoje a estação trancada não deixa abrir. A recomendação é avisar: "Esta es
 
 ### J1 — A primeira visita (do link do LinkedIn ao primeiro cartão)
 
-1. **Abre o Atlas.** No topo, o mapa da rede (as 35 estações), o título "Ciência da Computação, aula por aula" e uma linha: "35 disciplinas da UBL, N aulas. Estude uma, lembre amanhã, e o mapa acende." (N é o total real, lido do catálogo enriquecido na S12).
+1. **Abre o Atlas.** No topo, o mapa da rede (as 35 estações), o título "Ciência da Computação, aula por aula" e uma linha: "35 disciplinas da UBL, 1.375 aulas. Estude uma, lembre amanhã, e o mapa acende." (o número é lido do `data/aulas/indice.json` na tela, não escrito à mão: em 04/11/2026 eram 1.375 aulas e 719 h).
 2. **Um botão só:** "Começar pela primeira aula" (Circuitos Digitais, Aula 01, 16 min). Embaixo, discreto: "Já estudei algumas disciplinas".
 3. **Sem tour, sem cadastro, sem pedir notificação.**
 4. Toca em começar → abre a **aula** (J2).
