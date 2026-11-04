@@ -3,5 +3,9 @@
   "recortes": {
     "ubl-core-introducao-cc-python-i": { "trechos": [[1, 31], [57, 57]] },
     "ubl-core-introducao-cc-python-ii": { "trechos": [[32, 56], [58, 58]] }
+  },
+  "porqueDosPrefixos": "Começos de título que a limpeza genérica de core/aulas.js não reconhece como o nome da estação: o erro de digitação da própria fonte ('Teoria das Grafos', nas duas primeiras aulas).",
+  "prefixos": {
+    "ubl-core-teoria-grafos": ["Teoria das Grafos"]
   }
 }

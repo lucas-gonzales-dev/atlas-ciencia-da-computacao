@@ -362,7 +362,8 @@
 // vai montar. Sem estes arquivos no cache, a folha da estação pede o módulo e
 // recebe o index.html do fallback: tela em branco com o service worker
 // dizendo que foi um 200.
-// atlas-v56: decisao do Lucas sobre o continuarDe (04/11/2026), no nucleo. Sai o
+// atlas-v56: a decisao sobre o continuarDe (04/11/2026; do Claude, pelo canal do
+// dogfood, e nao do Lucas, como este comentario dizia ate a v59), no nucleo. Sai o
 // motivo 'primeira-nao-aberta', que devolvia a Aula 1 a quem tinha aberto a 13 e
 // a 14 e leria, na folha, como se nada tivesse sido estudado; entram a aberta mais
 // recente da estacao (maior abertaEm, empate pelo maior n) e 'comecar' so quando
@@ -380,7 +381,15 @@
 // Os dois estao no precache: sem o css no cache, o onibus sem sinal abriria a
 // lista de 93 aulas sem uma linha de estilo aplicada. Mudou conteudo do
 // precache, entao VERSAO e hash.
-const VERSAO = 'atlas-v58';
+// atlas-v59: o CONTEUDO das aulas (04/11/2026, o Claude, no discovery do desenho
+// v3). Os 35 arquivos de data/aulas/ mudaram de bytes: o titulo de cada aula sai
+// limpo do nome da estacao, de codigo de disciplina, de "Aula 01 -" e de "| curso"
+// (core/aulas.js, tituloDaAula), e as aulas de exercicio passam a contar "lista N"
+// e "questao N". Entra data/competencias.json, as 35 frases de competencia do
+// livro de selos (S17), cada uma com a fonte de onde saiu. Sem subir a VERSAO,
+// quem tem v58 no cache continua vendo "[CIRCUITOS DIGITAIS] Aula 01 - ..." na
+// pagina de aulas.
+const VERSAO = 'atlas-v59';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
@@ -388,7 +397,7 @@ const VERSAO = 'atlas-v58';
 // Recalculado ao fechar a PARTE A da S13b (04/11/2026): web/folha.js ganhou o
 // bloco das aulas e core/textos.js as frases novas — os dois estao no precache,
 // entao quem instalou o app antes receberia a folha SEM a linha de progresso.
-const PRECACHE_HASH = 'sha256-0d65b0458dbabc72a8e865f1f1e3c986c1a59a1a1023a737ba24f24c5e88b45f';
+const PRECACHE_HASH = 'sha256-26ada5721227a57641a85bcdbbd9a8411819765813be9319e853cbd412709873';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.
@@ -517,6 +526,9 @@ const PRECACHE = [
   // uma vez por mês (os termos da API limitam guardar os dados por 30 dias). O
   // aulas-recortes.json é o insumo editorial que divide Python I e II.
   'data/aulas-recortes.json',
+  // As frases de competencia (desenho v3): o que a pessoa sabe fazer ao fechar a
+  // estacao, uma por estacao, com a fonte. O livro de selos (S17) as le daqui.
+  'data/competencias.json',
   'data/aulas/indice.json',
   'data/aulas/algebra-linear-i.json',
   'data/aulas/algoritmos-em-grafos.json',

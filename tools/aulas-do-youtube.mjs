@@ -39,11 +39,14 @@ function somarDias(iso, dias) {
 
 function estacoes() {
   const cat = JSON.parse(readFileSync(join(DADOS, 'catalog.json'), 'utf8'));
-  const recortes = existsSync(join(DADOS, 'aulas-recortes.json'))
-    ? JSON.parse(readFileSync(join(DADOS, 'aulas-recortes.json'), 'utf8')).recortes ?? {}
+  const editorial = existsSync(join(DADOS, 'aulas-recortes.json'))
+    ? JSON.parse(readFileSync(join(DADOS, 'aulas-recortes.json'), 'utf8'))
     : {};
+  const recortes = editorial.recortes ?? {};
+  const prefixos = editorial.prefixos ?? {};
   return cat.courses.map((c) => ({
-    id: c.id, slug: c.slug, titulo: c.title, playlist: playlistDoRecurso(c.resourceUrl), recorte: recortes[c.id] ?? {}
+    id: c.id, slug: c.slug, titulo: c.title, playlist: playlistDoRecurso(c.resourceUrl),
+    recorte: recortes[c.id] ?? {}, prefixos: prefixos[c.id] ?? []
   }));
 }
 
@@ -112,7 +115,7 @@ async function gerar() {
   const indice = { fonte: 'YouTube Data API v3', geradoEm: hoje, validoAte, estacoes: {}, total: { aulas: 0, exercicios: 0, segundos: 0 } };
   for (const e of lista) {
     const { itens, duracoes } = porPlaylist.get(e.playlist);
-    const aulas = aulasDaPlaylist(itens, duracoes, e.recorte);
+    const aulas = aulasDaPlaylist(itens, duracoes, e.recorte, { nome: e.titulo, prefixos: e.prefixos });
     const total = totalDasAulas(aulas);
     // JSON compacto: os 36 arquivos entram no precache e cada byte pesa na instalação do app
     writeFileSync(join(PASTA, `${e.slug}.json`), `${JSON.stringify({
