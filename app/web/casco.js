@@ -33,13 +33,16 @@ const TELAS = Object.freeze({
   jornada: () => import('./telas/jornada.js'),
   explorar: () => import('./telas/explorar.js'),
   revisar: () => import('./telas/revisar.js'),
-  perfil: () => import('./telas/perfil.js')
+  perfil: () => import('./telas/perfil.js'),
+  // S13b: a página de aulas é tela, não folha. `#/estacao/<slug>/aulas` já era
+  // lido pelo núcleo desde a S13a e apontava para nada.
+  aulas: () => import('./telas/aulas.js')
 });
 
 // A classe que a CSS ancora para a tela inteira: metro.css abre com `.metro`,
 // grade.css com `.grade`. Sem ela a tela montada dentro do main chegaria sem
 // layout nenhum — o casco não desenha nada, só escolhe onde desenhar.
-const CLASSE_DA_TELA = Object.freeze({ jornada: 'metro', explorar: '', revisar: '', perfil: 'perfil' });
+const CLASSE_DA_TELA = Object.freeze({ jornada: 'metro', explorar: '', revisar: '', perfil: 'perfil', aulas: 'aulas' });
 
 /**
  * Decide a tela para uma rota, e QUAL FOLHA abrir por cima dela (S5).
@@ -51,6 +54,12 @@ const CLASSE_DA_TELA = Object.freeze({ jornada: 'metro', explorar: '', revisar: 
  * DOM, e o casco continua sem tocar em document.
  */
 export function telaDaRota(rota) {
+  // S13b: o PAINEL de aulas é outra tela, não a folha. O endereço continua a
+  // estação no caminho — é ele que diz QUAL estação — mas quem se monta é a
+  // página da lista, com `folha` carregando o slug para ela ler o catálogo.
+  if (rota?.tela === 'estacao' && rota.painel === 'aulas') {
+    return { tela: 'aulas', folha: String(rota.slug || '') };
+  }
   if (rota?.tela === 'estacao') return { tela: 'jornada', folha: String(rota.slug || '') };
   return { tela: TELAS[rota.tela] ? rota.tela : 'jornada', folha: null };
 }
@@ -123,7 +132,12 @@ export async function iniciar(deps = {}) {
 
     const aba = ABAS.find((a) => a.tela === nome) || ABAS[0];
     abaAtiva(nome);
-    doc.title = `${aba.rotulo} · ${TITULO_APP}`;
+    // S13b (painel de aulas): uma tela que NÃO é aba se nomeia sozinha, pelo
+    // `rotulo` que o `montar` devolve. Sem isto, `#/estacao/x/aulas` receberia o
+    // rótulo da ABAS[0] e o app announced "Jornada" sobre uma lista de aulas —
+    // título e anúncio mentindo juntos, o que a régua 6 da S10 existe para evitar.
+    const rotulo = instancia?.rotulo || aba.rotulo;
+    doc.title = `${rotulo} · ${TITULO_APP}`;
     // S10 régua 6: no celular e no tablet quem rola é o MAIN (a janela está
     // trancada, para a barra fixa não cobrir o fim da tela); no computador o
     // @media de 1024px devolve a rolagem à janela. Zerar os dois é um linha só,
@@ -137,7 +151,7 @@ export async function iniciar(deps = {}) {
       primeira = false;
       return;
     }
-    anuncio.textContent = casco.anuncio(aba.rotulo);
+    anuncio.textContent = casco.anuncio(rotulo);
     const alvo = box.querySelector('h1') || main;
     alvo.setAttribute('tabindex', '-1');
     alvo.focus?.({ preventScroll: true });

@@ -1,0 +1,192 @@
+/* Projeto Atlas — a página AULAS da estação (S13b parte B, 04/11/2026).
+
+   POR QUE EXISTE: a folha cabe o que se lê de uma vez; uma estação com 93
+   aulas precisa de uma página só para elas. Este arquivo desenha a lista, o
+   painel de progresso e o voltar. Nenhum valor é à mão: cor, tempo e largura
+   vêm dos tokens (design/README §5 e §7), e a suíte lê este arquivo inteiro
+   procurando hex, cor escrita e duração sem token.
+
+   UMA COISA QUE A FOLHA JÁ SABE E ESTA PÁGINA REPETE: a linha de 4 px do
+   progresso não tem cor nem espessura própria — recebe `--pct` do JS como
+   número e transforma em largura. O preenchimento é estado, o desenho é daqui.
+
+   O corpo da lista é uma `ol`: a ordem é a informação (Aula 1, 2, 3), e um
+   leitor de tela que percorre a lista conta os itens. O `aria-current` de
+   "por onde continuar" vem do JS, nunca daqui. */
+
+/* ── a página inteira ───────────────────────────────────────────────────── */
+.aulas {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-4);
+  padding: var(--espaco-4) var(--espaco-4) calc(var(--espaco-6) + var(--margem-segura-baixo));
+  max-width: var(--largura-painel);
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* ── o cabeçalho: voltar em cima, título embaixo ────────────────────────── */
+.aulas-cabecalho {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-1);
+}
+
+/* Voltar é link, não botão: desfazer um passo é correção, e a casa deu um
+   botão cheio por tela (2d-2). O piso de toque vem do token, não do texto. */
+.aulas-voltar {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--alvo-toque);
+  color: var(--tinta);
+  text-decoration: none;
+  align-self: flex-start;
+}
+
+.aulas-voltar:hover {
+  text-decoration: underline;
+}
+
+.aulas-titulo {
+  margin: 0;
+  color: var(--tinta);
+}
+
+/* ── o painel: progresso, a aula por onde continuar, a playlist ─────────── */
+.aulas-painel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-3);
+}
+
+.aulas-progresso {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-2);
+}
+
+.aulas-progresso-texto {
+  margin: 0;
+}
+
+/* O trilho e o preenchimento. A altura é 4 px nos dois lados da linha — o
+   mesmo número da folha, porque é a mesma barra desenhada pelo mesmo pedaço de
+   código (web/aulas-pedacos.js). */
+.aulas-barra {
+  height: 4px;
+  border-radius: var(--raio-selo);
+  background: var(--borda);
+  overflow: hidden;
+}
+
+.aulas-barra-cheio {
+  height: 100%;
+  width: var(--pct, 0%);
+  /* --cor é a cor da LINHA, posta pelo JS na estação; fora da folha ela pode não
+     existir, e o cair-voltar é a tinta — nunca uma cor escrita à mão. */
+  background: var(--cor, var(--tinta));
+}
+
+.aulas-nota {
+  margin: 0;
+}
+
+.aulas-primario {
+  align-self: flex-start;
+}
+
+/* A playlist inteira, para quem prefere ir pelo YouTube. Secundário de peso,
+   e por isso é link simples com o piso de toque. */
+.aulas-playlist {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--alvo-toque);
+  color: var(--tinta);
+  align-self: flex-start;
+}
+
+/* ── a lista ────────────────────────────────────────────────────────────── */
+.aulas-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-1);
+}
+
+.aula-item {
+  border-bottom: var(--espessura-borda-painel) solid var(--borda);
+}
+
+/* A linha é uma coisa tocável só: número, título, estado e duração. O `grid` dá
+   o alinhamento sem uma linha de posicionamento absoluto, e o título é a
+   coluna que encolhe (minmax(0, 1fr)) — sem o zero, uma aula com nome longo
+   empurra a duração para fora da tela, que foi o defeito da coluna de 32 px da
+   etiqueta (acabamento.test.js). */
+.aula-link {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: baseline;
+  gap: var(--espaco-3);
+  padding: var(--espaco-3) var(--espaco-1);
+  min-height: var(--alvo-toque);
+  color: var(--tinta);
+  text-decoration: none;
+}
+
+.aula-link:hover {
+  text-decoration: underline;
+}
+
+.aula-n {
+  color: var(--tinta);
+}
+
+.aula-estado,
+.aula-duracao {
+  color: var(--tinta);
+}
+
+/* O ponto de retorno: a borda da cor da linha na esquerda diz onde a pessoa
+   está sem depender só do texto, que é o que o leitor de tela também recebe
+   pelo `aria-current`. */
+.aula-link[aria-current="true"] {
+  border-left: var(--espessura-borda-painel) solid var(--cor, var(--tinta));
+  padding-left: var(--espaco-2);
+  background: var(--superficie);
+}
+
+/* ── o erro honesto: o arquivo das aulas não está neste aparelho ───────── */
+.aulas-erro {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-2);
+  padding: var(--espaco-4);
+  border-radius: var(--raio-placa);
+  background: var(--superficie);
+  border-left: var(--espessura-borda-painel) solid var(--cor, var(--tinta));
+}
+
+.aulas-erro p {
+  margin: 0;
+}
+
+/* ── o computador: a lista ganha fôlego, e só ──────────────────────────── */
+@media (min-width: 1024px) {
+  .aulas {
+    padding: var(--espaco-6) var(--espaco-6) calc(var(--espaco-8) + var(--margem-segura-baixo));
+  }
+
+  /* Duas colunas de leitura na lista comprida: 93 aulas em uma coluna é rolagem
+     sem fim, e a ordem continua sendo a da fonte (o `ol` percorre em coluna). */
+  .aulas-lista {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 var(--espaco-6);
+  }
+
+  .aula-item {
+    border-bottom: var(--espessura-borda-painel) solid var(--borda);
+  }
+}

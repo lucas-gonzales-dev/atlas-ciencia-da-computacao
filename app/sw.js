@@ -375,7 +375,12 @@
 // mesma duracao nao pode ser escrita de dois jeitos em duas telas) — e as frases
 // novas de core/textos.js (notaAbrir, tituloPagina, voltarPara, abrirPlaylist).
 // A tela aulas.js e o aulas.css entram no proximo commit, com o precache deles.
-const VERSAO = 'atlas-v57';
+// atlas-v58: S13b parte B. Entram web/telas/aulas.js (a pagina de aulas da
+// estacao, montada pelo casco em #/estacao/<slug>/aulas) e web/telas/aulas.css.
+// Os dois estao no precache: sem o css no cache, o onibus sem sinal abriria a
+// lista de 93 aulas sem uma linha de estilo aplicada. Mudou conteudo do
+// precache, entao VERSAO e hash.
+const VERSAO = 'atlas-v58';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
@@ -383,7 +388,7 @@ const VERSAO = 'atlas-v57';
 // Recalculado ao fechar a PARTE A da S13b (04/11/2026): web/folha.js ganhou o
 // bloco das aulas e core/textos.js as frases novas — os dois estao no precache,
 // entao quem instalou o app antes receberia a folha SEM a linha de progresso.
-const PRECACHE_HASH = 'sha256-db8c8eb0e220c3ef7359932319db4b1e7e8a2a1442247d5d3a48934aca017ed0';
+const PRECACHE_HASH = 'sha256-0d65b0458dbabc72a8e865f1f1e3c986c1a59a1a1023a737ba24f24c5e88b45f';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.
@@ -440,6 +445,8 @@ const PRECACHE = [
   // nem com rede, porque o import do index falharia em silencio.
   'web/aulas-dados.js',
   'web/aulas-pedacos.js',
+  'web/telas/aulas.js',
+  'web/telas/aulas.css',
  // A FOLHA da estacao (S5): o index.html liga o CSS, e ela vira modulo quando o
  // metro.js trocar o clique pela rota. Os dois entram juntos pelo mesmo motivo
  // da v22 — HTML novo pedindo arquivo que o cache antigo nao tem.

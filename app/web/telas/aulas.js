@@ -1,0 +1,190 @@
+// Projeto Atlas — a página AULAS da estação (S13b parte B, 04/11/2026).
+//
+// POR QUE EXISTE: a folha da estação cabem duas ou três aulas por tela; quem
+// quer ver as 93 precisa de uma página só para elas. `#/estacao/<slug>/aulas`
+// já era lido pelo núcleo desde a S13a (core/rotas.js) e apontava para nada:
+// esta arquivo é o que aquele endereço passa a montar.
+//
+// REGRAS deste arquivo (as mesmas que a casa já cobra das outras telas):
+//   · monta DOM, não calcula. As contas vêm de `painelDeAulas` (que chama
+//     core/estudo.js) e a leitura do arquivo vem de web/aulas-dados.js. Nada de
+//     regra de desbloqueio, nada de calendário, nada de cor aqui.
+//   · nenhuma frase digitada. Título, volta, playlist, nota e os três estados
+//     saem de core/textos.js, seção `aulas`; a duração sai de core/aulas.js.
+//   · o que a folha e esta página mostram juntas (linha de progresso, primário,
+//     nota,href do vídeo) vem de web/aulas-pedacos.js — regra 9, a mesma linha
+//     não pode se escrever de dois jeitos em duas telas.
+//   · document e window entram pelo contexto (S10c). Importar este módulo não
+//     monta nada: quem monta é o casco, e o teste monta à mão.
+//
+// A LISTA É O QUE A FONTE DIZ: cada item traz o número, o título limpo, a
+// duração e o estado que o registro guarda. O estado é `Aberta` ou
+// `Não iniciada` — nunca `Estudada`, que a S14 ainda não existe. A aula por
+// onde continuar leva `aria-current="true"`: é o ponto de retorno, e um leitor
+// de tela que percorre a lista tem de saber onde a pessoa está sem ler o
+// primário lá em cima.
+//
+// A REPINTURA É O QUE FECHA O CICLO (parte C): o clique na aula grava a abertura
+// ANTES de sair do Atlas (`ligarAberturaDeAula`, no compartido) e a volta da
+// outra aba pinta de novo. Sem repintar, a pessoa voltaria e veria "Começar:
+// Aula 1" por baixo de uma lista que acabou de abrir a 13.
+import { duracaoLegivel } from '../../core/aulas.js';
+import { hrefDe } from '../../core/rotas.js';
+import { estadoDaAula } from '../../core/estudo.js';
+import { aulas as A } from '../../core/textos.js';
+import {
+  estudoDoStorage,
+  hrefVideo,
+  ligarAberturaDeAula,
+  linhaProgresso,
+  notaAbrirAula,
+  painelDeAulas,
+  primarioAula,
+} from '../aulas-pedacos.js';
+import { carregarAulas } from '../aulas-dados.js';
+
+const CLASSE = 'aulas';
+
+function no(doc, tag, classe, attrs) {
+  const n = doc.createElement(tag);
+  if (classe) n.className = classe;
+  for (const chave of Object.keys(attrs || {})) {
+    if (chave === 'text') n.textContent = String(attrs[chave]);
+    else n.setAttribute(chave, String(attrs[chave]));
+  }
+  return n;
+}
+
+/** Os três pedaços de sempre quando o arquivo das aulas não está no aparelho. */
+function avisoSemAulas(doc) {
+  const caixa = no(doc, 'div', 'aulas-erro');
+  caixa.append(
+    no(doc, 'p', 'aulas-erro-um', { text: A.semAulas.parteUm }),
+    no(doc, 'p', 'aulas-erro-dois', { text: A.semAulas.parteDois }),
+    no(doc, 'p', 'aulas-erro-tres', { text: A.semAulas.parteTres })
+  );
+  return caixa;
+}
+
+/** Um item da lista. Nenhum texto é daqui: número e título são dados, o resto vem de textos.js. */
+function itemDaAula(doc, { aula, estudo, playlist, continuar }) {
+  const li = no(doc, 'li', 'aula-item');
+  const link = no(doc, 'a', 'aula-link', {
+    href: hrefVideo(aula, playlist),
+    rel: 'noopener',
+    target: '_blank',
+    'data-aula': String(aula.id),
+    'data-n': String(aula.n)
+  });
+  link.append(
+    no(doc, 'span', 'aula-n', { text: String(aula.n) }),
+    no(doc, 'span', 'aula-titulo', { text: aula.titulo }),
+    // O registro é por ID do vídeo (estadoDaAula lê `estudo.aulas[texto(aula)]`):
+    // passar o objeto faria `texto()` devolver '' e TODA linha sairia "Não
+    // iniciada" — o verde mudo de uma lista que nunca mostra o que já foi aberto.
+    no(doc, 'span', 'aula-estado', { text: A.estados[estadoDaAula(estudo, aula.id)] || A.estados['nao-iniciada'] }),
+    no(doc, 'span', 'aula-duracao', { text: duracaoLegivel(aula.duracaoS) })
+  );
+  // O ponto de retorno da estação, marcado na própria linha.
+  if (continuar && aula.id === continuar.id) link.setAttribute('aria-current', 'true');
+  li.append(link);
+  return li;
+}
+
+/**
+ * Monta a página de aulas da estação pedida pela rota.
+ *
+ * @param {Element} raiz o contêiner que o casco esvazia e entrega
+ * @param {{document: object, window: object, catalogo: Promise, folha: string, buscarAulas?: Function}} ctx
+ * @returns {Promise<{desmontar: () => void, rotulo: string|null, root: Element}>}
+ *   `rotulo` é o que o casco põe no `document.title` e no anúncio: uma tela que
+ *   não é aba precisa se nomear sozinha, senão o casco a chamaria de "Jornada".
+ */
+export async function montar(raiz, ctx) {
+  const doc = ctx.document;
+  const win = ctx.window;
+  const slug = String(ctx.folha || '');
+
+  raiz.className = CLASSE;
+  raiz.setAttribute('data-slug', slug);
+
+  const catalogo = (await ctx.catalogo) || [];
+  const curso = catalogo.find((c) => c && (c.slug === slug || c.id === slug)) || null;
+  // O nome lido do catálogo, nunca digitado. Sem estação no catálogo, o que se
+  // ecoa é o que a pessoa pediu por endereço — não um nome inventado.
+  const estacao = typeof curso?.title === 'string' ? curso.title : slug;
+  if (curso) raiz.setAttribute('data-estacao', String(curso.id));
+
+  const cabecalho = no(doc, 'header', 'aulas-cabecalho');
+  cabecalho.append(
+    no(doc, 'a', 'aulas-voltar', { href: hrefDe({ tela: 'estacao', slug }), text: A.voltarPara(estacao) }),
+    no(doc, 'h1', 'aulas-titulo', { text: A.tituloPagina(estacao) })
+  );
+  raiz.append(cabecalho);
+
+  const painelBox = no(doc, 'div', 'aulas-painel');
+  raiz.append(painelBox);
+
+  // A leitura do arquivo: só com estação conhecida. `ctx.buscarAulas` é a rede
+  // injetada (o teste passa um dublê); sem ela, `carregarAulas` usa o fetch do
+  // navegador, e um node sem fetch recebe `{ok:false}` em vez de estouro.
+  let lista = null;
+  if (curso) {
+    const lido = await carregarAulas(slug, ctx.buscarAulas);
+    if (lido.ok) {
+      // O `resourceUrl` é do CATÁLOGO, não do arquivo de aulas (que traz vídeo,
+      // título e duração, e nunca a playlist de onde ele saiu). Sem esta costura,
+      // `painelDeAulas` não acharia a playlist e cada href de aula cairia no
+      // vídeo solto: a pessoa terminaria e o YouTube sugeriria outra coisa.
+      lista = { ...lido.dados, resourceUrl: lido.dados.resourceUrl || curso.resourceUrl };
+    } else {
+      raiz.append(avisoSemAulas(doc));
+    }
+  }
+
+  const pintar = () => {
+    if (!lista || !curso) return;
+    const estudo = estudoDoStorage(win?.localStorage);
+    const painel = painelDeAulas(estudo, curso.id, lista);
+    painelBox.textContent = '';
+    if (!painel) return;
+    painelBox.append(linhaProgresso(doc, painel.resumo));
+    painelBox.append(primarioAula(doc, {
+      aula: painel.continuar.aula,
+      motivo: painel.continuar.motivo,
+      temAberta: painel.resumo.abertas > 0,
+      playlist: painel.playlist
+    }));
+    painelBox.append(notaAbrirAula(doc));
+    // A playlist da estação inteira, no link que o catálogo já traz. Nenhum
+    // endereço é montado aqui: `resourceUrl` é o que a UBL publicou.
+    if (curso.resourceUrl) {
+      painelBox.append(no(doc, 'a', 'aulas-playlist', {
+        href: curso.resourceUrl, rel: 'noopener', target: '_blank', text: A.abrirPlaylist
+      }));
+    }
+    const itens = no(doc, 'ol', 'aulas-lista');
+    for (const aula of lista.aulas) {
+      itens.append(itemDaAula(doc, {
+        aula,
+        estudo,
+        playlist: painel.playlist,
+        continuar: painel.continuar.aula
+      }));
+    }
+    painelBox.append(itens);
+  };
+
+  pintar();
+  const desligar = lista
+    ? ligarAberturaDeAula({ win, storage: win?.localStorage, painel: painelBox, aoMudar: pintar })
+    : () => {};
+
+  return {
+    root: raiz,
+    rotulo: A.tituloPagina(estacao),
+    desmontar: () => desligar(),
+    // Exposto para o teste ler sem andar pela árvore.
+    _estado: () => ({ lista: Boolean(lista), curso: curso?.id || null })
+  };
+}

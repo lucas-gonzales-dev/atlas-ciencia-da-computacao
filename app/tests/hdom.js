@@ -212,6 +212,11 @@ export function criarDoc() {
   const raiz = criarNo('html', { createElement: (t) => criarNo(t, doc), foco: null });
   const doc = {
     foco: null,
+    // S13b: o navegador expõe `document.visibilityState`, e é por ele que a tela
+    // sabe se deve repintar quando a janela recebe `visibilitychange`. Sem este
+    // campo o dublê respondia `undefined` — nunca 'visible' — e o teste "voltei
+    // da aba do YouTube e a lista repintou" morria mudo em vez de provar o fio.
+    visibilityState: 'visible',
     createElement: (tag) => criarNo(tag, doc),
     // As telas do casco procuram por id (getElementById) e por seletor.
     getElementById: (id) => porId.get(id) || null,
