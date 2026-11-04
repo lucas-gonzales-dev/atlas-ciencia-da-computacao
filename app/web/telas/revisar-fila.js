@@ -107,6 +107,15 @@ export function desenhaAbertura(doc, { total, naSessao, comecar }) {
  * o método, e um verso escondido por CSS ainda seria lido por leitor de tela e
  * apanhado por quem inspeciona. Esconder é não desenhar.
  *
+ * S15b-fix: o mesmo vale na outra direção, e por motivo ainda mais forte. No ramo
+ * `visto` NÃO se desenham o convite nem a confiança: com a resposta na tela a
+ * frase «Tente lembrar antes de ver.» se contradiz, e escolher «certeza» depois de
+ * ver não é confiança — é chute sobre o que já se leu, e estragaria o dado que o
+ * FSRS usa para agendar. Quem escolheu antes continua com a escolha gravada,
+ * porque `confianca` vive na TELA (revisar.js), não no desenho: sumir o botão não
+ * some o valor. E «esconder por CSS» está fora de questão pela mesma razão do
+ * verso — um botão escondido ainda é apanhado por leitor de tela e por Tab.
+ *
  * Errei e Lembrei têm o MESMO peso e nenhuma cor de certo: errar aqui não custa
  * nada, só reagenda.
  */
@@ -121,24 +130,24 @@ export function desenhaCartao(doc, { cartao, origem, posicao, visto, confianca, 
   caixa.append(cabeca);
 
   caixa.append(el(doc, `${CLASSE}-frente`, cartao.frente, 'h1'));
-  caixa.append(el(doc, `${CLASSE}-convite`, T.tentarLembrar, 'p'));
-
-  // A confiança é OPCIONAL: três escolhas do mesmo peso, nenhuma obrigatória.
-  // Sem escolha, `confianca` chega nula ao núcleo — dado honesto sobre o que a
-  // pessoa não quis dizer, e não «chute» chutado no lugar.
-  const grupo = el(doc, `${CLASSE}-confianca`, undefined, 'div');
-  grupo.setAttribute('role', 'group');
-  grupo.setAttribute('aria-label', T.seguro);
-  grupo.append(el(doc, `${CLASSE}-confianca-pergunta`, T.seguro, 'p'));
-  for (const chave of Object.keys(T.confiancas)) {
-    grupo.append(par(doc, `${CLASSE}-confianca-opcao`, T.confiancas[chave], {
-      'data-confianca': chave,
-      'aria-pressed': confianca === chave ? 'true' : 'false'
-    }, () => escolher(chave)));
-  }
-  caixa.append(grupo);
 
   if (!visto) {
+    caixa.append(el(doc, `${CLASSE}-convite`, T.tentarLembrar, 'p'));
+
+    // A confiança é OPCIONAL: três escolhas do mesmo peso, nenhuma obrigatória.
+    // Sem escolha, `confianca` chega nula ao núcleo — dado honesto sobre o que a
+    // pessoa não quis dizer, e não «chute» chutado no lugar.
+    const grupo = el(doc, `${CLASSE}-confianca`, undefined, 'div');
+    grupo.setAttribute('role', 'group');
+    grupo.setAttribute('aria-label', T.seguro);
+    grupo.append(el(doc, `${CLASSE}-confianca-pergunta`, T.seguro, 'p'));
+    for (const chave of Object.keys(T.confiancas)) {
+      grupo.append(par(doc, `${CLASSE}-confianca-opcao`, T.confiancas[chave], {
+        'data-confianca': chave,
+        'aria-pressed': confianca === chave ? 'true' : 'false'
+      }, () => escolher(chave)));
+    }
+    caixa.append(grupo);
     caixa.append(acao(doc, T.mostrarResposta, mostrar));
     return caixa;
   }

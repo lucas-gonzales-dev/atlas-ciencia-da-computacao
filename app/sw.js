@@ -578,7 +578,24 @@
 // core/cartoes.js e core/textos.js. Sem subir a VERSAO, quem tem v72 recebe o
 // revisar.js novo importando um módulo que não está no cache dele: a aba abre em
 // branco, offline ou online.
-const VERSAO = 'atlas-v73';
+// atlas-v74: S15b-fix (04/11/2026) — os cinco defeitos de TELA que 780/780 e o
+// Chrome não viam no a41b467. No ramo `visto` saem o convite («Tente lembrar
+// antes de ver.» com a resposta já na tela) e o grupo de confiança (escolher
+// «certeza» depois de ler o verso não é confiança, é chute, e entraria no dado
+// que o FSRS usa para agendar); cada gesto devolve o foco ao conteúdo novo, e
+// sem isso a cada cartão o foco caía no body e quem usa Tab refazia o topo
+// inteiro; a confiança vira grade de três colunas com borda de 1px (três barras
+// de 6px pesavam mais que a pergunta), Errei/Lembrei em grade de duas colunas
+// iguais (dois botões do mesmo peso saíam de larguras diferentes), o segundo
+// anel de foco da tela sai — base.css já pinta o da casa, e ali era outra cor
+// sem motivo; `a.revisar-primario` ganha box-sizing border-box (media 70px contra
+// 46px do botão: o --alvo-toque era content box num <a>) e as frases do bloco
+// revisar flexionam («1 cartão», «1 revisado, 0 lembrados»). Mudam de bytes:
+// web/telas/revisar-fila.js, web/telas/revisar.js, web/telas/revisar.css e
+// core/textos.js — os quatro no precache. Sem subir a VERSAO, quem tem v73 no
+// cache continua com o convite contraditório, o foco no body e as três barras de
+// 6px, com o HTML novo por cima.
+const VERSAO = 'atlas-v74';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
@@ -608,7 +625,14 @@ const VERSAO = 'atlas-v73';
 // core/rotas.js (a rota da aula), core/aulas.js (pausasDaAula) e core/textos.js
 // (a seção fechamento). O sw.js mediu o mesmo sha256 antes e depois de eu subir a
 // VERSAO, o que é a prova de que ele não está na própria lista.
-const PRECACHE_HASH = 'sha256-43495d3951c0e83ea83caf0a13aeacba8fa62a5edfbf28b02eb11956d85d4587';
+// Recalculado ao FECHAR a S15b-fix (04/11/2026), com a árvore parada e DEPOIS de
+// subir a VERSAO acima: 105 arquivos, quatro mudaram de bytes —
+// web/telas/revisar-fila.js (o ramo visto sem convite nem confiança),
+// web/telas/revisar.js (os quatro destinos de foco), web/telas/revisar.css (a
+// grade de confiança, a borda de 1px, o anel da casa, o box-sizing do link) e
+// core/textos.js (o singular). O app/olhodoprova.html saiu do disco: não é tela
+// do produto e a régua do precache acusa arquivo a mais fora do git.
+const PRECACHE_HASH = 'sha256-29497cca2d1aca5bbb4169318b952c42c8334b2f39154160a94536a0408e7690';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.

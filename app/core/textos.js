@@ -577,7 +577,9 @@ export const revisar = Object.freeze({
   // ── ESTADO 1: a abertura da fila (S15b, J3.1) ─────────────────────────
   // Os dois números chegam de fora: o total é `cartoesDevidos` sem corte, o
   // minuto é `minutosDaFila`. Nenhuma destas frases conhece um total.
-  hoje: (cartoes, minutos) => `Revisões de hoje: ${cartoes} cartões, ~${minutos} min`,
+  // S15b-fix: a frase é lida em voz alta, e "1 cartões" não é uma frase. Um só
+  // cartão é um caso que acontece toda sessão de fechamento, não uma borda.
+  hoje: (cartoes, minutos) => `Revisões de hoje: ${cartoes} ${cartoes === 1 ? 'cartão' : 'cartões'}, ~${minutos} min`,
   // A linha do teto, que só existe quando a fila passa dele: o número é o
   // LIMITE_FILA do núcleo, lido pela tela, e nunca um "20" grafado aqui.
   corte: (limite) => `Você vai ver os ${limite} mais antigos; o resto espera sem pressa.`,
@@ -603,7 +605,8 @@ export const revisar = Object.freeze({
   // A posição na fila, lida como "onde estou", não como placar.
   posicao: (atual, total) => `${atual} de ${total}`,
   // ── ESTADO 3: o fim da sessão (J3.3) ──────────────────────────────────
-  fim: (revisados, lembrados) => `${revisados} revisados, ${lembrados} lembrados.`,
+  // Os DOIS números se flexionam, e zero é plural: "0 lembrados", não "0 lembrado".
+  fim: (revisados, lembrados) => `${revisados} ${revisados === 1 ? 'revisado' : 'revisados'}, ${lembrados} ${lembrados === 1 ? 'lembrado' : 'lembrados'}.`,
   // "amanhã" é palavra, e não "em 1 dias": a frase é lida em voz alta.
   prazoAmanha: 'amanhã',
   prazoEmDias: (dias) => `em ${dias} dias`,

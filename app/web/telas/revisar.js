@@ -169,6 +169,11 @@ export async function montar(raiz, ctx) {
     : T.origemAula(aula.n, nomeDe(aula.estacao)));
 
   // ── os gestos ────────────────────────────────────────────────────────────
+  // Cada gesto termina dizendo aonde a pintura deve levar o FOCO (item 2 do
+  // pedido), e a regra é sempre a mesma: o foco vai para o conteúdo NOVO que a
+  // ação trouxe, nunca para um botão. Um botão devolvido ao foco faria a pessoa
+  // ativar de novo a ação que acabou de ativar — o Tab seguinte tem de pousar na
+  // primeira escolha, e para isso ele precisa sair do fim da frase focada.
   function comecar() {
     const arquivo = lerArquivo();
     fila = cartoesDevidos(arquivo, hoje(), LIMITE_FILA);
@@ -183,19 +188,24 @@ export async function montar(raiz, ctx) {
       sessao = null;
       tela = 'abertura';
     }
-    pintar();
+    pintar(fila.length ? 'frente' : 'titulo');
   }
 
   function escolherConfianca(chave) {
     // Escolher e desescolher: três botões do mesmo peso, nenhum obrigatório, e
     // ninguém é obrigado a dizer que não sabe porque tocou uma vez.
     confianca = confianca === chave ? null : chave;
-    pintar();
+    // O foco volta NA OPÇÃO TOCADA, e por um motivo mecânico: o redesenho trocou
+    // aquele botão por um elemento novo (mesmo texto, outro nó), e sem o foco
+    // devolvido a pessoa voltaria ao body tendo só dito o quanto confia.
+    pintar(`confianca:${chave}`);
   }
 
   function mostrarVerso() {
     visto = true;
-    pintar();
+    // O destino é o VERSO, não o par de botões: focado o blockquote, o próximo
+    // Tab pousa em Errei — a escolha seguinte, e não a ação já feita.
+    pintar('verso');
   }
 
   function responder(nota) {
@@ -225,11 +235,11 @@ export async function montar(raiz, ctx) {
     confianca = null;
     if (indice + 1 < fila.length) {
       indice += 1;
-      pintar();
+      pintar('frente');
       return;
     }
     fecharSessao();
-    pintar();
+    pintar('titulo');
   }
 
   /** O fecho da sessão: os dois números e as aulas lembradas, todos do núcleo. */
@@ -274,11 +284,49 @@ export async function montar(raiz, ctx) {
    * "em-dia"), e uma classe fixada antes diria `revisar-abertura` sobre uma tela
    * de Em dia. É a classe que a régua dos primários e o CSS leem.
    */
-  function pintar() {
+  function pintar(destino) {
     if (!montado) return;
     corpo.textContent = '';
     desenhar();
     raizEl.className = `${CLASSE} ${CLASSE}-${tela}`;
+    // SEM `destino` não se mexe no foco: é a pintura do catálogo (e a chamada
+    // externa de `inst.pintar`), e aí quem já pôs a pessoa no lugar certo foi o
+    // casco (web/casco.js:193). Roubá-lo na primeira pintura jogaria quem usa
+    // leitor de tela para dentro do cartão sem aviso.
+    if (destino) focar(destino);
+  }
+
+  /**
+   * Devolve o foco ao conteúdo que a ação trouxe (S15b-fix, item 2).
+   *
+   * POR QUE ISTO É PRECISO: cada gesto redesenha a árvore inteira
+   * (`corpo.textContent = ''`), e um nó removido leva o foco com ele — no
+   * navegador ele cai no `body`. O resultado medido no Chrome: a cada cartão, a
+   * pessoa atravessava o topo do documento de novo (skip link, abas, cabeçalho)
+   * antes de chegar à escolha. Não é demora, é trabalho repetido por quem não
+   * pode usar o mouse.
+   *
+   * O mecanismo é o da casa, o mesmo do casco: `tabindex="-1"` torna focável um
+   * elemento que não é controle, e `focus({preventScroll: true})` não empurra a
+   * página para baixo sob o dedo de quem lê. Foca-se o TÍTULO/PERGUNTA ou o
+   * VERSO, nunca um botão: focar a ação que acabou de rodar convida a rodá-la
+   * duas vezes, e no cartão isso gravaria uma resposta repetida.
+   */
+  function focar(destino) {
+    let alvo = null;
+    if (destino.startsWith('confianca:')) {
+      const chave = destino.slice('confianca:'.length);
+      alvo = corpo.querySelector(`[data-confianca="${chave}"]`);
+    } else if (destino === 'verso') {
+      alvo = corpo.querySelector('.revisar-verso');
+    } else if (destino === 'frente') {
+      alvo = corpo.querySelector('.revisar-frente');
+    } else if (destino === 'titulo') {
+      alvo = corpo.querySelector('.revisar-titulo');
+    }
+    if (!alvo) return;
+    alvo.setAttribute('tabindex', '-1');
+    alvo.focus?.({ preventScroll: true });
   }
 
   function desenhar() {
