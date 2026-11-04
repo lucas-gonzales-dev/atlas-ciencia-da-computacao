@@ -58,7 +58,7 @@ const zero = (v) => String(v).padStart(2, '0');
  * porque o "dia" nem sempre tem 24 horas. Os campos são lidos pelos getters LOCAIS
  * (getFullYear/getMonth/getDate), nunca pelo `toISOString()`, que é UTC.
  */
-function diaSeguinte(quando) {
+export function diaSeguinte(quando) {
   const [ano, mes, dia] = String(quando).slice(0, 10).split('-').map(Number);
   if (!Number.isFinite(ano) || !Number.isFinite(mes) || !Number.isFinite(dia)) return '';
   const amanha = new Date(ano, mes - 1, dia + 1);
@@ -198,6 +198,27 @@ export function criarCartao(cartoes, { estacao, aula, n, frente, verso } = {}, q
     historico: [],
   };
   return { ok: true, cartoes: { ...atuais, [id]: cartao }, cartao };
+}
+
+/** ARBITRADO (S14b2, 04/11/2026): quanto tempo um cartão leva respondido. Vinte segundos é o meio-termo honesto entre "lero-Lero" e o custo real de uma frente + um verso dito em voz alta; o FSRS da S15 afina este número com a medida de cada pessoa. */
+export const SEGUNDOS_POR_CARTAO = 20;
+
+/**
+ * Quantos MINUTOS a pessoa vai gastar amanhã com a fila — é o número da frase
+ * `fechamento.porHoje` ("Amanhã: 2 cartões, ~1 min").
+ *
+ * Arredonda PARA CIMA e nunca devolve zero: "0 min" para quem acabou de escrever
+ * um cartão é uma promessa que a pessoa sabe ser falsa, e uma promessa falsa
+ * sobre o custo de amanhã é o jeito mais rápido de ela não voltar. Três cartões
+ * em 20 s = 60 s = 1 min.
+ *
+ * @param {number} quantidade quantos cartões voltam amanhã
+ * @returns {number} minutos, no mínimo 1
+ */
+export function minutosDaFila(quantidade) {
+  const n = Number(quantidade);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return Math.max(1, Math.ceil((n * SEGUNDOS_POR_CARTAO) / 60));
 }
 
 /**

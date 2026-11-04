@@ -379,3 +379,82 @@ export function serializarEstudo(estudo) {
     ultima: estudo?.ultima ?? null,
   });
 }
+
+/* ── o RASCUNHO do fechamento (S14b2) ────────────────────────────────────────
+ *
+ * POR QUE MORA AQUI E NÃO NA TELA: o formulário é a única parte do Atlas em que
+ * a pessoa escreve texto longo e ainda NÃO decidiu guardar nada. Perder o que
+ * ela digitou porque a aba foi fechada é o defeito que faz ninguém escrever
+ * mais de duas linhas, e o formato desse texto tem de ter um dono com versão,
+ * igual ao estudo e aos cartões. A tela só chama.
+ *
+ * Uma chave POR AULA ('atlas.rascunho.<id do vídeo>'), e não um mapa só: duas
+ * abas abertas em aulas diferentes não se sobrescrevem, apagar o rascunho depois
+ * do envio é uma linha, e um arquivo grande demais para o storage derruba uma
+ * aula, não o estudo inteiro.
+ *
+ * Continua puro: recebe texto, devolve objeto; quem escreve no localStorage é a
+ * tela. Os campos têm teto (LIMITE_RASCUNHO) porque rascunho é texto solto de
+ * formuLário, e 2.000 caracteres por campo já é o teto do que o estudo guarda.
+ */
+
+/** O começo de toda chave de rascunho. */
+export const RASCUNHO_PREFIXO = 'atlas.rascunho.';
+
+/** O teto de cada campo do rascunho — o mesmo do estudo, para a pessoa poder rascunhar o que consegue estudar. */
+const LIMITE_RASCUNHO = 2000;
+
+/** O rascunho vazio, que é também o que um texto ilegível devolve. */
+export function rascunhoVazio() {
+  return { versao: VERSAO_FORMATO, lembrar: '', conferir: '', cartoes: [] };
+}
+
+/** A chave no localStorage de uma aula. Sem id de aula, sem chave: quem chama decide o que fazer. */
+export function chaveRascunho(aula) {
+  const id = texto(aula);
+  return id ? `${RASCUNHO_PREFIXO}${id}` : '';
+}
+
+/** O texto do storage vira rascunho. Corrompido, vazio ou de outra versão: rascunho vazio, sem erro — a mesma regra de `lerEstudo`. */
+export function lerRascunho(bruto) {
+  if (typeof bruto !== 'string' || !bruto.trim()) return rascunhoVazio();
+  let dado;
+  try {
+    dado = JSON.parse(bruto);
+  } catch {
+    return rascunhoVazio();
+  }
+  if (!dado || typeof dado !== 'object' || dado.versao !== VERSAO_FORMATO) return rascunhoVazio();
+  const face = (v) => String(v ?? '').trim().slice(0, LIMITE_RASCUNHO);
+  return {
+    versao: VERSAO_FORMATO,
+    lembrar: face(dado.lembrar),
+    conferir: face(dado.conferir),
+    // Um cartão de rascunho é par frente/verso; qualquer outra forma some. Um
+    // rascunho com campos de sobra (colados por outra versão) não é motivo para
+    // desenhar sobra: a tela lê três nomes, sempre.
+    //
+    // A ORDEM IMPORTA, e estava errada (pega por tests/fechamento-nucleo.test.js
+    // em 04/11/2026): o teto vinha ANTES do filtro, então `[lixo, lixo, lixo,
+    // cartão válido]` cortava nos três primeiros e devolvia ZERO cartões — a
+    // pessoa perdia o que escreveu por causa de entradas que nem cartão são. O
+    // teto é sobre cartões, e lixo não é cartão: filtra-se primeiro, corta-se
+    // depois.
+    cartoes: (Array.isArray(dado.cartoes) ? dado.cartoes : [])
+      .filter((c) => c && typeof c === 'object')
+      .slice(0, 3)
+      .map((c) => ({ frente: face(c.frente), verso: face(c.verso) })),
+  };
+}
+
+/** O texto para `localStorage.setItem(chaveRascunho(id), ...)`. */
+export function serializarRascunho(rascunho) {
+  return JSON.stringify({
+    versao: VERSAO_FORMATO,
+    lembrar: String(rascunho?.lembrar ?? '').slice(0, LIMITE_RASCUNHO),
+    conferir: String(rascunho?.conferir ?? '').slice(0, LIMITE_RASCUNHO),
+    cartoes: (Array.isArray(rascunho?.cartoes) ? rascunho.cartoes : [])
+      .slice(0, 3)
+      .map((c) => ({ frente: String(c?.frente ?? '').slice(0, LIMITE_RASCUNHO), verso: String(c?.verso ?? '').slice(0, LIMITE_RASCUNHO) })),
+  });
+}

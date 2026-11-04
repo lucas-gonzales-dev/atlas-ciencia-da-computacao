@@ -657,8 +657,11 @@ export const perfil = Object.freeze({
  * mentiria em uma das duas telas. O `n` é a posição da aula na playlist e o
  * `titulo` vem da fonte; nada aqui é digitado à mão.
  *
- * `progresso` é a linha honesta da estação: conta AULAS ABERTAS, não tempo
- * assistido. Quem chama passa o `restante` já lido de `duracaoLegivel`
+ * `progresso` é a linha honesta da estação. S14b2 (04/11/2026) trocou o verbo:
+ * conta AULAS ESTUDADAS, não abertas nem tempo assistido. O motivo é o gesto que
+ * o Atlas cobra — abrir um vídeo não é memória, fechar com recordação e cartão é
+ * — e a frase que dizia "abertas" contava como progresso o clique de quem só foi
+ * ler um título. Quem chama passa o `restante` já lido de `duracaoLegivel`
  * (core/aulas.js) — a formatação da duração mora num lugar só (regra 9: a mesma
  * duração não pode aparecer escrita de dois jeitos em duas telas), e este
  * arquivo continua sem importar nada, como sempre esteve.
@@ -667,7 +670,7 @@ export const aulas = Object.freeze({
   comecar: (n, titulo) => `Começar: Aula ${n} — ${titulo}`,
   continuar: (n, titulo) => `Continuar: Aula ${n} — ${titulo}`,
   verTodas: (total) => `Ver as ${total} aulas`,
-  progresso: (abertas, total, restante) => `${abertas} de ${total} aulas abertas · faltam ~${restante}`,
+  progresso: (estudadas, total, restante) => `${estudadas} de ${total} aulas estudadas · faltam ~${restante}`,
   estados: Object.freeze({
     'nao-iniciada': 'Não iniciada',
     aberta: 'Aberta',
@@ -809,6 +812,22 @@ export const fechamento = Object.freeze({
     convite: 'Só uma frase e uma pergunta',
     frase: 'Em uma frase, o que você leva desta aula?',
   }),
+  // S14b2: a saída do modo mínimo. É um link e não um botão porque não envia
+  // nada: troca a forma do formulário. As duas frases andam juntas — um convite
+  // sem volta é uma porta que só abre para dentro.
+  modoCompleto: 'Fazer o fechamento completo',
+  // S14b2: o relógio do passo 1 no zero. Não é "tempo esgotado" nem aviso de
+  // erro: o relógio nunca trava nada, e a frase diz o que fazer agora.
+  tempo: 'Tempo. Pode seguir.',
+  // S14b2: o link do passo 2. "Reabrir" porque a pessoa já abriu — o vídeo está
+  // na playlist dela, e conferir é voltar a ele com uma pergunta na cabeça.
+  reabrir: 'Reabrir a aula no YouTube',
+  /** "Origem: Aula 3 · Circuitos Digitais" — de onde o cartão veio, para quem
+   *  relê o cartão daqui a um mês e não lembra em que estação o escreveu. */
+  origem: (n, estacao) => `Origem: Aula ${n} · ${estacao}`,
+  /** "Estudada em 04/11/2026" — a data do núcleo (AAAA-MM-DDTHH:MM), convertida
+   *  pela casa (`dataDeCalendario`), que é a única forma de datas nesta arquivo. */
+  estudadaEm: (quando) => `Estudada em ${dataDeCalendario(String(quando ?? '').slice(0, 10))}`,
   feito: (cartoes) => `Aula estudada. ${cartoes === 1 ? 'O seu cartão volta' : `Os seus ${cartoes} cartões voltam`} amanhã.`,
   proxima: (n, titulo, duracao) => `Próxima: Aula ${n} — ${titulo} (${duracao})`,
   porHoje: (cartoes, minutos) => `Por hoje está bom. Amanhã: ${cartoes} ${cartoes === 1 ? 'cartão' : 'cartões'}, ~${minutos} min.`,

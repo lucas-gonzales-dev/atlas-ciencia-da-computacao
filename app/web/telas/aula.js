@@ -64,12 +64,18 @@ function no(doc, tag, classe, attrs) {
  */
 function avisoAulaFora(doc, { total, estacao, slug }) {
   const caixa = no(doc, 'div', 'aulas-erro');
-  caixa.append(no(doc, 'p', 'aulas-erro-um', { text: U.naoExiste.parteUm }));
+  // S14b2/item 0: a parte um não mora mais aqui — ela É o h1 da página (quem
+  // chama põe o título). Restam o porquê e a saída, e a frase não se repete.
   caixa.append(no(doc, 'p', 'aulas-erro-dois', { text: U.naoExiste.parteDois(total) }));
   // S14b1: a saída de uma aula que não existe é a LISTA, não a aula 1. Mandar a
   // pessoa para "Aula 1" seria abrir um vídeo que ela não pediu, quando o que ela
   // pediu (a aula 999) não existe — e o link diz "Ver as aulas de X".
-  caixa.append(no(doc, 'a', 'aula-nav-antes', {
+  // `folha-caminho-link` (web/folha.css:449) é o SUBLINHADO DA CASA para link de
+  // navegação. O Chrome do Claude (04/11/2026) mostrou a única saída do /aula/999
+  // desenhada como texto comum: numa página de erro, não ter cara de link é não
+  // ter saída. Reusar a classe em vez de escrever `text-decoration` aqui é a
+  // regra 9 — e é por isso que a trava deste item confere a CLASSE, não o CSS.
+  caixa.append(no(doc, 'a', 'aula-nav-antes folha-caminho-link', {
     href: hrefDe({ tela: 'estacao', slug, painel: 'aulas' }),
     rel: 'noopener',
     text: U.naoExiste.voltarParaAulas(estacao)
@@ -187,42 +193,51 @@ export async function montar(raiz, ctx) {
   const aula = lista ? lista.aulas.find((a) => Number(a.n) === n) || null : null;
   const playlist = lista ? playlistDoRecurso(lista.resourceUrl || '') : null;
 
-  // "Aula n de N" é o alto da página nos dois casos: com a aula ou sem ela, a
-  // primeira coisa que a pessoa lê é ONDE ela achou que estava.
-  cabecalho.append(no(doc, 'p', 'aula-posicao', { text: U.de(n, total) }));
-
+  // S14b2/item 0 (04/11/2026): a posição "Aula n de N" SAÍ do alto incondicional
+  // e só é desenhada na página que tem a aula (mais abaixo, junto do título).
+  // Ela estava acima dos dois guardas, e o Chrome mediu o que isso desenhava em
+  // /aula/999: "Aula 999 de 93" e um h1 "Aula 999 · Circuitos Digitais" — a
+  // página afirmando uma aula que não existe, na linha de cima, antes de dizer
+  // que ela não existe. Quem pede o que não tem é informado, não atendido com
+  // números inventados. A suíte não via: o teste da época chumbou o texto errado.
   if (!curso || !lista) {
     // Sem estação ou sem arquivo: a página de aulas já diz o que fazer, e um
     // link para ela é a saída honesta. Não se desenha um "Assistir" sem vídeo.
     // O h1 é o rótulo da página, não uma frase nova: quem pediu "/aula/7" de
     // uma estação sem arquivo lê "Aula 7 · <estação>" e depois o aviso. É o
     // endereço devolvido com honestidade, e o casco tem onde pôr o foco.
-    raiz.append(no(doc, 'h1', 'aula-nome', { text: U.rotulo(n, estacao) }));
+    // O h1 é a PRIMEIRA das três partes, não o endereço devolvido: sem o
+    // arquivo, não existe "Aula 7" para titular a página. As outras duas partes
+    // ficam na caixa, e nenhuma frase aparece duas vezes na mesma janela.
+    raiz.append(no(doc, 'h1', 'aula-nome', { text: A.semAulas.parteUm }));
     const caixa = no(doc, 'div', 'aulas-erro');
     caixa.append(
-      no(doc, 'p', 'aulas-erro-um', { text: A.semAulas.parteUm }),
       no(doc, 'p', 'aulas-erro-dois', { text: A.semAulas.parteDois }),
       no(doc, 'p', 'aulas-erro-tres', { text: A.semAulas.parteTres })
     );
     raiz.append(caixa);
     return {
       root: raiz,
-      rotulo: U.rotulo(n, estacao),
+      rotulo: A.semAulas.parteUm,
       desmontar: () => {},
       _estado: () => ({ lista: false, curso: curso?.id || null })
     };
   }
 
   if (!aula) {
-    raiz.append(no(doc, 'h1', 'aula-nome', { text: U.rotulo(n, estacao) }));
+    raiz.append(no(doc, 'h1', 'aula-nome', { text: U.naoExiste.parteUm }));
     raiz.append(avisoAulaFora(doc, { total, estacao, slug }));
     return {
       root: raiz,
-      rotulo: U.rotulo(n, estacao),
+      rotulo: U.naoExiste.parteUm,
       desmontar: () => {},
       _estado: () => ({ lista: true, curso: curso.id, n, achou: false })
     };
   }
+
+  // A posição só existe onde a aula existe (S14b2/item 0): "Aula n de N" é uma
+  // conta verdadeira sobre o arquivo lido, e nada mais.
+  cabecalho.append(no(doc, 'p', 'aula-posicao', { text: U.de(aula.n, total) }));
 
   raiz.append(no(doc, 'h1', 'aula-nome', { text: aula.titulo }));
 

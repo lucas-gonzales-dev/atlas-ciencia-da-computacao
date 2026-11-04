@@ -28,7 +28,7 @@ import { readFileSync } from 'node:fs';
 import { criarDoc, janelaCom, storageCom, todos, textoDe, esperar } from './hdom.js';
 import { subirMetro } from '../web/metro.js';
 import { setNota } from '../core/notes.js';
-import { ESTUDO_KEY, lerEstudo } from '../core/estudo.js';
+import { ESTUDO_KEY, estudarAula, lerEstudo, serializarEstudo } from '../core/estudo.js';
 import { duracaoLegivel } from '../core/aulas.js';
 import { aulas as AU } from '../core/textos.js';
 
@@ -131,8 +131,12 @@ test('fio: a régua da folha diz o que os dados dizem, dentro do app', async () 
   const { root } = await metrôComFolha();
   const painel = um(root, 'folha', 'folha da rota com aulas');
 
+  // MUTOU na S14b2 (04/11/2026), item 8 do pedido: a régua trocou o VERBO. Dizia
+  // "abertas" e contava como progresso o clique de quem foi ler um título; o
+  // gesto que o Atlas cobra é fechar com recordação e cartão. No zero as duas
+  // frases têm o mesmo número, e é por isso que a palavra, aqui, é a trava.
   assert.equal(textoDo(um(painel, 'aulas-progresso-texto', 'linha de progresso')),
-    `0 de ${TOTAL} aulas abertas · faltam ~30 h 33 min`);
+    `0 de ${TOTAL} aulas estudadas · faltam ~30 h 33 min`);
 
   const barra = um(painel, 'aulas-barra', 'barra da folha');
   assert.equal(barra.getAttribute('aria-valuemax'), String(TOTAL));
@@ -253,11 +257,16 @@ test('fio: S14b1 — o Assistir da página é quem grava, e a régua da folha l�
   // nasceu. duracaoLegivel e resumoDaEstacao são os mesmos que a tela chama.
   const régua = textoDo(um(root, 'aulas-progresso-texto', 'folha depois do clique'));
   // MUTOU na S14a (04/11/2026): era `AULAS.total.segundos - PRIMEIRA.duracaoS`,
-  // porque abrir a aula 1 tirava os 14 min dela do "faltam ~". O restante agora
-  // soma as aulas NÃO ESTUDADAS: o clique ABRE, e o que desconta tempo é o fecho
-  // (S14b). O número de abertas andou; o tempo espera.
-  assert.equal(régua, AU.progresso(1, TOTAL, duracaoLegivel(AULAS.total.segundos)),
-    `a régua não andou certa depois do clique: "${régua}"`);
+  // porque abrir a aula 1 tirava os 14 min dela do "faltam ~": o restante soma as
+  // aulas NÃO ESTUDADAS.
+  // MUTOU de novo na S14b2 (04/11/2026), item 8: e agora não anda NEM o número.
+  // A régua conta ESTUDADAS, e o Assistir ABRE — não estuda. Um teste que
+  // esperasse "1" aqui estaria cobrando da tela o crédito de um clique, exatamente
+  // o que a mudança de verbo veio tirar. O que este assert prova hoje é que a
+  // gravação chegou à folha (o teste das linhas acima) SEM encher a régua.
+  assert.equal(régua, AU.progresso(0, TOTAL, duracaoLegivel(AULAS.total.segundos)),
+    `o clique que só abriu mexeu na régua de estudo: "${régua}"`);
+  assert.match(régua, /estudadas/, 'a régua da folha voltou a contar abertas');
 });
 
 test('fio: voltar da aba do YouTube repinta, mesmo sem clique novo', async () => {
@@ -277,7 +286,11 @@ test('fio: voltar da aba do YouTube repinta, mesmo sem clique novo', async () =>
   win.dispatch('visibilitychange');
 
   const régua = textoDo(um(root, 'aulas-progresso-texto', 'depois da volta'));
-  assert.ok(régua.startsWith(`1 de ${TOTAL} aulas abertas`), `a volta não repintou: "${régua}"`);
+  // MUTOU na S14b2 (04/11/2026), item 8: a volta de uma aula ABERTA repinta o
+  // PRIMÁRIO (a asserção abaixo), e a régua continua em zero, porque a régua conta
+  // estudo. Deixar `startsWith('1 de')` seria travar o verbo velho.
+  assert.equal(régua, `0 de ${TOTAL} aulas estudadas · faltam ~30 h 33 min`,
+    `a régua contou a abertura como estudo: "${régua}"`);
   // AULA 1, não 2: pela regra que o Claude decidiu em 04/11, a `ultima` desta
   // estação MANDA (regra 1), e quem abriu a 1 e voltou continua na 1. Eu tinha
   // escrito "aponte para a próxima" por instinto de playlist — é exatamente o
@@ -285,6 +298,23 @@ test('fio: voltar da aba do YouTube repinta, mesmo sem clique novo', async () =>
   // tela: a régua andou para "1 de 93", e o primário diz "Continuar".
   assert.ok(textoDo(um(root, 'aulas-primario', 'depois da volta')).startsWith('Continuar: Aula 1 — '),
     'com a 1 aberta a volta tinha de dizer "Continuar: Aula 1", o ponto de retorno');
+
+  // O DENTE da régua de estudo, do lado da volta: a mesma folha, o mesmo
+  // visibilitychange, com a aula 1 agora FECHADA (estudarAula do núcleo, não um
+  // JSON escrito à mão — a forma é a do core). Se a folha não reler o storage, ou
+  // se a régua continuar contando abertas, isto fica em "0 de 93".
+  const fechada = serializarEstudo(estudarAula(
+    lerEstudo(storage.getItem(ESTUDO_KEY)),
+    { estacao: CIRCUITOS.id, aula: PRIMEIRA.id, n: 1 },
+    '2026-11-04T09:15',
+    { recordacao: 'metade do que eu vi', conferencia: '' }
+  ));
+  storage.setItem(ESTUDO_KEY, fechada);
+  win.dispatch('visibilitychange');
+
+  const réguaDoEstudo = textoDo(um(root, 'aulas-progresso-texto', 'depois da volta com estudo'));
+  assert.ok(réguaDoEstudo.startsWith(`1 de ${TOTAL} aulas estudadas`),
+    `a volta não repintou a régua com estudo: "${réguaDoEstudo}"`);
 });
 
 test('fio: o listener da folha não fica vivo depois de sair da estação', async () => {

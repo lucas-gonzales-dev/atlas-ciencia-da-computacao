@@ -85,7 +85,11 @@ test('A1: a linha de progresso diz o que os dados dizem, e a barra diz o mesmo a
   const frase = textoDo(um(linha, 'aulas-progresso-texto', 'linha de progresso'));
 
   assert.equal(frase, AU.progresso(0, TOTAL_AULAS, duracaoLegivel(SEGUNDOS_TODAS)));
-  assert.equal(frase, '0 de 93 aulas abertas · faltam ~30 h 33 min',
+  // MUTOU na S14b2 (04/11/2026), item 8: o verbo da régua é "estudadas". O
+  // número do zero é o mesmo nas duas frases, e é por isso que a palavra escrita
+  // aqui é a trava — sem ela, a folha voltaria a dar crédito de estudo a quem só
+  // clicou num título.
+  assert.equal(frase, '0 de 93 aulas estudadas · faltam ~30 h 33 min',
     `a frase medida nos dados reais saiu diferente: "${frase}"`);
 
   const barra = um(linha, 'aulas-barra', 'linha de progresso');
@@ -103,15 +107,19 @@ test('A1: a linha de progresso diz o que os dados dizem, e a barra diz o mesmo a
 // tempo que ninguém aprendeu. O número de abertas continua se movendo; o tempo só
 // se move com o fecho, que desenha na S14b. Este caso é onde a transição fica
 // visível, dos dois lados.
-test('A1b: abrir move o número e a barra, e NÃO desconta o tempo — o que desconta é fechar', () => {
+test('A1b: abrir NÃO move a régua nem a barra — o que as move é fechar', () => {
+  // MUTOU o TÍTULO na S14b2 (04/11/2026), item 8: até aqui "abrir move o número".
+  // A régua passou a contar estudo, e abrir não é estudo: o clique passa a não
+  // mover nada. É a mesma mudança vista pelos dois lados — o número fica em zero
+  // e o tempo também, e o fecho mexe nos dois de uma vez.
   const estudo = abrirAula(lerEstudo(null), { estacao: CIRCUITOS.id, aula: AULAS.aulas[2].id, n: 3 }, '2026-11-04T09:00');
   const { root } = folhaCom({ estudo });
   const barra = um(root, 'aulas-barra', 'folha com uma aberta');
 
-  assert.equal(barra.getAttribute('aria-valuenow'), '1');
+  assert.equal(barra.getAttribute('aria-valuenow'), '0', 'a barra deu crédito de estudo a um clique');
   assert.equal(textoDo(um(root, 'aulas-progresso-texto', 'folha com uma aberta')),
-    AU.progresso(1, TOTAL_AULAS, duracaoLegivel(SEGUNDOS_TODAS)),
-    'uma aberta, nenhuma estudada: o tempo que falta é o de todas as aulas');
+    AU.progresso(0, TOTAL_AULAS, duracaoLegivel(SEGUNDOS_TODAS)),
+    'uma aberta, nenhuma estudada: nem o número nem o tempo se movem');
 
   // E o fecho, que é o que movimenta o tempo: a MESMA aula 3, agora estudada.
   const { root: fechada } = folhaCom({
@@ -543,7 +551,10 @@ test('B7: a frase do progresso é BYTE A BYTE a mesma da folha com o mesmo estud
   // abertas sem fecho são 93 aulas por aprender: ~30 h 33 min, MEDIDO nos dados e
   // não arredondado de cabeça — a primeira versão deste número já esteve errada
   // aqui, e é por isso que ele fica escrito em letra, não calculado no teste.
-  assert.equal(frase, '3 de 93 aulas abertas · faltam ~30 h 33 min', `a frase medida saiu: "${frase}"`);
+  // MUTOU de novo na S14b2 (04/11/2026), item 8: o NÚMERO também parou de andar,
+  // porque a régua passou a contar estudo. "3 de 93" dava crédito por três
+  // cliques; o honesto, com três abertas e zero fechadas, é "0 de 93".
+  assert.equal(frase, '0 de 93 aulas estudadas · faltam ~30 h 33 min', `a frase medida saiu: "${frase}"`);
 
   const { root: folha } = folhaCom({ estudo: lerEstudo(bruto) });
   const fraseDaFolha = textoDo(um(folha, 'aulas-progresso-texto', 'folha'));
@@ -551,14 +562,17 @@ test('B7: a frase do progresso é BYTE A BYTE a mesma da folha com o mesmo estud
 
   const barra = um(linha, 'aulas-barra', 'página de aulas');
   assert.equal(barra.getAttribute('role'), 'progressbar');
-  assert.equal(barra.getAttribute('aria-valuenow'), '3');
+  assert.equal(barra.getAttribute('aria-valuenow'), '0', 'a barra deu crédito de estudo a três cliques');
   assert.equal(barra.getAttribute('aria-valuemax'), String(TOTAL_AULAS));
   assert.equal(barra.getAttribute('aria-label'), frase, 'a barra anuncia a frase que a pessoa lê');
 
   const primario = um(raiz, 'aulas-primario', 'página de aulas');
   assert.equal(textoDo(primario), AU.continuar(6, AULAS.aulas[5].titulo));
   assert.equal(textoDo(um(raiz, 'aulas-nota', 'página de aulas')), AU.notaAbrir);
-  assert.doesNotMatch(textoDo(raiz), /estudada/i, 'a S14 ainda não existe; a tela não promete estudo');
+  // MUTOU na S14b2 (04/11/2026): cobrava a ABSENCIA da palavra "estudada" ("a S14
+  // ainda não existe"). A S14 existe, a régua conta estudo, e a palavra agora tem
+  // de estar — invertida, esta linha é o dente da mudança de verbo nesta tela.
+  assert.match(textoDo(raiz), /aulas estudadas/, 'a régua desta página não conta estudo');
 
   const playlist = um(raiz, 'aulas-playlist', 'página de aulas');
   assert.equal(playlist.getAttribute('href'), CIRCUITOS.resourceUrl, 'a playlist é a que o catálogo publica');
@@ -624,10 +638,11 @@ test('B8: S14b1 — tocar numa linha NÃO grava; a volta da aba repinta ao redor
   // A repintura é o que fecha o ciclo: sem ela a pessoa veria a lista nova por
   // baixo de um primário velho e de uma barra que não se moveu.
   assert.equal(textoDo(um(raiz, 'aulas-primario', 'após a volta')), AU.continuar(5, AULAS.aulas[4].titulo));
-  // S14a: o toque ABRE, e abrir não desconta tempo — o restante soma as aulas não
-  // estudadas. O número de abertas se move na hora; o tempo espera o fecho da S14b.
-  assert.equal(textoDo(um(raiz, 'aulas-progresso-texto', 'após o toque')), AU.progresso(1, TOTAL_AULAS, duracaoLegivel(SEGUNDOS_TODAS)),
-    'abrir a 5 moveu as abertas, não o tempo que falta');
+  // S14a: o toque ABRE, e abrir não desconta tempo. S14b2, item 8: nem o número
+  // anda — a régua conta ESTUDO, e a volta da aba trouxe uma aula aberta, não
+  // fechada. Se a régua contar abertas de novo, isto vira "1 de 93" e cai.
+  assert.equal(textoDo(um(raiz, 'aulas-progresso-texto', 'após o toque')), AU.progresso(0, TOTAL_AULAS, duracaoLegivel(SEGUNDOS_TODAS)),
+    'abrir a 5 moveu a régua de estudo, que é só de quem fechou');
   const marcadas = linhasDa(raiz).filter((n) => n.getAttribute('aria-current') === 'step');
   assert.equal(marcadas.length, 1);
   assert.equal(marcadas[0].getAttribute('data-aula'), AULAS.aulas[4].id);

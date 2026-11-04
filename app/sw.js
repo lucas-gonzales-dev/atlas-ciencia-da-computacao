@@ -468,7 +468,31 @@
 // entraram: sem subir a VERSAO, quem tem v63 recebe o HTML que liga o aula.css e
 // o módulo que importa core/aulas.js pedindo marcaDeTempo de um arquivo velho —
 // TypeError no boot e a página em branco no ônibus.
-const VERSAO = 'atlas-v64';
+// atlas-v65: S14b2 (commit 1), o NUCLEO do fechamento e o item 0 da pagina da
+// aula. Nada de formulario ainda — ele e o commit 2, e esta fatia sao dois
+// commits verdes por decisao do Claude depois de um turno bater no teto de
+// rodadas com a tela meia-escrita. core/estudo.js ganha o RASCUNHO do fechamento
+// (RASCUNHO_PREFIXO, chaveRascunho por aula, lerRascunho, serializarRascunho com
+// teto de 2.000 por campo e 3 cartões), porque o texto que a pessoa digitou e
+// ainda nao decidiu guardar precisa de um dono com versao, e nao da tela; corrige
+// tambem a ordem do filtro com o teto em lerRascunho, que devolvia zero cartoes
+// quando havia lixo antes de um cartao valido (pego por teste, nao por leitura).
+// core/cartoes.js ganha SEGUNDOS_POR_CARTAO e minutosDaFila (20 s por cartao,
+// arredondado para cima, nunca menos de 1 — "0 min" para quem acabou de escrever
+// um cartao e uma promessa falsa sobre o custo de amanha) e exporta diaSeguinte.
+// core/textos.js troca o VERBO da linha de progresso ("abertas" -> "estudadas":
+// abrir video nao e memoria) e ganha modoCompleto, tempo, reabrir, origem e
+// estudadaEm. web/aulas-pedacos.js passa a linha a contar estudadas no texto E no
+// aria-valuenow, uma vez so, folha e pagina pelo mesmo pedaco. web/telas/aula.js
+// e o item 0 julgado no Chrome: /aula/999 nao afirma mais "Aula 999 de 93" nem
+// titulo "Aula 999 · <estacao>" — o h1 e a primeira das tres partes, a posicao só
+// existe onde a aula existe, e a unica saida da pagina recebeu o sublinhado da
+// casa (folha-caminho-link), que o Chrome achou desenhado como texto comum.
+// Cinco folhas do precache mudaram de bytes, entao VERSAO e hash: sem subir a
+// VERSAO, quem tem v64 no cache recebe a tela do commit 2 chamando lerRascunho de
+// um modulo que nao tem lerRascunho — TypeError no boot e a pagina em branco no
+// onibus.
+const VERSAO = 'atlas-v65';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
@@ -498,7 +522,7 @@ const VERSAO = 'atlas-v64';
 // core/rotas.js (a rota da aula), core/aulas.js (pausasDaAula) e core/textos.js
 // (a seção fechamento). O sw.js mediu o mesmo sha256 antes e depois de eu subir a
 // VERSAO, o que é a prova de que ele não está na própria lista.
-const PRECACHE_HASH = 'sha256-b6b5fa10a8e57ffd6e5bea8ce8264a488d147f1ec91448c3d830d44ef7d1ac6a';
+const PRECACHE_HASH = 'sha256-00a0c4dc736b2f7dd3490203e543eda449c2d014ef4b690dcf508ee8adcd7d48';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.

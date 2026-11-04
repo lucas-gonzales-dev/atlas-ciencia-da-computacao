@@ -409,7 +409,13 @@ test('textos: a seção aulas existe e diz as frases do desenho', () => {
   assert.equal(t.comecar(1, 'Introdução aos Circuitos Digitais'), 'Começar: Aula 1 — Introdução aos Circuitos Digitais');
   assert.equal(t.continuar(13, 'Análise de Circuitos Combinacionais'), 'Continuar: Aula 13 — Análise de Circuitos Combinacionais');
   assert.equal(t.verTodas(93), 'Ver as 93 aulas');
-  assert.equal(t.progresso(3, 93, '30 h'), '3 de 93 aulas abertas · faltam ~30 h');
+  // S14b2/item 8 (04/11/2026): a frase trocou o verbo. "abertas" contava como
+  // progresso o clique de quem só foi ler um título; o gesto que o Atlas cobra é
+  // fechar com recordação e cartão, e a linha diz isso agora. A frase chumbada
+  // está aqui de propósito: as telas puxam `A.progresso` (regra 9), então nenhuma
+  // delas cairia sozinha se a palavra mudasse de novo em silêncio.
+  assert.equal(t.progresso(3, 93, '30 h'), '3 de 93 aulas estudadas · faltam ~30 h');
+  assert.ok(!t.progresso(3, 93, '30 h').includes('abertas'), 'a linha voltou a contar abertura');
   // S14a: 'estudada' entrou, e a lista da tela lê o nome daqui. Se o estado sair
   // do núcleo sem sair daqui, a linha desenha um estado sem nome para o leitor.
   assert.deepEqual({ ...t.estados }, { 'nao-iniciada': 'Não iniciada', aberta: 'Aberta', estudada: 'Estudada' });

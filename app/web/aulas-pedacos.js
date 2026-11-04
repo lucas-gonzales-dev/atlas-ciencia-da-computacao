@@ -77,16 +77,23 @@ export function hrefVideo(aula, playlist) {
  * o que a pessoa lê, não uma paráfrase para a máquina.
  */
 export function linhaProgresso(doc, resumo) {
+  // S14b2 (item 8): a barra e a frase contam ESTUDADAS, não abertas. É a mesma
+  // linha de código das duas telas de propósito — folha e página de aulas puxam
+  // daqui (regra 9) — e por isso a troca do número acontece uma vez só. O
+  // `aria-valuenow` acompanha o texto porque os dois são a MESMA frase dita duas
+  // vezes (a visível e a do leitor de tela), e um atrasado em relação ao outro
+  // seria a régua mentindo para quem não vê.
   const caixa = no(doc, 'div', 'aulas-progresso');
-  const frase = A.progresso(resumo.abertas, resumo.total, duracaoLegivel(resumo.segundosRestantes));
+  const feito = Number(resumo.estudadas) || 0;
+  const frase = A.progresso(feito, resumo.total, duracaoLegivel(resumo.segundosRestantes));
   caixa.append(no(doc, 'p', 'aulas-progresso-texto', { text: frase }));
 
-  const cheio = resumo.total > 0 ? Math.round((resumo.abertas / resumo.total) * 100) : 0;
+  const cheio = resumo.total > 0 ? Math.round((feito / resumo.total) * 100) : 0;
   const trilho = no(doc, 'div', 'aulas-barra', {
     role: 'progressbar',
     'aria-valuemin': '0',
     'aria-valuemax': String(resumo.total),
-    'aria-valuenow': String(resumo.abertas),
+    'aria-valuenow': String(feito),
     'aria-label': frase
   });
   // A largura do preenchimento é ESTADO, não desenho: sem estilo em linha não há

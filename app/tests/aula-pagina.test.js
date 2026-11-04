@@ -20,7 +20,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { criarDoc, storageCom, todos } from './hdom.js';
 import { duracaoLegivel, marcaDeTempo, pausasDaAula } from '../core/aulas.js';
-import { aula as U, fechamento as F } from '../core/textos.js';
+import { aula as U, aulas as A, fechamento as F } from '../core/textos.js';
 import { hrefDe, lerRota } from '../core/rotas.js';
 import { ESTUDO_KEY, lerEstudo } from '../core/estudo.js';
 import { telaDaRota } from '../web/casco.js';
@@ -211,16 +211,55 @@ test('a navegação entre aulas não tem anterior na primeira nem próxima na ú
   assert.equal(textoDo(um(meio, 'aula-nav', 'aula 5')).length > 0 ? 'ok' : '', 'ok', 'a navegação tem texto');
 });
 
-test('/aula/999: as três partes, com o tamanho real da estação e o link de volta', async () => {
-  const { raiz } = await pagina(999);
+// S14b2/item 0 (04/11/2026). Este teste é a reescrita de uma trava que estava
+// CHUMBADA NO DEFEITO: a linha última dizia `aula-posicao` = "Aula 999 de 93",
+// ou seja, cobrava por escrito a frase que o Chrome reprova. Verde com defeito
+// dentro — a família inteira da S13b. A régua agora cobra o contrário: quem pede
+// o que não existe é informado, não atendido com números inventados.
+test('/aula/999: nenhuma afirmação sobre a aula que não existe, e o h1 é a primeira parte', async () => {
+  const { raiz, instancia } = await pagina(999);
+
+  // (a) não há posição: "Aula 999 de 93" afirmava a aula antes de dizer que ela
+  // não está lá. O `de N` só existe na página que TEM a aula.
+  assert.equal(comClasse(raiz, 'aula-posicao').length, 0, 'a página inventou "Aula n de N"');
+  assert.ok(!textoDo(raiz).includes('Aula 999'), `"Aula 999" apareceu no texto: ${textoDo(raiz).slice(0, 120)}`);
+
+  // (b) UM h1, e ele é a primeira das três partes — não "Aula 999 · <estação>".
+  const h1 = todos(raiz, (x) => x.tag === 'h1');
+  assert.equal(h1.length, 1, 'um h1: é nele que o casco põe o foco');
+  assert.equal(h1[0].textContent, U.naoExiste.parteUm);
+  assert.equal(instancia.rotulo, U.naoExiste.parteUm, 'a aba do navegador repetia a aula inexistente');
+
+  // (c) as outras duas partes continuam, com o tamanho REAL da estação lido do
+  // arquivo — e a parte um não se repete na caixa (ela virou o título).
   const aviso = um(raiz, 'aulas-erro', 'aula fora');
-  assert.equal(textoDo(um(aviso, 'aulas-erro-um', 'aula fora')), 'Essa aula não está nesta estação.');
   assert.equal(textoDo(um(aviso, 'aulas-erro-dois', 'aula fora')), `A estação tem ${TOTAL} aulas.`);
+  assert.equal(comClasse(aviso, 'aulas-erro-um').length, 0, 'a frase aparecia duas vezes na mesma janela');
+
+  // (d) a única saída da página tem de PARECER link. O Chrome achou texto comum.
   const link = um(raiz, 'aula-nav-antes', 'saída da aula fora');
   assert.equal(link.getAttribute('href'), '#/estacao/circuitos-digitais/aulas');
   assert.equal(textoDo(link), `Ver as aulas de ${CIRCUITOS.title}`);
+  assert.ok((link.className || '').split(/\s+/).includes('folha-caminho-link'),
+    'a saída sem o sublinhado da casa: link que não parece link');
+
   assert.equal(comClasse(raiz, 'aula-assistir').length, 0, 'sem aula não há vídeo a abrir');
-  assert.equal(textoDo(um(raiz, 'aula-posicao', 'aula fora')), `Aula 999 de ${TOTAL}`);
+});
+
+test('sem o arquivo das aulas, a página também não afirma posição nenhuma', async () => {
+  // O segundo ramo de erro: /aula/7 de uma estação cujo JSON não está no
+  // aparelho. O "Aula 7" era tão errado quanto o "Aula 999" — sem arquivo não há
+  // sétima aula para contar. Aqui as três partes de `aulas.semAulas` mandam.
+  const { raiz, instancia } = await subir(montarAula, 7, { aulas: null });
+  assert.equal(comClasse(raiz, 'aula-posicao').length, 0, 'inventou posição sem arquivo');
+  assert.ok(!textoDo(raiz).includes('Aula 7'), 'citou a aula que não pôde ler');
+  const h1 = todos(raiz, (x) => x.tag === 'h1');
+  assert.equal(h1.length, 1);
+  assert.equal(h1[0].textContent, A.semAulas.parteUm);
+  assert.equal(instancia.rotulo, A.semAulas.parteUm);
+  const aviso = um(raiz, 'aulas-erro', 'sem arquivo');
+  assert.equal(textoDo(um(aviso, 'aulas-erro-dois', 'sem arquivo')), A.semAulas.parteDois);
+  assert.equal(textoDo(um(aviso, 'aulas-erro-tres', 'sem arquivo')), A.semAulas.parteTres);
 });
 
 test('a volta da aba rola até o fechamento e põe o foco no título dele', async () => {
