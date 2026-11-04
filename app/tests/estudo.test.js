@@ -16,10 +16,16 @@
 //   · entrada fora da forma (`quando` quebrado, `aula` vazio) não muda nada;
 //   · o `abertaEm` da primeira vez não se reescreve na segunda abertura.
 //
-// Os quatro motivos de `continuarDe` são testados na ordem em que a pessoa os
-// encontra: chega (comecar), volta no meio (ultima-aberta), segue a fila
-// (primeira-nao-aberta) e retoma uma estação parada (ultima-aberta pelo maior
-// n, quando a última coisa que ela tocou foi outra estação).
+// Os três motivos de `continuarDe`, na ordem em que a pessoa os encontra: chega
+// (comecar), volta no meio (ultima-aberta pela `ultima`) e retoma uma estação
+// parada depois de mexer em outra (ultima-aberta pela aberta mais recente, com
+// desempate pelo maior n).
+//
+// `primeira-nao-aberta` existiu na S13a e saiu por decisão do Lucas em
+// 04/11/2026: ele devolvia a Aula 1 para quem tinha aberto a 13 e a 14, porque
+// a spec dizia "a primeira aula ainda não aberta", literal. Os dois casos abaixo
+// que falam das aulas 13 e 14 são a costura dessa saída — um deles é exatamente
+// a cena que doía na tela.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -143,18 +149,27 @@ test('continuarDe: estação sem nada aberto manda começar pela primeira', () =
 });
 
 test('continuarDe: a última aberta desta estação é a retomada', () => {
-  let e = abrirNa(estudoVazio(), 13, '2026-11-04T20:41');
+  let e = abrirNa(estudoVazio(), 13, '2026-11-03T20:41');
   e = abrirNa(e, 14, '2026-11-04T21:05');
-  e = abrirFora(e, '2026-11-04T21:30');
   const r = continuarDe(e, ESTACAO, AULAS);
-  // 'primeira-nao-aberta' é LITERAL: a primeira da lista que ninguém abriu —
-  // Aula 1, não a Aula 15. A pessoa abriu 13 e 14 fora de ordem (pulo, link de
-  // alguém, busca), e a frase da tela é "a primeira que você ainda não abriu",
-  // que é exatamente o que o cartão mostra. Inventar "a seguinte depois da
-  // última" seria adivinhar o que ela quis fazer; o salto de verdade — retomar
-  // no segundo exato — é da S21, com o player embutido.
-  assert.equal(r.aula.n, 1);
-  assert.equal(r.motivo, 'primeira-nao-aberta');
+  // Regra 1: a `ultima` é daqui e a aula está na lista.
+  assert.equal(r.aula.n, 14);
+  assert.equal(r.motivo, 'ultima-aberta');
+});
+
+test('continuarDe: abriu a 13 e a 14, mexeu em outra estação, volta na 14 — nunca na 1', () => {
+  // A CENA da decisão do Lucas (04/11/2026), e o teste que a prova derruba.
+  // Abriu a 13 num dia, a 14 no seguinte, depois foi ver uma aula de outra
+  // estação e voltou. Com o motivo que saiu, o cartão dizia "Continuar: Aula 1"
+  // — uma aula que ela nunca abriu e já pulou, lendo como se nada tivesse
+  // sido estudado. Os abertaEm em DIAS diferentes importam: é a data de
+  // abertura que manda aqui, não a posição na playlist.
+  let e = abrirNa(estudoVazio(), 13, '2026-11-02T20:41');
+  e = abrirNa(e, 14, '2026-11-03T21:05');
+  e = abrirFora(e, '2026-11-04T08:00');
+  const r = continuarDe(e, ESTACAO, AULAS);
+  assert.equal(r.aula.n, 14);
+  assert.equal(r.motivo, 'ultima-aberta');
 });
 
 test('continuarDe: a última aberta daqui ganha, mesmo com outra estação tocada antes', () => {
@@ -165,26 +180,58 @@ test('continuarDe: a última aberta daqui ganha, mesmo com outra estação tocad
   assert.equal(r.motivo, 'ultima-aberta');
 });
 
-test('continuarDe: abertas sem ser a última desta estação puxam a próxima não aberta', () => {
-  let e = estudoVazio();
-  for (const n of [1, 2]) e = abrirAula(e, { estacao: ESTACAO, aula: AULAS[n - 1].id, n }, '2026-11-04T10:00');
-  e = abrirAula(e, { estacao: 'ubl-core-calculo-i', aula: 'zz', n: 1 }, '2026-11-04T11:00');
+test('continuarDe: entre abertas daqui, a mais recente ganha — não a de maior n', () => {
+  // Voltar de propósito a uma aula antiga É estudar, e a retomada tem de seguir
+  // o último toque. Fabrico os registros em vez de chamar `abrirAula` porque o
+  // abertaEm da primeira vez não se reescreve (decisão 3): reabrir a aula 1 não
+  // mudaria a data dela, e o que quero medir é a data.
+  const e = {
+    versao: 1,
+    aulas: {
+      [AULAS[4].id]: { estacao: ESTACAO, n: 5, abertaEm: '2026-11-06T09:00' },
+      [AULAS[8].id]: { estacao: ESTACAO, n: 9, abertaEm: '2026-11-02T09:00' },
+    },
+    ultima: { estacao: 'ubl-core-calculo-i', aula: 'zz', n: 1, em: '2026-11-07T09:00' },
+  };
   const r = continuarDe(e, ESTACAO, AULAS);
-  assert.deepEqual([r.aula.n, r.motivo], [3, 'primeira-nao-aberta']);
+  assert.equal(r.aula.n, 5, 'a aberta em 6/11 ganha da aberta em 2/11, mesmo com n menor');
+  assert.equal(r.motivo, 'ultima-aberta');
 });
 
-test('continuarDe: todas abertas e a última de outra estação pega a mais alta em n', () => {
+test('continuarDe: empate de abertaEm desempata pelo maior n', () => {
+  // Duas aulas abertas no mesmo minuto (a pessoa abriu uma e a seguinte em
+  // sequência, ou importou uma viagem): sem desempate a escolha seria a ordem
+  // em que a YouTube devolve a playlist, e ela muda quando um vídeo sai dela.
+  const e = {
+    versao: 1,
+    aulas: {
+      [AULAS[1].id]: { estacao: ESTACAO, n: 2, abertaEm: '2026-11-04T10:00' },
+      [AULAS[2].id]: { estacao: ESTACAO, n: 3, abertaEm: '2026-11-04T10:00' },
+      [AULAS[0].id]: { estacao: ESTACAO, n: 1, abertaEm: '2026-11-04T10:00' },
+    },
+    ultima: { estacao: 'ubl-core-calculo-i', aula: 'zz', n: 1, em: '2026-11-04T11:00' },
+  };
+  const r = continuarDe(e, ESTACAO, AULAS);
+  assert.deepEqual([r.aula.n, r.motivo], [3, 'ultima-aberta']);
+});
+
+test('continuarDe: todas abertas e a última de outra estação retoma a última daqui', () => {
   let e = estudoVazio();
-  // Abre fora de ordem de propósito: quem decide é o `n` da lista, não a
-  // sequência de toques nem o abertaEm.
-  for (const n of [7, 93, 1, 40]) {
+  // Abre fora de ordem de propósito: quem decide é a data do toque, não o `n`.
+  for (const n of [7, 93, 1]) {
     e = abrirAula(e, { estacao: ESTACAO, aula: AULAS[n - 1].id, n }, `2026-11-0${n % 7 + 1}T09:00`);
   }
-  // Fecha o resto.
-  for (const a of AULAS) e = abrirAula(e, { estacao: ESTACAO, aula: a.id, n: a.n }, '2026-11-03T09:00');
-  e = abrirAula(e, { estacao: 'ubl-core-calculo-i', aula: 'zz', n: 1 }, '2026-11-04T23:00');
+  // A 40 é a aberta mais recente daqui, e entra ANTES da varredura: o `abertaEm`
+  // da primeira vez não se reescreve (decisão 3), então reabri-la depois de
+  // aberta em bloco deixaria a data velha no lugar — e o teste mediria a
+  // proteção contra reescrita, não a retomada.
+  e = abrirAula(e, { estacao: ESTACAO, aula: AULAS[39].id, n: 40 }, '2026-11-08T09:00');
+  for (const a of AULAS) {
+    if (a.n !== 40) e = abrirAula(e, { estacao: ESTACAO, aula: a.id, n: a.n }, '2026-11-01T09:00');
+  }
+  e = abrirAula(e, { estacao: 'ubl-core-calculo-i', aula: 'zz', n: 1 }, '2026-11-09T23:00');
   const r = continuarDe(e, ESTACAO, AULAS);
-  assert.equal(r.aula.n, 93, 'a última desta estação é a de maior n');
+  assert.equal(r.aula.n, 40, 'a 40 é a aberta mais recente (8/11); a 93, aberta 3/11, não');
   assert.equal(r.motivo, 'ultima-aberta');
 });
 

@@ -167,17 +167,27 @@ export function estadoDaAula(estudo, aula) {
  * A aula por onde a pessoa CONTINUA naquela estação, com o motivo — é o cartão
  * de "Continuar: Aula 13" da folha e o botão "Começar" da primeira visita.
  *
- * As quatro regras, na ordem em que se aplicam:
+ * As TRÊS regras, na ordem em que se aplicam (decisão do Lucas, 04/11/2026):
  *   1. a última abertura foi desta estação e a aula ainda está na lista → ela;
- *   2. nenhuma aula desta estação foi aberta → a primeira ('comecar');
- *   3. sobrou alguma não aberta → a primeira delas ('primeira-nao-aberta');
- *   4. todas abertas e a última é de outra estação → a mais alta `n` aberta
- *      desta estação ('ultima-aberta'), porque quem percorre a playlist anda
- *      para a frente e a última aberta é o ponto onde ela parou.
+ *   2. alguma aula desta estação foi aberta → a aberta mais recente, pelo
+ *      maior `abertaEm`; no empate, a de maior `n` ('ultima-aberta');
+ *   3. nenhuma aberta → a primeira ('comecar').
+ *
+ * O motivo 'primeira-nao-aberta' SAIU, e este comentário é o lugar onde a saída
+ * fica registrada. Ele devolvia a Aula 1 para quem tinha aberto a 13 e a 14:
+ * a spec da S13a dizia "a primeira aula ainda não aberta", literal, e a tela
+ * leria como se a pessoa não tivesse estudado nada — ela tocaria numa aula que
+ * já pulou. A retomada de verdade é o último toque, não o primeiro buraco.
  *
  * A regra 1 checa a LISTA porque as aulas vêm da YouTube API e são regeradas a
  * cada 30 dias: um vídeo sai da playlist, e continuar por uma aula que não está
- * mais na tela é um endereço que mente.
+ * mais na tela é um endereço que mente. Quando ela falha, a regra 2 alcança o
+ * mesmo lugar pelo `abertaEm` de quem registrou a abertura naquela estação.
+ *
+ * A regra 2 ordena por DATA DE ABERTURA e não por `n` porque voltar de
+ * propósito a uma aula antiga é estudar, e quem anda para trás não quer ser
+ * mandado para a frente. `abertaEm` é `aaaa-mm-ddThh:mm` local: comparar como
+ * texto é comparar como tempo, sem fuso no meio (regra 13 da casa).
  *
  * @param {{aulas: object, ultima: object|null}} estudo
  * @param {string} estacao o id da estação
@@ -189,19 +199,26 @@ export function continuarDe(estudo, estacao, aulas) {
   if (!lista.length) return null;
   const id = new Set(lista.map((a) => a.id));
 
+  const abertas = lista.filter((a) => estadoDaAula(estudo, a.id) !== 'nao-iniciada');
+
   const ultima = estudo?.ultima;
   if (ultima && ultima.estacao === estacao && id.has(ultima.aula)) {
     return { aula: lista.find((a) => a.id === ultima.aula), motivo: 'ultima-aberta' };
   }
 
-  const abertas = lista.filter((a) => estadoDaAula(estudo, a.id) !== 'nao-iniciada');
   if (!abertas.length) return { aula: lista[0], motivo: 'comecar' };
 
-  const seguintes = lista.filter((a) => estadoDaAula(estudo, a.id) === 'nao-iniciada');
-  if (seguintes.length) return { aula: seguintes[0], motivo: 'primeira-nao-aberta' };
-
-  const ultimaDaEstacao = abertas.reduce((melhor, a) => ((Number(a.n) || 0) > (Number(melhor.n) || 0) ? a : melhor), abertas[0]);
-  return { aula: ultimaDaEstacao, motivo: 'ultima-aberta' };
+  // Regra 2: a aberta mais recente desta estação. Começa na de maior `n` para
+  // o empate de `abertaEm` (duas aulas no mesmo minuto) cair na mais avançada
+  // sem depender da ordem de `aulas` — que é a da playlist, e a playlist muda
+  // quando um vídeo sai dela.
+  const momento = (a) => String(estudo?.aulas?.[a.id]?.abertaEm ?? '');
+  const maisRecente = abertas.reduce((melhor, a) => {
+    if (momento(a) > momento(melhor)) return a;
+    if (momento(a) === momento(melhor) && (Number(a.n) || 0) > (Number(melhor.n) || 0)) return a;
+    return melhor;
+  }, [...abertas].sort((x, y) => (Number(x.n) || 0) - (Number(y.n) || 0)).pop());
+  return { aula: maisRecente, motivo: 'ultima-aberta' };
 }
 
 /**
