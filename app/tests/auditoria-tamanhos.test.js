@@ -341,6 +341,58 @@ test('réguas 6 · rolagem lateral só onde o trilho das 7 linhas pede', async (
   );
 });
 
+/**
+ * S20a-2 (04/11/2026, os três defeitos que o olho pegou no Chrome com a suíte
+ * verde): o mapa do topo era o quadrado 4:3 do cartão do link (640x480), e o
+ * `svg { width: 100%; height: auto }` dele faz a altura acompanhar a COLUNA,
+ * que no computador é `1fr` (jornada.css: `1fr var(--largura-lateral)` com
+ * `column-gap: var(--espaco-8)`). Quanto mais larga a janela, mais alto o mapa —
+ * e o primário, que vem depois dele na ordem da J1, sumia sob a dobra.
+ *
+ * A conta abaixo é a da casa: lê os tokens e o viewBox, e pergunta se o topo do
+ * botão fica acima da dobra. Com o 4:3 ela dava 816 px em 1280 e 1.296 em 1920
+ * (o vão que ele mediu); com a faixa 8:3 dá 495 e 735. LIMITE HONESTO: node não
+ * tem navegador — aqui se prova a PROPORÇÃO e a aritmética do layout; os pixels
+ * reais fecham no testar_pagina.
+ */
+test('S20a-2 · o mapa do topo é faixa, e o único primário cabe acima da dobra', async () => {
+  const fonte = await ler('web/telas/jornada-topo.js');
+  const faixa = /const MAPA_TOPO = \{\s*largura:\s*(\d+),\s*altura:\s*(\d+)\s*\}/.exec(fonte);
+  assert.ok(faixa, 'a faixa do mapa do topo sumiu do arquivo que desenha o topo');
+  const vbL = Number(faixa[1]);
+  const vbA = Number(faixa[2]);
+  const propor = vbA / vbL;
+  assert.ok(propor <= 0.45,
+    `o mapa do topo voltou à proporção ${propor.toFixed(2)}: o 4:3 do cartão do link é um bloco que empurra o primário para baixo da dobra`);
+
+  const tokens = await ler('web/tokens.css');
+  const px = (nome) => {
+    const m = new RegExp(`--${nome}:\\s*(\\d+(?:\\.\\d+)?)px`).exec(tokens);
+    assert.ok(m, `falta o token --${nome}: a conta da dobra lê os números da casa, nenhum à mão`);
+    return Number(m[1]);
+  };
+  const entre = (nome) => Number(new RegExp(`--${nome}:\\s*([\\d.]+)`).exec(tokens)[1]);
+  const pad = px('espaco-4');            // .metro { padding: ... }
+  const gap = px('espaco-8');            // column-gap da grade do computador
+  const lateral = px('largura-lateral'); // a coluna da direita
+  const acima = 2 * px('espaco-3') + px('marca-altura') // --altura-topo, margem segura 0
+    + pad                                              // respirinho do .metro
+    + px('tipo-estacao') * entre('entrelinha-titulo')  // o h1
+    + px('tipo-corpo') * entre('entrelinha-corpo')     // a linha de medida
+    + 3 * pad;                                         // .topo { gap } — mapa, título, medida, ação
+  const dobra = 800;                     // 1280x800: a janela em que o olho pegou o defeito
+  const alvo = px('alvo-toque');
+
+  for (const larguraJanela of [1280, 1920]) {
+    const coluna = larguraJanela - 2 * pad - lateral - gap;
+    const mapa = coluna * propor;
+    const topoBotao = acima + mapa;
+    assert.ok(coluna > 0, `${larguraJanela}: a grade não deixa coluna para o mapa`);
+    assert.ok(topoBotao + alvo / 2 <= dobra,
+      `${larguraJanela}px: o único primário da Jornada começa em ${Math.round(topoBotao)} px e não cabe na dobra de ${dobra} (mapa de ${Math.round(mapa)} px)`);
+  }
+});
+
 test('réguas 6 · trocar de aba leva ao topo de QUEM ESTÁ ROLANDO', async () => {
   const js = await ler('web/casco.js');
   assert.match(js, /win\.scrollTo\?\.\(0, 0\)/, 'o casco perdeu o rolamento ao topo da janela');

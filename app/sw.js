@@ -551,7 +551,16 @@
 // o cache cheio pelo topo devolvia sem repintar — a folha nascia sem o primario
 // da aula nem a regua em qualquer aparelho. Muda tambem a leitura do topo (sem
 // await no boot, para nao prender a subida atras da rede) e o teste do fio.
-const VERSAO = 'atlas-v69';
+// atlas-v70: S20a-2, os tres defeitos do OLHO na Jornada (04/11/2026), com a
+// suite verde. web/metro.js declara na raiz QUEM tem o recheio (com-topo-primario)
+// porque a .placa-acao sai cheia do metro.css sem trazer a classe botao-primario:
+// a regua contava um primario e o Chrome contava dois. web/telas/jornada-topo.js
+// passa a desenhar o mapa em FAIXA (640x240) em vez do quadrado 4:3 do cartao do
+// link, que na coluna 1fr do computador media ~642 de altura em 1280 (o primario
+// abaixo da dobra) e ~1122 em 1920 (o vao de 870). web/telas/jornada.css cede a
+// placa nos dois estados. Sem subir a VERSAO, quem tem v69 no cache continua com
+// o mapa quadrado e o segundo botao cheio, mesmo com o HTML novo.
+const VERSAO = 'atlas-v70';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
@@ -581,7 +590,7 @@ const VERSAO = 'atlas-v69';
 // core/rotas.js (a rota da aula), core/aulas.js (pausasDaAula) e core/textos.js
 // (a seção fechamento). O sw.js mediu o mesmo sha256 antes e depois de eu subir a
 // VERSAO, o que é a prova de que ele não está na própria lista.
-const PRECACHE_HASH = 'sha256-f4049b880bce95aa7364c3350bb6bab26ecef82340b31b595a5f0dd109965544';
+const PRECACHE_HASH = 'sha256-2c4d1ff46d21c0d72da704eb16cac0f4e8ff270f62762380cb3189abf7732a57';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.

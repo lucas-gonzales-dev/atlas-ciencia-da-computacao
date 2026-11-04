@@ -194,7 +194,12 @@
    estação" em contorno); aqui a regra sobe: quando a pessoa abre uma estação, o
    recheio passa a ser o recurso dela e a ação da placa cede, virando contorno da
    mesma família. Quem declara a folha aberta é o metro.js, na raiz (`com-folha`). */
-.metro.com-folha .placa-acao {
+/* S20a-2 (defeito 1 do olho): o mesmo mecanismo ganha um segundo estado. Com o
+   topo desenhado, é ELE que tem o caminho — e a placa, que não traz a classe do
+   vocabulário da casa, continuava recheada por esta folha: a régua contava um
+   primário e o olho contava dois. Quem declara o estado é o metro.js na raiz. */
+.metro.com-folha .placa-acao,
+.metro.com-topo-primario .placa-acao {
   background: none;
   color: var(--cor, var(--tinta));
   border: 1px solid var(--cor, var(--tinta));

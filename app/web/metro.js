@@ -462,7 +462,17 @@ export function desenharMetro(doc, root, estado) {
   // tela inteira, que é o que a pessoa vê: com o painel à direita no
   // computador, a folha pode ser de outra linha sem sumir do mapa.
   const slugDaFolha = typeof estado.folha === 'string' && estado.folha ? estado.folha : null;
-  root.className = `metro l${linha}${slugDaFolha ? ' com-folha' : ''}`;
+  // S20a-2 (defeito 1 do olho, 04/11): o recheio se declara na RAIZ, e a
+  // travar por classe `botao-primario` não bastava — a `.placa-acao` sai cheia
+  // do metro.css sem ter essa classe, então a régua lia um e o olho lia dois.
+  // Quem tem o recheio é um de três: a folha (com-folha), o topo
+  // (com-topo-primario) ou, se o catálogo ainda não chegou e o topo não tem
+  // estação para apontar, a própria placa. O `alvo` sobe para antes da classe
+  // porque é ele que diz se o topo tem caminho.
+  const estudoTela = estado.estudo || { aulas: {}, ultima: null };
+  const alvo = estado.alvo || alvoDoTopo(catalogo, estudoTela);
+  const topoTemPrimario = Boolean(alvo.curso) && !slugDaFolha;
+  root.className = `metro l${linha}${slugDaFolha ? ' com-folha' : ''}${topoTemPrimario ? ' com-topo-primario' : ''}`;
 
   const nos = { linha, resumo, placas: null, seletor: null, diagrama: null, aviso: null, embarque: null };
 
@@ -495,8 +505,8 @@ export function desenharMetro(doc, root, estado) {
   // S20a: o TOPO no lugar da abertura (J1/J5). O quadro "Bem-vindo ao embarque"
   // saiu — o topo novo faz o papel dele, e o `abertura` de S4a continua existindo
   // em jornada-blocos.js para quem ainda o chama.
-  const estudoTela = estado.estudo || { aulas: {}, ultima: null };
-  const alvo = estado.alvo || alvoDoTopo(catalogo, estudoTela);
+  // `estudoTela` e `alvo` já foram lidos acima, onde a raiz declara quem tem o
+  // recheio — um segundo alvoDoTopo por desenho seria duas respostas na tela.
   root.append(cascata(desenharTopo({
     modo: alvo.modo, alvo, catalogo, progresso, resumo,
     estudo: estudoTela, indice: estado.indice,

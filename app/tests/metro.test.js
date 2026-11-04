@@ -1600,8 +1600,14 @@ test('jornada: um primário só na tela', () => {
   assert.match(bloco('.botao.botao-secundario'), /background:\s*(none|var\(--superficie\)|var\(--fundo\))/,
     'e o concluir continua contorno');
   // O estado que cede o primário: a raiz da tela ganha a classe quando há folha aberta.
-  assert.match(css, /\.metro\.com-folha \.placa-acao \{[^}]*background:\s*(none|var\(--superficie\)|var\(--fundo\))/,
+  // S20a-2 (defeito 1 do olho): a regra passou a listar DOIS alvos — `com-folha` e
+  // `com-topo-primario` — porque o topo também tem o recheio, e o seletor com
+  // vírgula não casa mais no `\.placa-acao \{` colado. A trava lê a LISTA e cobra
+  // os dois, que é o que o navegador aplica.
+  assert.match(css, /\.metro\.com-folha \.placa-acao[^{]*\{[^}]*background:\s*(none|var\(--superficie\)|var\(--fundo\))/,
     'com uma folha aberta, a ação da placa não pode continuar recheada: um primário por tela');
+  assert.match(css, /\.metro\.com-topo-primario \.placa-acao[^{]*\{[^}]*background:\s*(none|var\(--superficie\)|var\(--fundo\))/,
+    'com o topo desenhado, a placa é contorno: foi assim que um primário pela classe virou dois pelo olho');
 
   // S5 parte 2: "há folha aberta" não é mais estado interno da tela — vem da
   // rota, e por isso a chave do desenho é `folha` (o slug que o casco entrega).

@@ -24,6 +24,16 @@
 // O QUE A FATIA NÃO FAZ: a revisão do dia (S15), o "já sei isso" por estação
 // (S18), e qualquer frase sobre ausência. Nada de "você sumiu", "faz N dias",
 // "desde ...": o cartão de retomada aponta para o próximo passo e nada mais.
+//
+// S20a-2 — o mapa do topo é uma FAIXA, não o quadrado do cartão do link. Os
+// dois defeitos de layout que o olho pegou no Chrome saem da mesma conta, que é
+// do viewBox mais a grade do computador (jornada.css: `1fr var(--largura-lateral)`
+// com `column-gap: var(--espaco-8)`): o 4:3 de 640x480 dá altura = 0,75 × a
+// coluna, e a coluna cresce com a janela. Em 1280 são ~856 de coluna → ~642 de
+// mapa, e o primário — que vem DEPOIS do mapa na ordem da J1 — caía abaixo da
+// dobra de 800; em 1920 são ~1496 → ~1122, um bloco mais alto que a janela
+// inteira, que é o vão que ele mediu. A faixa corta a proporção (260/640), e a
+// conta passa a caber nas duas larguras. tests/auditoria-tamanhos.test.js mede.
 
 import { duracaoLegivel } from '../../core/aulas.js';
 import { mapaDaRede } from '../../core/mapa-rede.js';
@@ -41,6 +51,15 @@ function no(doc, tag, classe, attrs) {
 }
 
 const numerico = (v) => (Number.isFinite(Number(v)) ? Number(v) : null);
+
+// A faixa do topo. É GEOMETRIA do desenho (o viewBox), não dado da tela: as
+// estações, as disciplinas e as aulas continuam sendo lidos, e o raio dos nós é
+// derivado da largura em core/mapa-rede.js. 240 sobre 640 (8:3) mantém as 5
+// estações de cada linha com passo de ~37 unidades — acima do diâmetro do nó
+// (22,8), sem sobrepor ninguém — e é o número que faz o único primário caber
+// acima da dobra de 800 nas duas larguras do computador: ~321 de mapa em 1280,
+// ~561 em 1920. tests/auditoria-tamanhos.test.js refaz a conta com os tokens.
+const MAPA_TOPO = { largura: 640, altura: 240 };
 
 /**
  * Lê `data/aulas/indice.json` — o índice que a geração das aulas escreve com o
@@ -163,7 +182,8 @@ export function desenharTopo(dados, doc) {
     if (!catalogo.length) return null;
     const quadro = no(doc, 'div', 'topo-mapa');
     const svg = mapaDaRede(catalogo, dados.progresso || { completed: [] }, {
-      acessivel: J.topo.mapaAcessivel(catalogo.length, feitas)
+      acessivel: J.topo.mapaAcessivel(catalogo.length, feitas),
+      ...MAPA_TOPO
     });
     // O SVG é string (core/mapa-rede.js é DOM-free de propósito, e é assim que
     // o cartão do link já desenha): só entra se o documento souber montar

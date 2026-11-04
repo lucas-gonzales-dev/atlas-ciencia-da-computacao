@@ -212,6 +212,64 @@ test('topo J5: o único primário é a aula que a pessoa deixou no aparelho', as
     'a linha de apoio da volta não saiu dos dados (estação · linha · duração)');
 });
 
+// ─────────── 4. S20a-2: o primário que o OLHO vê, não só a classe ───────────
+// A régua de cima contava `.botao-primario` e lia UM; o Chrome lia DOIS, porque a
+// `.placa-acao` sai recheada do metro.css (`background: var(--cor, var(--tinta))`)
+// sem trazer a classe do vocabulário da casa. Uma trava que só conhece a classe
+// aprova o defeito. `cheios` conta os dois caminhos, e a armadilha planta um
+// segundo cheio SEM a classe: se a régua for cega de novo, o teste cai.
+const cheios = (raiz) => {
+  const cede = /\bcom-folha\b|\bcom-topo-primario\b/.test(raiz.className);
+  return todos(raiz, (n) => {
+    const cls = String(n.className || '').split(/\s+/);
+    return cls.includes('botao-primario') || (cls.includes('placa-acao') && !cede);
+  });
+};
+
+test('S20a-2: um só alvo recheado na primeira visita, e é o do topo', async () => {
+  const { raiz } = await subir();
+  const lista = cheios(raiz);
+  assert.equal(lista.length, 1,
+    `${lista.length} alvos recheados: ${lista.map((n) => `${n.tag}.${n.className}`).join(' | ')}`);
+  assert.ok(String(lista[0].className).includes('topo-primario'),
+    'o cheio da primeira visita não é o caminho do topo');
+  assert.match(raiz.className, /\bcom-topo-primario\b/,
+    'a raiz não declarou quem tem o recheio: o CSS da placa não tem como ceder');
+});
+
+test('S20a-2: dois recheados na tela derrubam a prova', () => {
+  const doc = criarDoc();
+  const topo = desenharTopo({
+    catalogo: CATALOGO, progresso: { completed: [] }, resumo: { concluidas: 0 },
+    estudo: vazio(), indice: INDICE, aulas: null, embarqueAberto: false
+  }, doc);
+  const raiz = doc.createElement('div');
+  raiz.className = 'metro l1';
+  raiz.append(topo);
+  assert.equal(cheios(raiz).length, 1);
+  const outra = doc.createElement('a');
+  outra.className = 'placa-acao plantada';
+  raiz.append(outra);
+  assert.equal(cheios(raiz).length, 2,
+    'a régua não enxerga um recheado que não traz a classe botao-primario');
+});
+
+test('S20a-2: a placa só fica cheia quando ninguém mais tem o caminho', async () => {
+  // Sem catálogo, o topo não tem estação para apontar: a placa fica recheada e o
+  // topo se cala. Com a folha no ar, é ela que manda. Nos três estados, UM cheio.
+  const { raiz } = await subir({ folha: PRIMEIRA.slug, completed: [PRIMEIRA.id] });
+  assert.match(raiz.className, /\bcom-folha\b/);
+  assert.ok(!/\bcom-topo-primario\b/.test(raiz.className),
+    'as duas classes de estado na mesma raiz: o CSS cede para um lado e enche para o outro');
+  const doc = criarDoc();
+  const semCatalogo = desenharTopo({
+    catalogo: [], progresso: { completed: [] }, resumo: { concluidas: 0 },
+    estudo: vazio(), indice: null, aulas: null, embarqueAberto: false
+  }, doc);
+  assert.equal(primarios(semCatalogo).length, 0,
+    'o topo sem estação apontou para lugar nenhum com um botão cheio');
+});
+
 test('topo J5: nenhuma palavra de ausência na tela', async () => {
   const { raiz } = await subir({ storage: storageComEstudo(3) });
   const texto = textoDe(raiz);
