@@ -342,12 +342,17 @@
 // worker do aluno; precachear os dois pagaria install por arquivos que o app nunca
 // busca. Sem subir VERSÃO e hash, quem tem v51 no cache recebe o index.html velho
 // e compartilha um link cujo texto descreve o cartão antigo.
-const VERSAO = 'atlas-v52';
+// atlas-v53: S12, as aulas (04/11/2026). Entra core/aulas.js: a tradução do que a
+// YouTube Data API devolve (playlistItems e videos) em aulas por estação, com a
+// duração, o título sem a etiqueta do curso e a aula de exercício marcada pelo
+// título da fonte. Nenhuma tela o importa ainda; os dados (app/data/aulas/) entram
+// quando o tools/aulas-do-youtube.mjs rodar com a chave.
+const VERSAO = 'atlas-v53';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
 // deixa o cache antigo sem o nome novo. Recalcular: node tests/precache-hash.js.
-const PRECACHE_HASH = 'sha256-100a3f12844e8284f295e62b67a95678c31e52f8e3588e96f03c4988b70da962';
+const PRECACHE_HASH = 'sha256-86fb11a398446bf86124038727a683b120ea0b777850f9561e60ac78a7cb6764';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.
@@ -440,6 +445,8 @@ const PRECACHE = [
   // O mapa da rede (S11): o diagrama das 35 estações que o cartão do link, o topo
   // da Jornada e o bilhete desenham. Importa viagem.js e progress.js.
   'core/mapa-rede.js',
+  // As aulas de cada estação (S12): traduz a resposta da YouTube Data API. Sem rede, sem DOM.
+  'core/aulas.js',
   'core/notes.js',
   'core/search.js',
   // Rotas da grade (S3a-1, 31/10/2026): as abas que o boot.js resolve. Sem
