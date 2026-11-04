@@ -128,7 +128,15 @@ export function rotuloEstacao(estacao, linha) {
 
 /** A ação ÚNICA da placa: "Continuar" quando já está em curso, senão começar. */
 export function acaoDaPlaca(estado) {
-  return estado === ESTADOS.EM_CURSO ? placa.continuar : placa.comecarEstudar;
+  // S20a-3, item 0 (04/11/2026): «Começar a estudar» ao lado de um topo que
+  // acabou de dizer «Começar pela primeira aula» — ou «Continuar: Aula 13» — é
+  // a mesma contradição do defeito 4 por outra porta: duas frases, uma
+  // decisão. A placa tem o SEU lugar na tela desde a S20a, e o verbo dela é o
+  // que ela faz: VER a estação, ir ler a folha dela. «Começar a estudar»
+  // continua existindo, e continua sendo o verbo de abrir o recurso — agora na
+  // folha (folha.js:143), que é a tela de quem já escolheu. UM primário por
+  // tela é a regra da casa; dois verbos de começar na mesma tela era o defeito.
+  return estado === ESTADOS.EM_CURSO ? placa.continuar : placa.verAEstacao;
 }
 
 /**
@@ -470,7 +478,19 @@ export function desenharMetro(doc, root, estado) {
   // estação para apontar, a própria placa. O `alvo` sobe para antes da classe
   // porque é ele que diz se o topo tem caminho.
   const estudoTela = estado.estudo || { aulas: {}, ultima: null };
-  const alvo = estado.alvo || alvoDoTopo(catalogo, estudoTela);
+  // O ALVO É CALCULADO AQUI, com o `resumo` desta pintura, e não entregue por
+  // `estado.alvo` (S20a-3): desde que a chave passou a ter três casos, a
+  // resposta depende da VIAGEM, e a viagem muda dentro da mesma sessão — a
+  // pessoa toca em «Marcar» e o topo tem de trocar de discurso sem recarregar.
+  // Um alvo guardado no boot é uma foto do «antes»: o defeito 4 voltando pela
+  // janela do repaint. A fonte continua uma: `resumoDaViagem` logo acima.
+  // `estado.alvo` é o que o `pintar` calculou com o progresso desta pintura.
+  // Recalcular aqui seria ter duas respostas na mesma tela por um deslize de
+  // argumento — e é exatamente o par que o `auditoria-estados` não tem como ver
+  // separado, porque o href e o texto viriam de objetos diferentes. O cálculo
+  // direto fica para quem chama `desenharMetro` sem passar estado (os testes da
+  // placa e do desenho puro).
+  const alvo = estado.alvo || alvoDoTopo(catalogo, estudoTela, resumo, progresso);
   const topoTemPrimario = Boolean(alvo.curso) && !slugDaFolha;
   root.className = `metro l${linha}${slugDaFolha ? ' com-folha' : ''}${topoTemPrimario ? ' com-topo-primario' : ''}`;
 
@@ -508,7 +528,7 @@ export function desenharMetro(doc, root, estado) {
   // `estudoTela` e `alvo` já foram lidos acima, onde a raiz declara quem tem o
   // recheio — um segundo alvoDoTopo por desenho seria duas respostas na tela.
   root.append(cascata(desenharTopo({
-    modo: alvo.modo, alvo, catalogo, progresso, resumo,
+    alvo, catalogo, progresso, resumo,
     estudo: estudoTela, indice: estado.indice,
     // A lista da estação do ALVO, nos dois modos: J1 quer «Aula 1 · 17 min» e
     // J5 quer a duração da aula retomada. `ui.aulas` é outra coisa (a lista da
@@ -552,6 +572,13 @@ export function desenharMetro(doc, root, estado) {
     }));
 
     const curso = catalogo.find((c) => c && c.id === proxima.id);
+    // S20a-3, item 0: O QUE MUDOU AQUI É O VERBO, e só o verbo — o destino
+    // desta ação (o recurso da estação, com a linha de origem embaixo, desde a
+    // 2d-1) e o tipo do nó (link fora, botão em curso) são os de sempre, e o
+    // pedido diz que a placa «continua secundária». Trocar também o destino
+    // seria eu redesenhando uma tela que o Claude acabou de desenhar por
+    // decisão própria: anotei a pergunta no fechamento em vez de respondê-la
+    // no código.
     const acao = el(doc, proxima.estado === ESTADOS.EM_CURSO ? 'button' : 'a', 'placa-acao', {
       'data-acao-placa': proxima.id,
       text: acaoDaPlaca(proxima.estado)
@@ -1011,7 +1038,11 @@ export async function subirMetro(deps = {}) {
     // S20a: o que o topo lê do aparelho e do disco. `alvo` é calculado UMA vez
     // com o catálogo na mão — o mesmo objeto vai para o desenharTopo e para a
     // busca das aulas, senão a tela mostraria uma aula e linkaria para outra.
-    indice: null, aulasAlvo: null, alvo: null
+    indice: null, aulasAlvo: null, alvo: null,
+    // A estação cujo JSON de aulas está em `aulasAlvo`. É `null`, e não a
+    // estação, enquanto nada chegou — e `null` não é «a mesma do alvo»: a
+    // primeira pintura com alvo precisa disparar a leitura.
+    alvoSlug: null
   };
   // O esqueleto é a PRIMEIRA PINTURA — ele é chamado logo abaixo, onde `pintar`
   // passa a existir, e antes de qualquer `await`.
@@ -1085,6 +1116,30 @@ export async function subirMetro(deps = {}) {
    * (`if (guardado) return`). A folha saía sem `.aulas-primario` nem régua e o
    * verde não avisava, porque o único arquivo que mede o fio estava fora do bloco.
    */
+  /**
+   * As aulas da estação que o TOPO aponta, servidas do cache quando ele existe.
+   *
+   * Por que isto não pode ser uma busca do boot (S20a-3): o alvo do topo agora
+   * depende da VIAGEM, e a viagem muda sem recarregar nada — um `alvo` calculado
+   * uma vez no boot, com as aulas dele guardadas juntas, daria à tela a lista da
+   * estação errada depois de «Marcar». O `slug` é a chave, e é a mesma chave do
+   * cache da folha (`aulasDe`), então a estação que o topo aponta e a estação que
+   * a pessoa abre são UMA busca.
+   */
+  const listaDe = (lido) =>
+    (lido?.ok && Array.isArray(lido.dados?.aulas) ? lido.dados.aulas : null);
+
+  const garantirAulasDoAlvo = (slug) => {
+    if (!slug || aulasCache.has(slug)) return;
+    aulasDe(slug).then((lido) => {
+      // O alvo mudou durante a busca: pintar aqui seria trocar a linha de apoio
+      // do topo pela duração de OUTRA estação.
+      if (!lido.ok || ui.alvo?.curso?.slug !== slug) return;
+      ui.aulasAlvo = listaDe(lido);
+      pintar();
+    });
+  };
+
   const aulasDaFolha = (slug) => {
     const guardado = slug ? aulasCache.get(slug) : null;
     // `ok:false` vira `null` e a folha é a de hoje: o arquivo que falta não é
@@ -1109,6 +1164,23 @@ export async function subirMetro(deps = {}) {
     // (como `pedirAulas` estava, logo abaixo) fazia a pintura usar o `ui.aulas`
     // da vez anterior e, com cache cheio, nunca repintar.
     ui.aulas = aulasDaFolha(ui.folha);
+    // S20a-3 — O ALVO DO TOPO É VIVO, E A LISTA DELE ACOMPANHA. Calculado aqui,
+    // com o progresso desta pintura, porque a chave passou a ter três casos e o
+    // terceiro depende da VIAGEM: quem toca em «Marcar» muda a resposta sem
+    // recarregar o aparelho. Se a estação do alvo trocou desde a última pintura,
+    // a lista guardada é de OUTRA estação — trocar o discurso e deixar a duração
+    // velha na linha de apoio é a metade silenciosa do defeito 4. A busca vai
+    // pelo mesmo `aulasDe` da folha, então o cache não conhece duas estações por
+    // onde o topo aponta: uma lista na cabeça, dois pedidos no disco seria o
+    // defeito que a S20a-fix acabou de fechar.
+    ui.alvo = alvoDoTopo(ui.catalogo, estudoDoStorage(storage),
+      resumoDaViagem(progresso, ui.catalogo), progresso);
+    const slugAlvo = ui.alvo.curso?.slug || null;
+    if (slugAlvo !== ui.alvoSlug) {
+      ui.alvoSlug = slugAlvo;
+      ui.aulasAlvo = listaDe(aulasCache.get(slugAlvo));
+      garantirAulasDoAlvo(slugAlvo);
+    }
     const nos = desenharMetro(doc, root, {
       catalogo: ui.catalogo, progresso, linha: ui.linha, folha: ui.folha,
       notas: ui.notas,
@@ -1282,12 +1354,17 @@ export async function subirMetro(deps = {}) {
     const resumo = resumoDaViagem(progresso, ui.catalogo);
     ui.linha = resumo.proximaEstacao?.linha ?? linhasDoCatalogo(ui.catalogo)[0] ?? 1;
 
-    // S20a: o alvo do topo é calculado UMA vez, com o catálogo na mão, e as
-    // aulas dele vêm pelo MESMO `buscar` e o MESMO cache da folha — trocar de
-    // estação e voltar não é motivo para buscar o mesmo JSON duas vezes. O
-    // índice (a contagem de aulas da rede) entra junto: a linha de medida do
-    // topo lê os dois números, não escreve nenhum.
-    ui.alvo = alvoDoTopo(ui.catalogo, estudoDoStorage(storage));
+    // S20a: o alvo do topo é calculado com o catálogo na mão, e as aulas dele
+    // vêm pelo MESMO `buscar` e o MESMO cache da folha — trocar de estação e
+    // voltar não é motivo para buscar o mesmo JSON duas vezes. O índice (a
+    // contagem de aulas da rede) entra junto: a linha de medida do topo lê os
+    // dois números, não escreve nenhum.
+    // S20a-3: o terceiro argumento É O RESUMO. Sem ele, `alvoDoTopo` não sabe
+    // que a viagem andou e devolve a J1 para quem marcou dez estações — o
+    // defeito 4 reentrando por aqui. O `pintar` recalcula a cada repintura; isto
+    // aqui é só a primeira resposta do boot, que não pode ser mais velha que a
+    // tela que ela vai desenhar.
+    ui.alvo = alvoDoTopo(ui.catalogo, estudoDoStorage(storage), resumo, progresso);
     pintar();
     const carregarTopo = async () => {
       // `aulasDe` e não `carregarAulas`: o alvo do topo é quase sempre a estação

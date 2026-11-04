@@ -157,7 +157,22 @@ test('placa: rótulo, selo da linha, o nome da próxima estação e UMA ação s
   assert.equal(comClasse(cartao, 'placa-nome')[0].textContent, 'Algoritmos I');
   const acoes = comClasse(cartao, 'placa-acao');
   assert.equal(acoes.length, 1, 'UMA ação só na placa — duas ações é duas decisões');
-  assert.equal(acoes[0].textContent, PLACAS.comecarEstudar);
+  // MUTOU na S20a-3 (item 0): «Ver a estação», não «Começar a estudar» — o
+  // começar de aprender é do topo, e a placa não disputa com ele.
+  assert.equal(acoes[0].textContent, PLACAS.verAEstacao);
+});
+
+test('S20a-3 · a placa não oferece o começar que o topo já oferece', () => {
+  // A trava do item 0, na raiz inteira e não só na placa: com o topo da Jornada
+  // desenhado, nenhum texto da tela pode ser a frase de abrir o recurso — dois
+  // «Começar a estudar» / «Começar» na mesma tela é a contradição que fechou o
+  // defeito 4, medida por palavra e não por classe.
+  const { root } = desenhar({ completed: ['l1a'] });
+  const tela = textoDe(root);
+  assert.equal(tela.includes(PLACAS.comecarEstudar), false,
+    `«${PLACAS.comecarEstudar}» voltou para a tela da placa: ${tela}`);
+  assert.ok(tela.includes(PLACAS.verAEstacao), 'a placa diz o que ela mostra');
+  assert.equal(comClasse(root, 'placa-acao').length, 1);
 });
 
 test('placa: a ação vira "Continuar" quando a estação já está em curso', () => {
@@ -1054,12 +1069,25 @@ test('rótulo: os 4 estados têm palavra legível, e a linha entra quando existe
 // teste fecha e reabre de verdade, e a metade "o input salva" é medida pelo
 // evento `input` que o dedo produz, não pela ação chamada à mão.
 
+// MUTOU na S20a-3 (04/11/2026), item 0 do pedido, e a mutação tem motivo
+// declarado — não é expectativa afrouxada: desde que a Jornada ganhou o próprio
+// primário («Começar pela primeira aula» / «Continuar: Aula N»), a placa saying
+// «Começar a estudar» ao lado dele era DOIS verbos de começar na mesma tela, a
+// mesma contradição do defeito 4 por outra porta. A placa continua secundária e
+// o verbo dela passou a ser o que ela mostra: VER a estação.
+// «Começar a estudar» NÃO morreu — é o verbo de abrir o recurso, e mora na
+// folha (folha.js), a tela de quem já escolheu. É isso que os dois asserts do
+// fim provam: a palavra continua existindo, e saiu da placa.
 test('ação da placa: a palavra certa para cada estado, vinda de textos.js', () => {
   assert.equal(acaoDaPlaca(ESTADOS.EM_CURSO), PLACAS.continuar);
-  assert.equal(acaoDaPlaca(ESTADOS.DISPONIVEL), PLACAS.comecarEstudar);
-  assert.equal(acaoDaPlaca(ESTADOS.TRANCADA), PLACAS.comecarEstudar);
-  assert.equal(PLACAS.comecarEstudar, 'Começar a estudar', 'o texto é o do pedido');
+  assert.equal(acaoDaPlaca(ESTADOS.DISPONIVEL), PLACAS.verAEstacao);
+  assert.equal(acaoDaPlaca(ESTADOS.TRANCADA), PLACAS.verAEstacao);
+  assert.equal(PLACAS.verAEstacao, 'Ver a estação', 'o texto é o do pedido');
   assert.equal(PLACAS.continuar, 'Continuar');
+  assert.equal(PLACAS.comecarEstudar, 'Começar a estudar',
+    'a palavra de abrir o recurso continua no catálogo de textos — quem a usa é a folha');
+  assert.notEqual(PLACAS.verAEstacao, PLACAS.comecarEstudar,
+    'se os dois verbos voltarem a ser a mesma frase, a placa volta a disputar o começar do topo');
 });
 
 test('o que falta é dito pelo nome, e ciclo não vira "conclua o impossível"', () => {

@@ -46,6 +46,15 @@ export const placa = {
   // com o estado — "Começar a estudar" quando ainda não começou, "Continuar"
   // quando está em curso. "Marcar" é o verbo do embarque da primeira visita.
   comecarEstudar: 'Começar a estudar',
+  // S20a-3, item 0 (04/11/2026): com o TOPO da Jornada na tela, a placa diz o
+  // que ela mostra, não o que a pessoa ainda vai fazer. O primário de aprender
+  // é um por tela e ele é o do topo — "Começar pela primeira aula" ou
+  // "Continuar: Aula N". A placa oferecendo "Começar a estudar" ao lado de um
+  // topo que acabou de dizer "Começar" é a mesma mentira do defeito 4, por
+  // outra porta: dois caminhos, duas frases, uma decisão. Secundária como era.
+  // O verbo de abrir o recurso continua vivo na FOLHA (folha.js:143), que é a
+  // tela de quem já escolheu a estação.
+  verAEstacao: 'Ver a estação',
   continuar: 'Continuar',
   marcar: 'Marcar',
   concluida: 'Concluída.',
@@ -426,6 +435,13 @@ export const jornada = {
     medidaSemAulas: (disciplinas, fonte) =>
       `${disciplinas} disciplinas da ${fonte}. Estude uma, lembre amanhã, e o mapa acende.`,
     comecar: 'Começar pela primeira aula',
+    // S20a-3, o TERCEIRO caso da chave: quem tem viagem marcada mas nunca
+    // abriu aula nenhuma no aparelho. Não é a primeira visita (a rede já tem
+    // chão percorrido) nem a volta J5 (não há aula para retomar). O verbo é
+    // "Começar", o objeto é a ESTAÇÃO — a mesma que a lateral chama de "Sua
+    // próxima estação". "Pela primeira aula" não cabe aqui: a primeira aula
+    // desta estação pode ser a 40ª disciplina da viagem.
+    comecarEstacao: (estacao) => `Começar: ${estacao} · Aula 1`,
     marcar: 'Já estudei algumas disciplinas',
     apoioComecar: (estacao, n, duracao) =>
       [estacao, `Aula ${n}`, duracao].filter(Boolean).join(' · '),

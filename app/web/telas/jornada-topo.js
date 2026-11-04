@@ -39,6 +39,10 @@ import { duracaoLegivel } from '../../core/aulas.js';
 import { mapaDaRede } from '../../core/mapa-rede.js';
 import { hrefDe } from '../../core/rotas.js';
 import { aulas as AU, jornada as J } from '../../core/textos.js';
+// S20a-3: o topo pergunta ao núcleo se a estação da retomada ainda é retomada.
+// ESTADOS/estadoDaEstacao são a MESMA fonte que a folha, a placa e o perfil usam
+// — a regra de «concluída» não pode ter duas contas no app (regra da fonte única).
+import { ESTADOS, estadoDaEstacao } from '../../core/viagem.js';
 
 function no(doc, tag, classe, attrs) {
   const n = doc.createElement(tag);
@@ -100,20 +104,77 @@ function primeiraEstacao(lista) {
 }
 
 /**
- * Para onde o primário do topo leva, e em que modo a tela está.
+ * Para onde o primário do topo leva, e em que modo a tela está — TRÊS casos
+ * desde a S20a-3, e o terceiro existe porque a chave de dois casos mentia.
  *
  * `ultima` é o último toque guardado por core/estudo.js (`abrirAula`/
  * `estudarAula`). A volta existe só quando a estação dela é reconhecível no
  * catálogo: um `ultima` apontando para uma disciplina que deixou de existir cai
- * na primeira visita em vez de linkar para lugar nenhum.
+ * abaixo em vez de linkar para lugar nenhum.
  *
- * @returns {{modo: 'volta'|'primeira', curso: object|null, n: number, idAula: string|null}}
+ * O DEFEITO que o caso `proxima` fecha (achado no Chrome pelo fluxo do app em
+ * 04/11, visto por mim e confirmado pelo Claude): a pessoa entra por «Já estudei
+ * algumas disciplinas» → «Marcar», conclui Circuitos Digitais sem nunca abrir
+ * aula, recarrega — e o topo, sem `ultima`, desenhava a J1 e oferecia «Começar
+ * pela primeira aula · Circuitos Digitais · Aula 1», a estação que a própria
+ * tela acabava de marcar como CONCLUÍDA, enquanto a lateral ao lado dizia «Sua
+ * próxima estação: Matemática Discreta». A chave olhava só para o toque e nunca
+ * para a viagem. É a mentira da S13a por outra porta, e o núcleo trata a outra
+ * metade dela (`continuarDe`, regra da estação concluída).
+ *
+ * A PRÓXIMA é lida de `resumoDaViagem(...).proximaEstacao` — a mesma conta que a
+ * placa e o perfil usam. Refazer a escolha aqui seria ter duas «próximas» na
+ * tela, o que a regra da fonte única da casa proíbe.
+ *
+ * `terminal` (viagem inteira concluída, sem `ultima`): nenhum caminho para
+ * apontar, então o topo se cala e a placa fica com o recheio — oferecer a Aula 1
+ * da primeira estação a quem terminou a rede toda era a mesma classe de defeito.
+ * (Nenhum número da rede aparece nesta prosa de propósito: a trava que varre
+ * este arquivo em busca de contagem escrita à mão lê comentário de bloco junto,
+ * e prosa que prega um dado é indistinguível de código que prega — eu escrevi o
+ * total na explicação e a prova me pegou, o que é ela funcionando.)
+ *
+ * @param {Array} catalogo
+ * @param {{ultima?: object|null}} estudo
+ * @param {{concluidas?: number, emCurso?: number, proximaEstacao?: object|null}|null} resumo
+ * @returns {{modo: 'volta'|'proxima'|'primeira'|'terminal', curso: object|null,
+ *   n: number, idAula: string|null}}
  */
-export function alvoDoTopo(catalogo, estudo) {
+export function alvoDoTopo(catalogo, estudo, resumo, progresso) {
   const lista = Array.isArray(catalogo) ? catalogo : [];
   const u = estudo?.ultima;
   const curso = u?.estacao ? lista.find((c) => c && c.id === u.estacao) : null;
-  if (curso) return { modo: 'volta', curso, n: numerico(u.n) || 1, idAula: u.aula || null };
+  // A volta só é volta se a estação dela AINDA TEM O QUE FAZER. Quem abriu a
+  // aula 3 de Circuitos e depois marcou a estação inteira no embarque tem
+  // `ultima` vivo numa estação CONCLUÍDA, e o cartão «Continuar: Aula 3» ali é
+  // a mesma contradição do defeito 4 com outro texto. É a regra do núcleo
+  // (`continuarDe` com `concluida`) lida pela tela, na mesma fonte: a lista de
+  // concluídas que o `progresso` traz. Cai no caso abaixo, que aponta a
+  // próxima estação.
+  const feitas = numerico(resumo?.concluidas) || 0;
+  const andadas = numerico(resumo?.emCurso) || 0;
+  // PERGUNTADO AO NÚCLEO, e não à lista de `completed`: uma estação pode estar
+  // CONCLUÍDA por regra de pré-requisito sem ter o carimbo da pessoa
+  // (core/viagem.js:202 é quem decide), e o topo lendo a lista crua daria
+  // «Continuar» para uma estação que o mapa pinta de concluída ao lado. É a
+  // mesma fonte que a folha, a placa e o perfil consultam.
+  const concluida = curso
+    ? estadoDaEstacao(curso.id, progresso || {}, lista) === ESTADOS.CONCLUIDA
+    : false;
+  if (curso && !concluida) {
+    return { modo: 'volta', curso, n: numerico(u.n) || 1, idAula: u.aula || null };
+  }
+
+  // «com progresso» = concluiu OU está em curso OU tem toque gravado. Quem
+  // tocou em «Continuar» na placa tem `emCurso` sem nenhuma aula aberta, e a J1
+  // também era mentira para essa pessoa: o mapa dizia nada, o botão dizia
+  // primeira aula.
+  if (feitas > 0 || andadas > 0 || curso) {
+    const proxima = estacaoDoResumo(lista, resumo);
+    if (!proxima) return { modo: 'terminal', curso: null, n: 1, idAula: null };
+    return { modo: 'proxima', curso: proxima, n: 1, idAula: null };
+  }
+
   return { modo: 'primeira', curso: primeiraEstacao(lista), n: 1, idAula: null };
 }
 
@@ -133,6 +194,18 @@ function aulaDoAlvo(aulas, alvo) {
 }
 
 /**
+ * A estação para a qual a volta SEM AULA aponta, perguntada à mesma conta da
+ * placa (fatia 2c-1): `resumoDaViagem(...).proximaEstacao`. O topo não refaz a
+ * escolha — dois cálculos de «próxima» na mesma tela é ter duas próximas, que é
+ * o defeito que a S13a deixou registrado.
+ */
+function estacaoDoResumo(catalogo, resumo) {
+  const pid = resumo?.proximaEstacao?.id;
+  if (!pid) return null;
+  return catalogo.find((c) => c && c.id === pid) || null;
+}
+
+/**
  * O cartão de retomada (J5) ou a porta de entrada (J1) — o único primário da
  * tela. `folhaAberta` é o caso que a S4b já resolveu para a placa: com a folha
  * de uma estação aberta, o recurso dela É o primário visível, então o botão do
@@ -142,9 +215,15 @@ function aulaDoAlvo(aulas, alvo) {
 function acaoDoTopo(doc, { alvo, aula, curso, folhaAberta }) {
   const caixa = no(doc, 'div', 'topo-acao');
   const href = hrefDe({ tela: 'estacao', slug: curso.slug, painel: 'aula', n: alvo.n });
+  // Os três modos têm FRASE PRÓPRIA, e todas saem de core/textos.js (regra 9):
+  // «Continuar: Aula N — título» para quem tem toque no aparelho, «Começar:
+  // <estação> · Aula 1» para quem tem viagem marcada mas nenhum toque, «Começar
+  // pela primeira aula» para quem não tem nada. Reaproveitar a frase da
+  // primeira visita na volta sem aula é o defeito 4 desenhado de novo: a tela
+  // diria «primeira» a quem está na 12ª estação.
   const texto = alvo.modo === 'volta'
     ? AU.continuar(alvo.n, aula?.titulo || curso.title)
-    : J.topo.comecar;
+    : (alvo.modo === 'proxima' ? J.topo.comecarEstacao(curso.title) : J.topo.comecar);
   const classe = folhaAberta
     ? 'botao topo-primario'
     : 'botao botao-primario topo-primario';
@@ -161,16 +240,27 @@ function acaoDoTopo(doc, { alvo, aula, curso, folhaAberta }) {
 /**
  * Desenha o topo da Jornada.
  *
- * @param {{modo?: string, catalogo: Array, progresso: unknown, resumo: object,
+ * O MODO não entra por parâmetro desde a S20a-3: ele é a resposta de
+ * `alvoDoTopo`, que agora precisa do `resumo` para saber se a viagem andou sem
+ * toque nenhum no aparelho. Uma `modo` recebida de fora seria a tela aceitando
+ * uma resposta que ela mesma sabe dar — e é assim que o terceiro caso voltaria a
+ * ser ignorado.
+ *
+ * @param {{catalogo: Array, progresso: unknown, resumo: object,
  *   estudo: object, indice: object|null, aulas: Array|null,
- *   embarqueAberto: boolean}} dados
+ *   embarqueAberto: boolean, folhaAberta?: boolean, alvo?: object}} dados
  * @param {Document} doc
  * @returns {Element} a <section class="topo lN">
  */
 export function desenharTopo(dados, doc) {
   const catalogo = Array.isArray(dados.catalogo) ? dados.catalogo : [];
   const resumo = dados.resumo || {};
-  const alvo = dados.alvo || alvoDoTopo(catalogo, dados.estudo);
+  // O `alvo` chega pronto do metro.js (calculado UMA vez por subida, com o
+  // catálogo na mão, e é o MESMO objeto que decide qual JSON de aulas buscar —
+  // dois cálculos por pintura dariam uma aula exibida e outra linkada). Quando
+  // ele não veio, a pergunta é feita ao `resumo` que a tela já tem em mãos, não
+  // a um `modo` inventado: é assim que o terceiro caso não pode ser ignorado.
+  const alvo = dados.alvo || alvoDoTopo(catalogo, dados.estudo, resumo, dados.progresso);
   const curso = alvo.curso;
   const aula = aulaDoAlvo(dados.aulas, alvo);
   const feitas = numerico(resumo.concluidas) || 0;

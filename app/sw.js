@@ -560,7 +560,11 @@
 // abaixo da dobra) e ~1122 em 1920 (o vao de 870). web/telas/jornada.css cede a
 // placa nos dois estados. Sem subir a VERSAO, quem tem v69 no cache continua com
 // o mapa quadrado e o segundo botao cheio, mesmo com o HTML novo.
-const VERSAO = 'atlas-v70';
+// atlas-v71: S20a-3 — três casos no topo da Jornada (a volta com aula, a volta
+// sem aula, a primeira visita), a regra da estação CONCLUÍDA no continuarDe, e a
+// placa da Jornada passando a dizer «Ver a estação» em vez de disputar o
+// «Começar a estudar» com o primário do topo.
+const VERSAO = 'atlas-v71';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
@@ -590,7 +594,7 @@ const VERSAO = 'atlas-v70';
 // core/rotas.js (a rota da aula), core/aulas.js (pausasDaAula) e core/textos.js
 // (a seção fechamento). O sw.js mediu o mesmo sha256 antes e depois de eu subir a
 // VERSAO, o que é a prova de que ele não está na própria lista.
-const PRECACHE_HASH = 'sha256-2c4d1ff46d21c0d72da704eb16cac0f4e8ff270f62762380cb3189abf7732a57';
+const PRECACHE_HASH = 'sha256-17c0caf8c7b84420e43fe35b1d757fcbebbdb9d53b8e3f73622c2f7e337c6a9e';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.

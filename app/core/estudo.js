@@ -275,9 +275,33 @@ export function estadoDaAula(estudo, aula) {
  * @param {{aulas: object, ultima: object|null}} estudo
  * @param {string} estacao o id da estação
  * @param {Array<{id: string, n: number}>} aulas a lista da estação
- * @returns {{aula: object, motivo: string}|null} null quando a estação não tem aulas
+ * @param {{concluida?: boolean, proxima?: {aula: object|null, estacao?: string|null}}|null} [opcoes]
+ *   S20a-3: `concluida` diz que a ESTACÃO pedida já terminou (quem chama sabe,
+ *   pelo catálogo: `resumoDaViagem` / `estadoDaEstacao`); `proxima.aula` é a
+ *   primeira aula para onde apontar, trazida de fora — o núcleo não busca
+ *   arquivo nenhum. Sem `opcoes`, o comportamento é o de sempre, e é assim que
+ *   as 25 chamadas antigas continuam valendo.
+ * @returns {{aula: object, motivo: string}|null} null quando a estação não tem aulas,
+ *   ou quando é concluída e quem chamou não trouxe para onde apontar
  */
-export function continuarDe(estudo, estacao, aulas) {
+export function continuarDe(estudo, estacao, aulas, opcoes) {
+  // REGRA DA ESTAÇÃO CONCLUÍDA (S20a-3, item 2 do pedido, 04/11/2026): quem já
+  // passou por esta estação não recebe «Continuar: Aula 1» dela. O defeito entrou
+  // pelo fluxo do embarque — a pessoa marca a estação, recarrega, e o topo
+  // oferecia a Aula 1 DAQUELA estação ao lado de uma lateral que dizia «Sua
+  // próxima estação: <outra>». É a mentira da S13a por outra porta.
+  //
+  // A regra mora aqui, no núcleo, e não na tela: o `return { aula: lista[0] }`
+  // da regra de quem ainda não abriu nada é o único lugar do app que devolvia
+  // uma aula de uma estação sem registro nenhum — e é exatamente o que uma
+  // estação concluída tem. Com `concluida: true`, a resposta é a primeira aula
+  // do `proxima` que quem chama trouxe (do MESMO `resumoDaViagem` que a lateral
+  // lê — fonte única), ou `null`: nenhum endereço inventado.
+  if (opcoes?.concluida) {
+    const p = opcoes.proxima;
+    if (!p || !p.aula) return null;
+    return { aula: p.aula, estacao: p.estacao ?? null, motivo: 'estacao-concluida' };
+  }
   const lista = Array.isArray(aulas) ? aulas.filter((a) => a && texto(a.id)) : [];
   if (!lista.length) return null;
   const porId = new Map(lista.map((a) => [a.id, a]));

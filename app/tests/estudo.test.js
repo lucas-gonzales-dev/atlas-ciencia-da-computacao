@@ -613,3 +613,64 @@ test('rotas: hrefDe não escreve endereço que ele mesmo não lê', () => {
   }
   assert.deepEqual(lerRota('#/estacao//aula/3'), { tela: 'jornada', desconhecida: true }, 'sem slug não há aula');
 });
+
+// ── 14. continuarDe com a estação CONCLUÍDA (S20a-3, item 2 do pedido) ──────
+// A regra do núcleo, cobrada no núcleo. O defeito que ela fecha foi achado no
+// Chrome pelo fluxo do app: a pessoa entra por «Já estudei algumas disciplinas»
+// → «Marcar», conclui Circuitos Digitais sem nunca abrir aula, recarrega, e a
+// tela oferecia «Começar pela primeira aula · Circuitos Digitais · Aula 1» — a
+// estação que a própria tela acabava de marcar como CONCLUÍDA. A causa estava
+// aqui: `if (!abertas.length) return { aula: lista[0], motivo: 'comecar' }`
+// devolvia a Aula 1 de uma estação que não tem mais o que fazer, porque a regra
+// 2b, feita para exatamente isso, só alcança estação com alguma aula aberta.
+//
+// Por que a regra mora no núcleo e não na tela: `continuarDe` tem 25 chamadas no
+// app. A regra na tela valeria para uma delas.
+const PROXIMA = { id: 'aula-da-proxima', n: 1, duracaoS: 900 };
+
+test('continuarDe concluída: a estação terminada não devolve a Aula 1 dela', () => {
+  // O aparelho não tem toque nenhum nesta estação — era exatamente o caso que
+  // caía no `lista[0]`. Com `concluida: true` e um `proxima` trazido, a resposta
+  // é a primeira aula da PRÓXIMA, nunca uma aula de `AULAS`.
+  const r = continuarDe(estudoVazio(), ESTACAO, AULAS,
+    { concluida: true, proxima: { aula: PROXIMA, estacao: 'ubl-core-calculo-i' } });
+  assert.equal(r.aula.id, PROXIMA.id, 'devolveu uma aula da estação concluída');
+  assert.equal(r.aula.n, 1);
+  assert.equal(r.estacao, 'ubl-core-calculo-i', 'perdeu a estação para onde aponta');
+  assert.equal(r.motivo, 'estacao-concluida');
+  assert.equal(AULAS.some((a) => a.id === r.aula.id), false,
+    'a aula apontada pertence à estação que terminou');
+});
+
+test('continuarDe concluída: sem para onde apontar, a resposta é null, não um endereço inventado', () => {
+  // O `null` é a metade honesta da regra: quem chama sabe mais que o núcleo
+  // sobre a viagem, e se ele não trouxe a próxima é porque não há. Um fallback
+  // para `lista[0]` aqui seria o defeito de volta com outro nome.
+  assert.equal(continuarDe(estudoVazio(), ESTACAO, AULAS, { concluida: true }), null,
+    'sem `proxima` a estação concluída devolveu uma aula');
+  assert.equal(continuarDe(estudoVazio(), ESTACAO, AULAS, { concluida: true, proxima: {} }), null,
+    '`proxima` sem aula virou aula');
+  assert.equal(continuarDe(estudoVazio(), ESTACAO, AULAS, { concluida: true, proxima: null }), null);
+});
+
+test('continuarDe concluída: quem abriu a 3 e depois marcou a estação inteira também não recebe a 3', () => {
+  // O `ultima` vivo não salva a estação concluída: a pessoa tem sim uma última
+  // aula, mas a estação terminou — «Continuar: Aula 3» ali é a mesma
+  // contradição com outro texto. A regra do `concluida` vem antes de qualquer
+  // leitura de `ultima`, e é isso que este caso trava.
+  const e = abrirNa(estudoVazio(), 3);
+  const r = continuarDe(e, ESTACAO, AULAS, { concluida: true, proxima: { aula: PROXIMA, estacao: 'x' } });
+  assert.equal(r.aula.id, PROXIMA.id, '`ultima` passou na frente da estação concluída');
+  assert.equal(r.motivo, 'estacao-concluida');
+});
+
+test('continuarDe concluída: sem `opcoes`, o comportamento é o de sempre (as 25 chamadas antigas)', () => {
+  // Não é afrouxamento: é a assinatura antiga preservada, que é o que permite a
+  // regra existir sem quebrar a folha, o cartão e os testes da S13a/S14a. Se
+  // alguém passar a exigir `opcoes` em todo lado, este caso cai e a quebra é
+  // vista como o que é: uma mudança de contrato disfarçada de conserto.
+  const r = continuarDe(estudoVazio(), ESTACAO, AULAS);
+  assert.equal(r.aula.n, 1);
+  assert.equal(r.motivo, 'comecar');
+  assert.equal(continuarDe(abrirNa(estudoVazio(), 13), ESTACAO, AULAS).aula.n, 13);
+});

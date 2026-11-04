@@ -24,6 +24,10 @@ const comAttr = (raiz, attr) => todos(raiz, (n) => n.getAttribute(attr) !== null
 import { subirMetro } from '../web/metro.js';
 import { alvoDoTopo, carregarIndice, desenharTopo } from '../web/telas/jornada-topo.js';
 import { ESTUDO_KEY, abrirAula, lerEstudo, serializarEstudo } from '../core/estudo.js';
+// S20a-3: a «próxima» do topo é a MESMA conta da placa e do perfil. Importar
+// resumoDaViagem aqui é o que impede a trava de concordar com um palpite meu
+// sobre qual estação vem depois de Circuitos Digitais.
+import { resumoDaViagem } from '../core/viagem.js';
 
 // core/estudo.js não exporta `vazio` (o sumário do disco mente — a lista dele
 // vem do arquivo, e o arquivo chama a função de outro jeito). O estudo de quem
@@ -373,4 +377,126 @@ test('jornada-topo: carregarIndice devolve null quando o índice não vem', asyn
   assert.equal(medida.textContent, J.topo.medidaSemAulas(CATALOGO.length, 'UBL'));
   assert.equal(/\d{3,}/.test(medida.textContent.replace(String(CATALOGO.length), '')), false,
     'sem índice a tela inventou uma contagem de aulas');
+});
+
+// ═══════════════ S20a-3: os TRÊS casos da chave ═══════════════
+// O achado, em uma linha: quem entra pelo embarque, marca uma estação e
+// recarrega não tem `ultima` no aparelho — e a chave de dois casos desenhava a
+// J1 para ele, oferecendo «Começar pela primeira aula» DA ESTAÇÃO QUE A PRÓPRIA
+// TELA ACABAVA DE MARCAR COMO CONCLUÍDA, com a lateral dizendo «Sua próxima
+// estação: <outra>». A trava antiga não via nada disso porque os dois storage
+// dublês do arquivo só sabiam de `ultima` ou de nada.
+//
+// O que é cobrado abaixo, uma linha por caso, e o texto do primário SEMPRE saindo
+// de core/textos.js (regra 9): se a frase mudar no catálogo, o teste acompanha;
+// se a frase for pregada no teste, ele passa a mentir junto com a tela.
+
+const progressoCom = (ids) => ({
+  versao: 1, completed: ids.slice(), emCurso: [], conclusoes: {},
+  iniciadas: {}, baldeacoes: [], revisoes: []
+});
+
+test('S20a-3 · a chave tem três casos, e cada um tem frase própria vinda de textos.js', () => {
+  const comToque = alvoDoTopo(CATALOGO, { ultima: { estacao: PRIMEIRA.id, aula: AULA_3.id, n: 3 } },
+    resumoDaViagem(progressoCom([]), CATALOGO), progressoCom([]));
+  const semToque = alvoDoTopo(CATALOGO, vazio(),
+    resumoDaViagem(progressoCom([PRIMEIRA.id]), CATALOGO), progressoCom([PRIMEIRA.id]));
+  const nada = alvoDoTopo(CATALOGO, vazio(), resumoDaViagem(progressoCom([]), CATALOGO), progressoCom([]));
+
+  assert.equal(comToque.modo, 'volta', 'quem abriu aula no aparelho perdeu a volta');
+  assert.equal(semToque.modo, 'proxima', 'quem marcou sem abrir aula caiu na primeira visita');
+  assert.equal(nada.modo, 'primeira', 'a primeira visita deixou de ser a primeira visita');
+  assert.deepEqual([comToque.curso.id, semToque.curso.id, nada.curso.id],
+    [PRIMEIRA.id, resumoDaViagem(progressoCom([PRIMEIRA.id]), CATALOGO).proximaEstacao.id, PRIMEIRA.id],
+    'alguém apontou para a estação errada');
+
+  // As três frases, uma por caso, todas do catálogo de textos.
+  const tela = (alvo) => textoDe(desenharTopo({
+    alvo, catalogo: CATALOGO, progresso: { completed: [] }, resumo: {},
+    estudo: vazio(), indice: INDICE, aulas: AULAS_PRIMEIRA.aulas, embarqueAberto: false
+  }, criarDoc()));
+  const tCom = tela(comToque), tSem = tela(semToque), tNada = tela(nada);
+  assert.equal(tCom.includes(AU.continuar(3, AULA_3.titulo)), true,
+    `a volta com aula não disse «${AU.continuar(3, AULA_3.titulo)}»: ${tCom}`);
+  assert.equal(tSem.includes(J.topo.comecarEstacao(semToque.curso.title)), true,
+    `a volta sem aula não disse «${J.topo.comecarEstacao(semToque.curso.title)}»: ${tSem}`);
+  assert.equal(tNada.includes(J.topo.comecar), true,
+    `a primeira visita não disse «${J.topo.comecar}»: ${tNada}`);
+  // As três frases têm de ser TRÊS frases. Se uma for a outra, a tela está
+  // mentindo para alguém — e é exatamente assim que o defeito 4 entrou.
+  assert.equal(new Set([AU.continuar(3, AULA_3.titulo), J.topo.comecarEstacao('X'), J.topo.comecar]).size, 3,
+    'duas das três situações da chave compartilham frase');
+});
+
+test('S20a-3 · fonte única: o alvo da volta sem aula É o proximaEstacao do resumo', () => {
+  const progresso = progressoCom([PRIMEIRA.id]);
+  const resumo = resumoDaViagem(progresso, CATALOGO);
+  const alvo = alvoDoTopo(CATALOGO, vazio(), resumo, progresso);
+  assert.equal(alvo.curso.id, resumo.proximaEstacao.id,
+    'o topo refez a conta de «próxima» em vez de ler a da placa — duas próximas na tela');
+  assert.equal(alvo.n, 1, 'a volta sem aula não começa pela primeira aula da estação');
+  assert.equal(alvo.idAula, null, 'inventou uma aula gravada que o aparelho nunca teve');
+});
+
+test('S20a-3 · O CAMINHO DO ACHADO: embarque → marcar Circuitos → recarregar, e o primário não é a Aula 1 dela', async () => {
+  // O storage do aparelho fica VAZIO de estudo — é o que o fluxo do app faz:
+  // ninguém abre aula ao marcar. `completed` vem pelo `loadCompleted` dublê, que
+  // é como a fatia inteira deste arquivo já serve o progresso.
+  const { raiz } = await subir({ completed: [PRIMEIRA.id] });
+  const resumo = resumoDaViagem(progressoCom([PRIMEIRA.id]), CATALOGO);
+  const proxima = CATALOGO.find((c) => c.id === resumo.proximaEstacao.id);
+  const btns = primarios(raiz);
+  assert.equal(btns.length, 1, `${btns.length} primários na volta sem aula`);
+  assert.equal(btns[0].textContent, J.topo.comecarEstacao(proxima.title),
+    `a tela oferece «${btns[0].textContent}» para quem acabou de marcar ${PRIMEIRA.title}`);
+  assert.equal(btns[0].getAttribute('href'), `#/estacao/${proxima.slug}/aula/1`,
+    `o primário não leva à primeira aula da próxima estação: ${btns[0].getAttribute('href')}`);
+
+  // A proibição, dita pelo nome: NUNCA a Aula 1 da estação concluída.
+  assert.equal(new RegExp(`#\\/estacao\\/${PRIMEIRA.slug}\\/aula\\/1$`).test(btns[0].getAttribute('href')), false,
+    'o topo oferece a Aula 1 da estação que a tela acabou de marcar como concluída');
+
+  // A lateral e o topo têm de dizer a MESMA estação, com o MESMO nome.
+  const placa = comClasse(raiz, /^placa-nome$/)[0];
+  assert.equal(placa.textContent, resumo.proximaEstacao.titulo,
+    'a placa e o topo nomearam estações diferentes na mesma tela');
+
+  // Um só alvo recheado, e o discurso da primeira visita sumiu da tela.
+  const cheios = todos(raiz, (n) => {
+    const cls = String(n.className || '').split(/\s+/);
+    return cls.includes('botao-primario') || (cls.includes('placa-acao') && !/\bcom-topo-primario\b/.test(raiz.className));
+  });
+  assert.equal(cheios.length, 1, `${cheios.length} alvos recheados na volta sem aula`);
+  assert.equal(textoDe(raiz).includes(J.topo.comecar), false,
+    '«Começar pela primeira aula» continua na tela de quem já percorreu uma estação');
+
+  // O «Já estudei algumas disciplinas» fica, e o h1/medida ficam (item 1 do pedido).
+  assert.ok(comClasse(raiz, /^topo-marcar$/).length === 1, 'a porta do embarque sumiu da volta');
+  assert.match(textoDe(comClasse(raiz, /^topo$/)[0]), /disciplinas da/);
+});
+
+test('S20a-3 · a placa diz «Ver a estação» e continua secundária, com o topo na tela', async () => {
+  const { raiz } = await subir({ completed: [PRIMEIRA.id] });
+  const acoes = comClasse(raiz, /^placa-acao$/);
+  assert.equal(acoes.length, 1, 'a placa voltou a ter duas ações');
+  assert.equal(acoes[0].textContent, 'Ver a estação');
+  assert.equal(String(acoes[0].className).includes('botao-primario'), false,
+    'a placa recebeu o recheio do primário: dois caminhos na mesma tela');
+  assert.match(raiz.className, /\bcom-topo-primario\b/,
+    'com o topo apontando, a raiz não declarou quem tem o recheio');
+});
+
+test('S20a-3 · terminal: viagem inteira concluída sem toque não recebe a Aula 1 da primeira estação', () => {
+  const todas = CATALOGO.map((c) => c.id);
+  const resumo = resumoDaViagem(progressoCom(todas), CATALOGO);
+  const alvo = alvoDoTopo(CATALOGO, vazio(), resumo, progressoCom(todas));
+  assert.equal(resumo.terminal, true, 'o catálogo não fecha a viagem toda: rever este caso');
+  assert.equal(alvo.modo, 'terminal');
+  assert.equal(alvo.curso, null, 'a rede inteira concluída apontou para uma estação');
+  const doc = criarDoc();
+  const topo = desenharTopo({
+    alvo, catalogo: CATALOGO, progresso: progressoCom(todas), resumo,
+    estudo: vazio(), indice: INDICE, aulas: null, embarqueAberto: false
+  }, doc);
+  assert.equal(primarios(topo).length, 0, 'o topo ofereceu um caminho que não existe mais');
 });
