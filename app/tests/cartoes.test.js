@@ -19,8 +19,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  CARTOES_KEY, LIMITE_FACE, LIMITE_FILA, lerCartoes, serializarCartoes,
-  criarCartao, cartoesDaAula, cartoesDevidos, modelosDeFrente
+  CARTOES_KEY, CONFIANCAS, LIMITE_FACE, LIMITE_FILA, lerCartoes, serializarCartoes,
+  criarCartao, revisarCartao, resumoDaSessao, cartoesDaAula, cartoesDevidos,
+  modelosDeFrente, diaSeguinte, diaDepois
 } from '../core/cartoes.js';
 import { TEXTOS, fechamento as F, aulas as AU } from '../core/textos.js';
 
@@ -354,4 +355,185 @@ test('textos: o estado estudada está na lista de aulas e os motivos novos não 
   assert.equal(AU.estados.estudada, 'Estudada');
   assert.equal(F.titulo.trim(), 'Fechar a aula');
   assert.ok(TEXTOS.fechamento === F, 'TEXTOS não exporta a seção do fechamento');
+});
+
+// ── S15a: a revisão do cartão, que é o que faz "volta amanhã" ser verdade ──
+//
+// As decisões cobradas abaixo, uma a uma:
+//   · a PRIMEIRA revisão inicializa pelo FSRS (não herda o "amanhã" fixo do
+//     cartão novo: quem acerta volta em 2 dias, quem erra volta amanhã);
+//   · `devidoEm` é uma fonte só — a fila (`cartoesDevidos`) já lê esse campo, e
+//     se a revisão escrevesse noutra data a fila e o cartão discordariam;
+//   · o virada-de-mês e o virada-de-ANO são cobrados com data real, porque a casa
+//     é `aaaa-mm-dd` LOCAL e um `toISOString()` no meio adiantaria um dia em
+//     quem estuda à noite;
+//   · Errei soma LAPSOS (e não repetições-a-menos: um cartão pode ser revisado
+//     dez vezes e ter caído três);
+//   · nada muta a entrada;
+//   · o resumo da sessão conta o que MUDOU, não o que a tela pediu duas vezes.
+const revisado = (arq, id, nota, quando, confianca) => revisarCartao(arq, id, { nota, confianca }, quando);
+const umCartao = (quando = '2026-11-04T10:30') => {
+  const r = criarCartao({}, aula(), quando, 'c1');
+  return r.cartoes;
+};
+
+test('s15a: a primeira revisão usa as iniciais do FSRS, e o cartão volta em 2 dias', () => {
+  const antes = umCartao();
+  const snapshot = JSON.stringify(antes);
+  const r = revisado(antes, 'c1', 'lembrei', '2026-11-04T18:00', 'certeza');
+
+  assert.equal(r.ok, true, r.erro);
+  assert.equal(JSON.stringify(antes), snapshot, 'revisarCartao mutou a entrada');
+  assert.equal(r.cartao.fsrs.estabilidade, 2.3065, 'W[2]: a estabilidade inicial do Lembrei');
+  assert.equal(r.cartao.fsrs.dificuldade, 2.118103970459015, 'a dificuldade inicial do Lembrei');
+  assert.equal(r.cartao.fsrs.repeticoes, 1);
+  assert.equal(r.cartao.fsrs.lapsos, 0);
+  assert.equal(r.cartao.fsrs.ultimaEm, '2026-11-04T18:00');
+  assert.equal(r.cartao.devidoEm, '2026-11-06', 'S=2,3065 dá intervalo 2');
+  assert.equal(r.cartao.historico.length, 1);
+  assert.deepEqual(r.cartao.historico[0], { em: '2026-11-04T18:00', nota: 'lembrei', confianca: 'certeza' });
+});
+
+test('s15a: a primeira Errei volta AMANHÃ e soma o primeiro lapso', () => {
+  const r = revisado(umCartao(), 'c1', 'errei', '2026-11-04T18:00');
+  assert.equal(r.cartao.fsrs.estabilidade, 0.212, 'W[0]');
+  assert.equal(r.cartao.fsrs.dificuldade, 6.4133, 'W[4]');
+  assert.equal(r.cartao.fsrs.lapsos, 1);
+  assert.equal(r.cartao.devidoEm, '2026-11-05', 'a frase do fechamento continua valendo para quem errou');
+  assert.equal(r.cartao.historico[0].confianca, null, 'confiança é opcional, e ausente é null, não string vazia');
+});
+
+test('s15a: a segunda revisão conta os dias desde a primeira, não desde que o cartão nasceu', () => {
+  // Nasceu 04/11, revisado 04/11 (volta 06/11), revisado de novo em 06/11:
+  // t=2, e a tabela de referência diz exatamente S=10,964332 para L t=2.
+  const depoisDaPrimeira = revisado(umCartao(), 'c1', 'lembrei', '2026-11-04T18:00').cartoes;
+  const r = revisado(depoisDaPrimeira, 'c1', 'lembrei', '2026-11-06T09:00');
+  assert.ok(Math.abs(r.cartao.fsrs.estabilidade - 10.964332) <= 1e-6, `S=${r.cartao.fsrs.estabilidade}`);
+  assert.equal(r.cartao.devidoEm, '2026-11-17', 'intervalo 11 a partir de 06/11');
+  assert.equal(r.cartao.fsrs.repeticoes, 2);
+
+  // Se a régua fosse o criadoEm em vez do ultimaEm, t seria 2 também por acaso
+  // aqui — então o caso que discrimina é um cartão criado MUITO antes:
+  const velho = { c1: { ...umCartao().c1, criadoEm: '2026-09-01T10:00' } };
+  const primeiro = revisado(velho, 'c1', 'lembrei', '2026-11-06T09:00');
+  assert.equal(primeiro.cartao.fsrs.estabilidade, 2.3065, 'estado null: inicializa, não espera 66 dias');
+});
+
+test('s15a: o devidoEm atravessa o fim de mês e o fim de ANO em data local', () => {
+  // 2,3065 → 2 dias. A virada de ano é a que um `+172800000` de milissegundos e
+  // qualquer UTC escondido derrubam.
+  const revirada = revisado(umCartao('2026-12-31T23:30'), 'c1', 'lembrei', '2026-12-31T23:30');
+  assert.equal(revirada.cartao.devidoEm, '2027-01-02', 'travou no ano: a data local não pode depender do fuso');
+
+  const fimDeMes = revisado(umCartao('2026-11-29T23:50'), 'c1', 'lembrei', '2026-11-29T23:50');
+  assert.equal(fimDeMes.cartao.devidoEm, '2026-12-01');
+
+  // E fevereiro, o mês que não tem 30 dias: intervalo grande caindo em 30/01.
+  const longo = { c1: { ...umCartao().c1, fsrs: { estabilidade: 100, dificuldade: 5, repeticoes: 4, lapsos: 0, ultimaEm: '2026-01-30T10:00' } } };
+  const r = revisado(longo, 'c1', 'lembrei', '2026-01-30T10:00');
+  assert.equal(r.cartao.fsrs.repeticoes, 5);
+  const [ano, mes, dia] = r.cartao.devidoEm.split('-').map(Number);
+  assert.ok(ano === 2026 && mes >= 2 && mes <= 5, `a data saltou para ${r.cartao.devidoEm}`);
+});
+
+test('s15a: lapsos sobe SÓ na Errei, e o histórico cresce sem perder o passado', () => {
+  let arq = revisado(umCartao(), 'c1', 'lembrei', '2026-11-04T10:00').cartoes;
+  arq = revisado(arq, 'c1', 'errei', '2026-11-06T10:00').cartoes;
+  arq = revisado(arq, 'c1', 'errei', '2026-11-07T10:00').cartoes;
+  arq = revisado(arq, 'c1', 'lembrei', '2026-11-08T10:00').cartoes;
+  assert.equal(arq.c1.fsrs.lapsos, 2);
+  assert.equal(arq.c1.fsrs.repeticoes, 4);
+  assert.deepEqual(arq.c1.historico.map((h) => h.nota), ['lembrei', 'errei', 'errei', 'lembrei']);
+});
+
+test('s15a: id desconhecido e nota inválida recusam com a frase do CAMPO', () => {
+  const semId = revisado(umCartao(), 'nao-existe', 'lembrei', '2026-11-05T10:00');
+  assert.equal(semId.ok, false);
+  assert.equal(semId.campo, 'id');
+  assert.ok(semId.erro.length > 10);
+
+  for (const nota of ['mais-ou-menos', '', null, 'lembrei-mais-ou-menos']) {
+    const r = revisarCartao(umCartao(), 'c1', { nota }, '2026-11-05T10:00');
+    assert.equal(r.ok, false, `nota ${nota} passou`);
+    assert.equal(r.campo, 'nota');
+  }
+
+  const confusa = revisarCartao(umCartao(), 'c1', { nota: 'lembrei', confianca: 'chutou' }, '2026-11-05T10:00');
+  assert.equal(confusa.ok, false);
+  assert.equal(confusa.campo, 'confianca');
+
+  const quandoRuim = revisado(umCartao(), 'c1', 'lembrei', 'ontem à noite');
+  assert.equal(quandoRuim.ok, false);
+  assert.equal(quandoRuim.campo, 'quando');
+});
+
+test('s15a: um cartão recusado não toca no arquivo', () => {
+  const arq = umCartao();
+  const snapshot = JSON.stringify(arq);
+  revisarCartao(arq, 'inexistente', 'lembrei', '2026-11-05T10:00');
+  revisarCartao(arq, 'c1', 'difícil', '2026-11-05T10:00');
+  assert.equal(JSON.stringify(arq), snapshot);
+});
+
+test('s15a: o cartão revisado sobrevive ao round-trip do storage', () => {
+  const r = revisado(umCartao(), 'c1', 'lembrei', '2026-11-04T18:00', 'acho');
+  const lido = lerCartoes(serializarCartoes({ versao: 1, cartoes: r.cartoes }));
+  assert.equal(lido.cartoes.c1.fsrs.estabilidade, r.cartao.fsrs.estabilidade);
+  assert.equal(lido.cartoes.c1.devidoEm, '2026-11-06');
+  assert.deepEqual(lido.cartoes.c1.historico, r.cartao.historico);
+});
+
+test('s15a: a fila passa a obedecer o devidoEm calculado, e não o amanhã fixo', () => {
+  const r = revisado(umCartao(), 'c1', 'lembrei', '2026-11-04T18:00');
+  assert.deepEqual(cartoesDevidos(r.cartoes, '2026-11-05'), [], 'voltou em 2 dias, não amanhã');
+  assert.deepEqual(cartoesDevidos(r.cartoes, '2026-11-06').map((c) => c.id), ['c1']);
+});
+
+test('s15a: resumoDaSessao conta os que mudaram, e a próxima data é de todos', () => {
+  let arq = criarCartao({}, aula(), '2026-11-04T10:00', 'c1').cartoes;
+  arq = criarCartao(arq, aula({ frente: 'O que é carry?', verso: 'vai para o próximo bit' }), '2026-11-04T10:05', 'c2').cartoes;
+  arq = criarCartao(arq, aula({ frente: 'O que é XOR?', verso: 'saída alta quando diferem' }), '2026-11-04T10:09', 'c3').cartoes;
+  const antes = JSON.parse(JSON.stringify(arq));
+
+  const um = revisado(arq, 'c1', 'lembrei', '2026-11-04T11:00');
+  arq = um.cartoes;
+  const dois = revisado(arq, 'c2', 'errei', '2026-11-04T11:02');
+  arq = dois.cartoes;
+
+  const s = resumoDaSessao(antes, arq, ['c1', 'c2', 'c2', 'c3'], '2026-11-04');
+  assert.equal(s.revisados, 2, 'id repetido conta uma vez, e o que não foi respondido não entra');
+  assert.equal(s.lembrados, 1);
+  assert.equal(s.proximaEm, '2026-11-05', 'o cartão sem resposta vence antes dos revisados');
+
+  const nada = resumoDaSessao(arq, arq, [], '2026-11-04');
+  assert.deepEqual(nada, { revisados: 0, lembrados: 0, proximaEm: '2026-11-05' });
+});
+
+test('s15a: proximaEm é null quando não há mais nada à frente', () => {
+  const arq = umCartao();
+  const hoje = '2026-12-31';
+  const atrasado = { ...arq, c1: { ...arq.c1, devidoEm: '2026-11-05' } };
+  assert.equal(resumoDaSessao(atrasado, atrasado, [], hoje).proximaEm, null, 'tudo venceu: a tela diz que não há nada para revisitar');
+
+  const vazio = resumoDaSessao({}, {}, [], '2026-11-04');
+  assert.deepEqual(vazio, { revisados: 0, lembrados: 0, proximaEm: null });
+});
+
+test('s15a: confiança é registrada e não muda o agendamento', () => {
+  const sem = revisado(umCartao(), 'c1', 'lembrei', '2026-11-04T18:00');
+  const com = revisado(umCartao(), 'c1', 'lembrei', '2026-11-04T18:00', 'chute');
+  assert.equal(com.cartao.fsrs.estabilidade, sem.cartao.fsrs.estabilidade);
+  assert.equal(com.cartao.devidoEm, sem.cartao.devidoEm);
+  assert.equal(com.cartao.historico[0].confianca, 'chute');
+  assert.deepEqual([...CONFIANCAS], ['certeza', 'acho', 'chute']);
+});
+
+test('s15a: diaDepois é o calendário local, e diaSeguinte continua sendo ele com 1', () => {
+  assert.equal(diaSeguinte('2026-11-30T23:59'), '2026-12-01');
+  assert.equal(diaDepois('2026-11-30T23:59', 2), '2026-12-02');
+  assert.equal(diaDepois('2026-12-31', 1), '2027-01-01');
+  assert.equal(diaDepois('2026-02-27', 2), '2026-03-01', '2026 não é bissexto');
+  assert.equal(diaDepois('2026-01-01', 0), '2026-01-01');
+  assert.equal(diaDepois('2026-01-01', 1.5), '', 'dia fracionado não existe no calendário');
+  assert.equal(diaDepois('ontem', 1), '');
 });

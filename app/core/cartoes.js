@@ -7,9 +7,11 @@
 // a pergunta e a resposta no aparelho e diz o que está devido hoje — nada mais.
 //
 // TRÊS COISAS QUE MORA EM OUTRO LUGAR, de propósito:
-//   · o agendamento de verdade (estabilidade, dificuldade, intervalo) é o FSRS da
-//     S15. Aqui `fsrs: null` e `devidoEm` é AMANHÃ, fixo: antes de existir
-//     modelo, um intervalo honesto é "amanhã" e não um palpite bonito;
+//   · o agendamento de verdade (estabilidade, dificuldade, intervalo) é o FSRS em
+//     core/fsrs.js (S15a), e `revisarCartao` abaixo é a única ponte entre ele e o
+//     cartão. Um cartão NOVO ainda nasce com `fsrs: null` e `devidoEm` amanhã:
+//     antes da primeira resposta não há modelo nenhum, e um intervalo honesto é
+//     "amanhã" e não um palpite bonito. A segunda data é do FSRS;
 //   · quem marca a aula como estudada é core/estudo.js (estudarAula). Um cartão
 //     sem a aula fechada não existe: a tela fecha a aula e cria os cartões, e as
 //     duas gravações são chamadas separadas porque moram em chaves separadas;
@@ -29,8 +31,21 @@
 // (UTC) ou adiantaria um dia, e o "amanhã" dependeria do fuso de quem exporta — o
 // mesmo motivo pelo qual core/revisao.js soma dias na mão, em vez de new Date(iso).
 
+import { NOTA_PARA_GRAU, revisarFsrs } from './fsrs.js';
+
 /** A chave no localStorage. Separada do estudo: um cartão sobrevive à aula que o gerou. */
 export const CARTOES_KEY = 'atlas.cartoes.v1';
+
+/**
+ * O que a pessoa diz da própria acerto, no botão do cartão: 'certeza', 'acho' ou
+ * 'chute'. ARBITRADO (S15a): a confiança é REGISTRADA e não usada no agendamento.
+ *
+ * Por que existe se não muda nada: é o dado que o FSRS vai querer um dia (a
+ * calibração por pessoa, S15c, compara a confiança dita com a retenção medida), e
+ * confiança não coletada no dia não se reconstrói depois. Usá-la agora seria um
+ * segundo algoritmo escondido num botão que a pessoa acha que só diz "lembrei".
+ */
+export const CONFIANCAS = Object.freeze(['certeza', 'acho', 'chute']);
 
 /** O formato que este módulo sabe ler. Outro número é dado desconhecido, não versão antiga. */
 const VERSAO_FORMATO = 1;
@@ -59,11 +74,51 @@ const zero = (v) => String(v).padStart(2, '0');
  * (getFullYear/getMonth/getDate), nunca pelo `toISOString()`, que é UTC.
  */
 export function diaSeguinte(quando) {
-  const [ano, mes, dia] = String(quando).slice(0, 10).split('-').map(Number);
-  if (!Number.isFinite(ano) || !Number.isFinite(mes) || !Number.isFinite(dia)) return '';
-  const amanha = new Date(ano, mes - 1, dia + 1);
-  if (Number.isNaN(amanha.getTime())) return '';
-  return `${amanha.getFullYear()}-${zero(amanha.getMonth() + 1)}-${zero(amanha.getDate())}`;
+  return diaDepois(quando, 1);
+}
+
+/**
+ * `aaaa-mm-dd` + N dias, no calendário local. `diaSeguinte` é isto com N = 1, e a
+ * S15 precisa do N solto porque o intervalo do FSRS vai de 1 a 497 dias.
+ *
+ * Os campos são lidos e escritos pelos GETTERS LOCAIS, nunca por
+ * `toISOString()` (regra 13): quem estuda às 23h30 de 30 de novembro tem de ver o
+ * cartão em 1º de dezembro do calendário DELA, e um salto de 86.400.000 ms daria o
+ * dia errado em qualquer fuso com horário de verão, porque o "dia" nem sempre tem
+ * 24 horas. Aqui nem há milissegundo no meio: é `new Date(ano, mes-1, dia+N)`, que
+ * deixa o próprio calendário resolver a virada de mês, de ano e de fevereiro.
+ */
+export function diaDepois(quando, dias) {
+  const partes = String(quando ?? '').slice(0, 10).split('-').map(Number);
+  const [ano, mes, dia] = partes;
+  if (!partes.every(Number.isFinite)) return '';
+  const n = Number(dias);
+  if (!Number.isInteger(n)) return '';
+  const alvo = new Date(ano, mes - 1, dia + n);
+  if (Number.isNaN(alvo.getTime())) return '';
+  return `${alvo.getFullYear()}-${zero(alvo.getMonth() + 1)}-${zero(alvo.getDate())}`;
+}
+
+/**
+ * Quantos DIAS de calendário separam duas datas locais (`aaaa-mm-dd` ou o
+ * instante cheio `aaaa-mm-ddThh:mm`). A primeira entra como `de`, a segunda como
+ * `ate`; devolve 0 no mesmo dia e um número negativo se `ate` é antes de `de`.
+ *
+ * A diferença é feita em dia-meia-noite e ARREDONDADA, não cortada: com horário de
+ * verão, 30/11 → 01/12 são 23 horas, e `floor` daria 0 — o cartão ganharia um dia
+ * fantasma a cada virada de fuso. `round` sobre a média de 24 h é o que faz "um dia
+ * depois" ser um dia depois em qualquer calendário.
+ */
+function diasEntre(de, ate) {
+  const parsear = (v) => {
+    const partes = String(v ?? '').slice(0, 10).split('-').map(Number);
+    if (!partes.every(Number.isFinite)) return NaN;
+    return new Date(partes[0], partes[1] - 1, partes[2]).getTime();
+  };
+  const a = parsear(de);
+  const b = parsear(ate);
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return NaN;
+  return Math.round((b - a) / 86400000);
 }
 
 function vazio() {
@@ -198,6 +253,139 @@ export function criarCartao(cartoes, { estacao, aula, n, frente, verso } = {}, q
     historico: [],
   };
   return { ok: true, cartoes: { ...atuais, [id]: cartao }, cartao };
+}
+
+/**
+ * A resposta dada a um cartão, e o novo agendamento que ela produz.
+ *
+ * É a função que faz a frase do fechamento ser verdade: "o seu cartão volta
+ * amanhã" só vale se responder hoje mover o `devidoEm` para o dia que o FSRS
+ * calculou. `devidoEm` é a ÚNICA fonte da data da fila — `cartoesDevidos` já lê
+ * exatamente esse campo, e é por isso que a revisão escreve nele e não num
+ * paraleo: duas datas por cartão é um lugar onde elas discordam em silêncio.
+ *
+ * Não muta a entrada, por decisão de casa: `{ ok, cartoes }` com o arquivo
+ * inteiro novo, o cartão substituído por um objeto novo. Um único cartão revisado
+ * não pode tocar no mapa que a tela ainda está pintando.
+ *
+ * O que muda no cartão:
+ *   · `fsrs` — `{ estabilidade, dificuldade, repeticoes, lapsos, ultimaEm }`.
+ *     `lapsos` sobe só na Errei: é quantas vezes a memória quebrou, e é o número
+ *     que a pessoa vai querer ver um dia ("este cartão já caiu três vezes").
+ *   · `historico` — `{ em, nota, confianca }` acrescentado no fim. Cresce com o
+ *     cartão, e não é podado de propósito: um histórico truncado é um histórico
+ *     que mente sobre o que aconteceu.
+ *   · `devidoEm` — hoje + o intervalo, no calendário local.
+ *
+ * A contagem de dias é feita AQUI, e não dentro do FSRS: o núcleo de agendamento
+ * recebe um número e a casa dele é data, não instante. `ultimaEm` manda se houver
+ * (a segunda revisão em diante); sem ela, a régua é o `criadoEm` — um cartão nunca
+ * respondido nasceu ontem e foi visto hoje, e dizer que ele esperou 30 dias seria
+ * punir a pessoa por um dia em que ela não revisou nada.
+ *
+ * @param {{cartoes: object}} cartoes o arquivo atual
+ * @param {string} id o cartão respondido
+ * @param {{nota: 'errei'|'lembrei', confianca?: 'certeza'|'acho'|'chute'}} resposta
+ * @param {string} quando `aaaa-mm-ddThh:mm` local
+ * @returns {{ok: true, cartoes: object, cartao: object} | {ok: false, erro: string, campo: string}}
+ */
+export function revisarCartao(cartoes, id, resposta = {}, quando) {
+  const recusar = (campo, erro) => ({ ok: false, erro, campo });
+  const atuais = cartoes?.cartoes ?? cartoes ?? {};
+  const chave = typeof id === 'string' ? id.trim() : '';
+  const cartao = chave ? atuais[chave] : null;
+
+  if (!cartao) return recusar('id', 'Este cartão não está mais na sua coleção. Pode ter sido excluído ou importado depois de aberto.');
+  if (!HE_QUANDO.test(String(quando ?? ''))) return recusar('quando', 'O momento precisa ser uma data-hora local, no formato de um minuto do dia.');
+
+  const nota = String(resposta.nota ?? '').trim();
+  const grau = NOTA_PARA_GRAU[nota];
+  if (!grau) return recusar('nota', 'Diga se você lembrou ou errou: o Atlas tem só esses dois botões.');
+
+  const confianca = typeof resposta.confianca === 'string' ? resposta.confianca.trim() : '';
+  if (confianca && !CONFIANCAS.includes(confianca)) {
+    return recusar('confianca', 'A confiança é uma entre certeza, acho e chute.');
+  }
+
+  const base = cartao.fsrs?.ultimaEm || cartao.criadoEm;
+  const dias = diasEntre(base, quando);
+  if (!Number.isInteger(dias)) return recusar('quando', 'A data da revisão não bate com a data em que este cartão foi criado.');
+
+  const novo = revisarFsrs(cartao.fsrs ?? null, grau, Math.max(dias, 0));
+  if (novo.erro) return recusar('nota', novo.erro);
+
+  const intervalo = diaDepois(quando, novo.intervalo);
+  if (!intervalo) return recusar('quando', 'Não deu para calcular em que dia este cartão volta.');
+
+  const revisado = {
+    ...cartao,
+    devidoEm: intervalo,
+    fsrs: {
+      estabilidade: novo.estabilidade,
+      dificuldade: novo.dificuldade,
+      repeticoes: (Number(cartao.fsrs?.repeticoes) || 0) + 1,
+      lapsos: (Number(cartao.fsrs?.lapsos) || 0) + (nota === 'errei' ? 1 : 0),
+      ultimaEm: quando,
+    },
+    historico: [
+      ...(Array.isArray(cartao.historico) ? cartao.historico : []),
+      { em: quando, nota, confianca: confianca || null },
+    ],
+  };
+  return { ok: true, cartoes: { ...atuais, [chave]: revisado }, cartao: revisado };
+}
+
+/**
+ * O placar de uma sessão de revisão — a tela da fila (S15b) mostra ao terminar.
+ *
+ * `proximaEm` é o menor `devidoEm` MAIOR que hoje, entre TODOS os cartões, e não
+ * só os revisados: o cartão que vence na semana que vem é informação tão útil
+ * quanto o que vence amanhã, e a frase "o próximo chega em 6 dias" é o que faz a
+ * pessoa voltar no dia certo em vez de abrir a fila vazia. Null quando não há
+ * nada à frente — o que acontece na última revisão antes de uma semana sem aula,
+ * e a tela diz "nada para revisitar" em vez de inventar uma data.
+ *
+ * Os três números vêm do estado ANTES e do DEPOIS, e não de uma conta própria:
+ * `revisados` são quantos dos ids pedidos mudaram de verdade. Um id que já não
+ * existe, ou que a tela pediu duas vezes, entra uma vez só — porque prometer
+ * "12 revisados" quando foram 11 é a mentira que faz a pessoa desconfiar do app
+ * inteiro, e é o motivo de a função receber o antes em vez de assumir que tudo
+ * que passou pelo formulário conta.
+ *
+ * @param {object} antes o arquivo como estava
+ * @param {object} depois o arquivo como ficou
+ * @param {string[]} idsRevisados os ids que a sessão respondeu
+ * @param {string} hoje `aaaa-mm-dd` local
+ * @returns {{revisados: number, lembrados: number, proximaEm: string|null}}
+ */
+export function resumoDaSessao(antes, depois, idsRevisados, hoje) {
+  const mapa = (v) => v?.cartoes ?? v ?? {};
+  const deAntes = mapa(antes);
+  const deDepois = mapa(depois);
+  const ids = Array.isArray(idsRevisados) ? [...new Set(idsRevisados.map((i) => (typeof i === 'string' ? i.trim() : '')))] : [];
+
+  let revisados = 0;
+  let lembrados = 0;
+  for (const id of ids) {
+    const a = deAntes[id];
+    const b = deDepois[id];
+    if (!a || !b) continue;
+    const resposta = (Array.isArray(b.historico) ? b.historico : []).at(-1);
+    if (!resposta) continue;
+    if (a.historico?.length === b.historico?.length && a.devidoEm === b.devidoEm) continue;
+    revisados += 1;
+    if (resposta.nota === 'lembrei') lembrados += 1;
+  }
+
+  const dia = HE_DIA.test(String(hoje ?? '')) ? hoje : null;
+  let proximaEm = null;
+  for (const c of Object.values(deDepois)) {
+    const devido = c?.devidoEm;
+    if (!HE_DIA.test(String(devido ?? ''))) continue;
+    if (dia && devido <= dia) continue;
+    if (proximaEm === null || devido < proximaEm) proximaEm = devido;
+  }
+  return { revisados, lembrados, proximaEm };
 }
 
 /** ARBITRADO (S14b2, 04/11/2026): quanto tempo um cartão leva respondido. Vinte segundos é o meio-termo honesto entre "lero-Lero" e o custo real de uma frente + um verso dito em voz alta; o FSRS da S15 afina este número com a medida de cada pessoa. */

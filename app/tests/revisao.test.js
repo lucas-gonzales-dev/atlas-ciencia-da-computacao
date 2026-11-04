@@ -13,7 +13,10 @@ import {
   INTERVALOS, DEGRAU_MAXIMO, RESULTADOS, STORAGE_KEY,
   somarDias, agendarConclusao, registrarRevisao, filaDoDia,
   proximaData, estaRetida, removerEstacao, contarRevisoes,
+  migrarRevisoesAntigas,
 } from '../core/revisao.js';
+import { LIMITE_FACE, cartoesDevidos } from '../core/cartoes.js';
+import { revisar as RV } from '../core/textos.js';
 import { FORMATO, VERSAO_FORMATO, VERSAO_MINIMA, buildExport, parseImport } from '../core/progress-io.js';
 
 // ───────────────────────── 1. concluir agenda em D + 3 ─────────────────────────
@@ -213,4 +216,138 @@ test('progress-io: o envelope que traz revisoes declara a versao que o le', () =
   // contrário — v2 importa limpo (caso acima).
   assert.equal(VERSAO_FORMATO, 2);
   assert.equal(VERSAO_MINIMA, 1);
+});
+
+// ─────────── S15a: a migração da revisão antiga para o cartão ───────────
+//
+// O que é cobrado aqui, e por quê:
+//   · só estação COM ANOTAÇÃO vira cartão — um cartão sem verso é uma dívida que
+//     a pessoa não pode pagar (a mesma razão de criarCartao exigir o verso);
+//   · o id é `migr-<estacao>` e NÃO é aleatório: a migração roda a cada boot
+//     enquanto a chave antiga existir, e a segunda rodada tem de achar o cartão
+//     que já foi criado. Este é o caso que um uuid aqui deixaria passar no
+//     primeiro boot e explodir no segundo, com a mesma pergunta voltando em dois
+//     dias diferentes;
+//   · o devidoEm é a data que a revisão antiga já marcava, se houver — a pessoa
+//     não perde o dia em que o Atlas de ontem prometeu voltar;
+//   · a frente vem de core/textos.js (regra 7), com o nome do catálogo dentro;
+//   · a chave antiga não é apagada (a exportação da S19 ainda a lê).
+const GRADE = [
+  { id: 'logica', title: 'Lógica' },
+  { id: 'calculo', title: 'Cálculo I' },
+  { id: 'circuitos', title: 'Circuitos Digitais' },
+];
+
+const duasRevisoes = () => ({
+  logica: { degrau: 1, proxima: '2026-11-11', historico: [] },
+  calculo: { degrau: 0, proxima: '2026-11-20', historico: [] },
+  circuitos: { degrau: 0, proxima: null, historico: [] },
+});
+const tresNotas = () => ({
+  logica: 'A indução precisa do caso base.',
+  calculo: 'Limites antes de derivadas.',
+  circuitos: '   ',
+});
+
+test('s15a migração: só estação com anotação vira cartão', () => {
+  const r = migrarRevisoesAntigas(duasRevisoes(), tresNotas(), GRADE, {}, '2026-11-04T10:00');
+  assert.equal(r.criados, 2, 'circuitos tem anotação em branco: não há o que conferir');
+  assert.deepEqual(Object.keys(r.cartoes).sort(), ['migr-calculo', 'migr-logica']);
+});
+
+test('s15a migração: o cartão sai com a pergunta do texto e a resposta da pessoa', () => {
+  const r = migrarRevisoesAntigas(duasRevisoes(), tresNotas(), GRADE, {}, '2026-11-04T10:00');
+  const c = r.cartoes['migr-logica'];
+  assert.equal(c.frente, RV.frenteMigrada('Lógica'), 'a frente vem de core/textos.js');
+  assert.equal(c.frente, 'O que você leva de Lógica?');
+  assert.equal(c.verso, 'A indução precisa do caso base.');
+  assert.equal(c.estacao, 'logica');
+  assert.equal(c.aula, null, 'a estação não é uma aula');
+  assert.equal(c.n, null);
+  assert.equal(c.origem, 'revisao-antiga');
+  assert.equal(c.fsrs, null, 'sem resposta dada ainda, não há modelo');
+  assert.deepEqual(c.historico, []);
+});
+
+test('s15a migração: o devidoEm é o da revisão antiga, e amanhã quando não há', () => {
+  const r = migrarRevisoesAntigas(duasRevisoes(), tresNotas(), GRADE, {}, '2026-11-04T10:00');
+  assert.equal(r.cartoes['migr-logica'].devidoEm, '2026-11-11', 'a pessoa não perde a data que o Atlas já tinha marcado');
+  assert.equal(r.cartoes['migr-calculo'].devidoEm, '2026-11-20');
+
+  const semData = { logica: { degrau: 0, proxima: null, historico: [] } };
+  const m = migrarRevisoesAntigas(semData, { logica: 'nota' }, GRADE, {}, '2026-11-04T10:00');
+  assert.equal(m.cartoes['migr-logica'].devidoEm, '2026-11-05', 'sem data antiga é amanhã, a régua honesta');
+
+  const virada = migrarRevisoesAntigas(semData, { logica: 'nota' }, GRADE, {}, '2026-12-31T23:40');
+  assert.equal(virada.cartoes['migr-logica'].devidoEm, '2027-01-01', 'o amanhã é do calendário local, não do UTC');
+});
+
+test('s15a migração: duas rodadas não duplicam, e não sobrescrevem o que já foi respondido', () => {
+  const notas = tresNotas();
+  const uma = migrarRevisoesAntigas(duasRevisoes(), notas, GRADE, {}, '2026-11-04T10:00');
+  assert.equal(uma.criados, 2);
+  const duas = migrarRevisoesAntigas(duasRevisoes(), notas, GRADE, uma.cartoes, '2026-11-05T10:00');
+  assert.equal(duas.criados, 0, 'a segunda rodada tem de achar os ids determinísticos e não criar nada');
+  assert.deepEqual(Object.keys(duas.cartoes).sort(), ['migr-calculo', 'migr-logica']);
+  assert.equal(duas.cartoes['migr-logica'].criadoEm, '2026-11-04T10:00', 're-migrar não reescreve o cartão que já existe');
+
+  // E se o cartão migrado já foi RESPONDIDO, a segunda rodada não pode apagar a
+  // resposta: é o dado mais caro da pessoa neste app.
+  const respondido = { ...duas.cartoes };
+  respondido['migr-logica'] = { ...respondido['migr-logica'], devidoEm: '2026-12-01', historico: [{ em: '2026-11-06T09:00', nota: 'lembrei', confianca: null }] };
+  const tres = migrarRevisoesAntigas(duasRevisoes(), notas, GRADE, respondido, '2026-11-07T10:00');
+  assert.equal(tres.criados, 0);
+  assert.equal(tres.cartoes['migr-logica'].devidoEm, '2026-12-01');
+  assert.equal(tres.cartoes['migr-logica'].historico.length, 1);
+});
+
+test('s15a migração: a frente vem de textos.js, e não de uma string escrita no teste', () => {
+  // A prova de que o nome do catálogo entra na frase (regra 7): duas estações,
+  // duas frentes diferentes, e nenhuma das duas é literal deste arquivo.
+  const r = migrarRevisoesAntigas(duasRevisoes(), tresNotas(), GRADE, {}, '2026-11-04T10:00');
+  assert.notEqual(r.cartoes['migr-logica'].frente, r.cartoes['migr-calculo'].frente);
+  assert.ok(r.cartoes['migr-calculo'].frente.includes('Cálculo I'));
+  assert.equal(RV.frenteMigrada('X'), 'O que você leva de X?');
+});
+
+test('s15a migração: sem catálogo nada migra, e estação fora do catálogo é contada', () => {
+  assert.equal(migrarRevisoesAntigas(duasRevisoes(), tresNotas(), [], {}, '2026-11-04T10:00').criados, 0);
+
+  const fora = { logica: { degrau: 0, proxima: null }, fantasma: { degrau: 0, proxima: null } };
+  const r = migrarRevisoesAntigas(fora, { logica: 'a', fantasma: 'b' }, GRADE, {}, '2026-11-04T10:00');
+  assert.equal(r.criados, 1);
+  assert.equal(r.ignorados, 1, 'anotação de disciplina que não existe mais é ignorada E CONTADA');
+  assert.ok(!('migr-fantasma' in r.cartoes));
+});
+
+test('s15a migração: a nota longa é cortada em LIMITE_FACE, e o cartão continua na fila', () => {
+  const longa = 'x'.repeat(LIMITE_FACE + 120);
+  const r = migrarRevisoesAntigas({ logica: { degrau: 0, proxima: null } }, { logica: longa }, GRADE, {}, '2026-11-04T10:00');
+  assert.equal(r.cartoes['migr-logica'].verso.length, LIMITE_FACE);
+
+  // O cartão migrado entra na fila de hoje sem mais nada: o devidoEm da revisão
+  // antiga é lido por cartoesDevidos, que é a única fonte da data.
+  const fila = cartoesDevidos(r.cartoes, '2026-11-30');
+  assert.deepEqual(fila.map((c) => c.id), ['migr-logica']);
+});
+
+test('s15a migração: aceita a chave crua do storage, e não explode com lixo', () => {
+  const bruto = JSON.stringify(duasRevisoes());
+  const r = migrarRevisoesAntigas(bruto, tresNotas(), GRADE, {}, '2026-11-04T10:00');
+  assert.equal(r.criados, 2);
+
+  assert.deepEqual(migrarRevisoesAntigas('quebrado', tresNotas(), GRADE, {}, '2026-11-04T10:00'), { cartoes: {}, criados: 0, ignorados: 0 });
+  assert.deepEqual(migrarRevisoesAntigas(null, null, null, null, '2026-11-04T10:00'), { cartoes: {}, criados: 0, ignorados: 0 });
+  assert.equal(migrarRevisoesAntigas(duasRevisoes(), tresNotas(), GRADE, {}, 'data errada').criados, 2, 'sem quando válido, é hoje à meia-noite, não uma recusa');
+});
+
+test('s15a migração: não muta nem apaga a revisão antiga', () => {
+  const revisoes = duasRevisoes();
+  const snapshot = JSON.stringify(revisoes);
+  const cartoes = { existente: { id: 'existente' } };
+  const antes = JSON.stringify(cartoes);
+  const r = migrarRevisoesAntigas(revisoes, tresNotas(), GRADE, cartoes, '2026-11-04T10:00');
+  assert.equal(JSON.stringify(revisoes), snapshot, 'a migração apagou a chave antiga, que a exportação da S19 ainda lê');
+  assert.equal(JSON.stringify(cartoes), antes);
+  assert.ok(r.cartoes.existente, 'o que já estava no arquivo de cartões continua lá');
 });

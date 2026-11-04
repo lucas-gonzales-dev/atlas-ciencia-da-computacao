@@ -28,6 +28,8 @@
 // `lerProgresso` é o que dá a `conciliar` a mesma leitura de progresso que o
 // metrô usa: array cru ou objeto v3, os dois viram {completed, conclusoes}.
 import { dataLocal, lerProgresso } from './viagem.js';
+import { CARTOES_KEY, LIMITE_FACE, diaSeguinte } from './cartoes.js';
+import { revisar } from './textos.js';
 
 // `ehData` do core/viagem.js não é exportada (é regra interna do formato de
 // progresso), e abrir uma exportação só para cá seria mudar o núcleo por
@@ -247,6 +249,145 @@ export function parseRevisoes(texto) {
 export function serializeRevisoes(revisoes) {
   return JSON.stringify(copiar(revisoes));
 }
+
+/**
+ * S15a — a MIGRAÇÃO da revisão antiga para o cartão (design/v3/00-desenho.md,
+ * princípio 3 e J3): cada estação concluída COM ANOTAÇÃO vira um cartão.
+ *
+ * POR QUE EXISTE: a aba Revisar da S8 pergunta "o que você leva desta estação?"
+ * e some quando a pessoa desfaz a conclusão; o cartão da S14 é a mesma pergunta
+ * com uma RESPOSTA escrita pela pessoa dentro, e é ele que o FSRS agenda. Quem
+ * tinha três estações revisáveis não pode perder o que já respondeu — o
+ * conteúdo é dela, só o agendamento é nosso. Esta função é a única ponte entre
+ * os dois formatos.
+ *
+ * A PERGUNTA NÃO É INVENTADA AQUI: `revisar.frenteMigrada` (core/textos.js)
+ * escreve a frase e recebe o nome do CATÁLOGO (regra 7 — o nome e o número são
+ * do dado). O verso é a anotação da própria pessoa, cortada em LIMITE_FACE:
+ * um cartão cuja resposta não cabe na face é um cartão que ninguém confere.
+ *
+ * O ID É DETERMINÍSTICO — `migr-<idDaEstacao>`, e não um UUID. É isto que
+ * torna a migração RODÁVEL DUAS VEZES: o app pode chamá-la a cada boot enquanto
+ * a chave antiga existir, e a segunda rodada precisa encontrar o cartão que já
+ * foi criado e não criar outro. Um id aleatório aqui duplicaria a anotação em
+ * dois cartões que voltam em dias diferentes, e a pessoa veria a mesma pergunta
+ * duas vezes sem como saber qual é a verdadeira. Também não sobrescreve: se o
+ * cartão `migr-x` já existe, ele já foi respondido, e apagar a resposta de
+ * alguém para "re-migrar" é a pior coisa que um app de memória pode fazer.
+ *
+ * A CHAVE `atlas.revisoes.v1` NÃO É APAGADA, e é decisão, não esquecimento: a
+ * exportação (S19 / core/progress-io.js) ainda lê as revisões antigas, e apagar
+ * a chave aqui destruidaria dado de quem importa a viagem noutro aparelho. A
+ * migração é aditiva; a substituição dos formatos é outra fatia, com a
+ * exportação já cobrindo o cartão.
+ *
+ * O QUE ENTRA E O QUE FICA DE FORA: uma estação só vira cartão se tiver
+ * anotação (sem resposta não há o que conferir — a mesma razão de `criarCartao`
+ * exigir o verso) e se existir no catálogo. Estação fora do catálogo é
+ * IGNORADA E CONTADA (`ignorados`), exatamente como `sanitizar` faz com as
+ * revisões huérfãs: quem importou uma viagem de um catálogo antigo tem as
+ * anotações de disciplinas que saíram da grade, e criar um cartão que aponta
+ * para o nada seria encher a fila diária de algo que não dá para abrir.
+ *
+ * @param {object|string} revisoesAntigas o mapa de `atlas.revisoes.v1` (cru ou objeto)
+ * @param {Record<string,string>|object|string} notas as anotações por disciplina
+ * @param {Array<{id:string,title?:string}>} catalogo a grade (só as estações)
+ * @param {object} cartoes o arquivo de cartões de agora (`{cartoes}` ou o mapa)
+ * @param {string} quando `aaaa-mm-ddThh:mm` local de agora; sem isso, hoje à meia-noite local
+ * @returns {{cartoes: object, criados: number, ignorados: number}} nada muta, nada apaga
+ */
+export function migrarRevisoesAntigas(revisoesAntigas, notas, catalogo, cartoes, quando) {
+  const atuais = cartoes?.cartoes ?? cartoes ?? {};
+  const saida = { ...atuais };
+  const { revisoes } = sanitizar(revisoesAntigas, null);
+  const anotacoes = normalizarNotasParaMigracao(notas);
+  const nomes = nomesDoCatalogo(catalogo);
+
+  const instante = HE_QUANDO_TESTE.test(String(quando ?? ''))
+    ? String(quando)
+    : `${dataLocal()}T00:00`;
+  const amanha = diaSeguinte(instante);
+
+  let criados = 0;
+  let ignorados = 0;
+
+  for (const [id, revisao] of Object.entries(revisoes)) {
+    const texto = anotacoes[id] ?? '';
+    if (!texto) continue;
+    const nome = nomes[id];
+    if (nome === undefined) {
+      ignorados += 1;
+      continue;
+    }
+    const chave = `migr-${id}`;
+    if (saida[chave]) continue;
+
+    const frente = String(revisar.frenteMigrada(nome)).slice(0, LIMITE_FACE);
+    const verso = texto.length > LIMITE_FACE ? texto.slice(0, LIMITE_FACE) : texto;
+    const devido = ehData(revisao.proxima) ? revisao.proxima : amanha;
+
+    saida[chave] = {
+      id: chave,
+      estacao: id,
+      // `aula` e `n` nulos: a estação não é uma aula, e um cartão que mente
+      // sobre a origem não pode ser aberto na folha dela. A tela da fila (S15b)
+      // lê `estacao` para dizer de onde o cartão veio.
+      aula: null,
+      n: null,
+      frente,
+      verso,
+      criadoEm: instante,
+      devidoEm: devido,
+      fsrs: null,
+      historico: [],
+      origem: 'revisao-antiga',
+    };
+    criados += 1;
+  }
+
+  return { cartoes: saida, criados, ignorados };
+}
+
+const HE_QUANDO_TESTE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
+
+/** O catálogo vira { id: nome }. Sem catálogo, nada migra: não há nome para a frente. */
+function nomesDoCatalogo(catalogo) {
+  const saida = {};
+  if (!Array.isArray(catalogo)) return saida;
+  for (const c of catalogo) {
+    if (!c || typeof c.id !== 'string' || !c.id.trim()) continue;
+    saida[c.id.trim()] = typeof c.title === 'string' && c.title.trim() ? c.title.trim() : c.id.trim();
+  }
+  return saida;
+}
+
+/**
+ * As anotações no formato desta função: texto limpo por id. Importada de
+ * core/notes.js? Não — `normalizarNotas` já faria isto, mas notes.js é outro
+ * ciclo de vida (chave própria, limite próprio de 280) e puxá-lo para cá
+ * arrastaria o limite de anotação para dentro da revisão. A cortesia aqui é só
+ * "existe texto?" — o corte de face é LIMITE_FACE, o do cartão, não o do caderno.
+ */
+function normalizarNotasParaMigracao(notas) {
+  let mapa = notas;
+  if (typeof notas === 'string') {
+    if (!notas.trim()) return {};
+    try { mapa = JSON.parse(notas); } catch { return {}; }
+  }
+  const saida = {};
+  if (!mapa || typeof mapa !== 'object' || Array.isArray(mapa)) return saida;
+  for (const [id, valor] of Object.entries(mapa)) {
+    if (typeof valor !== 'string') continue;
+    const texto = valor.replace(/\r\n?/g, '\n').trim();
+    if (texto) saida[id] = texto;
+  }
+  return saida;
+}
+
+/** A chave para onde a migração escreve, reexportada para quem salva: um só
+ *  nome do arquivo em todo o app (a mesma escola de `modelosDeFrente` em
+ *  core/cartoes.js). `STORAGE_KEY`, logo acima, é a chave que ela LÊ e não apaga. */
+export { CARTOES_KEY };
 
 /**
  * A fila derivada do que a pessoa concluiu — a função que a tela chama antes

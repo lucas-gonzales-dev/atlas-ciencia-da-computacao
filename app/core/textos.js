@@ -605,6 +605,17 @@ export const revisar = Object.freeze({
     Object.freeze({ numero: '02', titulo: 'Confira', texto: 'Sua anotação mostra o que você levou.' }),
     Object.freeze({ numero: '03', titulo: 'Volte depois', texto: 'O Atlas sugere quando vale reencontrar.' }),
   ]),
+  /**
+   * S15a — a migração da revisão antiga. Cada estação concluída COM anotação vira
+   * um cartão, e a frente é a pergunta que a aba Revisar já fazia, agora escrita
+   * no próprio cartão: «O que você leva de Circuitos Digitais?».
+   *
+   * O nome da estação é o do catálogo (regra 7: o número e o nome são do dado,
+   * nunca escritos aqui); o verso é a anotação da pessoa, que já é dela. Não é
+   * "o que você lembra" no infinitivo impessoal porque a resposta que a pessoa
+   * deu um dia é uma posse, não uma prova.
+   */
+  frenteMigrada: (nome) => `O que você leva de ${nome}?`,
 });
 
 /**

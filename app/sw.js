@@ -564,7 +564,14 @@
 // sem aula, a primeira visita), a regra da estação CONCLUÍDA no continuarDe, e a
 // placa da Jornada passando a dizer «Ver a estação» em vez de disputar o
 // «Começar a estudar» com o primário do topo.
-const VERSAO = 'atlas-v71';
+// atlas-v72: S15a (04/11/2026) — entra core/fsrs.js no precache (o FSRS-6 do
+// cartão) e mudam de bytes core/cartoes.js (revisarCartao, resumoDaSessao,
+// diaDepois), core/revisao.js (migrarRevisoesAntigas) e core/textos.js
+// (revisar.frenteMigrada). cartoes.js IMPORTA fsrs.js: sem o módulo novo no
+// cache, responder a um cartão offline não agenda nada, e a frase «o seu cartão
+// volta amanhã» quebra justamente onde ela importa. Sem subir a VERSAO, quem tem
+// v71 recebe o cartoes.js novo chamando um módulo que não está no cache dele.
+const VERSAO = 'atlas-v72';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
@@ -594,7 +601,7 @@ const VERSAO = 'atlas-v71';
 // core/rotas.js (a rota da aula), core/aulas.js (pausasDaAula) e core/textos.js
 // (a seção fechamento). O sw.js mediu o mesmo sha256 antes e depois de eu subir a
 // VERSAO, o que é a prova de que ele não está na própria lista.
-const PRECACHE_HASH = 'sha256-17c0caf8c7b84420e43fe35b1d757fcbebbdb9d53b8e3f73622c2f7e337c6a9e';
+const PRECACHE_HASH = 'sha256-d4823e225110a5c5d947f34f1f3d3101f3968fb74008e78ca13a09c0b6e44085';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.
@@ -703,6 +710,14 @@ const PRECACHE = [
   // O mapa da rede (S11): o diagrama das 35 estações que o cartão do link, o topo
   // da Jornada e o bilhete desenham. Importa viagem.js e progress.js.
   'core/mapa-rede.js',
+  // NOTA DE CASA: dentro do array PRECACHE, aspas retas são um CAMINHO, não
+  // prosa, e um colchete fecha o bloco que a trava pwa.test.js procura — ela lê
+  // o texto entre a abertura e o FECHAMENTO do array, trata cada string
+  // entre aspas como arquivo a precarregar e cobra que ele exista no disco.
+  // Comentário aqui usa aspas angolanas ou nenhuma, e nenhum colchete: aspas
+  // retas numa frase quebram a suíte com um arquivo «sobrando» que ninguém
+  // criou, e um colchete tira do cache tudo o que vem depois dele.
+  //
   // As aulas de cada estação (S12): traduz a resposta da YouTube Data API. Sem rede, sem DOM.
   'core/aulas.js',
   // O ESTUDO por aula (S13a, 04/11/2026): quem abriu o quê e por onde
@@ -716,6 +731,12 @@ const PRECACHE = [
   // volta sem sinal tem de achar o proprio cartao, e um modulo fora do cache e a
   // fila de revisao em branco.
   'core/cartoes.js',
+  // O FSRS-6 do cartao (S15a, 04/11/2026): a conta que decide em que dia o
+  // cartao volta. core/cartoes.js importa este arquivo, entao quem nao o tem no
+  // cache nao tem REVISAO NENHUMA offline — a pessoa responde, o app nao agenda,
+  // e a frase «o seu cartao volta amanha» quebra so no onibus, que e justamente
+  // onde ela importa.
+  'core/fsrs.js',
   'core/notes.js',
   'core/search.js',
   // Rotas da grade (S3a-1, 31/10/2026): as abas que o boot.js resolve. Sem
