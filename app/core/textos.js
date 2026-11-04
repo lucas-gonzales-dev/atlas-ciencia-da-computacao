@@ -661,7 +661,10 @@ export const aulas = Object.freeze({
   estados: Object.freeze({
     'nao-iniciada': 'Não iniciada',
     aberta: 'Aberta',
-    // S14 acrescenta 'estudada'; estadoDaAula devolve a palavra e a tela lê daqui.
+    // S14a: 'estudada' é o estado que conta para o mapa. A tela lê daqui, e
+    // estadoDaAula devolve a mesma palavra — se uma existir e a outra não, a
+    // lista de aulas desenha um estado sem nome para o leitor de tela.
+    estudada: 'Estudada',
   }),
   assistir: 'Assistir no YouTube',
   // A etiqueta da linha de exercício na página de aulas (acabamento, item 3).
@@ -689,7 +692,75 @@ export const aulas = Object.freeze({
   }),
 });
 
+/**
+ * Os QUATRO modelos de frente do cartão (J2, passo 3), escolhidos por puxarem
+ * PARÁFRASE e não decalque: "explique", "dê um exemplo", "qual a diferença",
+ * "por que" são as quatro perguntas que uma resposta copiada não sobrevive. O
+ * cartão nasce com a pergunta que a pessoa escolheu, e a frente é editável — o
+ * modelo é um começo, não um formulário rígido.
+ *
+ * Moram aqui e são reexportados por core/cartoes.js (que é de onde a tela importa
+ * o contrato do cartão): a lista é uma regra do cartão, e a frase é texto de tela
+ * (regra 7). Um só lugar, dois caminhos.
+ */
+export const modelosDeFrente = Object.freeze([
+  'Explique com suas palavras: ',
+  'Dê um exemplo de ',
+  'Qual a diferença entre … e …?',
+  'Por que ',
+]);
+
+/**
+ * O FECHAMENTO DA AULA (S14a, 04/11/2026) — design/v3/00-desenho.md, J2.
+ *
+ * É o coração do Atlas novo: a aula só conta quando a pessoa lembra sem olhar e
+ * escreve ao menos um cartão. As três frases dos passos existem separadas porque
+ * os passos são três gestos diferentes, e "escreva algo" no três vezes diria a
+ * mesma coisa três vezes.
+ *
+ * `modoMinimo` não é uma versão pior do ciclo: é a porta para quem tem quatro
+ * minutos e não vinte. Uma frase do que levou e uma pergunta já contam como
+ * estudada, e a frase diz isso com as palavras do desenho, sem pedir desculpas.
+ *
+ * `feito` e `porHoje` olham o mesmo número (quantos cartões voltam amanhã) por
+ * ângulos opostos: uma confirma o que foi feito, a outra mostra que o custo de
+ * amanhã cabe em minutos. `pausas` recebe as MARCAS JÁ ESCRITAS
+ * (`duracaoLegivel`/minutos, não segundos): a regra 9 da casa não permite duas
+ * telas formatando o mesmo tempo de dois jeitos, e um texto de tela não sabe
+ * dividir por 60.
+ */
+export const fechamento = Object.freeze({
+  titulo: 'Fechar a aula',
+  passoLembrar: Object.freeze({
+    titulo: 'Sem olhar',
+    pergunta: 'Sem rever nada: o que você lembra desta aula?',
+  }),
+  passoConferir: Object.freeze({
+    titulo: 'Conferir',
+    pergunta: 'Agora confira com o vídeo ou com as suas notas. O que faltou?',
+  }),
+  passoCartoes: Object.freeze({
+    titulo: 'Cartões',
+    pergunta: 'Escreva a pergunta que você quer saber responder daqui a uma semana.',
+    frente: 'Pergunta',
+    verso: 'Resposta',
+    mais: 'Outro cartão',
+    limite: 'Até 3 cartões por aula.',
+  }),
+  modoMinimo: Object.freeze({
+    convite: 'Só uma frase e uma pergunta',
+    frase: 'Em uma frase, o que você leva desta aula?',
+  }),
+  feito: (cartoes) => `Aula estudada. ${cartoes === 1 ? 'O seu cartão volta' : `Os seus ${cartoes} cartões voltam`} amanhã.`,
+  proxima: (n, titulo, duracao) => `Próxima: Aula ${n} — ${titulo} (${duracao})`,
+  porHoje: (cartoes, minutos) => `Por hoje está bom. Amanhã: ${cartoes} ${cartoes === 1 ? 'cartão' : 'cartões'}, ~${minutos} min.`,
+  faltaLembrar: 'Escreva o que você lembra antes de fechar a aula.',
+  faltaCartao: 'Escreva ao menos um cartão, com pergunta e resposta.',
+  pausas: (marcas) => `Pausas sugeridas: ${marcas.join(' · ')}`,
+  pausaConvite: 'Pare em cada pausa e tente explicar, sem voltar o vídeo, o que viu até ali.',
+});
+
 /** Tudo junto, para quem precisa percorrer (o teste percorre). */
-export const TEXTOS = { placa, comValores, folha, estados, legenda, proibido, ORIGEM, TIPO_DE_ORIGEM, casco, jornada, explorar, chegada, revisar, perfil, aulas };
+export const TEXTOS = { placa, comValores, folha, estados, legenda, proibido, ORIGEM, TIPO_DE_ORIGEM, casco, jornada, explorar, chegada, revisar, perfil, aulas, modelosDeFrente, fechamento };
 
 export default TEXTOS;

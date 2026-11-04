@@ -185,6 +185,35 @@ export function duracaoLegivel(segundos) {
   return resto === 0 ? `${h} h` : `${h} h ${String(resto).padStart(2, '0')} min`;
 }
 
+/** Cada quantos segundos de vídeo o Atlas sugere uma pausa (ARBITRADO da S14a: 8 min, no meio dos 6 e 10 da literatura — Guo et al. 2014 mostra aprendizagem maior com vídeos segmentados, e a pesquisa de attention-spans de celular oscila entre 6 e 10 min; a busca ficou em 8 porque é o número que cabe inteiro numa tela e numa frase). */
+export const INTERVALO_PAUSA = 8 * 60;
+
+/** A partir de quantos segundos a aula merece pausa. Abaixo disso, interromper custa mais do que vale: a pessoa já está terminando. */
+const PAUSA_DESDE = 12 * 60;
+
+/** Quão perto do fim a última pausa ainda vale. Uma pausa a 1 min do fim pede que a pessoa pare para lembrar de uma aula que acabou — é o mesmo gesto duas vezes. */
+const PAUSA_LONGE_DO_FIM = 3 * 60;
+
+/**
+ * As MARCAS DE PAUSA de uma aula, em segundos (J2, item 1 do desenho: "as marcas
+ * de pausa calculadas pela duração"). Nada aqui conhece a YouTube API: entra a
+ * duração, saem os minutos em que parar.
+ *
+ * Devolve vazio para aula curta — e vazio É a resposta, não um erro: a tela não
+ * desenha a linha de pausas quando ela vem vazia, em vez de desenhar "Pausas
+ * sugeridas: " com nada depois.
+ *
+ * @param {number} duracaoS a duração do vídeo em segundos
+ * @returns {number[]} os segundos de cada pausa, em ordem
+ */
+export function pausasDaAula(duracaoS) {
+  const total = Number(duracaoS) || 0;
+  if (total < PAUSA_DESDE) return [];
+  const marcas = [];
+  for (let t = INTERVALO_PAUSA; t <= total - PAUSA_LONGE_DO_FIM; t += INTERVALO_PAUSA) marcas.push(t);
+  return marcas;
+}
+
 /** Os dados ainda estão no prazo dos termos? `hoje` em aaaa-mm-dd local. */
 export function aulasNoPrazo(arquivo, hoje) {
   const ate = String(arquivo?.validoAte ?? '');

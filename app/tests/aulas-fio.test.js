@@ -218,7 +218,11 @@ test('fio: tocar no primário grava abertaEm no storage e a folha passa a dizer 
   // ela mesma passaria verde com número errado, e foi assim que este arquivo
   // nasceu. duracaoLegivel e resumoDaEstacao são os mesmos que a tela chama.
   const régua = textoDo(um(root, 'aulas-progresso-texto', 'folha depois do clique'));
-  assert.equal(régua, AU.progresso(1, TOTAL, duracaoLegivel(AULAS.total.segundos - PRIMEIRA.duracaoS)),
+  // MUTOU na S14a (04/11/2026): era `AULAS.total.segundos - PRIMEIRA.duracaoS`,
+  // porque abrir a aula 1 tirava os 14 min dela do "faltam ~". O restante agora
+  // soma as aulas NÃO ESTUDADAS: o clique ABRE, e o que desconta tempo é o fecho
+  // (S14b). O número de abertas andou; o tempo espera.
+  assert.equal(régua, AU.progresso(1, TOTAL, duracaoLegivel(AULAS.total.segundos)),
     `a régua não andou certa depois do clique: "${régua}"`);
 });
 

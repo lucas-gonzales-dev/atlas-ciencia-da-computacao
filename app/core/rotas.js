@@ -109,6 +109,28 @@ export function lerRota(hash) {
       if (!slug) return { tela: 'jornada', desconhecida: true };
       return { tela: 'estacao', slug, painel: 'aulas' };
     }
+    // A AULA individual (S14a, 04/11/2026): '#/estacao/<slug>/aula/<n>' abre o
+    // fechamento daquela aula. O `n` é a POSIÇÃO na playlist, não o id do vídeo,
+    // porque o endereço tem de ser legível e compartilhável ("a aula 3 de
+    // Circuitos") e o id de 11 caracteres não diz nada a ninguém.
+    //
+    // `/aula/` é conferido como fatia inteira, e não "o que vem depois de /aula":
+    // 'calculo-i/aulas/extra' contém "/aula" seguido de "s" e tem de continuar
+    // sendo lido como slug (é o sufixo parecido que o teste da S13a já cobra).
+    const corte = bruto.lastIndexOf('/aula/');
+    if (corte >= 0) {
+      const slug = bruto.slice(0, corte);
+      // '#/estacao//aula/3' não nomeia estação nenhuma: mesma regra do slug vazio.
+      if (!slug) return { tela: 'jornada', desconhecida: true };
+      const resto = bruto.slice(corte + '/aula/'.length);
+      // Só dígitos, sem sinal e sem ponto decimal: 'aula/-1', 'aula/2.5',
+      // 'aula/0' e 'aula/oito' não são a aula de ninguém. Caem no painel 'aulas'
+      // (a lista existe e é o lugar honesto para um endereço meias-palavras) em
+      // vez de sumir para a folha, que é outro lugar do app.
+      const numero = /^\d+$/.test(resto) ? Number(resto) : 0;
+      if (numero >= 1) return { tela: 'estacao', slug, painel: 'aula', n: numero };
+      return { tela: 'estacao', slug, painel: 'aulas' };
+    }
     return { tela: 'estacao', slug: bruto };
   }
   return { tela: 'jornada', desconhecida: true };
@@ -141,6 +163,13 @@ export function hrefDe(rota) {
     // escrevesse esse endereço criaria um link que o próprio app não reconhece.
     const slug = rota.slug ? String(rota.slug) : '';
     if (rota.painel === 'aulas' && slug) return `${PREFIXO_ESTACAO}${slug}/aulas`;
+    // O painel 'aula' só existe com número inteiro ≥ 1. Um hrefDe que escrevesse
+    // 'aula/NaN' estaria criando um endereço que o próprio lerRota devolve como
+    // 'aulas' — e um link que muda de tela ao ser clicado é o pior tipo de link.
+    if (rota.painel === 'aula' && slug) {
+      const n = Number(rota.n);
+      if (Number.isInteger(n) && n >= 1) return `${PREFIXO_ESTACAO}${slug}/aula/${n}`;
+    }
     return `${PREFIXO_ESTACAO}${slug}`;
   }
   return '#/';

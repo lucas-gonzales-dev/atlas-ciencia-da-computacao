@@ -45,22 +45,32 @@ export const ESTUDO_KEY = 'atlas.estudo.v1';
 /** O formato que este módulo sabe ler. Outro número não é "uma versão antiga": é um dado que não se conhece. */
 const VERSAO_FORMATO = 1;
 
-/** Os estados da aula que EXISTEM hoje. Cresce na S14 com 'estudada' (e depois 'lembrada', 'consolidada', 'pulada'). */
-export const ESTADOS_DA_AULA = Object.freeze(['nao-iniciada', 'aberta']);
+/**
+ * Os estados da aula que EXISTEM hoje (S14a). Crescem para 'lembrada',
+ * 'consolidada' e 'pulada', e cada um é um degrau acima deste.
+ */
+export const ESTADOS_DA_AULA = Object.freeze(['nao-iniciada', 'aberta', 'estudada']);
 
 /** `aaaa-mm-ddThh:mm` local, sem segundos e sem fuso. */
 const HE_QUANDO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
 
 /** Os estados que se deduzem de um registro, DO MAIS AVANÇADO PARA O MAIS BÁSICO. */
 const ESCADA = Object.freeze([
-  // S14 acrescenta aqui: ['estudada', 'estudadaEm'] — antes desta linha, e o
-  // resto do módulo (resumoDaEstacao, a tela) passa a enxergar o estado novo
-  // sem outra mudança, porque todos perguntam por estadoDaAula, nunca por campo.
+  // S14a acrescentou 'estudada' aqui, como estava planejado: o resto do módulo
+  // (resumoDaEstacao, continuarDe, a tela) já enxergava o estado novo sem outra
+  // mudança, porque todos perguntam por estadoDaAula, nunca por campo. 'estudada'
+  // fica ACIMA de 'aberta' porque é o degrau que a pessoa fecha, não abre.
+  ['estudada', 'estudadaEm'],
   ['aberta', 'abertaEm'],
 ]);
 
+/** Quanto texto o estudo guarda por campo (recordação e conferência). 2.000 caracteres é ~1 parágrafo longo. */
+const LIMITE_TEXTO = 2000;
+
 const texto = (v) => (typeof v === 'string' && v.trim() ? v : '');
 const numero = (v) => (Number.isFinite(Number(v)) && Number(v) >= 0 ? Number(v) : null);
+/** O texto que a pessoa escreveu, sem as pontas e com teto. Cortar é melhor que recusar: quem digitou 2.400 caracteres escreveu a recordação, e perder o que passou do teto não apaga o que ela lembrou. */
+const escrever = (v) => String(v ?? '').trim().slice(0, LIMITE_TEXTO);
 
 function vazio() {
   return { versao: VERSAO_FORMATO, aulas: {}, ultima: null };
@@ -93,9 +103,14 @@ export function lerEstudo(bruto) {
   const aulas = {};
   for (const [id, r] of Object.entries(brutos)) {
     if (!r || typeof r !== 'object' || !id) continue;
-    // Sem data de abertura não há registro: um `aberta: true` sem `abertaEm`
-    // seria o estado da casa antiga (booleano por estação) entrando de contrabando.
-    if (typeof r.abertaEm !== 'string' || !r.abertaEm) continue;
+    // Sem data nenhuma não há registro: um `aberta: true` sem `abertaEm` seria o
+    // estado da casa antiga (booleano por estação) entrando de contrabando. Desde
+    // a S14a basta também um `estudadaEm`: quem fecha uma aula tem as duas datas
+    // (estudarAula grava a abertura que faltou), e um registro vindo de uma
+    // migração futura com só a data de estudo não pode ser jogado fora — perder
+    // estudo em silêncio é o pior defeito que este módulo tem.
+    const temData = (c) => typeof r[c] === 'string' && r[c];
+    if (!temData('abertaEm') && !temData('estudadaEm')) continue;
     // O `...r` preserva o que a S14 gravar ao lado (estudadaEm, puladaEm) sem
     // que esta função precise conhecer o futuro: perder um campo no round-trip
     // ler->escrever seria apagar estudo sem ninguém ter pedido.
@@ -148,6 +163,55 @@ export function abrirAula(estudo, { estacao, aula, n } = {}, quando) {
 }
 
 /**
+ * Marca a aula como ESTUDADA — o fecho da J2, e o único estado que conta para o
+ * mapa. Devolve o estudo novo; a entrada fica intacta (decisão 1, a mesma de
+ * `abrirAula`, porque fechar a aula é o gesto mais caro do app e a tela pinta o
+ * que ele devolve).
+ *
+ * As três coisas que este registro faz de uma vez:
+ *   1. grava `estudadaEm` — e o da PRIMEIRA vez não se reescreve, pela mesma razão
+ *      do `abertaEm` (decisão 3): reabrir o fecho de uma aula já estudada não pode
+ *      apagar quando ela foi aprendida;
+ *   2. guarda a recordação sem olhar e a conferência, cortadas em LIMITE_TEXTO — é
+ *      o rastro de que a pessoa lembrou, e é o que a S17 olha para decidir
+ *      durabilidade;
+ *   3. grava `abertaEm` se ainda não houver. Um fecho sem abertura é possível
+ *      (a pessoa abriu o vídeo por fora, ou importou uma viagem só com o fecho), e
+ *      uma aula 'estudada' sem data de abertura deixaria o `continuarDe` sem data
+ *      nenhuma para ordenar as aulas daquela estação.
+ *
+ * A `ultima` vira esta aula: quem fecha é quem está aqui, e o cartão de retomada
+ * da J5 tem de apontar para onde a pessoa acabou de estar.
+ *
+ * @param {{aulas: object, ultima: object|null}} estudo
+ * @param {{estacao: string, aula: string, n: number}} aula
+ * @param {string} quando `aaaa-mm-ddThh:mm` local
+ * @param {{recordacao?: string, conferencia?: string}} [textos] o que a pessoa escreveu
+ * @returns o estudo novo
+ */
+export function estudarAula(estudo, { estacao, aula, n } = {}, quando, { recordacao, conferencia } = {}) {
+  const novo = copiar(estudo);
+  if (!texto(aula) || !texto(estacao) || !HE_QUANDO.test(String(quando ?? ''))) return novo;
+
+  const antes = novo.aulas[aula];
+  novo.aulas[aula] = {
+    ...(antes ?? {}),
+    estacao,
+    n: numero(n),
+    abertaEm:
+      typeof antes?.abertaEm === 'string' && antes.abertaEm ? antes.abertaEm : quando,
+    estudadaEm:
+      typeof antes?.estudadaEm === 'string' && antes.estudadaEm ? antes.estudadaEm : quando,
+    // Os textos só entram escritos: um `recordacao: ''` de um formulário vazio não
+    // apaga a recordação que já estava lá na segunda passada do fecho.
+    ...(escrever(recordacao) ? { recordacao: escrever(recordacao) } : {}),
+    ...(escrever(conferencia) ? { conferencia: escrever(conferencia) } : {}),
+  };
+  novo.ultima = { estacao, aula, n: numero(n), em: quando };
+  return novo;
+}
+
+/**
  * O estado da aula, pelo registro dela. `nao-iniciada` quando não há registro.
  * A ESCADA é o que faz este retorno crescer sem que ninguém que o consome
  * precise mudar: a S14 põe uma linha e 'estudada' passa a sair daqui.
@@ -167,11 +231,30 @@ export function estadoDaAula(estudo, aula) {
  * A aula por onde a pessoa CONTINUA naquela estação, com o motivo — é o cartão
  * de "Continuar: Aula 13" da folha e o botão "Começar" da primeira visita.
  *
- * As TRÊS regras, na ordem em que se aplicam (decisão do Lucas, 04/11/2026):
- *   1. a última abertura foi desta estação e a aula ainda está na lista → ela;
- *   2. alguma aula desta estação foi aberta → a aberta mais recente, pelo
- *      maior `abertaEm`; no empate, a de maior `n` ('ultima-aberta');
+ * As regras, na ordem em que se aplicam (decisão do Claude, canal do dogfood,
+ * 04/11/2026, S13c; e o acréscimo do estado 'estudada' na S14a, 04/11/2026):
+ *   1. a última abertura foi desta estação, a aula ainda está na lista e ela NÃO
+ *      foi estudada → ela;
+ *   2. entre as desta estação: (a) a aberta mais recente que ainda não foi
+ *      estudada, pelo maior `abertaEm`, empate pelo maior `n`; (b) se todas as
+ *      abertas já foram estudadas, a primeira não estudada DEPOIS da fronteira
+ *      (o maior `n` estudado) — o próximo buraco à frente, não o primeiro atrás;
+ *      (c) se não sobra nada à frente, a última aula da estação, com
+ *      'estacao-percorrida' quando a estação inteira foi estudada;
  *   3. nenhuma aberta → a primeira ('comecar').
+ *
+ * O que a S14a mudou e o teste cobra: uma aula ESTUDADA nunca é a retomada. Antes
+ * dela, fechar a Aula 14 e voltar à estação devolvia "Continuar: Aula 14" — a
+ * pessoa tocava numa aula que já fechou, e o cartão de retomada perdia o valor no
+ * exato momento em que ela mais serve. A regra 1 passou a checar o estado, não só
+ * a existência: se a `ultima` está estudada, cai na regra 2 e a retomada vai para
+ * a frente dela.
+ *
+ * O motivo 'estacao-percorrida' descreve a FRONTEIRA que a pessoa abriu, não o
+ * estado da estação no mapa. Uma estação com as aulas 1 e 2 puladas e a 3 fechada
+ * tem a frente no fim e diria 'ultima-aberta' com a última; 'percorrida' de verdade
+ * é `resumoDaEstacao().estudadas === total`, que é o que a S16 vai ler para abrir
+ * o desafio (J4). Ninguém deve inferir completude por este motivo.
  *
  * O motivo 'primeira-nao-aberta' SAIU, e este comentário é o lugar onde a saída
  * fica registrada. Ele devolvia a Aula 1 para quem tinha aberto a 13 e a 14:
@@ -197,28 +280,51 @@ export function estadoDaAula(estudo, aula) {
 export function continuarDe(estudo, estacao, aulas) {
   const lista = Array.isArray(aulas) ? aulas.filter((a) => a && texto(a.id)) : [];
   if (!lista.length) return null;
-  const id = new Set(lista.map((a) => a.id));
+  const porId = new Map(lista.map((a) => [a.id, a]));
+  const nDe = (a) => Number(a.n) || 0;
+  const estado = (a) => estadoDaAula(estudo, a.id);
 
-  const abertas = lista.filter((a) => estadoDaAula(estudo, a.id) !== 'nao-iniciada');
-
+  // Regra 1: o último toque daqui, se a aula está na lista e AINDA não foi
+  // estudada. O `!== 'estudada'` é a mudança da S14a: fechar a aula retira o
+  // cartão de retomada de cima dela, e a regra 2 alcança a frente.
   const ultima = estudo?.ultima;
-  if (ultima && ultima.estacao === estacao && id.has(ultima.aula)) {
-    return { aula: lista.find((a) => a.id === ultima.aula), motivo: 'ultima-aberta' };
-  }
+  const ultAula = ultima && ultima.estacao === estacao ? porId.get(ultima.aula) : undefined;
+  if (ultAula && estado(ultAula) !== 'estudada') return { aula: ultAula, motivo: 'ultima-aberta' };
 
+  const abertas = lista.filter((a) => estado(a) !== 'nao-iniciada');
   if (!abertas.length) return { aula: lista[0], motivo: 'comecar' };
 
-  // Regra 2: a aberta mais recente desta estação. Começa na de maior `n` para
-  // o empate de `abertaEm` (duas aulas no mesmo minuto) cair na mais avançada
-  // sem depender da ordem de `aulas` — que é a da playlist, e a playlist muda
-  // quando um vídeo sai dela.
+  // Regra 2a: a aberta mais recente que ainda não foi estudada. Começa na de
+  // maior `n` para o empate de `abertaEm` (duas aulas no mesmo minuto) cair na
+  // mais avançada sem depender da ordem de `aulas` — que é a da playlist, e a
+  // playlist muda quando um vídeo sai dela.
   const momento = (a) => String(estudo?.aulas?.[a.id]?.abertaEm ?? '');
-  const maisRecente = abertas.reduce((melhor, a) => {
-    if (momento(a) > momento(melhor)) return a;
-    if (momento(a) === momento(melhor) && (Number(a.n) || 0) > (Number(melhor.n) || 0)) return a;
-    return melhor;
-  }, [...abertas].sort((x, y) => (Number(x.n) || 0) - (Number(y.n) || 0)).pop());
-  return { aula: maisRecente, motivo: 'ultima-aberta' };
+  const paraEstudar = abertas.filter((a) => estado(a) !== 'estudada');
+  if (paraEstudar.length) {
+    const maisRecente = paraEstudar.reduce((melhor, a) => {
+      if (momento(a) > momento(melhor)) return a;
+      if (momento(a) === momento(melhor) && nDe(a) > nDe(melhor)) return a;
+      return melhor;
+    }, [...paraEstudar].sort((x, y) => nDe(x) - nDe(y)).pop());
+    return { aula: maisRecente, motivo: 'ultima-aberta' };
+  }
+
+  // Regra 2b: todas as abertas daqui já foram estudadas. A retomada é o primeiro
+  // buraco À FRENTE da fronteira (o maior `n` entre as estudadas), nunca o
+  // primeiro atrás: quem pulou a Aula 1 de propósito não é mandado de volta a
+  // ela como se fosse novidade — a cena que derrubou o 'primeira-nao-aberta'.
+  const estudadas = abertas;
+  const fronteira = estudadas.reduce((maior, a) => (nDe(a) > nDe(maior) ? a : maior), estudadas[0]);
+  const aFrente = lista
+    .filter((a) => nDe(a) > nDe(fronteira) && estado(a) !== 'estudada')
+    .sort((x, y) => nDe(x) - nDe(y))[0];
+  if (aFrente) return { aula: aFrente, motivo: 'ultima-aberta' };
+
+  // Regra 2c: nada à frente — a fronteira é o fim da lista.
+  return {
+    aula: fronteira,
+    motivo: lista.every((a) => estado(a) === 'estudada') ? 'estacao-percorrida' : 'ultima-aberta',
+  };
 }
 
 /**
@@ -227,20 +333,37 @@ export function continuarDe(estudo, estacao, aulas) {
  * escreve na tela passa por `duracaoLegivel` de core/aulas.js, porque a regra 9
  * da casa não deixa duas telas formatarem a mesma duração de dois jeitos.
  *
- * O critério é o ESTADO, não o campo: quando a S14 acrescentar 'estudada', uma
- * aula estudada continua fora do restante, sem mexer aqui.
+ * O critério é o ESTADO, não o campo, e é isso que fez a S14a não precisar mexer
+ * em quem consome isto: uma aula estudada continua contada como aberta.
  *
- * @returns {{total: number, abertas: number, segundosRestantes: number}}
+ * Desde a S14a há DOIS contadores e eles não são a mesma coisa:
+ *   · `abertas` é o que a pessoa tocou — o número que a folha mostra hoje;
+ *   · `estudadas` é o que ela FECHOu, e é o que conta para o mapa.
+ * `segundosRestantes` passou a somar as aulas NÃO ESTUDADAS, e não as não
+ * abertas: assistir sem fechar não é progresso, e a folha que dizia "faltam ~30 h"
+ * enquanto a pessoa fechava aulas uma a uma estava mentindo na direção contrária —
+ * ela descontava tempo que ninguém aprendeu. A decisão do pedido da S14a é literal:
+ * "segundosRestantes passa a somar as aulas NÃO ESTUDADAS".
+ *
+ * A frase da tela ainda diz "abertas" até a S14b trocar o texto: é o que é
+ * verdade sobre o campo, e a contagem do tempo passa a ser honesta antes do
+ * rótulo. Deixei as duas coisas desencontradas de propósito, e é aqui, e não na
+ * tela, que o encontro se desfaz.
+ *
+ * @returns {{total: number, abertas: number, estudadas: number, segundosRestantes: number}}
  */
 export function resumoDaEstacao(estudo, estacao, aulas) {
   const lista = Array.isArray(aulas) ? aulas.filter((a) => a && texto(a.id)) : [];
   let abertas = 0;
+  let estudadas = 0;
   let segundosRestantes = 0;
   for (const a of lista) {
-    if (estadoDaAula(estudo, a.id) === 'nao-iniciada') segundosRestantes += Number(a.duracaoS) || 0;
-    else abertas += 1;
+    const e = estadoDaAula(estudo, a.id);
+    if (e !== 'nao-iniciada') abertas += 1;
+    if (e === 'estudada') estudadas += 1;
+    else segundosRestantes += Number(a.duracaoS) || 0;
   }
-  return { total: lista.length, abertas, segundosRestantes };
+  return { total: lista.length, abertas, estudadas, segundosRestantes };
 }
 
 /**

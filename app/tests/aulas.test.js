@@ -5,7 +5,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   playlistDoRecurso, segundosDaDuracao, tituloDaAula, ehAulaDeExercicio,
-  aulasDaPlaylist, totalDasAulas, duracaoLegivel, aulasNoPrazo
+  aulasDaPlaylist, totalDasAulas, duracaoLegivel, aulasNoPrazo, pausasDaAula, INTERVALO_PAUSA
 } from '../core/aulas.js';
 
 const item = (videoId, title, privacyStatus = 'public') => ({ snippet: { title }, contentDetails: { videoId }, status: { privacyStatus } });
@@ -126,4 +126,41 @@ test('aulas: os dados da API valem 30 dias, e o vencido não passa', () => {
   assert.equal(aulasNoPrazo({ validoAte: '2026-12-04' }, '2026-12-04'), true);
   assert.equal(aulasNoPrazo({ validoAte: '2026-12-04' }, '2026-12-05'), false);
   assert.equal(aulasNoPrazo({}, '2026-11-04'), false);
+});
+
+test('aulas: as pausas sugeridas a cada 8 minutos, só em aula de 12 minutos ou mais', () => {
+  // J2, item 1 do desenho: "as marcas de pausa calculadas pela duração". Os três
+  // casos do pedido da S14a, medidos em segundos porque é o que core/aulas.js
+  // guarda (duracaoS) e o que o player da YouTube entende.
+  assert.equal(INTERVALO_PAUSA, 480);
+  assert.deepEqual(pausasDaAula(7 * 60), [], '7 min: curta demais para interromper');
+  assert.deepEqual(pausasDaAula(11 * 60 + 59), [], 'o limite é 12 min, e 11:59 está abaixo');
+  assert.deepEqual(pausasDaAula(16 * 60 + 52), [480], '16:52: a pausa de 8:00, e a de 16:00 ficaria a 52 s do fim');
+  assert.deepEqual(pausasDaAula(32 * 60 + 46), [480, 960, 1440], '32:46: 8:00, 16:00, 24:00 — 32:00 estaria a 46 s do fim');
+
+  // As duas regras que os três casos acima não distinguishing:
+  assert.deepEqual(pausasDaAula(12 * 60), [480], '12 min exatos têm de ter a pausa de 8:00 (a 4 min do fim)');
+  assert.deepEqual(pausasDaAula(14 * 60), [480], '14 min: só 8:00, porque a marca seguinte é 16:00 e não cabe');
+  // A borda dos 3 minutos do fim. (Errei duas vezes aqui: escrevi 12:00 e depois
+  // 720 como marca, mas as pausas caem nos múltiplos de 8 min — 8, 16, 24 — e
+  // 12:00 não é um deles. A marca que testa a borda é 16:00, e o total que a põe
+  // a exatamente 3 min do fim é 19 min.)
+  assert.deepEqual(pausasDaAula(15 * 60), [480], '15 min: só 8:00 — 16:00 não existe, é o compasso de 8 em 8');
+  assert.deepEqual(pausasDaAula(18 * 60 + 59), [480], '18:59: a pausa de 16:00 sobra a menos de 3 min do fim, e não entra');
+  assert.deepEqual(pausasDaAula(19 * 60), [480, 960], '19 min: 16:00 fica a exatamente 3 min do fim, e entra');
+  assert.deepEqual(pausasDaAula(60 * 60), Array.from({ length: 7 }, (_, i) => (i + 1) * 480), '1 h: 8 a 56 min, nunca 60');
+
+  // Nenhuma pausa a menos de 3 minutos do fim, em nenhuma duração.
+  for (let s = 0; s <= 4000; s += 7) {
+    for (const t of pausasDaAula(s)) {
+      assert.ok(t <= s - 180, `pausa em ${t}s numa aula de ${s}s: sobram ${s - t}s`);
+      assert.ok(t % 480 === 0 && t >= 480, `pausa fora do compasso de 8 min: ${t}s`);
+    }
+  }
+
+  // O que a tela lê como vazio É resposta, não erro (aula curta não desenha a
+  // linha), e nada aqui estoura com lixo.
+  for (const lixo of [undefined, null, NaN, '16:52', -60, 0, {}, []]) {
+    assert.deepEqual(pausasDaAula(lixo), [], `«${lixo}» produziu pausa`);
+  }
 });

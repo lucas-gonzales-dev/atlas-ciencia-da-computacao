@@ -432,7 +432,28 @@
 // (web/telas/aulas.js, web/telas/aulas.css, web/folha.js), entao VERSAO e hash.
 // Sem isto, quem tem v61 no cache continua com o botao da aula SEM COR NENHUMA na
 // pagina de aulas, e o selo nao aparece: tela ilegivel e nenhuma suíte vermelha.
-const VERSAO = 'atlas-v62';
+// atlas-v63: S14a (04/11/2026) — a aula ESTUDADA e os CARTOES, o nucleo sem tela.
+// E o coracao do desenho v3 (design/v3/00-desenho.md, "J2 - Estudar uma aula"): a
+// aula so conta para a estacao quando a pessoa fecha com recordacao sem olhar e
+// escreve ao menos um cartao. core/estudo.js ganha 'estudada' na escada,
+// estudarAula (o estudadaEm da primeira vez nao se reescreve, como o abertaEm), e
+// continuarDe deixa de apontar para uma aula ja fechada: a retomada e a aberta
+// ainda nao estudada, depois o primeiro buraco A FRENTE da fronteira, e so no fim
+// o motivo novo 'estacao-percorrida'. resumoDaEstacao passa a somar no restante as
+// aulas NAO ESTUDADAS — abrir um video nao descontava nada, e a folha dizia
+// "faltam ~30 h" enquanto ninguem tinha aprendido nada. Entra core/cartoes.js
+// (lerCartoes, criarCartao com frente e verso obrigatorias e o erro nomeando o
+// campo, cartoesDevidos com teto de 20, devidoEm no dia seguinte LOCAL do
+// calendario, fsrs: null e historico: [] prontos para a S15). core/rotas.js le
+// '#/estacao/<slug>/aula/<n>' e n invalido cai na lista; core/aulas.js ganha
+// pausasDaAula (marcas de 8 em 8 minutos, so em aula de 12 min ou mais, nunca a
+// menos de 3 min do fim); core/textos.js ganha a secao fechamento e o nome
+// 'estudada'. Quatro folhas do precache mudaram de bytes (core/estudo.js,
+// core/rotas.js, core/aulas.js, core/textos.js) e uma nova entrou
+// (core/cartoes.js), entao VERSAO e hash. Sem subir a VERSAO, quem tem v62 no
+// cache recebe a tela que chama cartoes.js de um modulo que nao esta no cache:
+// JavaScript fail no boot e o app inteiro em branco no onibus.
+const VERSAO = 'atlas-v63';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
@@ -456,7 +477,13 @@ const VERSAO = 'atlas-v62';
 // VERSAO acima: três folhas do precache mudaram de bytes — web/folha.js (o
 // seloLinha passa a ser exportado), web/telas/aulas.js (a classe lN na raiz e o
 // selo no topo) e web/telas/aulas.css (.aulas .selo e o separador de 1px).
-const PRECACHE_HASH = 'sha256-e855503a6602de446fdf631e93d547e077ffbc3a5f42dee83590e25f47c43da2';
+// Recalculado na S14a (04/11/2026), com a árvore parada e DEPOIS de subir a
+// VERSAO acima: cem arquivos (core/cartoes.js entrou na lista), e quatro mudaram
+// de bytes — core/estudo.js ('estudada', estudarAula, a retomada nova),
+// core/rotas.js (a rota da aula), core/aulas.js (pausasDaAula) e core/textos.js
+// (a seção fechamento). O sw.js mediu o mesmo sha256 antes e depois de eu subir a
+// VERSAO, o que é a prova de que ele não está na própria lista.
+const PRECACHE_HASH = 'sha256-8518b38c569005a511384b4108f5a67cff216f2a691fb5a6c9033f94b67e565b';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.
@@ -564,6 +591,12 @@ const PRECACHE = [
   // cobre o disco: a folha desenhada amanhã precisa dele offline no primeiro
   // toque, e um módulo ausente do cache é uma tela em branco no ônibus.
   'core/estudo.js',
+  // Os CARTOES do fechamento de aula (S14a, 04/11/2026): o que a pessoa escreveu
+  // como pergunta e resposta, e o que esta devido hoje. Modulo puro, sem tela
+  // ainda (a S14b desenha o formulario) — mas quem fecha uma aula no onibus e
+  // volta sem sinal tem de achar o proprio cartao, e um modulo fora do cache e a
+  // fila de revisao em branco.
+  'core/cartoes.js',
   'core/notes.js',
   'core/search.js',
   // Rotas da grade (S3a-1, 31/10/2026): as abas que o boot.js resolve. Sem

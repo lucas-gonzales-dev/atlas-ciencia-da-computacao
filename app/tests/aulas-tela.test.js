@@ -22,7 +22,7 @@ import { criarDoc, janelaCom, storageCom, todos, textoDe } from './hdom.js';
 import { duracaoLegivel } from '../core/aulas.js';
 import { aulas as AU, folha as F } from '../core/textos.js';
 import { hrefDe } from '../core/rotas.js';
-import { ESTUDO_KEY, abrirAula, continuarDe, estadoDaAula, lerEstudo, serializarEstudo } from '../core/estudo.js';
+import { ESTUDO_KEY, abrirAula, continuarDe, estadoDaAula, estudarAula, lerEstudo, serializarEstudo } from '../core/estudo.js';
 import { desenharFolha } from '../web/folha.js';
 import { agoraLocal, hrefVideo, ligarAberturaDeAula, painelDeAulas } from '../web/aulas-pedacos.js';
 // A página das aulas (S13b parte B) e a rota que a monta.
@@ -97,14 +97,29 @@ test('A1: a linha de progresso diz o que os dados dizem, e a barra diz o mesmo a
     'a barra anuncia a MESMA frase que a pessoa lê: paráfrase para a máquina é a regra 9 de novo');
 });
 
-test('A1b: abrir a aula 3 move o número e a barra juntos, porque saem do mesmo resumo', () => {
+// MUTOU na S14a (04/11/2026): o teste cobrava que abrir a aula 3 tirasse os 17
+// min dela do "faltam ~". resumoDaEstacao passou a somar o restante pelas aulas
+// NÃO ESTUDADAS — assistir sem fechar não é memória, e a folha vinha descontando
+// tempo que ninguém aprendeu. O número de abertas continua se movendo; o tempo só
+// se move com o fecho, que desenha na S14b. Este caso é onde a transição fica
+// visível, dos dois lados.
+test('A1b: abrir move o número e a barra, e NÃO desconta o tempo — o que desconta é fechar', () => {
   const estudo = abrirAula(lerEstudo(null), { estacao: CIRCUITOS.id, aula: AULAS.aulas[2].id, n: 3 }, '2026-11-04T09:00');
   const { root } = folhaCom({ estudo });
   const barra = um(root, 'aulas-barra', 'folha com uma aberta');
 
   assert.equal(barra.getAttribute('aria-valuenow'), '1');
   assert.equal(textoDo(um(root, 'aulas-progresso-texto', 'folha com uma aberta')),
-    AU.progresso(1, TOTAL_AULAS, duracaoLegivel(SEGUNDOS_TODAS - AULAS.aulas[2].duracaoS)));
+    AU.progresso(1, TOTAL_AULAS, duracaoLegivel(SEGUNDOS_TODAS)),
+    'uma aberta, nenhuma estudada: o tempo que falta é o de todas as aulas');
+
+  // E o fecho, que é o que movimenta o tempo: a MESMA aula 3, agora estudada.
+  const { root: fechada } = folhaCom({
+    estudo: estudarAula(estudo, { estacao: CIRCUITOS.id, aula: AULAS.aulas[2].id, n: 3 }, '2026-11-04T09:40', { recordacao: 'XOR', conferencia: 'NAND' }),
+  });
+  assert.equal(textoDo(um(fechada, 'aulas-progresso-texto', 'folha com a 3 estudada')),
+    AU.progresso(1, TOTAL_AULAS, duracaoLegivel(SEGUNDOS_TODAS - AULAS.aulas[2].duracaoS)),
+    'fechar a 3 tirou os 17 min dela do restante');
 });
 
 test('A2: o primário é a aula, com o endereço do vídeo dentro da playlist da estação', () => {
@@ -209,7 +224,10 @@ test('os textos que a S13b lê existem e saem de core/textos.js, não das telas'
   assert.equal(AU.continuar(3, 'X'), 'Continuar: Aula 3 — X');
   assert.equal(AU.verTodas(93), 'Ver as 93 aulas');
   assert.equal(AU.notaAbrir, 'Abre no YouTube. A aula fica marcada como aberta.');
-  assert.deepEqual(AU.estados, { 'nao-iniciada': 'Não iniciada', aberta: 'Aberta' });
+  // S14a: 'estudada' entrou na escada do núcleo, e o nome tinha de entrar junto —
+  // a lista de aulas lê o nome do estado daqui, e um estado sem nome é o leitor de
+  // tela dizendo "aberta" sobre uma aula que a pessoa já fechou.
+  assert.deepEqual(AU.estados, { 'nao-iniciada': 'Não iniciada', aberta: 'Aberta', estudada: 'Estudada' });
   assert.equal(AU.assistir, 'Assistir no YouTube');
   assert.equal(AU.abrirPlaylist, 'Abrir a playlist no YouTube');
   assert.equal(AU.tituloPagina('Circuitos Digitais'), 'Aulas de Circuitos Digitais');
@@ -510,7 +528,12 @@ test('B7: a frase do progresso é BYTE A BYTE a mesma da folha com o mesmo estud
   // com a regra de arredondamento de `duracaoLegivel`, 29 h 33 min). Chutado,
   // este assert seria a régua escrita contra a minha conta de cabeça — e a
   // primeira versão dele esteve errada aqui.
-  assert.equal(frase, '3 de 93 aulas abertas · faltam ~29 h 33 min', `a frase medida saiu: "${frase}"`);
+  // MUTOU na S14a (04/11/2026): eram ~29 h 33 min, porque abrir as aulas 4, 5 e 6
+  // tirava 1 h do "faltam". O restante agora soma as aulas NÃO ESTUDADAS, e três
+  // abertas sem fecho são 93 aulas por aprender: ~30 h 33 min, MEDIDO nos dados e
+  // não arredondado de cabeça — a primeira versão deste número já esteve errada
+  // aqui, e é por isso que ele fica escrito em letra, não calculado no teste.
+  assert.equal(frase, '3 de 93 aulas abertas · faltam ~30 h 33 min', `a frase medida saiu: "${frase}"`);
 
   const { root: folha } = folhaCom({ estudo: lerEstudo(bruto) });
   const fraseDaFolha = textoDo(um(folha, 'aulas-progresso-texto', 'folha'));
@@ -567,7 +590,10 @@ test('B8: tocar numa linha grava a abertura e a página se repinta ao redor dela
   // A repintura é o que fecha o ciclo: sem ela a pessoa veria a lista nova por
   // baixo de um primário velho e de uma barra que não se moveu.
   assert.equal(textoDo(um(raiz, 'aulas-primario', 'após o toque')), AU.continuar(5, AULAS.aulas[4].titulo));
-  assert.equal(textoDo(um(raiz, 'aulas-progresso-texto', 'após o toque')), AU.progresso(1, TOTAL_AULAS, duracaoLegivel(SEGUNDOS_TODAS - AULAS.aulas[4].duracaoS)));
+  // S14a: o toque ABRE, e abrir não desconta tempo — o restante soma as aulas não
+  // estudadas. O número de abertas se move na hora; o tempo espera o fecho da S14b.
+  assert.equal(textoDo(um(raiz, 'aulas-progresso-texto', 'após o toque')), AU.progresso(1, TOTAL_AULAS, duracaoLegivel(SEGUNDOS_TODAS)),
+    'abrir a 5 moveu as abertas, não o tempo que falta');
   const marcadas = linhasDa(raiz).filter((n) => n.getAttribute('aria-current') === 'step');
   assert.equal(marcadas.length, 1);
   assert.equal(marcadas[0].getAttribute('data-aula'), AULAS.aulas[4].id);

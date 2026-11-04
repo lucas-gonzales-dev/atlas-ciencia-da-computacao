@@ -30,7 +30,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import {
-  ESTUDO_KEY, lerEstudo, abrirAula, estadoDaAula, continuarDe, resumoDaEstacao, serializarEstudo
+  ESTUDO_KEY, ESTADOS_DA_AULA, lerEstudo, abrirAula, estudarAula, estadoDaAula,
+  continuarDe, resumoDaEstacao, serializarEstudo
 } from '../core/estudo.js';
 import { lerRota, hrefDe } from '../core/rotas.js';
 import { carregarAulas } from '../web/aulas-dados.js';
@@ -251,19 +252,31 @@ test('continuarDe: uma última que saiu da playlist não é retomada', () => {
 });
 
 // ── 4. resumoDaEstacao: a duração que a folha mostra ───────────────────────
-test('resumoDaEstacao: soma o que falta assistir, descontando o que foi aberto', () => {
+// MUTOU na S14a (04/11/2026), e o motivo é o pedido, não o gosto: "segundosRestantes
+// passa a somar as aulas NÃO ESTUDADAS". Antes, abrir um vídeo descontava a hora
+// inteira do que falta — e a folha ia dizendo "faltam ~30 h" enquanto a pessoa
+// abria aulas sem fechar nenhuma, contando como aprendido o que ela só clicou.
+// `abertas` continua existindo (é o que a frase da folha diz hoje); o que mudou é
+// o que sai do restante. Os dois contadores lado a lado é o estado honesto da
+// transição, e a S14b troca a frase por `estudadas`.
+test('resumoDaEstacao: abrir não desconta nada; fechar desconta', () => {
   assert.deepEqual(resumoDaEstacao(estudoVazio(), ESTACAO, AULAS), {
-    total: 93,
-    abertas: 0,
-    segundosRestantes: arquivo.total.segundos,
+    total: 93, abertas: 0, estudadas: 0, segundosRestantes: arquivo.total.segundos,
   });
   let e = estudoVazio();
   for (const n of [1, 2, 3]) e = abrirAula(e, { estacao: ESTACAO, aula: AULAS[n - 1].id, n }, '2026-11-04T10:00');
-  const r = resumoDaEstacao(e, ESTACAO, AULAS);
-  assert.deepEqual([r.total, r.abertas], [93, 3]);
-  const tres = AULAS.slice(0, 3).reduce((s, a) => s + a.duracaoS, 0);
-  assert.equal(r.segundosRestantes, arquivo.total.segundos - tres, 'as três abertas saem do restante');
-  // E o texto que a folha escreve com esse número: 90 aulas de Circuitos
+  const abertas = resumoDaEstacao(e, ESTACAO, AULAS);
+  assert.deepEqual([abertas.total, abertas.abertas, abertas.estudadas], [93, 3, 0]);
+  assert.equal(abertas.segundosRestantes, arquivo.total.segundos, 'três abertas, nada fechado: não falta nada?');
+
+  // E o fechamento, que é o que conta: as mesmas três aulas, agora estudadas.
+  let s = estudoVazio();
+  for (const n of [1, 2, 3]) s = estudarAula(s, { estacao: ESTACAO, aula: AULAS[n - 1].id, n }, '2026-11-04T10:30', { recordacao: 'lembrei', conferencia: 'faltou X' });
+  const r = resumoDaEstacao(s, ESTACAO, AULAS);
+  const tres = AULAS.slice(0, 3).reduce((t, a) => t + a.duracaoS, 0);
+  assert.deepEqual([r.total, r.abertas, r.estudadas], [93, 3, 3]);
+  assert.equal(r.segundosRestantes, arquivo.total.segundos - tres, 'as três FECHADAS saem do restante');
+  // A frase medida, com o número que a folha escreve hoje: 90 aulas de Circuitos
   // Digitais dão horas, e a pessoa lê "~X h" e não um nanossegundo cru.
   assert.equal(duracaoLegivel(r.segundosRestantes), textosAulas.progresso(3, 93, duracaoLegivel(r.segundosRestantes)).split('faltam ~')[1]);
 });
@@ -278,22 +291,38 @@ test('resumoDaEstacao: uma aula de OUTRA estação não conta aqui, e lista vazi
   // sobrepõem, então nenhum vídeo pertence a duas estações hoje.
   const deFora = abrirAula(estudoVazio(), { estacao: 'ubl-core-calculo-i', aula: 'id-de-aula-de-calculo', n: 1 }, '2026-11-04T10:00');
   assert.deepEqual(resumoDaEstacao(deFora, ESTACAO, AULAS), {
-    total: 93, abertas: 0, segundosRestantes: arquivo.total.segundos,
+    total: 93, abertas: 0, estudadas: 0, segundosRestantes: arquivo.total.segundos,
   });
-  assert.deepEqual(resumoDaEstacao(estudoVazio(), ESTACAO, []), { total: 0, abertas: 0, segundosRestantes: 0 });
+  assert.deepEqual(resumoDaEstacao(estudoVazio(), ESTACAO, []), { total: 0, abertas: 0, estudadas: 0, segundosRestantes: 0 });
 });
 
 test('resumoDaEstacao e continuarDe contam pelo ESTADO, não pelo campo', () => {
-  // A S14 vai pôr 'estudada' na escada. Um registro com estudadaEm sem
-  // abertaEm é impensável hoje, mas o critério tem de ser o estado: quando o
-  // estado novo chegar, uma aula estudada já conta como aberta e sai do
-  // restante sem que ninguém mexa nestas duas funções.
+  // A S14a PÔS 'estudada' na escada, e este caso é o que ela previu: nada aqui
+  // foi mexido para conhecer o campo novo. Uma aula estudada (i) continua contada
+  // como aberta, (ii) sai do restante e (iii) deixa de ser a retomada — a estação
+  // de uma aula só, toda estudada, devolve o motivo 'estacao-percorrida'.
   const comFuturo = lerEstudo(JSON.stringify({
     versao: 1,
     aulas: { a1: { estacao: ESTACAO, n: 1, abertaEm: '2026-11-04T10:00', estudadaEm: '2026-11-04T11:00' } },
   }));
-  assert.equal(resumoDaEstacao(comFuturo, ESTACAO, [{ id: 'a1', n: 1, duracaoS: 60 }]).abertas, 1);
-  assert.equal(continuarDe(comFuturo, ESTACAO, [{ id: 'a1', n: 1, duracaoS: 60 }]).motivo, 'ultima-aberta');
+  const r = resumoDaEstacao(comFuturo, ESTACAO, [{ id: 'a1', n: 1, duracaoS: 60 }]);
+  assert.deepEqual([r.abertas, r.estudadas, r.segundosRestantes], [1, 1, 0]);
+  assert.equal(continuarDe(comFuturo, ESTACAO, [{ id: 'a1', n: 1, duracaoS: 60 }]).motivo, 'estacao-percorrida');
+});
+
+test('lerEstudo: um registro só com estudadaEm não é jogado fora', () => {
+  // A regra de entrada era "sem abertaEm não há registro". Com 'estudada' na
+  // escada isso passou a apagar ESTUDO: uma migração (ou o importar da S18) pode
+  // trazer o fecho sem a abertura, e perder o que a pessoa aprendeu em silêncio é
+  // o pior defeito que este módulo tem.
+  const bruto = JSON.stringify({ versao: 1, aulas: { a1: { estacao: ESTACAO, n: 1, estudadaEm: '2026-11-04T11:00' } } });
+  const lido = lerEstudo(bruto);
+  assert.deepEqual(Object.keys(lido.aulas), ['a1']);
+  assert.equal(estadoDaAula(lido, 'a1'), 'estudada');
+  // O bruto não traz `ultima` (quem estuda sem tocar o app não tem última aula);
+  // lerEstudo normaliza para null, e é assim que volta a sair. Comparo com o
+  // objeto que o formato significa, não com o texto que eu escrevi.
+  assert.deepEqual(JSON.parse(serializarEstudo(lido)), { ...JSON.parse(bruto), ultima: null }, 'o round-trip perdeu o fecho');
 });
 
 // ── 5. serializar ──────────────────────────────────────────────────────────
@@ -381,10 +410,200 @@ test('textos: a seção aulas existe e diz as frases do desenho', () => {
   assert.equal(t.continuar(13, 'Análise de Circuitos Combinacionais'), 'Continuar: Aula 13 — Análise de Circuitos Combinacionais');
   assert.equal(t.verTodas(93), 'Ver as 93 aulas');
   assert.equal(t.progresso(3, 93, '30 h'), '3 de 93 aulas abertas · faltam ~30 h');
-  assert.deepEqual({ ...t.estados }, { 'nao-iniciada': 'Não iniciada', aberta: 'Aberta' });
+  // S14a: 'estudada' entrou, e a lista da tela lê o nome daqui. Se o estado sair
+  // do núcleo sem sair daqui, a linha desenha um estado sem nome para o leitor.
+  assert.deepEqual({ ...t.estados }, { 'nao-iniciada': 'Não iniciada', aberta: 'Aberta', estudada: 'Estudada' });
+  assert.deepEqual(ESTADOS_DA_AULA, ['nao-iniciada', 'aberta', 'estudada'], 'a escada do núcleo e os nomes da tela têm de ter as mesmas três palavras');
   assert.equal(t.assistir, 'Assistir no YouTube');
   assert.equal(
     t.semAulas.parteUm, 'As aulas desta estação não carregaram.');
   assert.equal(t.semAulas.parteDois, 'O arquivo das aulas não está neste aparelho.');
   assert.equal(t.semAulas.parteTres, 'Abra o Atlas com internet uma vez para guardar as aulas.');
+});
+
+// ── 9. estudarAula: o fecho da J2 (S14a) ───────────────────────────────────
+const estudarNa = (e, n, quando = '2026-11-04T10:30', textos = { recordacao: 'lembrei', conferencia: 'faltou' }) =>
+  estudarAula(e, { estacao: ESTACAO, aula: AULAS[n - 1].id, n }, quando, textos);
+
+test('estudarAula: não muta a entrada', () => {
+  const origem = abrirNa(estudoVazio(), 3);
+  const congelado = JSON.stringify(origem);
+  const depois = estudarNa(origem, 3);
+  assert.equal(JSON.stringify(origem), congelado, 'a entrada foi mutada');
+  assert.notEqual(depois, origem);
+  assert.notEqual(depois.aulas[origem.ultima.aula], origem.aulas[origem.ultima.aula]);
+});
+
+test('estudarAula: o estudadaEm da primeira vez não muda quando se fecha de novo', () => {
+  // A PROVA do pedido: sobrescrever o estudadaEm derruba este caso. Reabrir o
+  // fecho de uma aula já estudada (a pessoa voltou ao vídeo e fechou outra vez)
+  // não pode apagar QUANDO ela aprendeu — é a data que a S15 usa para calcular a
+  // primeira revisão, e reescrevê-la empurraria o cartão para o futuro.
+  let e = estudarNa(estudoVazio(), 5, '2026-11-04T10:30');
+  assert.equal(e.aulas[AULAS[4].id].estudadaEm, '2026-11-04T10:30');
+  e = estudarNa(e, 5, '2026-11-09T19:00');
+  assert.equal(e.aulas[AULAS[4].id].estudadaEm, '2026-11-04T10:30', 'o segundo fecho apagou quando a aula foi aprendida');
+  // A `ultima` acompanha o gesto mais recente (é o cartão de retomada, não o registro).
+  assert.equal(e.ultima.em, '2026-11-09T19:00');
+});
+
+test('estudarAula: fechar sem abrir grava a abertura que falta', () => {
+  // Um fecho sem abertura é possível (a pessoa abriu o vídeo por fora, num
+  // aparelho onde o toque não foi registrado). Sem o abertaEm, a retomada da
+  // estação não teria data nenhuma para ordenar esta aula, e ela seria sempre a
+  // última da fila. As duas datas nascem juntas, e a de abertura fica atrás.
+  const e = estudarNa(estudoVazio(), 2, '2026-11-04T14:05');
+  const r = e.aulas[AULAS[1].id];
+  assert.equal(r.abertaEm, '2026-11-04T14:05');
+  assert.equal(r.estudadaEm, '2026-11-04T14:05');
+  assert.equal(estadoDaAula(e, AULAS[1].id), 'estudada');
+});
+
+test('estudarAula: a recordação e a conferência entram cortadas em 2.000 caracteres', () => {
+  const longo = 'a'.repeat(2400);
+  const e = estudarNa(estudoVazio(), 1, '2026-11-04T10:30', { recordacao: `  ${longo}  `, conferencia: '  o que faltou  ' });
+  const r = e.aulas[AULAS[0].id];
+  assert.equal(r.recordacao.length, 2000, 'o texto passou do teto e foi guardado inteiro');
+  assert.equal(r.recordacao, 'a'.repeat(2000));
+  assert.equal(r.conferencia, 'o que faltou', 'as pontas entraram no registro');
+});
+
+test('estudarAula: sem textos não cria chave vazia, e data fora da forma não muda nada', () => {
+  const sem = estudarNa(estudoVazio(), 1, '2026-11-04T10:30', {});
+  assert.deepEqual(Object.keys(sem.aulas[AULAS[0].id]).sort(), ['abertaEm', 'estacao', 'estudadaEm', 'n']);
+  const vazioTexto = estudarNa(estudoVazio(), 1, '2026-11-04T10:30', { recordacao: '   ', conferencia: undefined });
+  assert.ok(!('recordacao' in vazioTexto.aulas[AULAS[0].id]), 'um form vazio reescreve a recordação de antes');
+
+  for (const quando of ['', null, undefined, '2026-11-04', '2026-11-04T10:30:00', '2026-11-04T10:30Z']) {
+    const base = abrirAula(estudoVazio(), { estacao: ESTACAO, aula: 'a1', n: 1 }, '2026-11-04T10:00');
+    const antes = JSON.stringify(base);
+    assert.equal(JSON.stringify(estudarAula(base, { estacao: ESTACAO, aula: 'a2', n: 2 }, quando, {})), antes, `«${quando}» mudou o estudo`);
+  }
+  for (const a of [{ estacao: ESTACAO, aula: '', n: 1 }, { estacao: '', aula: 'a1', n: 1 }]) {
+    assert.deepEqual(estudarAula(estudoVazio(), a, '2026-11-04T10:30', {}), estudoVazio());
+  }
+});
+
+test('estudarAula: o round-trip guarda o que a pessoa escreveu', () => {
+  const e = estudarNa(estudoVazio(), 7, '2026-11-04T22:15', { recordacao: 'tabela-verdade do XOR', conferencia: 'esqueci o NAND' });
+  const txt = serializarEstudo(e);
+  assert.deepEqual(lerEstudo(txt), e, 'ler o que foi serializado perdeu o fecho');
+  assert.match(txt, /XOR/);
+});
+
+// ── 10. continuarDe com a S14a: uma aula estudada nunca é a retomada ───────
+test('continuarDe S14a: fechar a aula tira o cartão de cima dela e o manda para a frente', () => {
+  // O que a S14a veio consertar: fechar a Aula 14 e voltar à estação devolvia
+  // "Continuar: Aula 14" — a pessoa tocaria numa aula que já fechou, e o cartão
+  // de retomada perdia o valor no momento em que mais serve.
+  let e = estudoVazio();
+  for (const n of [1, 2, 3, 4, 5]) e = estudarNa(e, n, `2026-11-0${n}T10:00`);
+  const r = continuarDe(e, ESTACAO, AULAS);
+  assert.equal(r.aula.n, 6, 'a frente de quem fechou até a 5 é a 6');
+  assert.equal(r.motivo, 'ultima-aberta');
+});
+
+test('continuarDe S14a: a aberta ainda não estudada ganha da estudada mais recente', () => {
+  // Regra 2a. A 7 foi aberta e estudada anteontem; a 3 foi aberta e nunca fechada.
+  // A retomada é a 3 — é a que ficou pelo caminho, e não a que já virou cartão.
+  const e = {
+    versao: 1,
+    aulas: {
+      [AULAS[2].id]: { estacao: ESTACAO, n: 3, abertaEm: '2026-11-02T09:00' },
+      [AULAS[6].id]: { estacao: ESTACAO, n: 7, abertaEm: '2026-11-06T09:00', estudadaEm: '2026-11-06T10:00' },
+    },
+    ultima: { estacao: ESTACAO, aula: AULAS[6].id, n: 7, em: '2026-11-06T10:00' },
+  };
+  const r = continuarDe(e, ESTACAO, AULAS);
+  assert.deepEqual([r.aula.n, r.motivo], [3, 'ultima-aberta'], 'a `ultima` estudada tinha de cair na regra 2');
+});
+
+test('continuarDe S14a: a aberta não estudada mais recente, não a de maior n', () => {
+  const e = {
+    versao: 1,
+    aulas: {
+      [AULAS[3].id]: { estacao: ESTACAO, n: 4, abertaEm: '2026-11-05T09:00' },
+      [AULAS[7].id]: { estacao: ESTACAO, n: 8, abertaEm: '2026-11-01T09:00', estudadaEm: '2026-11-01T10:00' },
+    },
+    ultima: { estacao: 'ubl-core-calculo-i', aula: 'zz', n: 1, em: '2026-11-07T09:00' },
+  };
+  const r = continuarDe(e, ESTACAO, AULAS);
+  assert.deepEqual([r.aula.n, r.motivo], [4, 'ultima-aberta']);
+});
+
+test('continuarDe S14a: tudo fechado menos a frente, e a estação inteira estudada', () => {
+  let e = estudoVazio();
+  for (let n = 1; n <= 93; n += 1) e = estudarNa(e, n, `2026-11-01T${String(9 + (n % 12)).padStart(2, '0')}:${String(n % 60).padStart(2, '0')}`);
+  const r = continuarDe(e, ESTACAO, AULAS);
+  assert.equal(r.aula.n, 93, 'não há frente: a retomada é a última');
+  assert.equal(r.motivo, 'estacao-percorrida');
+  const resumo = resumoDaEstacao(e, ESTACAO, AULAS);
+  assert.deepEqual([resumo.abertas, resumo.estudadas, resumo.segundosRestantes], [93, 93, 0]);
+});
+
+test('continuarDe S14a: o motivo novo não declara a estação completa — só a fronteira', () => {
+  // 'estacao-percorrida' descreve o que o CARTÃO diz (não sobra nada À FRENTE de
+  // quem fechou), não o estado do mapa: quem pulou a aula 1 e fechou 2 e 3 chega
+  // ao fim da lista com a estação incompleta, e o motivo é 'ultima-aberta' — a
+  // buraco ficou ATRÁS, e nenhum motivo avisa disso. Quem desenha o desafio da
+  // J4 lê `resumoDaEstacao().estudadas === total`, nunca este motivo.
+  //
+  // (A primeira versão deste caso esperava 'estacao-percorrida' com a aula 1
+  // ABERTA e não estudada. O código respondeu a própria aula 1 com
+  // 'ultima-aberta', e ele tem razão: regra 2a — a aberta que ainda não foi
+  // fechada é a retomada. A cova atrás só aparece no cenário abaixo, onde a 1
+  // nunca foi aberta.)
+  const tres = AULAS.slice(0, 3).map((a, i) => ({ ...a, n: i + 1 }));
+  let e = estudarAula(estudoVazio(), { estacao: ESTACAO, aula: tres[1].id, n: 2 }, '2026-11-02T09:00', {});
+  e = estudarAula(e, { estacao: ESTACAO, aula: tres[2].id, n: 3 }, '2026-11-03T09:00', {});
+  const r = continuarDe(e, ESTACAO, tres);
+  assert.deepEqual([r.aula.n, r.motivo], [3, 'ultima-aberta'], 'a frente acabou na última, mas a 1 está por fechar');
+  const resumo = resumoDaEstacao(e, ESTACAO, tres);
+  assert.deepEqual([resumo.estudadas, resumo.total], [2, 3], 'é aqui, e só aqui, que se vê a estação incompleta');
+
+  // E o motivo novo só aparece quando não sobra ninguém, nem atrás:
+  let todas = estudoVazio();
+  for (let n = 1; n <= 3; n += 1) todas = estudarAula(todas, { estacao: ESTACAO, aula: tres[n - 1].id, n }, `2026-11-0${n + 1}T09:00`, {});
+  assert.deepEqual([continuarDe(todas, ESTACAO, tres).aula.n, continuarDe(todas, ESTACAO, tres).motivo], [3, 'estacao-percorrida']);
+  const cheio = resumoDaEstacao(todas, ESTACAO, tres);
+  assert.deepEqual([cheio.abertas, cheio.estudadas, cheio.total, cheio.segundosRestantes], [3, 3, 3, 0]);
+});
+
+test('continuarDe S14a: abriu a 13, fechou a 14, e a retomada volta na 13 aberta', () => {
+  // A letra da regra 2a levada a sério: "a aberta mais recente que ainda não foi
+  // estudada". A 13 foi aberta e não fechada; a 14, aberta e fechada. A retomada
+  // é a 13 — a que ficou pelo caminho — e não a frente vazia. Registro o caso
+  // porque ele é contra-intuitivo e é o que a spec manda.
+  let e = abrirNa(estudoVazio(), 13, '2026-11-02T20:41');
+  e = estudarNa(e, 14, '2026-11-03T21:05');
+  const r = continuarDe(e, ESTACAO, AULAS);
+  assert.deepEqual([r.aula.n, r.motivo], [13, 'ultima-aberta']);
+});
+
+// ── 11. a rota da aula, ida e volta (S14a) ─────────────────────────────────
+test('rotas: #/estacao/<slug>/aula/<n> é a aula com painel, e o inverso bate', () => {
+  const rota = { tela: 'estacao', slug: 'circuitos-digitais', painel: 'aula', n: 3 };
+  assert.deepEqual(lerRota('#/estacao/circuitos-digitais/aula/3'), rota);
+  assert.equal(hrefDe(rota), '#/estacao/circuitos-digitais/aula/3');
+  assert.deepEqual(lerRota(hrefDe(rota)), rota, 'ida e volta perdeu a aula');
+  assert.deepEqual(lerRota('#/estacao/circuitos-digitais/aula/93'), { ...rota, n: 93 }, 'n de dois dígitos é lido inteiro');
+});
+
+test('rotas: n inválido cai no painel das aulas, não na folha', () => {
+  // 'aula/0', 'aula/-1', 'aula/2.5' não são a aula de ninguém. O destino é a
+  // lista, que existe e é um lugar honesto para um endereço meia-palavra — a
+  // folha é OUTRA tela, e um link quebrado que muda de tela engana mais que um
+  // link quebrado que mostra a lista.
+  const lista = { tela: 'estacao', slug: 'circuitos-digitais', painel: 'aulas' };
+  for (const sufixo of ['0', '-1', '2.5', 'oito', '', ' 3', '3 ', '03x', '1e3', 'null']) {
+    assert.deepEqual(lerRota(`#/estacao/circuitos-digitais/aula/${sufixo}`), lista, `«aula/${sufixo}» não caiu na lista`);
+  }
+});
+
+test('rotas: hrefDe não escreve endereço que ele mesmo não lê', () => {
+  for (const n of [undefined, null, 0, -2, 2.5, 'três', NaN]) {
+    assert.equal(hrefDe({ tela: 'estacao', slug: 'circuitos-digitais', painel: 'aula', n }), '#/estacao/circuitos-digitais',
+      `n=«${n}» virou endereço quebrado`);
+  }
+  assert.deepEqual(lerRota('#/estacao//aula/3'), { tela: 'jornada', desconhecida: true }, 'sem slug não há aula');
 });
