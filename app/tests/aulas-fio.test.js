@@ -99,17 +99,31 @@ async function metrôComFolha({ slug = CIRCUITOS.slug, buscar = respostaDe(AULAS
   // para o `.then` dele, como `esperar()` faz em toda tela daqui.
   await esperar();
   await esperar();
-  return { doc, win, root, storage, inst, pedidos, aparelho };
+  // S20a-fix (04/11/2026): desde a S20a o mesmo `deps.buscarAulas` leva também a
+  // leitura de `data/aulas/indice.json`, que o topo da Jornada faz no boot. Isso
+  // NÃO é o cache morto — é outro arquivo, pelo mesmo fio injetado, e a casa
+  // proíbe o metrô de importar tela (web/metro.js:39), então a leitura mora aqui
+  // dentro. Contar `pedidos` a seco mediria duas coisas de uma vez. Quem decide
+  // quantas vezes um arquivo é buscado é o NOME dele, e é assim que as travas
+  // abaixo perguntam o que perguntam: "a MESMA ESTAÇÃO foi buscada uma vez".
+  const CAMINHO_INDICE = 'data/aulas/indice.json';
+  const pedidosEstacao = pedidos.filter((u) => u !== CAMINHO_INDICE);
+  const pedidosIndice = pedidos.filter((u) => u === CAMINHO_INDICE);
+  return { doc, win, root, storage, inst, pedidos, pedidosEstacao, pedidosIndice, aparelho };
 }
 
 // ═════════════════ 1. a rota da estação chega na folha com aulas ═════════════════
 
 test('fio: #/estacao/<slug> traz as aulas e pinta o primário da aula, sem o teste entregar nada à folha', async () => {
-  const { root, pedidos } = await metrôComFolha();
+  const { root, pedidosEstacao, pedidosIndice } = await metrôComFolha();
 
   const painel = um(root, 'folha', 'folha da rota');
-  assert.deepEqual(pedidos, [`data/aulas/${CIRCUITOS.slug}.json`],
+  assert.deepEqual(pedidosEstacao, [`data/aulas/${CIRCUITOS.slug}.json`],
     'o metrô pediu o arquivo da estação à vista — sem isto a folha é a de sempre');
+  // O topo da Jornada (S20a) lê o índice pelo MESMO fio injetado, e a medida dele
+  // é uma promessa do topo: uma vez, e não uma vez por repintar.
+  assert.equal(pedidosIndice.length, 1,
+    `o indice.json foi lido ${pedidosIndice.length} vezes pela mesma subida do metrô`);
 
   const primario = um(painel, 'aulas-primario', 'folha da rota com aulas');
   assert.equal(primario.tag, 'a', 'o primário é o link da aula');
@@ -157,23 +171,23 @@ test('fio: a régua da folha diz o que os dados dizem, dentro do app', async () 
 });
 
 test('fio: a busca não se repete quando a folha é repintada', async () => {
-  const { root, storage, win, pedidos } = await metrôComFolha();
+  const { root, storage, win, pedidosEstacao } = await metrôComFolha();
   const painel = um(root, 'folha', 'folha da rota com aulas');
 
   root.dispatch('click', { target: um(painel, 'aulas-primario', 'primário').closest('a[data-aula]'), preventDefault() {} });
   win.dispatch('visibilitychange');
   await esperar();
 
-  assert.equal(pedidos.length, 1,
-    `a mesma estação foi buscada ${pedidos.length} vezes: o cache por slug morreu`);
+  assert.equal(pedidosEstacao.length, 1,
+    `a mesma estação foi buscada ${pedidosEstacao.length} vezes: o cache por slug morreu`);
 });
 
 // ═════════════════════════ 2. sem arquivo, a folha é a de hoje ═════════════════════════
 
 test('fio: um 404 deixa a folha exatamente como era, sem linha de progresso e sem erro na tela', async () => {
-  const { root, pedidos } = await metrôComFolha({ buscar: respostaDe(null, { ok: false, status: 404 }) });
+  const { root, pedidosEstacao } = await metrôComFolha({ buscar: respostaDe(null, { ok: false, status: 404 }) });
 
-  assert.equal(pedidos.length, 1, 'mesmo assim o metrô tentou uma vez');
+  assert.equal(pedidosEstacao.length, 1, 'mesmo assim o metrô tentou uma vez a estação');
   const painel = um(root, 'folha', 'folha da rota com busca falha');
   assert.equal(comClasse(painel, 'aulas-progresso').length, 0, 'sem aulas não há régua de progresso');
   assert.equal(comClasse(painel, 'aulas-primario').length, 0, 'sem aulas não há primário de aula');

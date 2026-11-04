@@ -1042,28 +1042,63 @@ export async function subirMetro(deps = {}) {
   // então ligar dentro sem desligar empilharia um `<click>` por redesenho — o
   // defeito do `bindMetro` dentro do `pintar` (2c-1), na mesma linha de código.
   const aulasCache = new Map();
+  // S20a-fix (04/11/2026): pedidos EM ANDAMENTO, por slug. O topo (carregarTopo)
+  // e a folha (aulasDaFolha) pedem o MESMO JSON no mesmo abrir de aplicativo, e
+  // a aula alvo do topo é quase sempre a estação que a pessoa abre. Sem isto,
+  // cada um buscava — e o `pedidos.length === 1` do fio da S13c era justo contra
+  // esse segundo pedido.
+  const aulasVoando = new Map();
   let desligarAbertura = null;
 
-  /** Busca (ou reusa) as aulas da estação da folha e repinta quando chegam. */
-  const pedirAulas = (slug) => {
+  /** Uma busca por slug, compartilhada entre topo e folha; o resultado fica no cache. */
+  const aulasDe = (slug) => {
     const guardado = aulasCache.get(slug);
+    if (guardado) return Promise.resolve(guardado);
+    if (aulasVoando.has(slug)) return aulasVoando.get(slug);
+    const voo = carregarAulas(slug, buscar).then((lido) => {
+      aulasVoando.delete(slug);
+      aulasCache.set(slug, lido);
+      return lido;
+    });
+    aulasVoando.set(slug, voo);
+    return voo;
+  };
+
+  /**
+   * A folha pinta COM as aulas que já estão no cache, e pede as que faltam.
+   *
+   * O defeito que esta função corrige (S20a-fix, 04/11/2026, visto nos 4 casos
+   * de `aulas-fio.test.js` que a suíte do clone limpo pegou e o meu bloco de 8
+   * arquivos não): o pedido vivia DENTRO do `pintar`, depois do `desenharMetro`,
+   * e no caso de cache — o normal, desde que o topo começou a buscar a estação
+   * alvo no boot — escrevia `ui.aulas` tarde demais e ainda pulava o repintar
+   * (`if (guardado) return`). A folha saía sem `.aulas-primario` nem régua e o
+   * verde não avisava, porque o único arquivo que mede o fio estava fora do bloco.
+   */
+  const aulasDaFolha = (slug) => {
+    const guardado = slug ? aulasCache.get(slug) : null;
     // `ok:false` vira `null` e a folha é a de hoje: o arquivo que falta não é
     // erro de tela na folha — a frase de erro pertence à PÁGINA de aulas
     // (aulas.js), onde a pessoa foi procurá-la de propósito.
-    ui.aulas = guardado?.ok ? guardado.dados : null;
-    if (guardado) return;
-    carregarAulas(slug, buscar).then((lido) => {
-      aulasCache.set(slug, lido);
-      // A pessoa já foi outra estação durante a busca: pintar aqui seria trocar
-      // a folha de A por B sem rota nenhuma.
-      if (!lido.ok || ui.folha !== slug) return;
-      ui.aulas = lido.dados;
-      pintar();
-    });
+    const aulas = guardado?.ok ? guardado.dados : null;
+    if (slug && !guardado) {
+      aulasDe(slug).then((lido) => {
+        // A pessoa já foi outra estação durante a busca: pintar aqui seria trocar
+        // a folha de A por B sem rota nenhuma.
+        if (!lido.ok || ui.folha !== slug) return;
+        ui.aulas = lido.dados;
+        pintar();
+      });
+    }
+    return aulas;
   };
 
   const pintar = () => {
     if (ui.carregando) { desenharEsqueleto(doc, root); return; }
+    // S20a-fix: a folha é servida ANTES do desenho. Estar dentro do desenho
+    // (como `pedirAulas` estava, logo abaixo) fazia a pintura usar o `ui.aulas`
+    // da vez anterior e, com cache cheio, nunca repintar.
+    ui.aulas = aulasDaFolha(ui.folha);
     const nos = desenharMetro(doc, root, {
       catalogo: ui.catalogo, progresso, linha: ui.linha, folha: ui.folha,
       notas: ui.notas,
@@ -1117,10 +1152,11 @@ export async function subirMetro(deps = {}) {
         const primeiro = focaveisDaFolha(painel)[0];
         primeiro?.focus?.();
       }
-      // S13c: a rota trouxe a folha — a lista de aulas DELA é pedida aqui, não no
-      // boot: abrir a Jornada sem estação não tem o que buscar. Com cache por
-      // slug, o voltar do navegador não faz rede de novo.
-      pedirAulas(slugPainel);
+      // S20a-fix: o pedido de aulas da folha saiu do corpo do `pintar` — ele
+      // acontecia depois do `desenharMetro` e, com o cache já cheio pelo topo,
+      // devolvia sem repintar: a folha nascia sem painel de aulas. Agora a
+      // pintura já leva o que o cache tem e só voa o que falta (aulasDaFolha).
+      // Continua fora do boot: abrir a Jornada sem estação não tem o que buscar.
       // Folha nova por cima de folha velha (pré-requisito, voltar do navegador):
       // o fechar anterior já foi respondido por esta pintura.
       devolverAposFechar = false;
@@ -1244,16 +1280,27 @@ export async function subirMetro(deps = {}) {
     ui.alvo = alvoDoTopo(ui.catalogo, estudoDoStorage(storage));
     pintar();
     const carregarTopo = async () => {
+      // `aulasDe` e não `carregarAulas`: o alvo do topo é quase sempre a estação
+      // que a pessoa abre, e os dois pedidos acontecem no mesmo abrir — sem a
+      // promessa em andamento compartilhada, o mesmo JSON era buscado duas vezes.
       const [ind, aulas] = await Promise.all([
         carregarIndice(buscar),
-        ui.alvo.curso ? carregarAulas(ui.alvo.curso.slug, buscar) : Promise.resolve({ ok: false, erro: 'sem-alvo' })
+        ui.alvo.curso ? aulasDe(ui.alvo.curso.slug) : Promise.resolve({ ok: false, erro: 'sem-alvo' })
       ]);
       if (ind.ok) ui.indice = ind.dados;
-      if (ind.ok || ui.alvo.curso) aulasCache.set(ui.alvo.curso?.slug, aulas);
-      if (aulas.ok && Array.isArray(aulas.dados?.aulas)) ui.aulasAlvo = aulas.dados.aulas;
+      if (aulas.ok && Array.isArray(aulas.dados?.aulas)) {
+        ui.aulasAlvo = aulas.dados.aulas;
+        // A folha pode ter aberto enquanto o topo buscava: ela é a mesma estação,
+        // então recebe as aulas agora em vez de esperar o próximo repintar.
+        if (ui.folha && ui.folha === ui.alvo.curso?.slug) ui.aulas = aulas.dados;
+      }
       pintar();
     };
-    await carregarTopo().catch(() => {});
+    // SEM `await` (S20a-fix): este carregamento é repintar, não subir. Esperá-lo
+    // prendia o `subirMetro` atrás da rede — o bind de clique, o `desmontar` e a
+    // promessa do casco ficavam para depois do arquivo chegar, e uma rede presa
+    // (o caso que `aulas-fio.test.js` mede) nunca devolvia a instância.
+    carregarTopo().catch(() => {});
   } catch (erro) {
     ui.carregando = false;
     root.textContent = '';

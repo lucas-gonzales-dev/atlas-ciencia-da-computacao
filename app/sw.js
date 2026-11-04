@@ -546,7 +546,12 @@
 // na primeira visita diz nenhuma estudada ainda em vez de zero de trinta e
 // cinco), web/telas/jornada.css (as classes do topo) e web/metro.js. Sem o
 // precache, o topo perde o mapa no onibus: a rede desenhada e um arquivo.
-const VERSAO = 'atlas-v68';
+// atlas-v69: S20a-fix, o FIO das aulas na folha (04/11/2026). web/metro.js: o
+// pedido de aulas da folha acontecia DENTRO do pintar, depois do desenho, e com
+// o cache cheio pelo topo devolvia sem repintar — a folha nascia sem o primario
+// da aula nem a regua em qualquer aparelho. Muda tambem a leitura do topo (sem
+// await no boot, para nao prender a subida atras da rede) e o teste do fio.
+const VERSAO = 'atlas-v69';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
@@ -576,7 +581,7 @@ const VERSAO = 'atlas-v68';
 // core/rotas.js (a rota da aula), core/aulas.js (pausasDaAula) e core/textos.js
 // (a seção fechamento). O sw.js mediu o mesmo sha256 antes e depois de eu subir a
 // VERSAO, o que é a prova de que ele não está na própria lista.
-const PRECACHE_HASH = 'sha256-140990f102824968da4bb2c125547d077813b3152f0c8062219b1d20c2d8c2b7';
+const PRECACHE_HASH = 'sha256-f4049b880bce95aa7364c3350bb6bab26ecef82340b31b595a5f0dd109965544';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.
