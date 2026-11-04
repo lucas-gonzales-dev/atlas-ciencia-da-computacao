@@ -631,7 +631,48 @@ export const perfil = Object.freeze({
   }),
 });
 
+/**
+ * A LISTA DE AULAS da estação (S13a, 04/11/2026). A estação deixou de ser um
+ * botão e passou a ter páginas: a folha mostra por onde continuar, a tela de
+ * `aulas` mostra a playlist inteira com o estado de cada aula.
+ *
+ * `comecar` e `continuar` são as duas pontas do mesmo cartão: a primeira aula
+ * ainda não aberta (J1, "Começar pela primeira aula") e a retomada depois de
+ * dias (J5, "Continuar: Aula 13"). As duas frases existem separadas porque o
+ * desenho as trata separadas — "começar" é um convite a quem ainda não entrou,
+ * "continuar" é um ponto de retorno a quem já está dentro, e uma palavra só
+ * mentiria em uma das duas telas. O `n` é a posição da aula na playlist e o
+ * `titulo` vem da fonte; nada aqui é digitado à mão.
+ *
+ * `progresso` é a linha honesta da estação: conta AULAS ABERTAS, não tempo
+ * assistido. Quem chama passa o `restante` já lido de `duracaoLegivel`
+ * (core/aulas.js) — a formatação da duração mora num lugar só (regra 9: a mesma
+ * duração não pode aparecer escrita de dois jeitos em duas telas), e este
+ * arquivo continua sem importar nada, como sempre esteve.
+ */
+export const aulas = Object.freeze({
+  comecar: (n, titulo) => `Começar: Aula ${n} — ${titulo}`,
+  continuar: (n, titulo) => `Continuar: Aula ${n} — ${titulo}`,
+  verTodas: (total) => `Ver as ${total} aulas`,
+  progresso: (abertas, total, restante) => `${abertas} de ${total} aulas abertas · faltam ~${restante}`,
+  estados: Object.freeze({
+    'nao-iniciada': 'Não iniciada',
+    aberta: 'Aberta',
+    // S14 acrescenta 'estudada'; estadoDaAula devolve a palavra e a tela lê daqui.
+  }),
+  assistir: 'Assistir no YouTube',
+  // As três partes de sempre (o que falhou, por quê, o que fazer agora), como
+  // em `estados.erro`. O motivo é verdade literal: as aulas moram no aparelho
+  // só depois de uma visita com rede, e o service worker ainda não as tinha
+  // quando o cache foi instalado.
+  semAulas: Object.freeze({
+    parteUm: 'As aulas desta estação não carregaram.',
+    parteDois: 'O arquivo das aulas não está neste aparelho.',
+    parteTres: 'Abra o Atlas com internet uma vez para guardar as aulas.',
+  }),
+});
+
 /** Tudo junto, para quem precisa percorrer (o teste percorre). */
-export const TEXTOS = { placa, comValores, folha, estados, legenda, proibido, ORIGEM, TIPO_DE_ORIGEM, casco, jornada, explorar, chegada, revisar, perfil };
+export const TEXTOS = { placa, comValores, folha, estados, legenda, proibido, ORIGEM, TIPO_DE_ORIGEM, casco, jornada, explorar, chegada, revisar, perfil, aulas };
 
 export default TEXTOS;

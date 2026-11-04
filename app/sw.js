@@ -352,12 +352,22 @@
 // 04/11, válidos até 04/12) e o data/aulas-recortes.json, que divide a playlist
 // única de Python I e II. Sem estes arquivos no cache, a lista de aulas some
 // quando a rede cai.
-const VERSAO = 'atlas-v54';
+// atlas-v55: S13a, o ESTUDO por aula sem tela (04/11/2026). Entram
+// core/estudo.js e web/aulas-dados.js. O primeiro é o registro de quem ABRIU
+// uma aula e a regra de por onde continuar (os quatro motivos do cartão
+// "Continuar: Aula 13"); o segundo é o caminho que a tela de aulas vai usar
+// para ler data/aulas/<slug>.json sem estourar quando o arquivo não está no
+// aparelho. Nenhuma tela importa os dois ainda — a S13b desenha — e a
+// rotas.js ganhou o painel #/estacao/<slug>/aulas, que é o endereço que ela
+// vai montar. Sem estes arquivos no cache, a folha da estação pede o módulo e
+// recebe o index.html do fallback: tela em branco com o service worker
+// dizendo que foi um 200.
+const VERSAO = 'atlas-v55';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
 // deixa o cache antigo sem o nome novo. Recalcular: node tests/precache-hash.js.
-const PRECACHE_HASH = 'sha256-72f7b47b18bb58bce838dcf147d080ac848ee9e0d7a60d942548630deccd4ff0';
+const PRECACHE_HASH = 'sha256-e2ae0f8f5959cc9ef7097c18040f539ec4a3e685f0197fdacc0568a711d0d471';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.
@@ -408,6 +418,11 @@ const PRECACHE = [
   // ele no cache, quem ja tem v42 recebe o HTML novo e o casco morre no import
   // — branco no onibus, sem erro na rede para avisar.
   'web/rede.js',
+  // A leitura de data/aulas/<slug>.json (S13a): o único caminho que a tela de
+  // aulas usa para chegar aos dados, e o único lugar onde um 404 vira frase em
+  // vez de estouro. Sem este arquivo no cache, a lista de aulas não aparece
+  // nem com rede, porque o import do index falharia em silencio.
+  'web/aulas-dados.js',
  // A FOLHA da estacao (S5): o index.html liga o CSS, e ela vira modulo quando o
  // metro.js trocar o clique pela rota. Os dois entram juntos pelo mesmo motivo
  // da v22 — HTML novo pedindo arquivo que o cache antigo nao tem.
@@ -452,6 +467,11 @@ const PRECACHE = [
   'core/mapa-rede.js',
   // As aulas de cada estação (S12): traduz a resposta da YouTube Data API. Sem rede, sem DOM.
   'core/aulas.js',
+  // O ESTUDO por aula (S13a, 04/11/2026): quem abriu o quê e por onde
+  // continuar. Nenhuma tela o importa ainda (a S13b importa), mas o precache
+  // cobre o disco: a folha desenhada amanhã precisa dele offline no primeiro
+  // toque, e um módulo ausente do cache é uma tela em branco no ônibus.
+  'core/estudo.js',
   'core/notes.js',
   'core/search.js',
   // Rotas da grade (S3a-1, 31/10/2026): as abas que o boot.js resolve. Sem

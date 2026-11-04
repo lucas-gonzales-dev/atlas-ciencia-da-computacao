@@ -92,9 +92,24 @@ export function lerRota(hash) {
   if (caminho === 'revisar') return { tela: 'revisar' };
   if (caminho === 'perfil') return { tela: 'perfil' };
   if (caminho.startsWith('estacao/')) {
-    const slug = caminho.slice('estacao/'.length);
+    const bruto = caminho.slice('estacao/'.length);
     // '#/estacao/' sem nada depois não nomeia estação nenhuma.
-    if (slug) return { tela: 'estacao', slug };
+    if (!bruto) return { tela: 'jornada', desconhecida: true };
+    // O PAINEL da estação (S13a, 04/11/2026): '#/estacao/<slug>/aulas' é a
+    // página com a lista de aulas, que a S13b vai montar. Só 'aulas' é painel
+    // conhecido — o sufixo é conferido byte a byte, e não "qualquer coisa depois
+    // do primeiro /", porque hoje 'calculo-i/foo' é lido como um slug e tem de
+    // continuar sendo: um endereço desconhecido caindo em uma estação existente
+    // seria a folha errada no fundo do link de alguém.
+    if (bruto.endsWith('/aulas')) {
+      const slug = bruto.slice(0, -'/aulas'.length);
+      // '#/estacao//aulas' não nomeia estação nenhuma: mesma regra do slug
+      // vazio. Deixar cair adiante daria o slug '/aulas', um nome que não
+      // existe no catálogo e desenharia uma folha vazia.
+      if (!slug) return { tela: 'jornada', desconhecida: true };
+      return { tela: 'estacao', slug, painel: 'aulas' };
+    }
+    return { tela: 'estacao', slug: bruto };
   }
   return { tela: 'jornada', desconhecida: true };
 }
@@ -120,6 +135,13 @@ export function hrefDe(rota) {
   }
   if (tela === 'revisar') return '#/revisar';
   if (tela === 'perfil') return '#/perfil';
-  if (tela === 'estacao') return `${PREFIXO_ESTACAO}${rota.slug}`;
+  if (tela === 'estacao') {
+    // O painel só existe com slug. '#/estacao//aulas' não nomeia estação
+    // nenhuma, e o lerRota já o devolve como rota desconhecida — um hrefDe que
+    // escrevesse esse endereço criaria um link que o próprio app não reconhece.
+    const slug = rota.slug ? String(rota.slug) : '';
+    if (rota.painel === 'aulas' && slug) return `${PREFIXO_ESTACAO}${slug}/aulas`;
+    return `${PREFIXO_ESTACAO}${slug}`;
+  }
   return '#/';
 }
