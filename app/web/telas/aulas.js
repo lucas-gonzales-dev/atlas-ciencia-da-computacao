@@ -31,7 +31,9 @@
 import { duracaoLegivel } from '../../core/aulas.js';
 import { hrefDe } from '../../core/rotas.js';
 import { estadoDaAula } from '../../core/estudo.js';
-import { aulas as A } from '../../core/textos.js';
+import { comValores, aulas as A } from '../../core/textos.js';
+import { fatosDaEstacao } from '../../core/viagem.js';
+import { seloLinha } from '../folha.js';
 import {
   estudoDoStorage,
   hrefVideo,
@@ -142,11 +144,50 @@ export async function montar(raiz, ctx) {
   const estacao = typeof curso?.title === 'string' ? curso.title : slug;
   if (curso) raiz.setAttribute('data-estacao', String(curso.id));
 
+  // S13e — A COR DA LINHA CHEGA PELA CLASSE DA LINHA, E ELA MORA NA RAIZ.
+  //
+  // O defeito, achado no Chrome em 04/11/2026 e invisível para a suíte e para o
+  // testar_pagina: `--cor` e `--cor-fraca` são declaradas por linha (`.l1` …
+  // `.l7`, web/metro.css:17) e chegam por HERANÇA. A folha mora dentro do
+  // metrô e herda de um ancestral com a classe; a página de aulas não está
+  // dentro de linha nenhuma. O `.botao.botao-primario` recebia
+  // `background: var(--cor)` VAZIO — texto `--superficie` sobre o fundo da
+  // página: 1,1:1 de contraste nos dois temas, branco sobre claro e escuro
+  // sobre escuro. Pela mesma via a barra de progresso enchia de preto e as
+  // marcas de estado saíam na cor do texto.
+  //
+  // A régua que existe desde a S10 (folha.css, "S10 régua 5") mede par por
+  // regra, não por escopo resolvido: o token está certo no CSS e some no
+  // navegador. Por isso a trava daqui é no DOM montado (a classe lN na raiz),
+  // não no CSS.
+  //
+  // A linha é lida do MESMO lugar de onde a folha a lê — `fatosDaEstacao`
+  // (core/viagem.js), que tira `linha` do `stage` do catálogo. Progresso não
+  // entra: linha, posição e total dentro da linha não dependem do que a pessoa
+  // concluiu, e um `carregarViagem` aqui seria ler o estado alheio para desenhar
+  // um número fixo. Sem estação, nenhuma classe: a página cai no cinza da base.
+  const fatos = curso ? fatosDaEstacao(catalogo, curso.id, {}) : null;
+  if (fatos && Number.isFinite(fatos.linha) && fatos.linha > 0) raiz.classList.add(`l${fatos.linha}`);
+
+  // O alto da página, na ordem do desenho (S13b B.1, que ficou de fora e voltou
+  // na S13e): a volta, o selo da linha com a posição, o nome. `seloLinha` e as
+  // classes `selo`/`folha-rotulo` são os da folha — dois círculos da linha em
+  // dois tamanhos, ou duas palavras para "Linha 1 · estação 1 de 5", é a regra 9.
   const cabecalho = no(doc, 'header', 'aulas-cabecalho');
   cabecalho.append(
-    no(doc, 'a', 'aulas-voltar', { href: hrefDe({ tela: 'estacao', slug }), text: A.voltarPara(estacao) }),
-    no(doc, 'h1', 'aulas-titulo', { text: A.tituloPagina(estacao) })
+    no(doc, 'a', 'aulas-voltar', { href: hrefDe({ tela: 'estacao', slug }), text: A.voltarPara(estacao) })
   );
+  if (fatos && Number.isFinite(fatos.linha) && fatos.linha > 0) {
+    const faixa = no(doc, 'div', 'aulas-selo folha-cabecalho');
+    faixa.append(seloLinha(doc, fatos.linha));
+    const rotulo = no(doc, 'p', 'aulas-posicao folha-rotulo');
+    rotulo.textContent = fatos.posicao
+      ? comValores.posicaoNaLinha(fatos.linha, fatos.posicao, fatos.total)
+      : comValores.viagem(0, fatos.total);
+    faixa.append(rotulo);
+    cabecalho.append(faixa);
+  }
+  cabecalho.append(no(doc, 'h1', 'aulas-titulo', { text: A.tituloPagina(estacao) }));
   raiz.append(cabecalho);
 
   const painelBox = no(doc, 'div', 'aulas-painel');

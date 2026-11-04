@@ -416,7 +416,23 @@
 // web/tokens.css o --largura-leitura: 720px. Mudou conteudo de cinco folhas do
 // precache, entao VERSAO e hash. Sem isto, quem tem v60 no cache continua com o
 // botao caixa clara, a lista de duas colunas e a pagina vazando da borda.
-const VERSAO = 'atlas-v61';
+// atlas-v62: S13e (04/11/2026) — a pagina de aulas voltava SEM A COR DA LINHA.
+// O defeito so existia no navegador: .botao.botao-primario (web/folha.css:262)
+// pinta com var(--cor), e --cor/--cor-fraca sao declaradas por linha (.l1 ... .l7,
+// web/metro.css:17) e chegam por HERANCA. A folha mora dentro do metro e herda; a
+// pagina de aulas nao esta dentro de linha nenhuma, entao o fundo resolvia vazio e
+// o texto --superficie ficava sobre o fundo da pagina: 1,1:1 nos dois temas, medido
+// no Chrome. Pela mesma via a barra de progresso enchia de preto e as marcas de
+// estado saiam na cor do texto. web/telas/aulas.js le a linha do mesmo lugar que a
+// folha (fatosDaEstacao, core/viagem.js) e poe a classe lN na raiz; o topo ganha o
+// selo da linha que a S13b ja pedia e ficou de fora (seloLinha agora exportada de
+// web/folha.js, importada e nao copiada); web/telas/aulas.css separa as aulas com
+// 1px de --borda no lugar do --espessura-borda-painel de 6px, que em 93 linhas
+// pesava mais que os titulos. Mudou conteudo de tres folhas do precache
+// (web/telas/aulas.js, web/telas/aulas.css, web/folha.js), entao VERSAO e hash.
+// Sem isto, quem tem v61 no cache continua com o botao da aula SEM COR NENHUMA na
+// pagina de aulas, e o selo nao aparece: tela ilegivel e nenhuma suíte vermelha.
+const VERSAO = 'atlas-v62';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
@@ -436,7 +452,11 @@ const VERSAO = 'atlas-v61';
 // core/textos.js (a etiqueta "Exercício") e web/tokens.css (--largura-leitura).
 // Sem subir a VERSAO aqui, quem tem v60 no cache continua com o botão caixa
 // clara e a lista de duas colunas, mesmo com o HTML novo.
-const PRECACHE_HASH = 'sha256-2bd6a3105d798b22c08525f8de56e91b48085750b131d55b79d317c21d93bd17';
+// Recalculado na S13e (04/11/2026), com a árvore parada e DEPOIS de subir a
+// VERSAO acima: três folhas do precache mudaram de bytes — web/folha.js (o
+// seloLinha passa a ser exportado), web/telas/aulas.js (a classe lN na raiz e o
+// selo no topo) e web/telas/aulas.css (.aulas .selo e o separador de 1px).
+const PRECACHE_HASH = 'sha256-e855503a6602de446fdf631e93d547e077ffbc3a5f42dee83590e25f47c43da2';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.

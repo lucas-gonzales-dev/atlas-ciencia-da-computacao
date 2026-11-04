@@ -63,6 +63,42 @@
   color: var(--tinta);
 }
 
+/* S13e — o SELO DA LINHA, o mesmo círculo da folha, entre a volta e o h1.
+ *
+ * São os MESMOS `selo` e `folha-rotulo` que web/folha.js emite (a função é
+ * importada de lá, não copiada) e o MESMO texto `Linha N · estação k de 5`.
+ * A faixa é a daqui só pelo layout, que na folha é o `.folha-cabecalho`;
+ * reutilizo a própria classe dele, então nem isso é um segundo desenho.
+ *
+ * E o que a folha tem e a página não tinha: `.folha .selo` é escopado na folha,
+ * e a cor dele é `var(--cor)` — a cor da LINHA, que chega por herança de `.l1`
+ * … `.l7` (web/metro.css:17). Fora do metrô não havia linha nenhuma, e a raiz
+ * desta página recebe a classe agora (web/telas/aulas.js). */
+.aulas .selo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--alvo-toque);
+  height: var(--alvo-toque);
+  border-radius: var(--raio-estacao);
+  background: var(--cor);
+  color: var(--superficie);
+}
+
+/* ── S13e, o DEFEITO DO CONTRASTE que a suíte e o testar_pagina não viam ──
+ * O primário de aula (`web/aulas-pedacos.js`) recebe `background: var(--cor)`
+ * da regra `.botao.botao-primario` do folha.css, e o texto é `--superficie`.
+ * Sem `--cor` no escopo, o fundo é a própria página e o texto some: 1,1:1 nos
+ * dois temas, medido no Chrome em 04/11/2026 — a régua da S10 (folha.css, régua
+ * 5) tinha parado de ver isto porque mede par por regra do CSS, não valor
+ * resolvido no elemento.
+ *
+ * O conserto NÃO é um fallback de cor aqui. Um `var(--cor, --tinta)` pintaria o
+ * botão de tinta e a barra de preto, e a pessoa continuaria sem a cor da linha
+ * que é como ela sabe em que linha está: a causa é o escopo, e é no escopo que
+ * ele se conserta. A cor chega da classe da linha na raiz, e a trava está no DOM
+ * (tests/aulas-tela.test.js, S13e), não neste arquivo. */
+
 /* ── o painel: progresso, a aula por onde continuar, a playlist ─────────── */
 .aulas-painel {
   display: flex;
@@ -126,8 +162,13 @@
   gap: var(--espaco-1);
 }
 
+/* O separador entre as aulas: 1 px de --borda (S13e, item 3 do pedido).
+ * Era --espessura-borda-painel (6 px), a espessura do painel de uma estação na
+ * folha. Numa lista de 93 linhas, 6 px de borda por linha pesam mais que o
+ * título de cada aula — o que se quer aqui é uma régua, não um muro. 1 px é o
+ * que o folha.css já usa nos seus separadores (folha.css:164, :306). */
 .aula-item {
-  border-bottom: var(--espessura-borda-painel) solid var(--borda);
+  border-bottom: 1px solid var(--borda);
 }
 
 /* A linha é UMA coisa tocável: marca do estado, número, título, duração. O `grid`
@@ -275,7 +316,4 @@
      que agora há uma coluna. Nenhuma regra de grade aqui — o que não existe não
      pode voltar por cima. */
 
-  .aula-item {
-    border-bottom: var(--espessura-borda-painel) solid var(--borda);
-  }
 }

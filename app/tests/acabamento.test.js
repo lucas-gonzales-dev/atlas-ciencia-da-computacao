@@ -104,6 +104,34 @@ test('acabamento S13c: o anel de "você está aqui" é da marca, e o token de 72
   assert.match(css, /max-width:\s*var\(--largura-leitura\)/, 'a página não lê o token: o número voltaria à mão');
 });
 
+/* ── S13e (04/11/2026): o selo da página e o peso do separador ─────────────
+ * Duas coisas que o Chrome mostrou depois do fio: o primário da página sem
+ * cor nenhuma (1,1:1 — a causa é o escopo da `--cor`, e a trava dela é no DOM,
+ * em aulas-tela.test.js B11a/b) e 93 linhas de 6 px, que pesavam mais que os
+ * títulos. Esta trava é só do que o node alcança: a REGRA que cura. A prova de
+ * que ela morde é tirar `border-bottom: 1px` do `.aula-item` e ver o caso cair.
+ */
+test('acabamento S13e: o separador entre as aulas é 1 px de --borda, e o selo da página tem fundo na cor da linha', () => {
+  const css = ler('web/telas/aulas.css');
+
+  const item = regra(css, '.aula-item');
+  assert.ok(item, 'web/telas/aulas.css sem a regra .aula-item');
+  assert.match(item, /border-bottom:\s*1px solid var\(--borda\)/,
+    'o separador da lista voltou a ser --espessura-borda-painel: 93 linhas de 6 px pesam mais que o título de cada aula');
+  assert.doesNotMatch(item, /--espessura-borda-painel/,
+    '.aula-item usa a espessura do PAINEL (6 px), que é a borda esquerda de uma estação na folha, não uma régua de lista');
+
+  // O círculo da linha na página. Ele reusa a classe `selo` do metro.css, mas
+  // `.folha .selo` é escopado na folha — sem esta regra o selo da página cairia
+  // no `var(--trancada)` do metro.css e sairia cinza em toda linha.
+  const selo = regra(css, '.aulas .selo');
+  assert.ok(selo, 'web/telas/aulas.css sem a regra .aulas .selo (o círculo do selo da folha, na página)');
+  assert.match(selo, /background:\s*var\(--cor\)/,
+    'o fundo do selo é a cor da LINHA, sem valor de reserva: um fallback pintaria a linha certa na cor errada');
+  assert.match(selo, /color:\s*var\(--superficie\)/,
+    'S10 régua 5: o número sobre a cor cheia é --superficie, nunca --tinta (1,5:1 no escuro)');
+});
+
 test('acabamento: os três fatos da folha são uma grade só, com a etiqueta do tamanho da maior', () => {
   const css = ler('web/folha.css');
   const fatos = regra(css, '.folha-fatos');

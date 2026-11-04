@@ -44,8 +44,16 @@ function no(doc, tag, classe, attrs) {
   return n;
 }
 
-/** O número da linha dentro do selo, na classe de cor da linha. */
-function seloLinha(doc, linha) {
+/**
+ * O número da linha dentro do selo, na classe de cor da linha.
+ *
+ * S13e: EXPORTADO. A página de aulas (`web/telas/aulas.js`) tem de montar o
+ * MESMO círculo da folha (item 2 do pedido), e a folha define `--cor` no
+ * `.folha .selo` do folha.css. Reescrever o selo lá com outra classe daria duas
+ * regras de recheio para um mesmo círculo, e o --cor cairia no `var(--trancada)`
+ * da folha sem que ninguém visse. Uma função, uma classe, um CSS.
+ */
+export function seloLinha(doc, linha) {
   const n = Number(linha);
   const temNumero = Number.isFinite(n) && n > 0;
   const selo = no(doc, 'span', temNumero ? `selo l${n}` : 'selo', { 'aria-hidden': 'true' });

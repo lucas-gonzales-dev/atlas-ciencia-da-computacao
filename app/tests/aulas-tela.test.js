@@ -605,6 +605,86 @@ test('B10b: sem rede não estoura, e um 200 sem a lista de aulas não é estaç�
   assert.ok(textoDo(formatoRuim.raiz).includes(AU.semAulas.parteUm), 'um 200 que não é lista de aulas cai no mesmo aviso honesto');
 });
 
+// ═══════════ S13e: a cor da linha chega por HERANÇA, e a página precisa dela ═══════════
+//
+// O defeito, achado no Chrome em 04/11/2026: o `.botao.botao-primario` recebe
+// `background: var(--cor)` (folha.css:262) e `--cor` é declarada por linha em
+// `.l1 … .l7` (metro.css:17), chegando por herança. A folha mora dentro do metrô
+// e herda; a página de aulas não está dentro de linha nenhuma — o botão saía com
+// o fundo vazio, texto `--superficie` sobre a página, 1,1:1 nos dois temas. A
+// barra enchia de preto e as marcas de estado ficavam na cor do texto.
+//
+// Por que esta trava é no DOM montado e não no CSS: a régua da S10 (folha.css,
+// "S10 régua 5") mede par por regra e passou por cima disto duas vezes, porque o
+// CSS está certo — o que falta é o escopo onde `--cor` existe. Um teste que lê
+// `aulas.css` nunca veria um `var()` que resolve em vazio. O que prova é a classe
+// que o JS pôs na raiz, porque é ela que faz o `var()` ter valor.
+
+const GRAFOS = CURSOS.find((c) => c.slug === 'algoritmos-em-grafos');
+
+test('B11a: a raiz da página leva a CLASSE DA LINHA da estação (Circuitos, Linha 1)', async () => {
+  assert.equal(CIRCUITOS.stage, 1, 'o catálogo mudou de linha e a trava abaixo precisa ser relida, não reescrita');
+  const { raiz } = await pagina();
+  const classes = raiz.className.split(/\s+/);
+  assert.ok(classes.includes('l1'), `a raiz tem [${classes}] — sem a classe da linha, --cor é vazio: botão 1,1:1, barra preta, marca na cor do texto`);
+});
+
+test('B11b: e a classe é a da LINHA DAQUELA estação, não sempre a mesma (Grafos, Linha 3)', async () => {
+  assert.equal(GRAFOS.stage, 3, 'idem: a estação de outro número saiu da Linha 3 no catálogo');
+  const { raiz } = await pagina({ folha: GRAFOS.slug });
+  const classes = raiz.className.split(/\s+/);
+  assert.ok(classes.includes('l3'), `esperava l3 em [${classes}]: uma classe fixa pintaria toda a casa de vermelho e o teste de cima continuaria verde`);
+  assert.ok(!classes.includes('l1'), 'a página da Linha 3 não pode carregar a cor da Linha 1');
+});
+
+test('B11c: o topo tem o SELO DA LINHA, com o MESMO texto da folha (regra 9)', async () => {
+  const { raiz } = await pagina();
+  const selo = um(raiz, 'selo', 'página de aulas');
+  assert.equal(selo.textContent, '1', 'o número dentro do círculo é o da linha, lido do catálogo');
+
+  const rotulo = um(raiz, 'aulas-posicao', 'página de aulas');
+  // A folha comparada com o CATÁLOGO INTEIRO, não com `[CIRCUITOS]` do `folhaCom`:
+  // o "de 5" do rótulo é a contagem das estações DA LINHA, e uma folha desenhada
+  // com uma estação só diria "de 1" — a régua acusaria a página de mentir quando
+  // quem mentia era o meu catálogo de teste.
+  const docFolha = criarDoc();
+  const { root: folha } = desenharFolha(docFolha, {
+    catalogo: CURSOS,
+    progresso: { completed: [], emCurso: [], conclusoes: {} },
+    slug: CIRCUITOS.slug,
+    notas: {},
+    momento: null,
+    aulas: AULAS,
+    estudo: lerEstudo(null)
+  });
+  const rotuloDaFolha = um(folha, 'folha-rotulo', 'folha');
+  assert.equal(rotulo.textContent, rotuloDaFolha.textContent,
+    `"${rotulo.textContent}" vs "${rotuloDaFolha.textContent}": duas palavras para a mesma posição é a regra 9`);
+  assert.match(rotulo.textContent, /^Linha 1 · estação 1 de 5$/, `lê-se: "${rotulo.textContent}"`);
+
+  // A ordem do desenho (S13b B.1): volta, selo, nome. O h1 continua um só, e é
+  // nele que o casco põe o foco.
+  const ordem = raiz.children[0].children.map((n) => n.className.split(/\s+/)[0]);
+  assert.deepEqual(ordem, ['aulas-voltar', 'aulas-selo', 'aulas-titulo'],
+    `o topo saiu em outra ordem: [${ordem}]`);
+  assert.equal(todos(raiz, (n) => n.tag === 'h1').length, 1);
+});
+
+test('B11d: o selo é o MESMO nó da folha, e não um círculo parecido (folha.js:seloLinha)', async () => {
+  const { raiz } = await pagina({ folha: GRAFOS.slug });
+  const selo = um(raiz, 'selo', 'página de aulas (Linha 3)');
+  // A folha monta `selo l3`; se a página reimplementasse o selo, a classe de cor
+  // desapareceria primeiro — e é ela que dá o fundo.
+  assert.deepEqual(selo.className.split(/\s+/), ['selo', 'l3'], `o selo saiu com [${selo.className}]`);
+  assert.equal(selo.getAttribute('aria-hidden'), 'true', 'o número é desenho; quem fala é o rótulo ao lado');
+});
+
+test('B11e: sem estação no catálogo, nenhuma classe de linha (a página cai no cinza da base)', async () => {
+  const { raiz } = await pagina({ folha: 'nao-existe', catalogo: { courses: [] } });
+  assert.ok(!/\bl\d/.test(raiz.className), `raiz com classe de linha para uma estação que não existe: [${raiz.className}]`);
+  assert.equal(comClasse(raiz, 'selo').length, 0, 'sem linha conhecida não há número a pôr no círculo');
+});
+
 test('B11: estação que não está no catálogo não pede arquivo nenhum', async () => {
   let chamou = 0;
   const { raiz } = await pagina({
