@@ -361,6 +361,56 @@ export const legenda = {
 };
 
 /**
+ * O MAPA DE DOIS EIXOS (S16b, 04/11/2026): as frases que dizem o que o desenho
+ * mede, para quem lê com leitor de tela.
+ *
+ * Por que mora aqui e não dentro de `core/mapa-rede.js`: o desenho é DOM-free e
+ * devolve string, e um rótulo escrito no meio dele seria frase que ninguém
+ * revisa — regra 7 da casa. Os NOMES dos estágios são os de `ESTAGIOS_DO_EIXO`
+ * (core/eixos.js) traduzidos, literais: um estágio do núcleo sem par aqui é
+ * "nome de estágio inventado", item da lista do proibido abaixo, e a trava
+ * `mapa: todo estágio do núcleo tem nome` cai.
+ *
+ * O plural segue a regra da S15b-fix: «1 percorrida», «2 percorridas», e o que é
+ * zero NÃO aparece na frase — 0 «concluídas antes» não é informação, é ruído.
+ */
+export const mapa = Object.freeze({
+  // O rótulo de sempre: quem não traz eixos (o cartão do link, S11) descreve a
+  // viagem, não a medida. Continua byte a byte o mesmo de antes da S16b.
+  rotuloViagem: (feitas, total) => `Mapa da rede: ${feitas} de ${total} estações concluídas`,
+  /** [singular, plural] de cada estágio medido, na ordem em que a frase os lista. */
+  estagios: Object.freeze({
+    embarcada: ['embarcada', 'embarcadas'],
+    'em-percurso': ['em percurso', 'em percurso'],
+    percorrida: ['percorrida', 'percorridas'],
+    'concluida-antes': ['concluída antes', 'concluídas antes'],
+    fora: ['fora da rota', 'fora da rota'],
+  }),
+  /**
+   * «35 estações: 2 em percurso, 1 percorrida, 3 concluídas antes, 29 fora da
+   * rota. 1 pede revisão.»
+   *
+   * `contagens` vem do desenho (uma contagem por estágio), `pedindoRevisao` é
+   * quantas estações estão abaixo do limiar de recuperabilidade. A frase dos
+   * estágios só existe se houver o que contar; sem eixos nenhum, o que se lê é
+   * `semMedida`, porque «0 em tudo» descreve a tela, não a pessoa.
+   */
+  rotuloEixos: (total, contagens, pedindoRevisao = 0) => {
+    const umOUVarios = (n, caso) => (Number(n) === 1 ? caso[0] : caso[1]);
+    const partes = Object.entries(mapa.estagios)
+      .map(([estagio, caso]) => {
+        const n = Number(contagens?.[estagio]) || 0;
+        return n ? `${n} ${umOUVarios(n, caso)}` : null;
+      })
+      .filter(Boolean);
+    const cabeca = `${total} ${umOUVarios(total, ['estação', 'estações'])}`;
+    const corpo = partes.length ? `${cabeca}: ${partes.join(', ')}.` : `${cabeca} ainda sem medida.`;
+    if (!pedindoRevisao) return corpo;
+    return `${corpo} ${pedindoRevisao} ${pedindoRevisao === 1 ? 'pede revisão.' : 'pedem revisão.'}`;
+  },
+});
+
+/**
  * A lista do proibido, em código. Está aqui para o teste poder conferir que o
  * app não a desrespeita, e para quem implementa uma tela nova achar a regra sem
  * abrir o documento. Motivos em design/README.md §9.
@@ -918,6 +968,6 @@ export const fechamento = Object.freeze({
 });
 
 /** Tudo junto, para quem precisa percorrer (o teste percorre). */
-export const TEXTOS = { placa, comValores, folha, estados, legenda, proibido, ORIGEM, TIPO_DE_ORIGEM, casco, jornada, explorar, chegada, revisar, perfil, aulas, aula, modelosDeFrente, fechamento };
+export const TEXTOS = { placa, comValores, folha, estados, legenda, mapa, proibido, ORIGEM, TIPO_DE_ORIGEM, casco, jornada, explorar, chegada, revisar, perfil, aulas, aula, modelosDeFrente, fechamento };
 
 export default TEXTOS;

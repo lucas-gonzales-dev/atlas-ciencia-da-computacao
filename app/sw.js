@@ -602,7 +602,23 @@
 // de curto prazo e não pinta). Estágio novo 'concluida-antes': enche o mapa, não
 // colore, porque ali ninguém foi medido. O tempo nunca rebaixa nada: só o
 // pedeRevisao olha o hoje. Nenhum arquivo de tela mudou — a S16b desenha o mapa.
-const VERSAO = 'atlas-v75';
+// atlas-v76: S16b (04/11/2026) — o mapa de DOIS EIXOS vira desenho em
+// core/mapa-rede.js, que passa a aceitar `eixos` (um Map de id para o resultado
+// de core/eixos.js) e desenha dentro do círculo da estação: o PREENCHIMENTO sobe
+// de baixo para cima, cortado por um clipPath do próprio círculo, com a COR
+// interpolada do tom claro da linha (cor 0) à cor cheia dela (cor >= 0,8) — só
+// com os tokens --linha-N e --fundo, nunca uma cor nova. Anel fino por fora só
+// com pedeRevisao. O estágio 'embarcada' (abriu, não estudou) não preenche: abre
+// com contorno mais forte, no traço da linha, porque abrir não é estudar. O
+// MINIMO_VISIVEL de 15% do diâmetro existe por medida: Circuitos Digitais, 93
+// aulas com 3 estudadas, dá preenchimento 0,032 — menos de 1 px num círculo de
+// 28 px, e a pessoa estudaria sem o mapa mudar. SEM eixos, a saída é byte a byte
+// a de antes (trava em tests/mapa-eixos.test.js, com a string e os cinco hashes
+// gravados ANTES da mudança): o cartão do link e o og:image não mudam um pixel.
+// O aria-label passa a contar os estágios, com as frases em core/textos.js e o
+// plural da S15b-fix. Ninguém passa eixos ainda — quem os dá é a S16c. Mudam de
+// bytes e estão no precache: core/mapa-rede.js e core/textos.js.
+const VERSAO = 'atlas-v76';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
@@ -643,7 +659,12 @@ const VERSAO = 'atlas-v75';
 // VERSAO acima: 106 arquivos, um ENTROU (core/eixos.js, o núcleo dos dois eixos) e
 // nenhum mudou de bytes — a fatia é pura, sem tela. O sw.js mediu o mesmo sha256
 // antes e depois de eu subir a VERSAO, prova de que ele não está na própria lista.
-const PRECACHE_HASH = 'sha256-38e6ac1f7019b20343297bd1ef1300b1e620672db5e9d11f4915ff7c7bc52b76';
+// Recalculado na S16b (04/11/2026), com a árvore parada e DEPOIS de subir a
+// VERSAO acima: 106 arquivos, nenhum ENTROU e dois mudaram de bytes —
+// core/mapa-rede.js (os eixos viram desenho) e core/textos.js (o bloco `mapa`,
+// com as frases do aria-label). Os testes novos (tests/mapa-eixos.test.js) não
+// estão no precache: nada de fora de app/ vai para o cache de quem usa.
+const PRECACHE_HASH = 'sha256-1bff64107c3851c0264382a832d7169e76287f4519b99b0f1a71ef61c83eb472';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.
