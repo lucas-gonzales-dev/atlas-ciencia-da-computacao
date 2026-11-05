@@ -43,7 +43,7 @@ Cada estação passa a ter as aulas da playlist dela (título, duração, posiç
 | Embarcada | abriu a primeira aula | contorno na cor da linha |
 | Em percurso | k de N aulas estudadas | preenchimento parcial (k/N) e "faltam ~X h" |
 | Percorrida | todas as aulas estudadas ou puladas | preenchimento cheio, cor clara |
-| Dominada | ≥ 80% das aulas lembradas, as aulas de exercício estudadas, e o desafio da estação aprovado | cor cheia da linha e carimbo com a frase de competência |
+| Dominada | o desafio da estação aprovado: ≥ 80% dos cartões sorteados lembrados (sorteio de 10 a 15, cartões com 2 dias ou mais, um de cada aula de exercício) | cor cheia da linha e o carimbo com a frase do que foi medido |
 | Pede revisão | dominada, mas a recuperabilidade prevista dos cartões caiu abaixo de 80% | anel discreto e "revisar 10 min"; a cor não muda |
 
 Regras: o tempo nunca rebaixa a estação; só um desafio reprovado devolve "dominada" para "percorrida". Quem já tem estações "concluídas" no Atlas atual entra como **"Concluída antes"**: carimbo preservado, preenchimento cheio, e um convite (nunca obrigação) a fazer o desafio para dominar.
@@ -86,9 +86,9 @@ A revisão antiga (por estação, intervalos fixos) migra: cada estação conclu
 
 ### J4 — Dominar uma estação (o desafio)
 
-1. Com a estação percorrida, aparece "Desafio da estação": 10 a 15 cartões sorteados das aulas da estação (os da própria pessoa) + as perguntas das aulas de exercício, de uma vez, sem olhar, com feedback ao fim.
-2. Aprovado (≥ 80%): estação **dominada**, carimbo com a frase de competência (ex.: Circuitos Digitais — "Você converte entre bases e projeta circuitos combinacionais simples."), e a próxima estação que ela abre.
-3. Reprovado: "Faltaram 4. Eles voltam para a fila com prioridade. Tente de novo quando quiser." Nada se perde.
+1. Com a estação percorrida, aparece "Desafio da estação": 10 a 15 cartões sorteados das aulas da estação (os da própria pessoa, com **2 dias ou mais** de escritos) + as perguntas das aulas de exercício, **um de cada aula de exercício**, de uma vez, sem olhar, com feedback ao fim.
+2. Aprovado (≥ 80% dos sorteados): estação **dominada**, carimbo com **a frase do que foi medido** — "Percorreu as 93 aulas desta estação, escreveu 23 cartões e, dois dias ou mais depois, lembrou 12 de 14 deles, pela sua própria conferência. Não mede exercícios novos." — e a próxima estação que ela abre. Não a frase de competência: ela afirmava um saber-fazer que ninguém mediu.
+3. Reprovado: "Faltaram 4. Eles voltam para a fila de hoje. Tente de novo quando quiser." Nada se perde, nada rebaixa. Uma estação **dominada** pode refazer o desafio; só um reprovado depois de dominada a devolve para percorrida — o tempo nunca rebaixa.
 
 ### J5 — Voltar depois de dias
 

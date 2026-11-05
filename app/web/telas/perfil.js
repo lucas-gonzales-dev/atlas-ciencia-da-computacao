@@ -187,6 +187,10 @@ export async function montar(raiz, ctx) {
       completed: detalhe.completed,
       emCurso: detalhe.emCurso,
       conclusoes: detalhe.conclusoes,
+      // S18b-2: o carimbo do desafio (J4) mora em `dominadas`, e é daqui que a
+      // caderneta o lê. `carregarViagem` já traz o campo; se ele não passar por
+      // este estado, a tela perde a dominada entre ler e desenhar.
+      dominadas: detalhe.dominadas,
       anotacoes: notas || {},
       revisoes,
     };
@@ -211,7 +215,17 @@ export async function montar(raiz, ctx) {
     cab.append(el(doc, `${CLASSE}-h1`, T.titulo, 'h1'));
     raizEl.append(cab);
 
-    const progresso = { completed: estado.completed, emCurso: estado.emCurso, conclusoes: estado.conclusoes };
+    // S18b-2: `dominadas` entra aqui porque esta tela é quem desenha o carimbo da
+    // estação (a caderneta, desenho §gamificação) e é quem lê a frase do que foi
+    // medido. O objeto de progresso é remontado campo a campo, e sem esta linha o
+    // carimbo chegaria até `carregarViagem` e pararia neste ponto — a tela do
+    // perfil diria «percorrida» sobre uma estação que a pessoa dominou.
+    const progresso = {
+      completed: estado.completed,
+      emCurso: estado.emCurso,
+      conclusoes: estado.conclusoes,
+      dominadas: estado.dominadas,
+    };
     const lista = marcosDoPerfil(cat.courses || [], progresso);
 
     let r;

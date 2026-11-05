@@ -63,12 +63,14 @@ test('lerProgresso aceita as três formas: array cru, objeto v3 e lixo', () => {
   assert.deepEqual(lerProgresso(['alfa', 'beta']), {
     completed: ['alfa', 'beta'],
     emCurso: [],
-    conclusoes: {}
+    conclusoes: {},
+    // S18b-2: o formato ganhou `dominadas` (o carimbo do desafio, desenho J4).
+    dominadas: {}
   });
   // discrimina: quem não saneia devolve emCurso duplicado ou conclusão sem data
   assert.deepEqual(
     lerProgresso({ completed: ['alfa', 'alfa'], emCurso: ['beta', 'beta'], conclusoes: { alfa: '2026-10-01', beta: '2026-99-99' } }),
-    { completed: ['alfa'], emCurso: ['beta'], conclusoes: { alfa: '2026-10-01' } }
+    { completed: ['alfa'], emCurso: ['beta'], conclusoes: { alfa: '2026-10-01' }, dominadas: {} }
   );
   // discrimina: quem lança exceção derruba a tela com storage corrompido
   for (const lixo of [null, undefined, 42, 'alfa', {}, NaN]) {

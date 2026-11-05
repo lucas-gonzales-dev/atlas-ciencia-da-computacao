@@ -445,6 +445,10 @@ export const mapa = Object.freeze({
     embarcada: ['embarcada', 'embarcadas'],
     'em-percurso': ['em percurso', 'em percurso'],
     percorrida: ['percorrida', 'percorridas'],
+    // S18b-2: o estágio que o desafio da estação produz (desenho J4). Entra na
+    // escada de `ESTAGIOS_DO_EIXO` e, portanto, precisa do nome aqui — a trava
+    // `todo estágio do núcleo tem nome` cai em nome de estágio inventado.
+    dominada: ['dominada', 'dominadas'],
     'concluida-antes': ['concluída antes', 'concluídas antes'],
     fora: ['fora da rota', 'fora da rota'],
   }),
@@ -1135,6 +1139,41 @@ export const desafio = Object.freeze({
 
   /** Faltam cartões mesmo: escreva ao fechar as aulas. */
   escrevaMais: (faltam) => `O desafio usa os seus cartões: escreva mais ${faltam} ao fechar as aulas.`,
+
+  /**
+   * O reprovado (desenho J4, item 3). Duas mudanças em relação ao texto antigo
+   * do desenho, ambas por honestidade: «com prioridade» virou «de hoje» porque o
+   * Atlas não tem prioridade na fila — o que acontece é o `devidoEm` voltar para
+   * hoje, e a frase diz exatamente isso — e o número é de CARTÕES ERRADOS, nunca
+   * de cartões que faltaram para aprovar («Faltaram 4» com 14 no desafio são 4
+   * errados, não 4 a menos: com 9 de 12 a pessoa também «faltaria» 1).
+   */
+  reprovado: (errados) => `Faltaram ${errados}. Eles voltam para a fila de hoje. Tente de novo quando quiser.`,
+
+  /**
+   * A FRASE DO QUE FOI MEDIDO (S18b-2) — ela substitui a «frase de competência»
+   * do desenho J4, que afirmava uma saber-fazer («Você converte entre bases...»)
+   * que ninguém mediu. Esta aqui só repete os números do carimbo: as aulas da
+   * estação, os cartões que a pessoa escreveu, e o que ela lembrou dos sorteados,
+   * dois dias ou mais depois, pela conferência DELA. A segunda frase é o piso da
+   * honestidade: o desafio não apresenta material novo, então a frase não pode
+   * fazer parecer que sim.
+   *
+   * Singular e plural concordam por número, não por artigo avulso: «Percorriu a 1
+   * aula» com «as 93 aulas» na mesma porta.
+   *
+   * @param {{aulas?: number, cartoes?: number, lembrados?: number, total?: number}} dominada
+   */
+  dominada: ({ aulas = 0, cartoes = 0, lembrados = 0, total = 0 } = {}) => {
+    // `lembrados` chega das duas formas que existem no sistema: a CONTAGEM, e a
+    // LISTA de ids que `progresso.dominadas[estacao]` guarda (core/desafio.js).
+    // Um `Number(['c1','c2'])` é NaN, e a frase sairia «lembrou 0 de 14» sobre um
+    // carimbo que mediu 2 — por isso a lista é lida pelo tamanho.
+    const n = (v) => (Array.isArray(v) ? v.length : Number(v) || 0);
+    const percorridas = n(aulas) === 1 ? 'a 1 aula desta estação' : `as ${n(aulas)} aulas desta estação`;
+    const escritos = `${n(cartoes)} ${n(cartoes) === 1 ? 'cartão' : 'cartões'}`;
+    return `Percorreu ${percorridas}, escreveu ${escritos} e, dois dias ou mais depois, lembrou ${n(lembrados)} de ${n(total)} deles, pela sua própria conferência. Não mede exercícios novos.`;
+  },
 });
 
 /** Tudo junto, para quem precisa percorrer (o teste percorre). */

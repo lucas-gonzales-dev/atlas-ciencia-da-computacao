@@ -688,7 +688,23 @@
 // fatia — mas ele entra agora pelo mesmo motivo do viagem.js: o precache cobre o
 // disco, e um módulo fora do cache é a tela em branco no ônibus. Mudam de bytes e
 // estão no precache: core/desafio.js (novo) e core/textos.js.
-const VERSAO = 'atlas-v82';
+// atlas-v83: S18b-2 (05/11/2026) — corrigir o desafio, a estação DOMINADA e a frase
+// do que foi medido, ainda sem tela. Fecha a volta do J4 em core/desafio.js:
+// `corrigirDesafio` (o denominador é o sorteio, o corte é 0,8 — 8 de 10 aprueba e
+// 7 de 10 não), `aplicarResultado` (aprovado escreve `progresso.dominadas[estacao]`
+// = {em, acertos, total, lembrados, aulas, cartoes}, que é o que a S17 lê; reprovado
+// põe `devidoEm = hoje` só nos errados, e nada rebaixa: o tempo nunca rebaixa, e só
+// um reprovado DEPOIS de dominada devolve para percorrida) e `fraseDaDominada` (em
+// core/textos.js: «Percorreu as 93 aulas... lembrou 12 de 14 deles, pela sua própria
+// conferência. Não mede exercícios novos.» — substitui a frase de competência, que
+// afirmava um saber-fazer que ninguém mediu). 'dominada' entra em ESTAGIOS_DO_EIXO e
+// na escada de eixosDaEstacao, e `progresso.dominadas` é campo NOVO do formato:
+// lerProgresso, salvarViagem, carregarViagem e o perfil remontam o progresso campo a
+// campo, e o que não entra na lista se perde em silêncio — o carimbo sumiria sem
+// erro nenhum. A trava do round-trip está em tests/desafio.test.js. Mudam de bytes e
+// estão no precache: core/desafio.js, core/textos.js, core/eixos.js, core/viagem.js,
+// web/metro.js, web/telas/perfil.js.
+const VERSAO = 'atlas-v83';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
@@ -738,7 +754,7 @@ const VERSAO = 'atlas-v82';
 // a VERSAO acima: 106 arquivos, nenhum ENTROU e um mudou de bytes —
 // web/telas/aulas.css (a marca tracejada da pulada e a duração na coluna do
 // título em 375 px). O sw.js mediu o mesmo sha256 antes e depois.
-const PRECACHE_HASH = 'sha256-ae1bf100464d46749a0333bc6ee954e58226f0b87b1f7634c5750213a0903832';
+const PRECACHE_HASH = 'sha256-713a4e1254880668a261198881e9f22cbe04e65c760f16347f5d89b20d6c25a2';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.

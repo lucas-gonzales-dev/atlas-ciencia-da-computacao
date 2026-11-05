@@ -89,18 +89,23 @@ export function carregarViagem(storage, completed) {
   const lido = lerProgresso(detalhe ? tenta(detalhe) : null);
   // completed é a autoridade: uma estação marcada como concluída no detalhe mas
   // não na fonte compartilhada não existe (e vice-versa).
-  return { completed: ids, emCurso: lido.emCurso, conclusoes: lido.conclusoes };
+  // S18b-2: `dominadas` é o carimbo do desafio da estação, e é o único registro de
+  // que ele foi passado. Os dois retornos deste bloco remontam o progresso campo a
+  // campo, e o que não entra na lista não dá erro — simplesmente não volta. Por
+  // isso a linha abaixo é obrigatória, e a trava do round-trip (gravar, reler, os
+  // números continuarem lá) está em app/tests/desafio.test.js.
+  return { completed: ids, emCurso: lido.emCurso, conclusoes: lido.conclusoes, dominadas: lido.dominadas };
 }
 
 function tenta(texto) {
   try { return JSON.parse(texto); } catch { return null; }
 }
 
-/** Guarda em curso + datas. Devolve false quando o aparelho não deixou gravar. */
+/** Guarda em curso + datas + o carimbo das dominadas. Devolve false quando o aparelho não deixou gravar. */
 export function salvarViagem(storage, progresso) {
   const p = lerProgresso(progresso);
   try {
-    storage.setItem(CHAVE_VIAGEM, JSON.stringify({ emCurso: p.emCurso, conclusoes: p.conclusoes }));
+    storage.setItem(CHAVE_VIAGEM, JSON.stringify({ emCurso: p.emCurso, conclusoes: p.conclusoes, dominadas: p.dominadas }));
     return true;
   } catch {
     return false;

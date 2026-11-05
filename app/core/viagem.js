@@ -57,7 +57,8 @@ export const ESTACOES_POR_LINHA = 5;
 
 /**
  * Aceita as três formas que um progresso pode ter na prática e devolve a forma
- * v3: `{completed, emCurso, conclusoes}`.
+ * v3: `{completed, emCurso, conclusoes, dominadas}`. A S18b-2 acrescentou o campo
+ * `dominadas` — o carimbo de quem passou no desafio da estação (desenho J4).
  *
  *   - array cru de ids: é o que o localStorage guarda hoje, e o que um arquivo
  *     de versão 1 ou 2 contém. Quem abriu o DevTools e salvou à mão não pode
@@ -71,10 +72,14 @@ export const ESTACOES_POR_LINHA = 5;
  * aqui também seria ter duas malhas de validação que um dia divergem.
  *
  * @param {unknown} bruto
- * @returns {{completed: string[], emCurso: string[], conclusoes: Record<string,string>}}
+ * @returns {{completed: string[], emCurso: string[], conclusoes: Record<string,string>,
+ *   dominadas: Record<string, object>}}
  */
 export function lerProgresso(bruto) {
-  const vazio = { completed: [], emCurso: [], conclusoes: {} };
+  // `dominadas` entra no `vazio` porque o formato é um só: um progresso sem o
+  // campo é o mesmo que um progresso com o campo vazio, e as duas formas têm de
+  // sair da mesma chave para quem compara ou grava.
+  const vazio = { completed: [], emCurso: [], conclusoes: {}, dominadas: {} };
 
   const idsUnicos = (lista) => {
     if (!Array.isArray(lista)) return [];
@@ -99,13 +104,79 @@ export function lerProgresso(bruto) {
   return {
     completed: idsUnicos(bruto.completed),
     emCurso: idsUnicos(bruto.emCurso),
-    conclusoes
+    conclusoes,
+    dominadas: dominadasSaneadas(bruto.dominadas)
   };
+}
+
+/**
+ * S18b-2 — o registro das estações DOMINADAS, campo novo do progresso.
+ *
+ * POR QUE ESTA FUNÇÃO EXISTE E POR QUE ELA É OBRIGATÓRIA: o progresso é remontado
+ * campo a campo, aqui dentro e outra vez em `web/metro.js` (`carregarViagem` /
+ * `salvarViagem`). Um campo que não entre na lista não dá erro — ele simplesmente
+ * não volta. O carimbo da dominada é a única coisa que prova que o desafio foi
+ * passado, e perdê-lo em silêncio é apagar uma conquista sem avisar, o pior
+ * defeito possível num app que promete que nada se perde. A trava do round-trip
+ * está em tests/desafio.test.js.
+ *
+ * O que se guarda por estação (desenho J4): `em`, `acertos`, `total`,
+ * `lembrados`, `aulas`, `cartoes`. Nada aqui recalcula os números — o carimbo é o
+ * que foi medido no dia, e a frase dele (`core/textos.js`, `desafio.dominada`) é
+ * lida desses números, não de uma conta nova. Uma estação dominada que perder o
+ * `acertos` ganharia um carimbo com número inventado.
+ *
+ * A malha é por entrada, como em `conferirCartao`: um registro ruim derruba o
+ * registro, nunca o objeto inteiro.
+ */
+function dominadasSaneadas(bruto) {
+  const dominadas = {};
+  if (!bruto || typeof bruto !== 'object' || Array.isArray(bruto)) return dominadas;
+  const inteiro = (v) => {
+    const n = Number(v);
+    return Number.isFinite(n) && n >= 0 ? Math.round(n) : 0;
+  };
+  for (const [id, r] of Object.entries(bruto)) {
+    if (typeof id !== 'string' || !id.trim()) continue;
+    if (!r || typeof r !== 'object' || Array.isArray(r)) continue;
+    // A data é o que faz o carimbo ser um dia e não uma abstração; sem ela o
+    // registro não existe, e as listas de ids (aulas, cartoes) só chegam se
+    // forem listas — guardá-las pela metade é uma medida pela metade.
+    if (typeof r.em !== 'string' || !ehData(r.em)) continue;
+    // `lembrados` é a lista de ids dos cartões que a pessoa conferiu — é o que faz
+    // a frase dizer «lembrou 12 de 14» e não «12 de nada». `aulas` e `cartoes` são
+    // CONTAGENS, não listas: «as 93 aulas desta estação» e «23 cartões» vêm do
+    // resumo de quem aplica o resultado (core/desafio.js, `aplicarResultado`), e
+    // uma estação de 93 aulas guardadas como lista de ids incharia o storage por
+    // um número que a tela só imprime.
+    const lembrados = Array.isArray(r.lembrados) ? idsUnicosDaLista(r.lembrados) : [];
+    const acertos = inteiro(r.acertos);
+    const total = inteiro(r.total);
+    // Sem acertos, sem total e sem ids lembrados não há o que carimbar: um
+    // registro assim é dado corrompido, e deixá-lo passar daria uma estação
+    // «dominada» com uma frase sobre números que ninguém mediu.
+    if (acertos <= 0 && total <= 0 && !lembrados.length) continue;
+    dominadas[id] = {
+      em: r.em,
+      acertos,
+      total,
+      lembrados,
+      aulas: inteiro(r.aulas),
+      cartoes: inteiro(r.cartoes)
+    };
+  }
+  return dominadas;
+}
+
+function idsUnicosDaLista(lista) {
+  const vistos = new Set();
+  for (const x of lista) if (typeof x === 'string' && x.trim() && !vistos.has(x)) vistos.add(x);
+  return [...vistos];
 }
 
 /** Progresso v3 vazio: o estado de quem acabou de chegar. */
 export function progressoVazio() {
-  return { completed: [], emCurso: [], conclusoes: {} };
+  return { completed: [], emCurso: [], conclusoes: {}, dominadas: {} };
 }
 
 /** `AAAA-MM-DD` válido? Sem isto, "2026-13-45" viraria dia de viagem. */
@@ -422,7 +493,11 @@ export function concluirEstacao(progresso, id, hoje, catalogo) {
   // Só grava a data se ainda não há uma: um segundo toque (ou um re-toque dias
   // depois) não muda o dia em que a viagem aconteceu.
   const conclusoes = ehData(p.conclusoes[id]) ? { ...p.conclusoes } : { ...p.conclusoes, [id]: data };
-  return { completed, emCurso, conclusoes };
+  // S18b-2: `dominadas` passa adiante. Estas transições remontam o progresso
+  // campo a campo, e uma delas sem o campo apaga o carimbo do desafio toda vez
+  // que a pessoa conclui ou desfaz uma estação — rebaixar por tabela é justamente
+  // o que o desenho não permite (o tempo e o clique nunca rebaixam).
+  return { completed, emCurso, conclusoes, dominadas: p.dominadas };
 }
 
 /**
@@ -457,7 +532,14 @@ export function desfazerConclusao(progresso, id) {
   return {
     completed: p.completed.filter((x) => x !== id),
     emCurso: [...p.emCurso],
-    conclusoes
+    conclusoes,
+    // S18b-2: desfazer a CONCLUSÃO não desfaz o DESAFIO. São medidas separadas
+    // (princípio 1 do desenho): o carimbo do desafio vem de cartões lembrados dois
+    // dias depois, e não há botão na tela de conclusão que diga "e apaga isso
+    // também". Um `...p` aqui salvaria o campo por acidente; ele é explícito porque
+    // o próximo que remontar esta saída sem a linha rebaixa uma dominada em
+    // silêncio — que é exatamente o que o desenho não deixa fazer.
+    dominadas: { ...p.dominadas }
   };
 }
 

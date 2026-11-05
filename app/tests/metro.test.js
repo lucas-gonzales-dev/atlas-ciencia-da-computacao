@@ -1124,7 +1124,9 @@ test('viagem em curso: em curso e datas ficam numa chave própria; completed é 
   assert.deepEqual(p.conclusoes, { l1a: '2026-10-01' });
   // storage corrompido não derruba a tela
   const ruim = carregarViagem(criarStorage({ [CHAVE_VIAGEM]: '{{{' }), ['l1a']);
-  assert.deepEqual(ruim, { completed: ['l1a'], emCurso: [], conclusoes: {} });
+  // S18b-2 acrescentou `dominadas` ao formato, e ele sai vazio do lixo — a forma
+  // é uma só, e quem compara o progresso campo a campo tem de comparar seis campos.
+  assert.deepEqual(ruim, { completed: ['l1a'], emCurso: [], conclusoes: {}, dominadas: {} });
   // gravar devolve true, e gravar sem storage devolve false sem exceção
   assert.equal(salvarViagem(storage, { completed: [], emCurso: ['x'], conclusoes: {} }), true);
   assert.equal(salvarViagem(null, { completed: [], emCurso: [], conclusoes: {} }), false);

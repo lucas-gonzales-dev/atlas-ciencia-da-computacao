@@ -30,6 +30,7 @@ import { diasEntre } from './cartoes.js';
 import { estadoDaAula } from './estudo.js';
 import { ESTAGIOS_DO_EIXO } from './eixos.js';
 import { desafio as T } from './textos.js';
+import { lerProgresso } from './viagem.js';
 
 /** Cartões com menos disto ainda são recordação a quente: não entram no desafio. */
 export const IDADE_MINIMA_DIAS = 2;
@@ -149,6 +150,13 @@ function prng(semente) {
  *      não há o que sortear — regra 7);
  *   4. há ao menos MINIMO_CARTOES elegíveis na estação.
  *
+ * A estação DOMINADA também pode (S18b-2, item 3 do pedido): `dominada` vem depois
+ * de `percorrida` na escada de `ESTAGIOS_DO_EIXO`, então o `indexOf` abaixo já a
+ * aceita — e isso é de propósito, porque refazer o desafio é a única forma de
+ * perder o carimbo (um reprovado DEPOIS de dominada devolve a estação para
+ * percorrida; o tempo nunca rebaixa). Não há um `|| estagio === 'dominada'` aqui:
+ * duas regras para a mesma pergunta é o lugar onde elas divergem.
+ *
  * Estações sem aula de exercício (20 das 36) passam as condições 2 e 3 sozinhas:
  * não há exercício faltando nem cartão por escrever. É o vazio verdadeiro, não um
  * `|| true` — a lista vem da fonte.
@@ -258,4 +266,213 @@ export function montarDesafio(cartoes, estacao, aulasDaEstacao, hoje, semente) {
 
   sorteio.cartoes = ids;
   return sorteio;
+}
+
+// ═══════════ S18b-2 (05/11/2026): corrigir, a dominada e a frase do que foi medido ═══════════
+//
+// A fatia anterior (S18b-1) respondia «quem pode» e «o que entra no sorteio».
+// Esta fecha a volta: dado o sorteio e o que a pessoa conferiu, quanto foi
+// lembrado, o que acontece com a estação e com os cartões, e o que a tela diz.
+// A tela (S18c) desenha; quem decide fica aqui, porque a régua do 0,8 e o
+// rebaixamento só pelo reprovado são regra de produto, não de layout.
+
+/** O corte de aprovação do desenho J4: 80% dos cartões do sorteio. */
+export const CORTE_APROVACAO = 0.8;
+
+/** `aaaa-mm-dd` — a mesma régua de core/cartoes.js, e ela só vale local. */
+const HE_DIA = /^\d{4}-\d{2}-\d{2}$/;
+
+const diaDe = (v) => {
+  const s = face(v).slice(0, 10);
+  return HE_DIA.test(s) ? s : '';
+};
+
+/**
+ * A contagem de uma resposta da pessoa.
+ *
+ * Ela é autoconferência — a pessoa lê a frente, tenta, vira o verso e diz se
+ * lembrou — então o que chega é tão sóbrio quanto os dois botões da revisão:
+ * `true` / `'lembrei'` contam como lembrado, `false` / `'errei'` como errado, e
+ * o resto não foi respondido. Tratar uma string vazia como "errei" faria o
+ * desafio punir quem fechou a tela no meio sem responder nada.
+ */
+const respostaDe = (bruto) => {
+  if (bruto === true || bruto === 'lembrei' || bruto === 'acertou') return true;
+  if (bruto === false || bruto === 'errei' || bruto === 'errou') return false;
+  if (bruto && typeof bruto === 'object') return respostaDe(bruto.acertou ?? bruto.nota);
+  return null;
+};
+
+/**
+ * A correção do desafio. Devolve `{ acertos, total, aprovado, lembrados, errados }`.
+ *
+ * O denominador é o SORTEIO, nunca o arquivo inteiro: "lembrou 12 de 14" são os
+ * 14 que saíram no sorteio, e um cartão que a pessoa tem mas não foi sorteado não
+ * entra na conta nem no carimbo.
+ *
+ * Quem responde fora do sorteio é IGNORADO, e isso é a defesa do número: um id
+ * que não foi sorteado não pode inflar `acertos`, e um desafio vazio não pode ser
+ * aprovado por vacuidade — 0 de 0 não é 100%, é "não houve medida".
+ *
+ * @param {{cartoes?: string[]}} desafio o resultado de `montarDesafio`
+ * @param {object|Array} respostas id → true|false (ou lista de {id, acertou})
+ * @returns {{acertos: number, total: number, aprovado: boolean, lembrados: string[], errados: string[]}}
+ */
+export function corrigirDesafio(desafio, respostas) {
+  const ids = [...new Set(listaDe(desafio?.cartoes).map(face).filter(Boolean))];
+  const dadas = {};
+  if (Array.isArray(respostas)) {
+    for (const r of respostas) {
+      const id = face(r?.id ?? r?.cartao);
+      if (id) dadas[id] = respostaDe(r);
+    }
+  } else if (respostas && typeof respostas === 'object') {
+    for (const [id, v] of Object.entries(respostas)) dadas[face(id)] = respostaDe(v);
+  }
+
+  const lembrados = [];
+  const errados = [];
+  for (const id of ids) (dadas[id] === true ? lembrados : errados).push(id);
+
+  const total = ids.length;
+  const acertos = lembrados.length;
+  return {
+    acertos,
+    total,
+    // A régua do desenho: `acertos / total >= 0,8`. Com 14 no sorteio, 12 aprueba
+    // (0,857), 11 não (0,785) — o corte é comparado antes de arredondar qualquer
+    // porcentagem, porque arredondar 11/14 para 79% e depois para 80% é como o
+    // carimbo nasceria de uma conta de cabeça.
+    aprovado: total > 0 && acertos / total >= CORTE_APROVACAO,
+    lembrados,
+    errados,
+  };
+}
+
+/** Uma contagem vinda do `resumo`: número, array, ou o total de um objeto. */
+const contagemDe = (v) => {
+  if (Array.isArray(v)) return v.length;
+  if (v && typeof v === 'object') return contagemDe(v.total ?? v.aulas ?? v.quantidade);
+  const n = Number(v);
+  return Number.isFinite(n) && n >= 0 ? Math.round(n) : 0;
+};
+
+/**
+ * Aplica o resultado do desafio: o carimbo, a fila e o rebaixamento.
+ *
+ * Aprovado — a estação vira **dominada**, e o dado é
+ * `progresso.dominadas[estacao] = { em, acertos, total, lembrados, aulas, cartoes }`.
+ * É este objeto que a S17 lê para desenhar o carimbo, e a frase dele sai só dos
+ * números guardados aqui: `aulas` e `cartoes` vêm do `resumo` (quantas aulas tem
+ * a estação e quantos cartões a pessoa escreveu nela) e `lembrados`/`total` são o
+ * sorteio conferido. Um re-aprovado substitui o carimbo pelo mais recente — a
+ * pessoa pode refazer, e a última vez que ela passou é a vez que vale.
+ *
+ * Reprovado — os cartões errados ganham `devidoEm = hoje`, e nada mais. Eles
+ * voltam à fila do dia porque é isso que "tente de novo quando quiser" quer dizer
+ * na prática: o cartão que caiu está na frente de amanhã, e a pessoa não perde o
+ * que já escreveu. A frase diz quantos eram.
+ *
+ * O TEMPO NUNCA REBAIXA, e só um reprovado DEPOIS de dominada devolve a estação
+ * para percorrida: aqui isso é `delete dominadas[estacao]`, porque 'percorrida' é
+ * o que a estação é SEM o carimbo — quem calcula o estágio é core/eixos.js, e não
+ * existe um campo 'percorrida' para escrever. Reprovado em estação nunca dominada
+ * não toca no progresso: ela já está onde o reprovado a deixaria.
+ *
+ * Nada aqui recalcula o FSRS dos cartões. O desafio é autoconferência, não uma
+ * sessão de revisão: quem move a data e a estabilidade de um cartão é
+ * `revisarCartao`, e um desafio aprovado que também reescrevesse `fsrs` daria dois
+ * donos para o mesmo agendamento — o pior tipo de contradição num arquivo.
+ *
+ * @param {object} progresso o progresso v3 (core/viagem.js)
+ * @param {object|{cartoes: object}} cartoes o arquivo de cartões
+ * @param {string} estacao o id da estação
+ * @param {{aprovado: boolean, acertos?: number, total?: number, lembrados?: string[], errados?: string[]}} resultado
+ * @param {{aulas?: number|object[], cartoes?: number|object[]}} resumo as duas contagens
+ * @param {string} quando `aaaa-mm-dd` ou `aaaa-mm-ddThh:mm` local
+ * @returns {{progresso: object, cartoes: object, dominada: object|null, recado: string}}
+ */
+export function aplicarResultado(progresso, cartoes, estacao, resultado, resumo, quando) {
+  const id = face(estacao);
+  const p = lerProgresso(progresso);
+  const r = resultado && typeof resultado === 'object' ? resultado : {};
+  const dia = diaDe(quando);
+
+  if (!id) {
+    return { progresso: p, cartoes, dominada: p.dominadas[id] ?? null, recado: '' };
+  }
+
+  if (r.aprovado) {
+    const dominada = {
+      em: dia || null,
+      acertos: contagemDe(r.acertos),
+      total: contagemDe(r.total),
+      lembrados: [...new Set(listaDe(r.lembrados).map(face).filter(Boolean))],
+      aulas: contagemDe(resumo?.aulas),
+      cartoes: contagemDe(resumo?.cartoes),
+    };
+    // Sem data não há carimbo — um `em` inventado seria o app declarando um dia
+    // em que a pessoa não disse nada. Sem `quando`, o que se devolve é o
+    // progresso intacto e o recado vazio, e a tela não carimba nada.
+    if (!dominada.em) return { progresso: p, cartoes, dominada: null, recado: '' };
+    return {
+      progresso: { ...p, dominadas: { ...p.dominadas, [id]: dominada } },
+      cartoes,
+      dominada,
+      recado: fraseDaDominada(dominada),
+    };
+  }
+
+  // ── reprovado ──
+  const errados = [...new Set(listaDe(r.errados).map(face).filter(Boolean))];
+  const atuais = mapaDe(cartoes);
+  const novo = { ...atuais };
+  let movidos = 0;
+  // A data é o que faz "voltam para a fila de hoje" ser verdade; sem um `hoje`
+  // lido, nenhum `devidoEm` é escrito — mover a fila para uma data chutada é
+  // pior que não mover.
+  if (dia) {
+    for (const cartaoId of errados) {
+      const c = novo[cartaoId];
+      if (!c || typeof c !== 'object') continue;
+      novo[cartaoId] = { ...c, devidoEm: dia };
+      movidos += 1;
+    }
+  }
+  // O envelope: quem passou `{versao, cartoes}` recebe `{versao, cartoes}`, quem
+  // passou o mapa cru recebe o mapa cru. Trocar a forma na volta é o jeito mais
+  // silencioso de destruir um arquivo.
+  const devolve = cartoes && Object.prototype.hasOwnProperty.call(cartoes, 'cartoes')
+    ? { ...cartoes, cartoes: novo }
+    : novo;
+
+  const eraDominada = !!(p.dominadas && p.dominadas[id]);
+  const dominadas = { ...p.dominadas };
+  if (eraDominada) delete dominadas[id];
+
+  return {
+    progresso: { ...p, dominadas },
+    cartoes: devolve,
+    dominada: null,
+    // O número da frase é o que VOLTOU para a fila, e não o que a pessoa errou:
+    // sem data válida nada se move, e dizer "4 voltaram para hoje" quando nenhum
+    // `devidoEm` mudou seria a tela mentindo sobre o arquivo dela.
+    recado: movidos ? T.reprovado(movidos) : '',
+  };
+}
+
+/**
+ * A frase do carimbo — o que a estação dominada AFIRMA, e só isso.
+ *
+ * Ela substitui a "frase de competência" do desenho (S17): em vez de
+ * «Você converte entre bases e projeta circuitos combinacionais simples», que
+ * ninguém mediu, ela repete os números medidos no dia. A última cláusula é o
+ * piso da honestidade: o desafio sorteou cartões que a pessoa já escreveu, e não
+ * apresentou exercício novo — a frase não pode sugerir o contrário.
+ *
+ * @param {object} dominada o registro de `progresso.dominadas[estacao]`
+ * @returns {string}
+ */
+export function fraseDaDominada(dominada) {
+  return T.dominada(dominada && typeof dominada === 'object' ? dominada : {});
 }

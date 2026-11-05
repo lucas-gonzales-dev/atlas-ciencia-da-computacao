@@ -42,12 +42,13 @@ import { aulaNaEstacao } from './estudo.js';
 /** Limiar do "pede revisão": abaixo disto a memória está esfriando. Desenho, J3. */
 export const LIMITE_RECUPERABILIDADE = 0.8;
 
-/** Os cinco estágios que o mapa pinta. Um a mais que os quatro de hoje, e por um motivo: 'concluida-antes'. */
+/** Os estágios que o mapa pinta, na ordem da escada. Seis desde a S18b-2: 'dominada' entra porque o desafio da estação existe, e o carimbo precisa de um lugar na cor. */
 export const ESTAGIOS_DO_EIXO = Object.freeze([
   'fora',
   'embarcada',
   'em-percurso',
   'percorrida',
+  'dominada',
   'concluida-antes',
 ]);
 
@@ -210,7 +211,14 @@ export function eixosDaEstacao(id, { estudo, cartoes, indice, progresso, hoje } 
   // pessoa declarou e o mapa mostra a declaração, sem fingir a medida. Quem
   // separa isso do carimbo é a linha de cima: `concluida-antes` vem primeiro e é
   // o carimbo SEM medição nenhuma atrás.
-  if (feita && estudadas === 0) estagio = 'concluida-antes';
+  // S18b-2: 'dominada' vem ANTES do carimbo porque é a medida mais forte que
+  // existe — não o clique de «Já sei isso», e sim um desafio passado com 80% dos
+  // cartões lembrados dois dias ou mais depois (core/desafio.js, `aplicarResultado`).
+  // O registro vive em `progresso.dominadas`, campo este que o mapa já recebe.
+  // `pedeRevisao` continua valendo para a dominada: dominar não congela a memória,
+  // e os cartões dela seguem na fila do FSRS como os de qualquer estação.
+  if (progresso?.dominadas?.[id]) estagio = 'dominada';
+  else if (feita && estudadas === 0) estagio = 'concluida-antes';
   else if (total > 0 && feitas >= total) estagio = 'percorrida';
   else if (estudadas > 0) estagio = 'em-percurso';
   // S18a: pulada também é toque. Sem este `||`, uma estação com 3 aulas puladas e

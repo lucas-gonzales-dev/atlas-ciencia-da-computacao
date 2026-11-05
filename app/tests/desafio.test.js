@@ -21,10 +21,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import {
-  IDADE_MINIMA_DIAS, MINIMO_CARTOES, MAXIMO_CARTOES,
+  IDADE_MINIMA_DIAS, MINIMO_CARTOES, MAXIMO_CARTOES, CORTE_APROVACAO,
   cartoesElegiveis, podeDesafiar, montarDesafio,
+  corrigirDesafio, aplicarResultado, fraseDaDominada,
 } from '../core/desafio.js';
-import { criarCartao } from '../core/cartoes.js';
+import { criarCartao, revisarCartao } from '../core/cartoes.js';
+import { eixosDaEstacao } from '../core/eixos.js';
+import { lerProgresso } from '../core/viagem.js';
+import { salvarViagem, carregarViagem } from '../web/metro.js';
 import { TEXTOS, desafio as D } from '../core/textos.js';
 
 const ESTACAO = 'ubl-core-circuitos-digitais';
@@ -368,4 +372,315 @@ test('S18b-1 · textos: o desafio tem as quatro frases, todas em TEXTOS (regra 9
   assert.equal(D.faltamCartoesDeExercicio([9]), 'Escreva um cartão da aula de exercício 9.');
   assert.equal(D.escrevaMais(4), 'O desafio usa os seus cartões: escreva mais 4 ao fechar as aulas.');
   assert.equal(D.maturando(3), 'Os cartões entram dois dias depois de escritos: faltam 3.');
+});
+
+// ═══════════ S18b-2 (05/11/2026): corrigir, a dominada e a frase ═══════════
+//
+// O que se prova aqui, na ordem do pedido:
+//   1. a correção no corte — 8 de 10 aprueba, 7 de 10 não;
+//   2. o reprovado devolve os ERRADOS para hoje e não toca nos demais;
+//   3. o tempo nunca rebaixa, e só um reprovado DEPOIS de dominada devolve para
+//      percorrida (e a dominada pode refazer o desafio);
+//   4. o round-trip do campo novo — gravar, reler, os números continuarem lá;
+//   5. a frase do carimbo com os números, no singular e no plural.
+//
+// Os cartões seguem nascendo de `criarCartao` e `revisarCartao`, e agora isso
+// importa de um jeito novo: o reprovado mexe em `devidoEm`, e um cartão armado à
+// mão no teste não teria o `devidoEm` de futuro que uma revisão real deu a ele. A
+// prova de que só os errados voltam é exatamente a diferença entre as datas dos
+// dois grupos.
+//
+// Uma mutação por bloco: o corte em 0,7 (aprovar com 7/10) derruba as travas
+// abaixo, e foi assim que elas foram conferidas.
+
+/** Um sorteio de `MINIMO_CARTOES` cartões reais, com a estação toda estudada. */
+function cenario(quantos = MINIMO_CARTOES, semente = 's18b2') {
+  const aulas = aulasDaEstacao(8, [2, 5]);
+  const cartoes = comCartoes([
+    { aula: 'a2' },
+    { aula: 'a5' },
+    ...espalhados(quantos - 2, { excluidas: [2, 5] }),
+  ]);
+  const sorteio = montarDesafio(cartoes, ESTACAO, aulas, HOJE, semente);
+  assert.equal(sorteio.cartoes.length, quantos, 'o sorteio não veio com o tamanho pedido');
+  return { aulas, cartoes, sorteio };
+}
+
+/** As respostas: os `acertos` primeiros do sorteio lembraram, o resto errou. */
+function respostas(sorteio, acertos) {
+  const dadas = {};
+  sorteio.cartoes.forEach((id, i) => { dadas[id] = i < acertos; });
+  return dadas;
+}
+
+/** Todos os cartões revisados de verdade nesta manhã — o `devidoEm` vai para o futuro. */
+function reviseTodos(cartoes, nota = 'lembrei') {
+  let arq = cartoes;
+  for (const id of Object.keys(cartoes)) {
+    const r = revisarCartao(arq, id, { nota, confianca: 'acho' }, HOJE_MANHA);
+    assert.equal(r.ok, true, `a revisão de ${id} não aconteceu: ${r.erro}`);
+    arq = r.cartoes;
+  }
+  return arq;
+}
+
+const progressoVazio = () => ({ completed: [], emCurso: [], conclusoes: {}, dominadas: {} });
+
+// ───────────────── 1. a correção, no corte de 80% ─────────────────
+
+test('S18b-2 · correção: 8 de 10 aprueba, 7 de 10 não (o corte é 0,8, não 0,7)', () => {
+  const { sorteio } = cenario();
+  const aprovado = corrigirDesafio(sorteio, respostas(sorteio, 8));
+  assert.equal(aprovado.acertos, 8);
+  assert.equal(aprovado.total, 10);
+  assert.equal(aprovado.aprovado, true, '7/10 → 70% e 8/10 → 80% têm de cair em lados opostos do corte');
+  assert.deepEqual(aprovado.lembrados, sorteio.cartoes.slice(0, 8));
+  assert.deepEqual(aprovado.errados, sorteio.cartoes.slice(8));
+
+  const reprovado = corrigirDesafio(sorteio, respostas(sorteio, 7));
+  assert.equal(reprovado.aprovado, false, 'aprovou com 7 de 10: o corte escorregou para 0,7');
+  assert.equal(reprovado.errados.length, 3);
+});
+
+test('S18b-2 · correção: o denominador é o SORTEIO, e responder fora dele não conta', () => {
+  const { sorteio, cartoes } = cenario();
+  const fora = Object.keys(cartoes).find((id) => !sorteio.cartoes.includes(id));
+  const r = corrigirDesafio(sorteio, { ...respostas(sorteio, 9), [fora]: true });
+  assert.equal(r.total, MINIMO_CARTOES, 'um cartão não sorteado entrou no denominador');
+  assert.equal(r.acertos, 9, 'um cartão não sorteado entrou como acerto: a pessoa aprovaria por algo que não respondeu');
+  assert.equal(r.lembrados.includes(fora), false);
+});
+
+test('S18b-2 · correção: sem sorteio não há 100% — 0 de 0 é «não houve medida»', () => {
+  const r = corrigirDesafio({ semente: 'nada', cartoes: [] }, {});
+  assert.deepEqual({ acertos: r.acertos, total: r.total, aprovado: r.aprovado }, { acertos: 0, total: 0, aprovado: false });
+  assert.equal(corrigirDesafio(undefined, undefined).aprovado, false);
+});
+
+test('S18b-2 · correção: respondido de forma diferente vale, não respondido não conta como acerto', () => {
+  const { sorteio } = cenario();
+  const r = corrigirDesafio(sorteio, [{ id: sorteio.cartoes[0], acertou: true }, { id: sorteio.cartoes[1], nota: 'errei' }]);
+  assert.equal(r.acertos, 1);
+  // Os 9 não respondidos caem em `errados` (a lista dos que não foram lembrados),
+  // e o corte é sobre o sorteio inteiro: fechar a tela no meio não aprova nada.
+  assert.equal(r.errados.length, MINIMO_CARTOES - 1);
+  assert.equal(r.aprovado, false);
+});
+
+// ───────────────── 2. o reprovado devolve os errados para hoje ─────────────────
+
+test('S18b-2 · reprovado: os 3 errados voltam para HOJE, os 7 lembrados ficam onde a revisão os pôs', () => {
+  const { sorteio, cartoes } = cenario();
+  const revisados = reviseTodos(cartoes);
+  const antes = corrigirDesafio(sorteio, respostas(sorteio, 7));
+  assert.equal(antes.aprovado, false);
+
+  const r = aplicarResultado(
+    progressoVazio(), revisados, ESTACAO, antes,
+    { aulas: 8, cartoes: Object.keys(revisados).length }, HOJE,
+  );
+
+  const depois = r.cartoes;
+  for (const id of antes.errados) {
+    assert.equal(depois[id].devidoEm, HOJE, `${id} errou no desafio e não voltou para a fila de hoje`);
+  }
+  for (const id of antes.lembrados) {
+    assert.notEqual(depois[id].devidoEm, HOJE, 'um cartão lembrado foi puxado para hoje: a fila diria «reveja» o que ela acabou de confirmar');
+    assert.deepEqual(depois[id], revisados[id], 'o reprovado mexeu num cartão que a pessoa acertou');
+  }
+  // Nada se perde: o arquivo continua com os mesmos 10 cartões, e o `fsrs` de um
+  // errado é o da revisão da manhã — o desafio é autoconferência, não revisão.
+  assert.deepEqual(Object.keys(depois).sort(), Object.keys(revisados).sort());
+  assert.deepEqual(depois[antes.errados[0]].fsrs, revisados[antes.errados[0]].fsrs, 'o desafio reescreveu o FSRS: dois donos para o mesmo agendamento');
+  assert.deepEqual(depois[antes.errados[0]].historico, revisados[antes.errados[0]].historico);
+  // Sem carimbo nenhum: reprovado não escreve `dominadas`, e não cria chave vazia.
+  assert.deepEqual(r.progresso.dominadas, {});
+  assert.equal(r.dominada, null);
+  assert.equal(r.recado, 'Faltaram 3. Eles voltam para a fila de hoje. Tente de novo quando quiser.');
+});
+
+test('S18b-2 · reprovado: sem uma data legível nada é movido, e a frase não é dita', () => {
+  const { sorteio, cartoes } = cenario();
+  const revisados = reviseTodos(cartoes);
+  const antes = corrigirDesafio(sorteio, respostas(sorteio, 6));
+  const r = aplicarResultado(progressoVazio(), revisados, ESTACAO, antes, {}, 'ontem');
+  assert.deepEqual(r.cartoes, revisados, 'mexeu na fila com uma data que não é data');
+  assert.equal(r.recado, '', 'disse «voltam para a fila de hoje» sem mover um cartão: a tela mentiu sobre o arquivo');
+});
+
+test('S18b-2 · aprovado: o envelope do arquivo é devolvido como veio', () => {
+  const { sorteio, cartoes } = cenario();
+  const antes = corrigirDesafio(sorteio, respostas(sorteio, 10));
+  const r = aplicarResultado(progressoVazio(), { versao: 1, cartoes }, ESTACAO, antes, { aulas: 8, cartoes: 10 }, HOJE);
+  assert.equal(r.cartoes.versao, 1, 'trocou a forma do envelope na volta');
+  assert.equal(Object.keys(r.cartoes.cartoes).length, MINIMO_CARTOES);
+});
+
+// ───────────────── 3. a dominada: carimbo, tempo e rebaixamento ─────────────────
+
+test('S18b-2 · aprovado: o carimbo em progresso.dominadas, com os números que a S17 lê', () => {
+  const { sorteio, cartoes, aulas } = cenario();
+  const antes = corrigirDesafio(sorteio, respostas(sorteio, 8));
+  const r = aplicarResultado(
+    progressoVazio(), cartoes, ESTACAO, antes,
+    { aulas, cartoes: Object.keys(cartoes) }, `${HOJE}T21:05`,
+  );
+  const dominada = r.progresso.dominadas[ESTACAO];
+  assert.ok(dominada, 'aprovou e o carimbo não nasceu');
+  assert.equal(dominada.em, HOJE, 'a hora não entra no carimbo: dia é dia');
+  assert.equal(dominada.acertos, 8);
+  assert.equal(dominada.total, 10);
+  assert.deepEqual(dominada.lembrados, antes.lembrados);
+  assert.equal(dominada.aulas, 8, 'aulas é a CONTAGEM do resumo, não a lista');
+  assert.equal(dominada.cartoes, MINIMO_CARTOES);
+  assert.equal(r.recado, fraseDaDominada(dominada));
+  // Aprovado não toca nos cartões: quem escreveu 10 cartões e passou continua com
+  // os 10, com as datas que a revisão deu a eles.
+  assert.deepEqual(r.cartoes, cartoes, 'o aprovado mexeu na fila');
+});
+
+test('S18b-2 · aprovado sem data não carimba: um dia inventado não é medida', () => {
+  const { sorteio, cartoes } = cenario();
+  const antes = corrigirDesafio(sorteio, respostas(sorteio, 10));
+  const r = aplicarResultado(progressoVazio(), cartoes, ESTACAO, antes, { aulas: 8, cartoes: 10 }, '');
+  assert.equal(r.dominada, null);
+  assert.deepEqual(r.progresso.dominadas, {});
+  assert.equal(r.recado, '');
+});
+
+test('S18b-2 · o tempo não rebaixa: dominada hoje é dominada 76 dias depois', () => {
+  const { sorteio, cartoes, aulas } = cenario();
+  const antes = corrigirDesafio(sorteio, respostas(sorteio, 9));
+  const aplicado = aplicarResultado(
+    progressoVazio(), cartoes, ESTACAO, antes, { aulas, cartoes: Object.keys(cartoes) }, HOJE,
+  );
+  const progresso = aplicado.progresso;
+  const indice = { estacoes: { [ESTACAO]: { aulas: aulas.length, segundos: 6000 } } };
+  // Os cartões passam por `revisarCartao` antes de medir o «pede revisão»: com
+  // `fsrs: null` não há estabilidade nem `ultimaEm`, e a recuperabilidade média é
+  // null — «não sei», não «pede». A travar aqui é o estágio, e ela só vale sobre
+  // cartões que têm modelo por trás.
+  const opcoes = { estudo: estudoDe(8), cartoes: reviseTodos(cartoes), indice, progresso };
+
+  assert.equal(eixosDaEstacao(ESTACAO, { ...opcoes, hoje: HOJE }).estagio, 'dominada');
+  // Setenta e seis dias sem abrir o app. A recuperabilidade média cai, o anel de
+  // «pede revisão» aparece, e o estágio é o mesmo: tempo acrescenta um aviso, não
+  // apaga uma medida.
+  const depois = eixosDaEstacao(ESTACAO, { ...opcoes, hoje: '2027-01-20' });
+  assert.equal(depois.estagio, 'dominada', 'o tempo rebaixou a dominada');
+  assert.equal(depois.pedeRevisao, true, 'a dominada deixou de pedir revisão: dominar congelou a memória');
+  assert.deepEqual(progresso.dominadas[ESTACAO], aplicado.dominada, 'o progresso mudou sem ninguém aplicar nada');
+});
+
+test('S18b-2 · só o reprovado DEPOIS de dominada devolve para percorrida', () => {
+  const { sorteio, cartoes, aulas } = cenario();
+  const aprovado = corrigirDesafio(sorteio, respostas(sorteio, 9));
+  const dominada = aplicarResultado(
+    progressoVazio(), cartoes, ESTACAO, aprovado, { aulas, cartoes: Object.keys(cartoes) }, HOJE,
+  ).progresso;
+  const indice = { estacoes: { [ESTACAO]: { aulas: aulas.length, segundos: 6000 } } };
+  const base = { estudo: estudoDe(8), cartoes, indice, hoje: HOJE };
+  assert.equal(eixosDaEstacao(ESTACAO, { ...base, progresso: dominada }).estagio, 'dominada');
+
+  const reprovado = corrigirDesafio(sorteio, respostas(sorteio, 5));
+  const r = aplicarResultado(dominada, cartoes, ESTACAO, reprovado, { aulas, cartoes: Object.keys(cartoes) }, '2026-11-20');
+  assert.equal(r.progresso.dominadas[ESTACAO], undefined, 'o reprovado não devolveu a estação para percorrida');
+  assert.equal(eixosDaEstacao(ESTACAO, { ...base, progresso: r.progresso }).estagio, 'percorrida');
+  assert.equal(r.recado, 'Faltaram 5. Eles voltam para a fila de hoje. Tente de novo quando quiser.');
+
+  // E o re-aprovado substitui o carimbo pelo mais recente, sem acumular versões.
+  const reAprovado = aplicarResultado(r.progresso, cartoes, ESTACAO, aprovado, { aulas, cartoes: Object.keys(cartoes) }, '2026-11-21');
+  assert.equal(reAprovado.progresso.dominadas[ESTACAO].em, '2026-11-21');
+  assert.equal(Object.keys(reAprovado.progresso.dominadas).length, 1);
+});
+
+test('S18b-2 · dominada pode refazer o desafio (podeDesafiar aceita o estágio novo)', () => {
+  const aulas = aulasDaEstacao(8, [2, 5]);
+  const cartoes = comCartoes([{ aula: 'a2' }, { aula: 'a5' }, ...espalhados(8, { excluidas: [2, 5] })]);
+  const r = podeDesafiar({ id: ESTACAO, estagio: 'dominada' }, estudoDe(8), cartoes, aulas, HOJE);
+  assert.equal(r.pode, true, `a dominada não pode refazer: ${r.porque}`);
+});
+
+// ───────────────── 4. a armadilha do round-trip ─────────────────
+
+test('S18b-2 · round-trip: gravar, reler, e a dominada continua com os números', () => {
+  // Um carimbo que existe: 12 dos 14 sorteados, e a lista com os 12 ids.
+  const dominada = {
+    em: HOJE, acertos: 12, total: 14, lembrados: Array.from({ length: 12 }, (_, i) => `k${i + 1}`), aulas: 93, cartoes: 23,
+  };
+  const progresso = {
+    completed: [ESTACAO], emCurso: [], conclusoes: { [ESTACAO]: HOJE }, dominadas: { [ESTACAO]: dominada },
+  };
+
+  // O leitor de campo: `lerProgresso` remonta o progresso campo a campo, e o que
+  // não está na lista se perde em silêncio — sem erro, sem aviso, sem carimbo.
+  assert.deepEqual(lerProgresso(progresso).dominadas[ESTACAO], dominada, 'lerProgresso perdeu o campo dominadas');
+
+  // A tela, pelo caminho de verdade: salvarViagem → localStorage → carregarViagem.
+  const chave = {};
+  const storage = {
+    getItem: (k) => (Object.prototype.hasOwnProperty.call(chave, k) ? chave[k] : null),
+    setItem: (k, v) => { chave[k] = String(v); },
+  };
+  assert.equal(salvarViagem(storage, progresso), true, 'salvarViagem recusou o progresso com dominadas');
+  const lido = carregarViagem(storage, [ESTACAO]);
+  assert.deepEqual(lido.dominadas[ESTACAO], dominada, 'a dominada sobreviveu à gravação e morreu na leitura');
+  assert.equal(fraseDaDominada(lido.dominadas[ESTACAO]), fraseDaDominada(dominada), 'a frase mudou no round-trip');
+
+  // O outro lado do round-trip: um lixo no storage não inventa carimbo.
+  assert.deepEqual(lerProgresso({ dominadas: { [ESTACAO]: { em: '2026-13-45', acertos: 9, total: 9 } } }).dominadas, {}, 'carimbo sem data válida passou');
+  assert.deepEqual(lerProgresso({ dominadas: 'sim' }).dominadas, {});
+  assert.deepEqual(lerProgresso({ dominadas: [] }).dominadas, {});
+  assert.deepEqual(lerProgresso(['alfa']).dominadas, {}, 'array cru tem de sair com o campo presente e vazio');
+  // Transições que remontam o progresso têm de levar o campo adiante.
+  const p = lerProgresso(progresso);
+  assert.equal(estagioCom(p), 'dominada', 'o campo perdeu-se ao remontar o progresso');
+});
+
+/** O estágio que o mapa pintaria para este progresso, com a estação toda estudada. */
+function estagioCom(progresso) {
+  return eixosDaEstacao(ESTACAO, {
+    estudo: estudoDe(8), cartoes: {}, indice: { estacoes: { [ESTACAO]: { aulas: 8, segundos: 6000 } } }, progresso, hoje: HOJE,
+  }).estagio;
+}
+
+// ───────────────── 5. a frase do que foi medido ─────────────────
+
+test('S18b-2 · a frase diz o que foi medido, no plural', () => {
+  assert.equal(
+    // Doze ids lembrados: no carimbo real `lembrados` é a LISTA dos que voltaram
+    // no sorteio, e a frase lê o tamanho dela. Uma lista de 1 com `acertos: 12`
+    // seria o teste descrevendo um carimbo que não pode existir.
+    fraseDaDominada({ em: HOJE, acertos: 12, total: 14, lembrados: Array.from({ length: 12 }, (_, i) => `k${i + 1}`), aulas: 93, cartoes: 23 }),
+    'Percorreu as 93 aulas desta estação, escreveu 23 cartões e, dois dias ou mais depois, lembrou 12 de 14 deles, pela sua própria conferência. Não mede exercícios novos.',
+  );
+});
+
+test('S18b-2 · a frase no singular: «a 1 aula», «1 cartão», sem artigo solta', () => {
+  const um = { em: HOJE, acertos: 1, total: 1, lembrados: ['c1'], aulas: 1, cartoes: 1 };
+  assert.equal(
+    fraseDaDominada(um),
+    'Percorreu a 1 aula desta estação, escreveu 1 cartão e, dois dias ou mais depois, lembrou 1 de 1 deles, pela sua própria conferência. Não mede exercícios novos.',
+  );
+  // 10 cartões, 1 aula: as duas concordâncias na mesma frase.
+  assert.match(fraseDaDominada({ ...um, aulas: 1, cartoes: 10 }), /^Percorreu a 1 aula desta estação, escreveu 10 cartões/);
+});
+
+test('S18b-2 · a frase nunca afirma competência, e nunca cita dias', () => {
+  const f = fraseDaDominada({ acertos: 12, total: 14, lembrados: 12, aulas: 93, cartoes: 23 });
+  assert.equal(f.includes('você converte'), false, 'a frase velha de competência voltou');
+  assert.equal(/há (\d+) dias/.test(f), false, 'a frase conta dias de espera: o desenho só mede «dois dias ou mais»');
+  assert.equal(f.endsWith('Não mede exercícios novos.'), true, 'a cláusula de honestidade caiu da frase');
+  // `lembrados` chega como lista no carimbo e como contagem na frase: as duas
+  // formas têm de dar o mesmo número, ou o round-trip muda o que a pessoa lê.
+  assert.equal(fraseDaDominada({ acertos: 2, total: 4, lembrados: ['c1', 'c2'], aulas: 3, cartoes: 5 }), fraseDaDominada({ acertos: 2, total: 4, lembrados: 2, aulas: 3, cartoes: 5 }));
+  // Chamada sem nada não explode e não inventa: sai com zeros, e é «nada medido».
+  assert.equal(typeof fraseDaDominada(undefined), 'string');
+});
+
+test('S18b-2 · o corte é um número do núcleo, e a frase vive em textos.js (regra 9)', () => {
+  assert.equal(CORTE_APROVACAO, 0.8);
+  assert.equal(TEXTOS.desafio.dominada, D.dominada);
+  assert.equal(TEXTOS.desafio.reprovado, D.reprovado);
+  assert.equal(D.reprovado(1), 'Faltaram 1. Eles voltam para a fila de hoje. Tente de novo quando quiser.');
 });
