@@ -300,6 +300,13 @@
   background: var(--cor, var(--tinta));
 }
 
+/* S18a-fix-4 (05/11/2026): a PULADA tem marca própria — o mesmo anel, tracejado.
+   Sem cor nova: o anel continua na --cor da linha, e o traço é o que diz que a
+   pessoa dispensou a aula em vez de não ter chegado nela. */
+.aula-marca-pulada {
+  border-style: dashed;
+}
+
 /* Parte C: a marca muda de não-iniciada para aberta quando a pessoa volta da aba
    do YouTube, e de aberta para ESTUDADA quando a aula fecha (S14b2 item 6). A
    transição é do CSS, com o tempo do token; --movimento-abrir é o tempo da
@@ -427,15 +434,18 @@
 
   /* O título passa a ser a ÚLTIMA coluna da primeira linha (3 colunas, não 4):
      com a duração fora da régua, ele fica com a largura toda que sobra do
-     número. O `grid-column: 1 / -1` da duração é o que a faz descer sozinha para
-     a linha de baixo, e o `row-gap` dá o respiro entre as duas. */
+     número. O `grid-column: 3` da duração é o que a põe na linha de baixo,
+     embaixo do TÍTULO e não do anel, e o `row-gap` dá o respiro entre as duas. */
   .aula-link {
     grid-template-columns: auto auto minmax(0, 1fr);
     row-gap: var(--espaco-1);
   }
 
+  /* S18a-fix-4: antes era `1 / -1` e a duração caía embaixo DO ANEL, longe do
+     título que ela descreve. Coluna 3 = a coluna do título; a linha continua a
+     mesma de antes (o grid a empurra para baixo), só que alinhada com ele. */
   .aula-duracao {
-    grid-column: 1 / -1;
+    grid-column: 3;
     text-align: left;
   }
 

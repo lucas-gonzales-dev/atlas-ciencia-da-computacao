@@ -575,6 +575,44 @@ test('S18a-fix · com a Aula 1 pulada, o topo oferece a Aula 2 — nos três mod
   assert.equal(primeiraPendente(pulaProxima, proxima.id, Number(INDICE.estacoes[proxima.id].aulas)), 2);
 });
 
+/* S18a-fix-4 (05/11/2026): a pulada tem MARCA PRÓPRIA. Modelo: o teste de
+   fechamento.test.js:540, que lê o CSS como texto e cobra a REGRA, não o dublê.
+   O node não pinta, e a classe sem regra é o estado invisível: a linha diria
+   «pulada» no leitor de tela e desenharia um círculo igual ao de não-iniciada. */
+test('S18a-fix-4 · a marca da aula pulada tem classe própria e o CSS a desenha tracejada', async () => {
+  let e = lerEstudo(null);
+  e = pular(e, TRES[0], '09:00');
+  const { raiz } = await lista(serializarEstudo(e));
+
+  const pulada = linhas(raiz).find((l) => l.getAttribute('data-aula') === TRES[0].id);
+  const marcaPulada = todos(pulada, (n) => n.className.split(/\s+/).includes('aula-marca'))[0];
+  assert.ok(marcaPulada, 'a linha da pulada perdeu a marca');
+  assert.ok(marcaPulada.className.split(/\s+/).includes('aula-marca-pulada'),
+    `a marca da pulada saiu com «${marcaPulada.className}»: sem classe própria, o desenho não tem do que pendurar o estado`);
+
+  const vizinha = linhas(raiz).find((l) => l.getAttribute('data-aula') === TRES[1].id);
+  const marcaVizinha = todos(vizinha, (n) => n.className.split(/\s+/).includes('aula-marca'))[0];
+  assert.equal(marcaVizinha.className.includes('aula-marca-pulada'), false,
+    'a marca tracejada saiu em quem não foi pulada: o estado próprio parou de ser próprio');
+
+  // O desenho: tracejado, na cor que já chega do --cor, sem tinta nova (regra 9).
+  const css = CSS_AULAS();
+  const marca = /\.aula-marca-pulada\s*\{[^}]*border-style:\s*dashed/g;
+  assert.ok(marca.test(css),
+    'web/telas/aulas.css não desenha a marca da pulada: a folha, a lista e a página divergiriam, porque as três montam `aula-marca-<estado>`');
+  const daPulada = regra(css, '.aula-marca-pulada');
+  assert.equal(/(?:^|[;\s])(?:border|color|background)\s*:/.test(daPulada), false,
+    'a marca da pulada escreveu cor ou borda à mão: o pedido era o tracejado, e o --cor da linha já é a tinta');
+  assert.doesNotMatch(css, /#/, 'hex no CSS de aulas: foge do tokens.css e do tema escuro');
+
+  // A tela estreita, no mesmo arquivo: a duração cai na COLUNA DO TÍTULO, não na
+  // linha inteira (que a deixava embaixo do anel, longe do que ela descreve).
+  const media = /@media[^{]*\(max-width:\s*59\d[^{]*\{([\s\S]*?)\n\}/.exec(css);
+  assert.ok(media, 'não há bloco @media abaixo de 600 px para a página de aulas');
+  assert.match(media[1], /\.aula-duracao\s*\{[^}]*grid-column:\s*3(?![0-9])/,
+    'em 375 px a duração voltou para `1 / -1` e cai embaixo da marca, não do título');
+});
+
 test('S18a-fix · "faltam" não conta a pulada, e a linha diz quantas foram dispensadas', () => {
   // A estação inteira pulada: percorrida, e o «faltam» desaparece — não é um
   // zero formatado, é a régua calando, como o `lembradas` a zero.

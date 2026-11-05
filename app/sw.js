@@ -666,7 +666,16 @@
 // git diff --cached --stat, não da memória): web/telas/aulas.css,
 // web/aulas-pedacos.js, web/telas/jornada-topo.js, core/estudo.js,
 // core/eixos.js, core/textos.js.
-const VERSAO = 'atlas-v80';
+// atlas-v81: S18a-fix-4 (05/11/2026) — dois acertos pequenos na LISTA de aulas,
+// vistos nas capturas da v80. (1) A aula PULADA não tinha marca própria: a linha
+// desenhava o mesmo círculo vazio da não-iniciada e o estado existia só no texto
+// lido pela tecnologia assistiva. Ganha `.aula-marca-pulada { border-style:
+// dashed }` — o mesmo anel na --cor da linha, traço em vez de cor nova, valendo
+// para a lista e para a página porque as duas montam `aula-marca-<estado>`.
+// (2) Em 375 px a duração caia embaixo DO ANEL (grid-column: 1 / -1), longe do
+// título que ela descreve; agora vai à coluna 3, a coluna do título. Muda de
+// bytes e está no precache: web/telas/aulas.css.
+const VERSAO = 'atlas-v81';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
@@ -712,7 +721,11 @@ const VERSAO = 'atlas-v80';
 // core/mapa-rede.js (os eixos viram desenho) e core/textos.js (o bloco `mapa`,
 // com as frases do aria-label). Os testes novos (tests/mapa-eixos.test.js) não
 // estão no precache: nada de fora de app/ vai para o cache de quem usa.
-const PRECACHE_HASH = 'sha256-a571e44d224ced637ff1dd2037db9bacbc9647e2ad0f9b744fd103414da310b9';
+// Recalculado na S18a-fix-4 (05/11/2026), com a árvore parada e DEPOIS de subir
+// a VERSAO acima: 106 arquivos, nenhum ENTROU e um mudou de bytes —
+// web/telas/aulas.css (a marca tracejada da pulada e a duração na coluna do
+// título em 375 px). O sw.js mediu o mesmo sha256 antes e depois.
+const PRECACHE_HASH = 'sha256-262d9ec750b6d696d35f0e4129d0eb6b98efa08d5a4c29b68190c138ff433092';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.
