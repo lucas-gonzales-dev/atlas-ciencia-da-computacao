@@ -635,7 +635,26 @@
 // estudadas» saia duas vezes na folha, uma em cima da outra: a contagem vive so na
 // linha da barra, que passa a dizer tambem as lembradas. Mudam de bytes e estao no
 // precache: core/mapa-rede.js, core/textos.js, web/folha.js, web/aulas-pedacos.js.
-const VERSAO = 'atlas-v78';
+// atlas-v79: S18a (05/11/2026) — o "Já sei isso", o estado PULADA, quem já sabe
+// uma parte da disciplina poder dizer isso sem fingir que estudou. core/estudo.js
+// ganha pularAula/desfazerPulo, 'pulada' entra em ESTADOS_DA_AULA e o continuarDe
+// para de oferecer o que a pessoa dispensou. Pulada NÃO é medida: não cria cartão,
+// não conta no preenchimento nem na cor (core/eixos.js só a lê para o estágio, e
+// uma estação toda pulada é 'percorrida' com preenchimento zero — o mapa não finge).
+// A régua da estação PERCORRIDA (todas estudadas OU puladas) chega ao topo:
+// quem fecha a última aula de uma estação sem carimbar o completed recebia
+// «Continuar: Aula 93» de uma aula já estudada, e a percorrida agora se comporta
+// como a concluída da S20a-3 — o topo aponta a primeira aula da próxima estação,
+// e o núcleo obedece pela mesma porta do opcoes.proxima. Ninguém escreve no
+// progresso: quem marca é a pessoa. web/metro.js passa o ui.indice ao alvoDoTopo,
+// sem o qual a régua não tem total de aula nenhuma e a regra existe só no teste.
+// O botão nasce em web/aulas-pedacos.js (acaoPularAula + ligarPuloDeAula), peça
+// compartilhada da página da aula e da lista, discreto, nunca primário, e a tela
+// se redesenha no clique sem recarregar. Muda de bytes e está no precache:
+// core/estudo.js, core/eixos.js, core/textos.js, web/metro.js,
+// web/telas/jornada-topo.js, web/folha.js, web/aulas-pedacos.js,
+// web/telas/aula.js, web/telas/aula.css, web/telas/aulas.js, web/telas/aulas.css.
+const VERSAO = 'atlas-v79';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
@@ -681,7 +700,7 @@ const VERSAO = 'atlas-v78';
 // core/mapa-rede.js (os eixos viram desenho) e core/textos.js (o bloco `mapa`,
 // com as frases do aria-label). Os testes novos (tests/mapa-eixos.test.js) não
 // estão no precache: nada de fora de app/ vai para o cache de quem usa.
-const PRECACHE_HASH = 'sha256-6d9f7a305e4fa80ea61760ad5d7fa77ecb3ea6de831b52d655abfbfbe11cd796';
+const PRECACHE_HASH = 'sha256-01223d89d98f86824874d45b761bcdc1dd2f5723f85752bf615043a6d2c61ec3';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.

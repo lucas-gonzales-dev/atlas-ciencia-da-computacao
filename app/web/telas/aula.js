@@ -37,10 +37,12 @@ import { fatosDaEstacao } from '../../core/viagem.js';
 import { comValores, aulas as A, aula as U, fechamento as F } from '../../core/textos.js';
 import { carregarAulas } from '../aulas-dados.js';
 import {
+  acaoPularAula,
   agoraLocal,
   estudoDoStorage,
   hrefVideo,
   ligarAberturaDeAula,
+  ligarPuloDeAula,
   paginaDaAula,
   seloLinha,
 } from '../aulas-pedacos.js';
@@ -721,6 +723,11 @@ export async function montar(raiz, ctx) {
   const curso = catalogo.find((c) => c && (c.slug === slug || c.id === slug)) || null;
   const estacao = typeof curso?.title === 'string' ? curso.title : slug;
   if (curso) raiz.setAttribute('data-estacao', String(curso.id));
+  // S18a: o pulo grava o ID da estação, não o nome. É o que `abrirAula` já grava
+  // (o gravador lê o `data-estacao` de cima) e o que `core/eixos.js`, a folha e o
+  // `continuarDe` compararam. `estacao` logo acima é o NOME, para as frases da
+  // tela; as duas coisas têm nomes diferentes aqui de propósito.
+  const estacaoId = curso ? String(curso.id) : slug;
 
   // A cor da linha, pela classe da raiz (ver o cabeçalho deste arquivo).
   const fatos = curso ? fatosDaEstacao(catalogo, curso.id, {}) : null;
@@ -828,13 +835,55 @@ export async function montar(raiz, ctx) {
     'data-assistir': 'sim',
     text: U.assistir
   });
-  raiz.append(assistir);
-
-  const marcas = pausasDaAula(aula.duracaoS);
-  if (marcas.length) raiz.append(blocoDePausas(doc, { marcas, aula, playlist }));
+  // S18a: uma linha de ações, para o "Já sei isso" ficar AO LADO do Assistir e
+  // não embaixo dele. Sem a linha, a coluna da página empilharia os dois e o
+  // gesto discreto pareceria uma segunda chamada, que é o que a hierarquia de um
+  // primário existe para evitar.
+  const acoes = no(doc, 'div', 'aula-acoes');
+  acoes.append(assistir);
+  raiz.append(acoes);
 
   const storage = win?.localStorage;
   const pega = (k) => (typeof storage?.getItem === 'function' ? storage.getItem(k) : null);
+  const estudoLido = () => lerEstudo(pega(ESTUDO_KEY));
+  const hoje = () => agoraLocal(win).slice(0, 10);
+
+  // S18a — "JÁ SEI ISSO", ao lado do Assistir e NUNCA no lugar dele. A peça é a
+  // mesma da lista de aulas (`acaoPularAula`, no compartilhado, regra 9): um
+  // `<button>` discreto, nunca `botao-primario`, que declara sem fingir medida.
+  const pulo = acaoPularAula(doc, { aula, estacao: estacaoId, estado: estadoDaAula(estudoLido(), aula.id) });
+  if (pulo) raiz.append(pulo);
+
+  /**
+   * Repinta o pulo e a marca do alto depois de um pulo (ou de um desfazer), sem
+   * recarregar a página. É a mesma troca de texto/estado que `aoFechar` faz para o
+   * estudo, e mora aqui porque só esta tela sabe qual botão é qual.
+   *
+   * Os atributos são copiados um a um, e não por `outerHTML`: o `pulo` é o nó que
+   * o `painel` já escuta, e substituí-lo por um nó novo dentro de um `innerHTML`
+   * jogaria fora a âncora dos testes (e o `data-aula` que o gravador lê).
+   */
+  const pintarPulo = (estadoForcada) => {
+    const estado = estadoForcada || estadoDaAula(estudoLido(), aula.id);
+    const novo = acaoPularAula(doc, { aula, estacao: estacaoId, estado });
+    if (pulo) {
+      if (!novo) pulo.remove();
+      else {
+        pulo.className = novo.className;
+        pulo.textContent = novo.textContent;
+        for (const chave of ['data-pulo', 'data-aula', 'data-n', 'data-estacao']) {
+          pulo.setAttribute(chave, novo.getAttribute(chave));
+        }
+      }
+    }
+    // S14c/item 1: UM primário por tela, e é o `pintarMarca` quem o decide. O
+    // pulo não mexe nessa hierarquia — 'pulada' deixa o Assistir primário, porque
+    // a aula continua sem estudo verificado.
+    pintarMarca(estado);
+  };
+
+  const marcas = pausasDaAula(aula.duracaoS);
+  if (marcas.length) raiz.append(blocoDePausas(doc, { marcas, aula, playlist }));
 
   /** Pinta a marca, o nome do estado no alto e a hierarquia do Assistir. */
   const pintarMarca = (estado) => {
@@ -849,9 +898,6 @@ export async function montar(raiz, ctx) {
     assistir.classList.remove('botao-primario', 'botao-secundario');
     assistir.classList.add(estado === 'estudada' ? 'botao-secundario' : 'botao-primario');
   };
-
-  const estudoLido = () => lerEstudo(pega(ESTUDO_KEY));
-  const hoje = () => agoraLocal(win).slice(0, 10);
 
   /** O bloco de conclusão, lido do storage — a mesma função dos dois casos. */
   const blocoDeConclusao = (fraseStatus) => {
@@ -917,6 +963,10 @@ export async function montar(raiz, ctx) {
         // anúncio dizem a mesma coisa a partir daqui — nada de repintar só o
         // formulário e deixar o alto dizendo "Não iniciada".
         pintarMarca('estudada');
+        // S18a: o fecho apaga o "Já sei isso". A aula agora tem medida atrás, e
+        // um botão oferecendo declará-la como sabida seria a tela pedindo que a
+        // pessoa desmentisse o que ela acabou de preencher.
+        pintarPulo('estudada');
         pintarConclusao(quantos > 0 ? F.feito(quantos) : F.estudadaEm(hoje()));
       }
     });
@@ -936,6 +986,9 @@ export async function montar(raiz, ctx) {
     } else {
       pintarMarca(estado);
     }
+    // S18a: a volta também repinta o pulo. Outra aba pode ter pulado ou estudado
+    // esta aula, e o botão é a palavra dela na tela.
+    pintarPulo(estado);
     const parado = win?.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches === true;
     // O mesmo par de metro.js:1083 — movimento é tempo, e o token vira 0 ms com
     // prefers-reduced-motion; aqui o que muda é o COMPORTAMENTO da rolagem, que
@@ -948,12 +1001,16 @@ export async function montar(raiz, ctx) {
   };
 
   const desligar = ligarAberturaDeAula({ win, storage, painel: raiz, aoRetornar });
+  // S18a: o gravador do pulo, no MESMO painel e pela MESMA chave do estudo.
+  // `aoMudar` é a repintura: depois do clique a tela tem de dizer "Pulada" e
+  // oferecer o Desfazer, sem recarregar nada.
+  const desligarPulo = ligarPuloDeAula({ win, storage, painel: raiz, aoMudar: () => pintarPulo() });
 
   return {
     root: raiz,
     rotulo: U.rotulo(aula.n, estacao),
     anuncio: U.anuncio(aula.n, total, aula.titulo),
-    desmontar: () => { bloco?.pararRelogio?.(); desligar(); },
+    desmontar: () => { bloco?.pararRelogio?.(); desligar(); desligarPulo(); },
     _estado: () => ({ lista: true, curso: curso.id, n: aula.n, total, pausas: marcas.length })
   };
 }

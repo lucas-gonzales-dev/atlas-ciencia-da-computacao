@@ -44,7 +44,12 @@ import { cartoesDevidos, minutosDaFila } from '../../core/cartoes.js';
 // S20a-3: o topo pergunta ao núcleo se a estação da retomada ainda é retomada.
 // ESTADOS/estadoDaEstacao são a MESMA fonte que a folha, a placa e o perfil usam
 // — a regra de «concluída» não pode ter duas contas no app (regra da fonte única).
-import { ESTADOS, estadoDaEstacao, dataLocal } from '../../core/viagem.js';
+import { ESTADOS, estadoDaEstacao, dataLocal, resumoDaViagem } from '../../core/viagem.js';
+// S18a: o topo pergunta ao núcleo se a estação da volta foi PERCORRIDA. A régua
+// mora em core/estudo.js e é a mesma de `continuarDe` e da folha — o topo não
+// refaz um `every` sobre as aulas, porque duas «percorridas» no app é o defeito
+// que a regra da fonte única existe para impedir.
+import { estacaoPercorrida } from '../../core/estudo.js';
 
 function no(doc, tag, classe, attrs) {
   const n = doc.createElement(tag);
@@ -169,13 +174,37 @@ function primeiraEstacao(lista) {
  * e prosa que prega um dado é indistinguível de código que prega — eu escrevi o
  * total na explicação e a prova me pegou, o que é ela funcionando.)
  *
+ * S18a (04/11/2026) — o quarto caso da VOLTA: a estação PERCORRIDA. A pessoa
+ * fecha a última aula de uma estação, recarrega, e o topo dizia «Continuar: Aula
+ * 55 — …», a aula que ela acabou de fechar. É o mesmo defeito do `concluida`
+ * acima, por outra porta: não é que a estação esteja marcada no progresso, é que
+ * não sobra NADA nela, e um botão de "continuar" sem o que continuar mente sobre
+ * onde a pessoa está. A regra é a do `opcoes.concluida` de `continuarDe`: a
+ * estação percorrida se comporta como a concluída do topo, e aponta a primeira
+ * aula da próxima.
+ *
+ * O que a percorrida NÃO é: 'concluida' no progresso. Ninguém marca estação por
+ * trás de um toque — quem fecha o carimbo é a pessoa, e o desenho é explícito
+ * sobre isso (design/v3/00-desenho.md: o tempo nunca rebaixa, só um desafio
+ * reprovado devolve 'dominada' para 'percorrida').
+ *
+ * O total de aulas vem do `indice` (o `data/aulas/indice.json`, que o topo já
+ * carrega para a linha de medida), e não do JSON de aulas da estação: buscar o
+ * arquivo de uma estação só para responder "sobrou algo nela" seria o topo
+ * pedindo 93 títulos que ele não desenha. Sem o índice no aparelho ainda, o
+ * total é `null` e a estação NÃO é dada como percorrida — "não sei" continua
+ * desenhando a volta de sempre, que é menos errado que um endereço inventado.
+ *
  * @param {Array} catalogo
- * @param {{ultima?: object|null}} estudo
+ * @param {{ultima?: object|null, aulas?: object}} estudo
  * @param {{concluidas?: number, emCurso?: number, proximaEstacao?: object|null}|null} resumo
+ * @param {unknown} progresso
+ * @param {{estacoes?: Record<string, {aulas?: number}>}|null} [indice] S18a: a
+ *   tabela por estação, para a régua da percorrida. Sem ela, a volta é a de sempre.
  * @returns {{modo: 'volta'|'proxima'|'primeira'|'terminal', curso: object|null,
  *   n: number, idAula: string|null}}
  */
-export function alvoDoTopo(catalogo, estudo, resumo, progresso) {
+export function alvoDoTopo(catalogo, estudo, resumo, progresso, indice) {
   const lista = Array.isArray(catalogo) ? catalogo : [];
   const u = estudo?.ultima;
   const curso = u?.estacao ? lista.find((c) => c && c.id === u.estacao) : null;
@@ -196,7 +225,18 @@ export function alvoDoTopo(catalogo, estudo, resumo, progresso) {
   const concluida = curso
     ? estadoDaEstacao(curso.id, progresso || {}, lista) === ESTADOS.CONCLUIDA
     : false;
-  if (curso && !concluida) {
+  // S18a: nem concluída, nem sobrando aula. O `total` vem da tabela do índice;
+  // sem ele a pergunta não tem resposta, e a resposta «não percorrida» é a que
+  // não quebra nada do que já desenhava.
+  // As estações PERCORRIDAS desta aparelho — todas as aulas estudadas ou puladas,
+  // pelo `total` do índice. Uma passada sobre o catálogo, e cada pergunta vai ao
+  // NÚCLEO (`estacaoPercorrida`, estudo.js): a definição não é refeita aqui.
+  // Com o estudo vazio nem se pergunta: sem registro não há percurso possível, e
+  // a primeira visita não paga o custo de uma varredura que sempre daria não.
+  const temRegistro = Object.keys(estudo?.aulas || {}).length > 0;
+  const percorridas = temRegistro ? percorridasDoEstudo(estudo, lista, indice) : new Set();
+  const percorrida = !concluida && curso && percorridas.has(curso.id);
+  if (curso && !concluida && !percorrida) {
     return { modo: 'volta', curso, n: numerico(u.n) || 1, idAula: u.aula || null };
   }
 
@@ -204,13 +244,67 @@ export function alvoDoTopo(catalogo, estudo, resumo, progresso) {
   // tocou em «Continuar» na placa tem `emCurso` sem nenhuma aula aberta, e a J1
   // também era mentira para essa pessoa: o mapa dizia nada, o botão dizia
   // primeira aula.
-  if (feitas > 0 || andadas > 0 || curso) {
-    const proxima = estacaoDoResumo(lista, resumo);
+  // S18a: uma estação percorrida É progresso, para esta pergunta. Sem o
+  // `percorridas.size`, quem fecha as 93 aulas de Circuitos sem carimbar o
+  // `completed` e sem `ultima` ativa (pulou a última, por exemplo) caía na J1 e
+  // recebia «Começar pela primeira aula» — o mapa dizendo 100% e o botão dizendo
+  // zero, na mesma tela.
+  if (feitas > 0 || andadas > 0 || curso || percorridas.size > 0) {
+    // A estação percorrida é tratada como concluída PARA ESTA PERGUNTA («onde eu
+    // vou agora»), e só para esta. O `proximaEstacao` do resumo lê o `completed`
+    // cru, e uma estação com as 93 aulas fechadas sem carimbo ainda é, por essa
+    // conta, a próxima dela mesma — «Começar: Circuitos · Aula 1» numa estação
+    // que a pessoa acabou de terminar. Perguntar ao MESMO `resumoDaViagem` com a
+    // estação no `completed` é a regra do pedido, com a fonte única preservada:
+    // não refiz a conta da «próxima» aqui.
+    // Ninguém escreve no progresso: o carimbo continua sendo da pessoa.
+    const pergunta = percorridas.size > 0
+      ? resumoDaViagem(comEssasNoCompleted(progresso, percorridas), lista)
+      : resumo;
+    const proxima = estacaoDoResumo(lista, pergunta);
     if (!proxima) return { modo: 'terminal', curso: null, n: 1, idAula: null };
     return { modo: 'proxima', curso: proxima, n: 1, idAula: null };
   }
 
+  // A primeira visita. `percorridas` é vazia aqui por construção: com qualquer
+  // estação percorrida o ramo acima já respondeu (percorridas.size > 0 é «com
+  // progresso»). Não acrescento uma régua de «nada sobra» neste caminho — seria
+  // código morto, e o fim da viagem já é travado pelo caso `terminal` acima.
   return { modo: 'primeira', curso: primeiraEstacao(lista), n: 1, idAula: null };
+}
+
+/**
+ * As estações do catálogo que este aparelho PERCORREU (S18a).
+ *
+ * A pergunta é do núcleo, e é feita ao núcleo — `estacaoPercorrida`, que a
+ * folha, a lista de aulas e `continuarDe` também consultam. O que mora aqui é
+ * só a iteração: para cada estação com total conhecido no índice, «sobrou
+ * alguma aula nela?». Sem o `total` não há resposta, e a estação fica fora do
+ * conjunto — «não sei» desenha a volta de sempre, que é menos errado que um
+ * endereço inventado.
+ */
+function percorridasDoEstudo(estudo, catalogo, indice) {
+  const out = new Set();
+  if (!Array.isArray(catalogo) || !catalogo.length) return out;
+  for (const curso of catalogo) {
+    const total = numerico(indice?.estacoes?.[curso?.id]?.aulas);
+    if (total > 0 && estacaoPercorrida(estudo, curso.id, total)) out.add(curso.id);
+  }
+  return out;
+}
+
+/**
+ * O progresso COM a estação contada como concluída, para uma pergunta só, e sem
+ * tocar no aparelho: o `completed` é copiado, nunca escrito. Aceita as duas
+ * formas que o app tem em mãos (objeto `{completed}` ou Set), as mesmas que
+ * `core/eixos.js` aceita pela razão idêntica.
+ */
+function comEssasNoCompleted(progresso, ids) {
+  const bruto = progresso?.completed ?? progresso;
+  const atuais = bruto instanceof Set ? [...bruto] : Array.isArray(bruto) ? bruto : [];
+  const extras = ids instanceof Set ? [...ids] : Array.isArray(ids) ? ids : [ids];
+  const base = progresso && typeof progresso === 'object' && !(progresso instanceof Set) ? progresso : {};
+  return { ...base, completed: [...new Set([...atuais, ...extras])] };
 }
 
 /** A sigla da fonte, lida do catálogo (nunca escrita aqui). */
@@ -295,7 +389,7 @@ export function desenharTopo(dados, doc) {
   // dois cálculos por pintura dariam uma aula exibida e outra linkada). Quando
   // ele não veio, a pergunta é feita ao `resumo` que a tela já tem em mãos, não
   // a um `modo` inventado: é assim que o terceiro caso não pode ser ignorado.
-  const alvo = dados.alvo || alvoDoTopo(catalogo, dados.estudo, resumo, dados.progresso);
+  const alvo = dados.alvo || alvoDoTopo(catalogo, dados.estudo, resumo, dados.progresso, dados.indice);
   const curso = alvo.curso;
   const aula = aulaDoAlvo(dados.aulas, alvo);
   const feitas = numerico(resumo.concluidas) || 0;

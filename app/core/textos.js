@@ -866,8 +866,27 @@ export const aulas = Object.freeze({
     // estadoDaAula devolve a mesma palavra — se uma existir e a outra não, a
     // lista de aulas desenha um estado sem nome para o leitor de tela.
     estudada: 'Estudada',
+    // S18a: a palavra do desenho (design/v3/00-desenho.md, tabela "Uma aula"):
+    // «Pulada | "Já sei isso" | estado próprio; não conta como estudada». O nome
+    // do estado e o nome do gesto são frases diferentes porque são coisas
+    // diferentes: um é o que a linha diz, outro é o que o botão faz.
+    pulada: 'Pulada',
   }),
   assistir: 'Assistir no YouTube',
+  // S18a: o gesto, na lista de aulas. Ele é um verbo de recusa, não de convite,
+  // e por isso nunca é o botão primário da linha — o primário é a aula.
+  pular: 'Já sei isso',
+  // O desfazer do pulo. É a MESMA palavra do `chegada.desfazer` (linha 63) e da
+  // revisão de vocabulário (linha 191), e continua sendo frase separada porque o
+  // `aulas` é congelado e um objeto de tela não pode emprestar chave de outro.
+  desfazerPulo: 'Desfazer',
+  // S18a: o `aria-label` do botão NA LISTA. O texto do botão é dois — "Já sei
+  // isso" e "Desfazer" — e numa lista de 93 linhas um leitor de tela que percorre
+  // os botões ouviria a mesma frase 93 vezes sem saber de qual aula. Na página da
+  // aula não há ambiguidade nenhuma (só uma aula em tela), e é lá que o rótulo não
+  // é posto. O `n` e o título vêm da linha, nunca digitados.
+  pularAula: (n, titulo) => `Já sei isso, da Aula ${n}: ${titulo}`,
+  desfazerPuloAula: (n, titulo) => `Desfazer o pulo da Aula ${n}: ${titulo}`,
   // A etiqueta da linha de exercício na página de aulas (acabamento, item 3).
   // Sai do campo `exercicio` que core/aulas.js já calcula; nenhum texto é
   // inventado aqui a partir do título.
@@ -924,6 +943,15 @@ export const aula = Object.freeze({
    * folha, e a folha não abre mais nada — leva à aula).
    */
   assistir: 'Assistir no YouTube',
+  /**
+   * S18a: o "Já sei isso" da página da aula, ao lado do Assistir e NUNCA no
+   * lugar dele. O Assistir é o único primário desta tela enquanto a aula não é
+   * fechada (S14c/item 1), e um segundo botão cheio aqui seria a tela oferecendo
+   * duas saídas com o mesmo peso — sendo que uma delas dispensa o estudo inteiro.
+   */
+  pular: 'Já sei isso',
+  /** O desfazer do pulo, na página da aula. Ver `aulas.desfazerPulo`. */
+  desfazerPulo: 'Desfazer',
   /**
    * S14c (04/11/2026): o separador das linhas de apoio da casa — "Aberta · 20
    * min". Mora aqui porque a tela não digita frase (regra 7), e o `·` entre dois

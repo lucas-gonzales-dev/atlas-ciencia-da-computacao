@@ -22,7 +22,7 @@
 import { duracaoLegivel, playlistDoRecurso } from '../core/aulas.js';
 import { hrefDe } from '../core/rotas.js';
 import { aulas as A } from '../core/textos.js';
-import { ESTUDO_KEY, abrirAula, continuarDe, estadoDaAula, lerEstudo, resumoDaEstacao, serializarEstudo } from '../core/estudo.js';
+import { ESTUDO_KEY, abrirAula, continuarDe, estadoDaAula, lerEstudo, resumoDaEstacao, serializarEstudo, pularAula, desfazerPulo } from '../core/estudo.js';
 
 const BASE_VIDEO = 'https://www.youtube.com/watch?v=';
 
@@ -150,6 +150,73 @@ export function paginaDaAula(slug, n) {
 /** A nota embaixo do primário: o que acontece quando se toca. */
 export function notaAbrirAula(doc) {
   return no(doc, 'p', 'aulas-nota', { text: A.notaAbrir });
+}
+
+/**
+ * A ação "Já sei isso" (S18a) — a MESMA na página da aula e na lista de aulas,
+ * porque a folha e a lista já dividem o primário e a nota pela regra 9 da casa.
+ *
+ * É um `<button>`, nunca um `<a>`: não leva a lugar nenhum, muda um registro, e
+ * a lista de proibições da casa trata "link que executa ação" como defeito. E
+ * nunca é `botao-primario`: o primário destas telas é a aula. Fazer o pulo
+ * primário seria o app preferindo a recusa do estudo ao estudo.
+ *
+ * `aula` é a aula que a tela está ofertando (o alvo do primário, aqui; a aula da
+ * página, lá) — a ação é UMA por tela e aponta para o mesmo endereço que o
+ * primário ao lado, senão a pessoa pularia uma aula vendo outra.
+ *
+ * AULAS ESTUDADAS NÃO TÊM BOTÃO NENHUM: quem fechou a aula tem o estado dela
+ * medido, e um botão ao lado oferecendo "já sei isso" daria a ela um jeito de
+ * apagar o próprio estudo com um toque. O desfazer do pulo, esse existe, porque
+ * desfazer uma declaração é devolver o que ela era antes — não apagar medida.
+ *
+ * @param {Document} doc
+ * @param {{aula: {id: string, n: number}|null, estacao: string, estado: string}} dados
+ * @returns {Element|null} null quando não há o que ofertar (sem aula, ou estudada)
+ */
+export function acaoPularAula(doc, { aula, estacao, estado }) {
+  if (!aula || !aula.id || !estacao) return null;
+  if (estado === 'estudada') return null;
+  const pulada = estado === 'pulada';
+  return no(doc, 'button', `aulas-pular${pulada ? ' aulas-pular-desfazer' : ''}`, {
+    type: 'button',
+    'data-pulo': pulada ? 'desfazer' : 'pular',
+    'data-aula': String(aula.id),
+    'data-n': String(aula.n || 0),
+    'data-estacao': String(estacao),
+    text: pulada ? A.desfazerPulo : A.pular
+  });
+}
+
+/**
+ * Grava o pulo (e o desfazer) no clique, no MESMO storage e pela mesma chave de
+ * `ligarAberturaDeAula`. São dois gravadores e não um porque os dois gestos são
+ * opostos: aquele exige um link que SAI do Atlas (o href é a pergunta honesta),
+ * este é um botão que fica. Misturar os dois faria o pulo gravar uma abertura
+ * que ninguém fez, ou o Assistir precisar de um atributo que não é dele.
+ *
+ * @returns {() => void} desligar, para o desmontar da tela
+ */
+export function ligarPuloDeAula({ storage, painel, aoMudar }) {
+  const aoClique = (evento) => {
+    const botao = evento?.target?.closest?.('button[data-pulo]');
+    if (!botao) return;
+    const estudo = estudoDoStorage(storage);
+    const id = botao.getAttribute('data-aula');
+    const novo = botao.getAttribute('data-pulo') === 'desfazer'
+      ? desfazerPulo(estudo, id)
+      : pularAula(estudo, {
+          estacao: botao.getAttribute('data-estacao') || '',
+          aula: id,
+          n: Number(botao.getAttribute('data-n')) || 0
+        }, agoraLocal(null));
+    try {
+      storage?.setItem?.(ESTUDO_KEY, serializarEstudo(novo));
+    } catch { /* aparelho sem espaço: a tela continua, só não lembra amanhã */ }
+    if (typeof aoMudar === 'function') aoMudar();
+  };
+  painel?.addEventListener?.('click', aoClique);
+  return () => painel?.removeEventListener?.('click', aoClique);
 }
 
 /**

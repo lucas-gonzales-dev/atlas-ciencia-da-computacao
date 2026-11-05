@@ -152,6 +152,50 @@
   align-self: flex-start;
 }
 
+/* ── S18a: o "JÁ SEI ISSO" ──────────────────────────────────────────────────
+ * A peça é do compartilhado (web/aulas-pedacos.js, `acaoPularAula`) e aparece na
+ * lista E na página da aula, então a regra mora aqui, uma vez — do mesmo jeito
+ * que `.aulas-progresso` e `.aulas-erro`, que a página da aula também reusa
+ * (aula.css, cabeçalho).
+ *
+ * DISCRETO quer dizer: sem recheio. O recheio é o primário (folha.css), e esta
+ * casa dá um primário por tela; o gesto de declarar "já sei" é recusa, não
+ * convite, e pintá-lo de cor de linha diria o contrário. O peso dele é o texto e
+ * uma borda fina de --borda, e a borda engrossa no toque pela cor da LINHA, o
+ * mesmo sinal que a página já dá no `.aula-pausa`. Nenhum valor à mão, nenhuma
+ * cor escrita: os tokens trocam sozinhos no tema escuro (tokens.css:235).
+ *
+ * O piso de 44 px é o --alvo-toque, e ele manda na ALTURA e na LARGURA: um
+ * botão de duas palavras curtas numa lista de 93 linhas seria tocável só no
+ * texto se fosse deixado encolher. */
+.aulas-pular {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--alvo-toque);
+  min-width: var(--alvo-toque);
+  padding: 0 var(--espaco-3);
+  border: var(--anel-trancada) solid var(--borda);
+  border-radius: var(--raio-placa);
+  background: none;
+  font-family: var(--fonte-corpo);
+  font-size: var(--tipo-corpo);
+  color: var(--tinta);
+  cursor: pointer;
+  transition: border-color var(--movimento-toque) var(--curva-chegada);
+}
+
+.aulas-pular:hover {
+  border-color: var(--cor, var(--tinta));
+}
+
+/* O desfazer é a mesma peça em outro humor: o texto vem de `desfazerPulo` e a
+   borda, de --fosca, para não parecer que há duas coisas a escolher na linha. */
+.aulas-pular-desfazer {
+  border-color: var(--fosca);
+}
+
 /* ── a lista ────────────────────────────────────────────────────────────── */
 .aulas-lista {
   list-style: none;
@@ -169,6 +213,12 @@
  * que o folha.css já usa nos seus separadores (folha.css:164, :306). */
 .aula-item {
   border-bottom: 1px solid var(--borda);
+  /* S18a: duas colunas — a linha inteira (que é um link) e o botão discreto.
+   * `minmax(0, 1fr)` no link é o que não deixa o botão empurrar o título para
+   * fora da tela: é a mesma lição da etiqueta de 32 px do acabamento. */
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
 }
 
 /* A linha é UMA coisa tocável: marca do estado, número, título, duração. O `grid`

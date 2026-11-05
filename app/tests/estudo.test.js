@@ -418,8 +418,11 @@ test('textos: a seção aulas existe e diz as frases do desenho', () => {
   assert.ok(!t.progresso(3, 93, '30 h').includes('abertas'), 'a linha voltou a contar abertura');
   // S14a: 'estudada' entrou, e a lista da tela lê o nome daqui. Se o estado sair
   // do núcleo sem sair daqui, a linha desenha um estado sem nome para o leitor.
-  assert.deepEqual({ ...t.estados }, { 'nao-iniciada': 'Não iniciada', aberta: 'Aberta', estudada: 'Estudada' });
-  assert.deepEqual(ESTADOS_DA_AULA, ['nao-iniciada', 'aberta', 'estudada'], 'a escada do núcleo e os nomes da tela têm de ter as mesmas três palavras');
+  // S18a: 'pulada' entrou na escada e o nome entrou junto, pela mesma razão de
+  // 'estudada': a linha lê o nome daqui, e um estado sem nome é o leitor de tela
+  // dizendo "aberta" sobre uma aula que a pessoa declarou que já sabe.
+  assert.deepEqual({ ...t.estados }, { 'nao-iniciada': 'Não iniciada', aberta: 'Aberta', estudada: 'Estudada', pulada: 'Pulada' });
+  assert.deepEqual(ESTADOS_DA_AULA, ['nao-iniciada', 'aberta', 'estudada', 'pulada'], 'a escada do núcleo e os nomes da tela têm de ter as mesmas quatro palavras');
   assert.equal(t.assistir, 'Assistir no YouTube');
   assert.equal(
     t.semAulas.parteUm, 'As aulas desta estação não carregaram.');

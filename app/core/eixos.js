@@ -85,10 +85,20 @@ function aulasNoEstado(id, estudo, estado) {
     if (!r || typeof r !== 'object' || r.estacao !== id) continue;
     // A escada de core/estudo.js: 'estudada' está acima de 'aberta', e quem fecha
     // tem as duas datas. Um registro com estudadaEm NÃO é uma aula aberta.
+    const pulada = diaDe(r.puladaEm);
+    // S18a: 'pulada' é pulada SEM fecho. A escada de core/estudo.js põe
+    // 'estudada' ACIMA de 'pulada' — quem pulou e depois fechou estudou, e o
+    // preenchimento tem de contar essa aula. Um pulo em cima de um fecho não é
+    // duas aulas: é uma estudada, e contá-la também como pulada daria feita = 2
+    // para uma estação de 1 e um percurso inventado.
+    if (estado === 'pulada') {
+      if (pulada && !diaDe(r.estudadaEm)) out.push(aulaId);
+      continue;
+    }
     const fechada = diaDe(r.estudadaEm);
-    // 'aberta' é aberta SEM fecho: se a aula tem `estudadaEm`, ela já passou de
-    // aberta e contar nas duas filas inflaria o `embarcada`.
-    if (estado === 'estudada' ? !fechada : fechada || !diaDe(r.abertaEm)) continue;
+    // 'aberta' é aberta SEM fecho e SEM pulo: com `estudadaEm` ou `puladaEm` a
+    // aula já passou de aberta, e contar nas duas filas inflaria o `embarcada`.
+    if (estado === 'estudada' ? !fechada : fechada || pulada || !diaDe(r.abertaEm)) continue;
     out.push(aulaId);
   }
   return out;
@@ -169,6 +179,14 @@ export function eixosDaEstacao(id, { estudo, cartoes, indice, progresso, hoje } 
   const estudadasLista = aulasNoEstado(id, estudo, 'estudada');
   const estudadas = estudadasLista.length;
   const abertas = aulasNoEstado(id, estudo, 'aberta').length;
+  // S18a: o "Já sei isso". Uma pulada é uma aula por onde a pessoa passou SEM
+  // estudo verificado — ela tem de contar para o PERCORRIDO (a estação não pode
+  // dizer "ainda não terminou" sobre uma aula que a pessoa recusou de propósito)
+  // e não pode contar para o PREENCHIMENTO nem para a COR (não há nada medido
+  // atrás). É a única linha deste módulo que lê o estado novo, e é de propósito:
+  // quem colore e quem enche continuam contando `estudadas`, só.
+  const puladas = aulasNoEstado(id, estudo, 'pulada').length;
+  const feitas = estudadas + puladas;
   const feita = concluida(id, progresso);
 
   // A ordem é a do pedido, e o 'concluida-antes' vem primeiro de propósito: é o
@@ -176,10 +194,17 @@ export function eixosDaEstacao(id, { estudo, cartoes, indice, progresso, hoje } 
   // medição nenhuma atrás. Uma estação concluída COM aulas estudadas sai do
   // carimbo e entra na medida — o que se fechou de verdade vale mais que o selo.
   let estagio;
+  // `feitas >= total`: a estação é percorrida quando TODA aula dela está estudada
+  // OU pulada. Uma estação toda pulada é 'percorrida' com preenchimento zero — o
+  // pessoa declarou e o mapa mostra a declaração, sem fingir a medida. Quem
+  // separa isso do carimbo é a linha de cima: `concluida-antes` vem primeiro e é
+  // o carimbo SEM medição nenhuma atrás.
   if (feita && estudadas === 0) estagio = 'concluida-antes';
-  else if (total > 0 && estudadas >= total) estagio = 'percorrida';
+  else if (total > 0 && feitas >= total) estagio = 'percorrida';
   else if (estudadas > 0) estagio = 'em-percurso';
-  else if (abertas > 0) estagio = 'embarcada';
+  // S18a: pulada também é toque. Sem este `||`, uma estação com 3 aulas puladas e
+  // nada estudado sairia 'fora' — o mapa apagando uma declaração que a pessoa fez.
+  else if (abertas > 0 || puladas > 0) estagio = 'embarcada';
   else estagio = 'fora';
 
   // O carimbo enche o mapa (a pessoa já fez aquilo, em algum lugar) mas não passa

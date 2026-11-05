@@ -94,6 +94,16 @@
   align-self: flex-start;
 }
 
+/* S18a: a linha onde o Assistir e o "Já sei isso" ficam lado a lado. `wrap` é o
+ * que segura os dois botões numa coluna de 375 px sem cortar o texto de nenhum:
+ * se não couber, o discreto desce, e o primário continua sendo o único de cima. */
+.aula-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--espaco-2);
+}
+
 /* ── as pausas sugeridas ────────────────────────────────────────────────── */
 .aula-pausas-caixa {
   display: flex;

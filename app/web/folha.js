@@ -239,12 +239,10 @@ function blocoEixos(doc, estado, comBarra) {
   const caixa = no(doc, 'div', 'folha-eixos');
   // A medida só vive aqui quando a barra não existe na folha. Quando ela existe,
   // a frase de cima era a duplicata que o olho viu no v77.
-  let temFilho = false;
   if (!comBarra) {
     caixa.append(no(doc, 'p', 'folha-eixos-medida', {
       text: F.eixos(e.estudadas, e.total, e.lembradas)
     }));
-    temFilho = true;
   }
 
   if (e.pedeRevisao) {

@@ -242,7 +242,8 @@ test('os textos que a S13b lê existem e saem de core/textos.js, não das telas'
   // S14a: 'estudada' entrou na escada do núcleo, e o nome tinha de entrar junto —
   // a lista de aulas lê o nome do estado daqui, e um estado sem nome é o leitor de
   // tela dizendo "aberta" sobre uma aula que a pessoa já fechou.
-  assert.deepEqual(AU.estados, { 'nao-iniciada': 'Não iniciada', aberta: 'Aberta', estudada: 'Estudada' });
+  // S18a: a quarta palavra do estado, pela mesma razão da terceira (linha lê daqui).
+  assert.deepEqual(AU.estados, { 'nao-iniciada': 'Não iniciada', aberta: 'Aberta', estudada: 'Estudada', pulada: 'Pulada' });
   assert.equal(AU.assistir, 'Assistir no YouTube');
   assert.equal(AU.abrirPlaylist, 'Abrir a playlist no YouTube');
   assert.equal(AU.tituloPagina('Circuitos Digitais'), 'Aulas de Circuitos Digitais');

@@ -43,6 +43,8 @@ import {
   estudoDoStorage,
   paginaDaAula,
   ligarAberturaDeAula,
+  acaoPularAula,
+  ligarPuloDeAula,
   linhaProgresso,
   notaAbrirAula,
   painelDeAulas,
@@ -74,7 +76,7 @@ function avisoSemAulas(doc) {
 }
 
 /** Um item da lista. Nenhum texto é daqui: número e título são dados, o resto vem de textos.js. */
-function itemDaAula(doc, { aula, estudo, slug, continuar }) {
+function itemDaAula(doc, { aula, estudo, slug, continuar, estacaoId }) {
   const li = no(doc, 'li', 'aula-item');
   // S14b1 (item 5): o item da lista não abre mais o YouTube. Abre a PÁGINA da
   // aula, no mesmo app, e é lá que o botão "Assistir" leva ao vídeo e grava a
@@ -117,6 +119,16 @@ function itemDaAula(doc, { aula, estudo, slug, continuar }) {
   // aria-current aceita e o que a pessoa está lendo.
   if (continuar && aula.id === continuar.id) link.setAttribute('aria-current', 'step');
   li.append(link);
+  // S18a: o "Já sei isso" da linha, a MESMA peça da página da aula (regra 9).
+  // Ele nasce com o `aria-label` nomeando a aula, porque a linha já diz o título
+  // e o botão, sozinho, precisaria dizer de qual aula ele está falando.
+  const pulo = acaoPularAula(doc, { aula, estacao: estacaoId, estado });
+  if (pulo) {
+    pulo.setAttribute('aria-label', estado === 'pulada'
+      ? A.desfazerPuloAula(aula.n, aula.titulo)
+      : A.pularAula(aula.n, aula.titulo));
+    li.append(pulo);
+  }
   return li;
 }
 
@@ -246,6 +258,7 @@ export async function montar(raiz, ctx) {
         aula,
         estudo,
         slug,
+        estacaoId: curso.id,
         continuar: painel.continuar.aula
       }));
     }
@@ -256,11 +269,17 @@ export async function montar(raiz, ctx) {
   const desligar = lista
     ? ligarAberturaDeAula({ win, storage: win?.localStorage, painel: painelBox, aoMudar: pintar })
     : () => {};
+  // S18a: o pulo da lista. O `aoMudar` é o MESMO `pintar` que a abertura usa, e é
+  // por ele que o clique em "Já sei isso" faz a linha dizer "Pulada" e trocar o
+  // botão por "Desfazer" sem recarregar a página — a régua do item 1 do pedido.
+  const desligarPulo = lista
+    ? ligarPuloDeAula({ win, storage: win?.localStorage, painel: painelBox, aoMudar: pintar })
+    : () => {};
 
   return {
     root: raiz,
     rotulo: A.tituloPagina(estacao),
-    desmontar: () => desligar(),
+    desmontar: () => { desligar(); desligarPulo(); },
     // Exposto para o teste ler sem andar pela árvore.
     _estado: () => ({ lista: Boolean(lista), curso: curso?.id || null })
   };

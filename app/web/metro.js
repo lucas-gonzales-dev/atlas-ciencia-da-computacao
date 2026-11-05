@@ -497,7 +497,11 @@ export function desenharMetro(doc, root, estado) {
   // separado, porque o href e o texto viriam de objetos diferentes. O cálculo
   // direto fica para quem chama `desenharMetro` sem passar estado (os testes da
   // placa e do desenho puro).
-  const alvo = estado.alvo || alvoDoTopo(catalogo, estudoTela, resumo, progresso);
+  // S18a: o `estado.indice` entra porque a régua da estação percorrida precisa
+  // do total de aulas dela, e o índice é a única fonte que o topo tem sem buscar
+  // o JSON de cada estação. Sem ele o alvo é calculado como antes: nenhuma
+  // estação é dada por percorrida com total desconhecido.
+  const alvo = estado.alvo || alvoDoTopo(catalogo, estudoTela, resumo, progresso, estado.indice);
   const topoTemPrimario = Boolean(alvo.curso) && !slugDaFolha;
   root.className = `metro l${linha}${slugDaFolha ? ' com-folha' : ''}${topoTemPrimario ? ' com-topo-primario' : ''}`;
 
@@ -1201,8 +1205,14 @@ export async function subirMetro(deps = {}) {
     // pelo mesmo `aulasDe` da folha, então o cache não conhece duas estações por
     // onde o topo aponta: uma lista na cabeça, dois pedidos no disco seria o
     // defeito que a S20a-fix acabou de fechar.
+    // S18a: o `ui.indice` entra como quinto argumento. Sem ele a régua da
+    // estação percorrida não tem o total de aulas de nenhuma estação, nenhuma
+    // estação é dada por percorrida, e a regra da fatia existe só no teste — o
+    // mesmo shape do defeito da S16c (a peça certa, o argumento que não vem).
+    // No boot ele é `null` de propósito: «não sei o total» desenha a volta de
+    // sempre, e a repintura de `carregarTopo` refaz a pergunta com a tabela na mão.
     ui.alvo = alvoDoTopo(ui.catalogo, estudoDoStorage(storage),
-      resumoDaViagem(progresso, ui.catalogo), progresso);
+      resumoDaViagem(progresso, ui.catalogo), progresso, ui.indice);
     const slugAlvo = ui.alvo.curso?.slug || null;
     if (slugAlvo !== ui.alvoSlug) {
       ui.alvoSlug = slugAlvo;
@@ -1396,7 +1406,13 @@ export async function subirMetro(deps = {}) {
     // defeito 4 reentrando por aqui. O `pintar` recalcula a cada repintura; isto
     // aqui é só a primeira resposta do boot, que não pode ser mais velha que a
     // tela que ela vai desenhar.
-    ui.alvo = alvoDoTopo(ui.catalogo, estudoDoStorage(storage), resumo, progresso);
+    // S18a: aqui o `ui.indice` é `null` (a tabela chega no `carregarTopo`
+    // abaixo), então a primeira resposta do boot é a de sempre. Quando a tabela
+    // chega, o `pintar()` refaz a pergunta com o índice na mão e, se a estação
+    // do alvo mudou, busca a lista nova — um repintar e um arquivo a mais no
+    // caso raro de quem terminou uma estação inteira sem carimbar. Preferível,
+    // e mais barato, que o topo prometer a Aula 1 de uma estação percorrida.
+    ui.alvo = alvoDoTopo(ui.catalogo, estudoDoStorage(storage), resumo, progresso, ui.indice);
     pintar();
     const carregarTopo = async () => {
       // `aulasDe` e não `carregarAulas`: o alvo do topo é quase sempre a estação

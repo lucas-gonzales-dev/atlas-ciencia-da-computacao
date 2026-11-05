@@ -46,10 +46,11 @@ export const ESTUDO_KEY = 'atlas.estudo.v1';
 const VERSAO_FORMATO = 1;
 
 /**
- * Os estados da aula que EXISTEM hoje (S14a). Crescem para 'lembrada',
- * 'consolidada' e 'pulada', e cada um é um degrau acima deste.
+ * Os estados da aula. S14a criou os três primeiros; a S18a acrescenta 'pulada',
+ * que NÃO é um degrau acima deles — é um caminho ao lado: 'lembrada' e
+ * 'consolidada' continuam vindo depois, como degraus do que foi estudado.
  */
-export const ESTADOS_DA_AULA = Object.freeze(['nao-iniciada', 'aberta', 'estudada']);
+export const ESTADOS_DA_AULA = Object.freeze(['nao-iniciada', 'aberta', 'estudada', 'pulada']);
 
 /** `aaaa-mm-ddThh:mm` local, sem segundos e sem fuso. */
 const HE_QUANDO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
@@ -60,7 +61,15 @@ const ESCADA = Object.freeze([
   // (resumoDaEstacao, continuarDe, a tela) já enxergava o estado novo sem outra
   // mudança, porque todos perguntam por estadoDaAula, nunca por campo. 'estudada'
   // fica ACIMA de 'aberta' porque é o degrau que a pessoa fecha, não abre.
+  // S18a: 'pulada' entre 'aberta' e 'estudada', e não no topo. O lugar é o
+  // princípio 1 do desenho (progresso é VERIFICADO, não declarado): um registro
+  // com `puladaEm` AO LADO de `estudadaEm` é uma aula que ela pulou e depois
+  // estudou de verdade — o fecho é a palavra mais forte, não a mais recente,
+  // porque é o único dos dois com algo medido atrás (recordação + cartão). Um
+  // clique não pode apagar um estudo, e o pulo em cima de um fecho simplesmente
+  // não acontece na tela: quem estudou não vê o botão.
   ['estudada', 'estudadaEm'],
+  ['pulada', 'puladaEm'],
   ['aberta', 'abertaEm'],
 ]);
 
@@ -110,7 +119,12 @@ export function lerEstudo(bruto) {
     // migração futura com só a data de estudo não pode ser jogado fora — perder
     // estudo em silêncio é o pior defeito que este módulo tem.
     const temData = (c) => typeof r[c] === 'string' && r[c];
-    if (!temData('abertaEm') && !temData('estudadaEm')) continue;
+    // S18a: 'puladaEm' entrou nesta lista, e sem ela o round-trip era uma
+    // porta de mão única. A pessoa diz "Já sei isso", `serializarEstudo` grava,
+    // ela recarrega a página e `lerEstudo` deitava fora o único campo que o
+    // pulo tem: a aula voltava "Não iniciada" e o pulo se desfazia sem que
+    // ninguém pedisse — o contrário exato do que a tela prometeu no toque.
+    if (!temData('abertaEm') && !temData('estudadaEm') && !temData('puladaEm')) continue;
     // O `...r` preserva o que a S14 gravar ao lado (estudadaEm, puladaEm) sem
     // que esta função precise conhecer o futuro: perder um campo no round-trip
     // ler->escrever seria apagar estudo sem ninguém ter pedido.
@@ -212,6 +226,85 @@ export function estudarAula(estudo, { estacao, aula, n } = {}, quando, { recorda
 }
 
 /**
+ * Declara a aula PULADA — o "Já sei isso" (S18a; design/v3/00-desenho.md, a
+ * tabela "Uma aula", o estado Pulada).
+ *
+ * POR QUE EXISTE: quem já sabe uma parte da disciplina precisa poder dizer isso
+ * na interface. Sem este estado restavam duas saídas, e as duas eram mentira:
+ * marcar a estação inteira no embarque (o carimbo 'concluida-antes', que não
+ * tem uma aula atrás) ou fechar a aula num formulário que ela não preencheu.
+ * O princípio 1 do desenho é literal quanto a isso: progresso é verificado, não
+ * declarado. Este estado é o único lugar do app em que a pessoa declara algo sem
+ * fingir que foi medido — e é por isso que ele não vale como medida.
+ *
+ * PULADA NÃO É ESTUDADA. As quatro consequências, e onde cada uma é garantida:
+ *   · não grava `abertaEm` nem `estudadaEm` — a escada lê `puladaEm`, e quem lê
+ *     campo por campo (core/eixos.js, core/cartoes.js) não encontra ali o rastro
+ *     de um fecho que não houve;
+ *   · não cria cartão: o cartão nasce no fechamento, e a pulada não fecha;
+ *   · não conta no `preenchimento` nem na `cor` do eixo, porque o eixo conta
+ *     `estudadas`;
+ *   · `resumoDaEstacao` continua somando a duração dela em `segundosRestantes`:
+ *     'pulada' cai no `else` de quem não estudou. Um pulo é uma recusa honesta
+ *     de fazer, não tempo que ela já gastou.
+ *
+ * A `ultima` NÃO muda, e é a diferença mais visível entre este e os outros dois:
+ * quem pulou não "esteve" na aula, e o cartão de retomada apontando para uma
+ * pulada diria que aquilo é o ponto de volta dela. `abrirAula` e `estudarAula`
+ * continuam sendo os únicos donos de `ultima`.
+ *
+ * Idempotente como `abrirAula`: o `puladaEm` da PRIMEIRA vez não se reescreve
+ * (decisão 3 da casa) — um toque duplo no botão não pode fingir que a pessoa
+ * declarou de novo mais tarde.
+ *
+ * @param {{aulas: object, ultima: object|null}} estudo
+ * @param {{estacao: string, aula: string, n: number}} aula
+ * @param {string} quando `aaaa-mm-ddThh:mm` local
+ * @returns o estudo novo; a entrada fica intacta
+ */
+export function pularAula(estudo, { estacao, aula, n } = {}, quando) {
+  const novo = copiar(estudo);
+  if (!texto(aula) || !texto(estacao) || !HE_QUANDO.test(String(quando ?? ''))) return novo;
+
+  const antes = novo.aulas[aula];
+  novo.aulas[aula] = {
+    ...(antes ?? {}),
+    estacao,
+    n: numero(n),
+    puladaEm:
+      typeof antes?.puladaEm === 'string' && antes.puladaEm ? antes.puladaEm : quando,
+  };
+  return novo;
+}
+
+/**
+ * Desfaz o "Já sei isso": tira `puladaEm` e devolve a aula ao que ela era antes
+ * do pulo — 'aberta' se havia abertura gravada, 'nao-iniciada' se só restava o
+ * pulo. A aula fechada de verdade continua fechada: desfazer um pulo não é
+ * apagar um estudo, e uma pessoa que tocou no botão por engano em cima de uma
+ * aula que ela já estudou não pode perder o fecho por causa do toque.
+ *
+ * Não mexe em `ultima` porque `pularAula` também não mexia: desfazer não pode
+ * mover o ponto de retorno de ninguém.
+ *
+ * @param {{aulas: object, ultima: object|null}} estudo
+ * @param {string} aula o id do vídeo
+ * @returns o estudo novo; a entrada fica intacta
+ */
+export function desfazerPulo(estudo, aula) {
+  const novo = copiar(estudo);
+  const id = texto(aula);
+  const r = novo.aulas[id];
+  if (!r || typeof r.puladaEm !== 'string' || !r.puladaEm) return novo;
+  delete r.puladaEm;
+  // Sem data nenhuma sobrando, o registro não afirma estado nenhum — e é
+  // exatamente o que `lerEstudo` jogaria fora na próxima leitura. Apagar aqui
+  // deixa a memória e o storage dizerem a mesma coisa.
+  if (!r.abertaEm && !r.estudadaEm) delete novo.aulas[id];
+  return novo;
+}
+
+/**
  * O estado da aula, pelo registro dela. `nao-iniciada` quando não há registro.
  * A ESCADA é o que faz este retorno crescer sem que ninguém que o consome
  * precise mudar: a S14 põe uma linha e 'estudada' passa a sair daqui.
@@ -304,16 +397,38 @@ export function continuarDe(estudo, estacao, aulas, opcoes) {
   }
   const lista = Array.isArray(aulas) ? aulas.filter((a) => a && texto(a.id)) : [];
   if (!lista.length) return null;
+
+  // S18a (item e do pedido): a estação PERCORRIDA — tudo estudado ou pulado —
+  // se comporta como a concluída acima, PELA MESMA PORTA: quem chamou traz o
+  // `proxima`, e o núcleo obedece. Sem `proxima` na mão, nada de endereço
+  // inventado: a regra 2c continua devolvendo a fronteira com o motivo
+  // 'estacao-percorrida', que é o que as 25 chamadas antigas já esperam.
+  // Por que aqui e não só na tela: a folha e a lista de aulas passam por esta
+  // função, e «Continuar: Aula 93» numa estação sem sobra é a mesma mentira do
+  // topo, por outra porta.
+  if (opcoes?.proxima?.aula && estacaoPercorrida(estudo, estacao, lista)) {
+    return {
+      aula: opcoes.proxima.aula,
+      estacao: opcoes.proxima.estacao ?? null,
+      motivo: 'estacao-percorrida',
+    };
+  }
   const porId = new Map(lista.map((a) => [a.id, a]));
   const nDe = (a) => Number(a.n) || 0;
   const estado = (a) => estadoDaAula(estudo, a.id);
+  // S18a: o que não é para onde voltar. 'pulada' entrou nesta linha, e é a única
+  // mudança que o pulo precisa aqui: a retomada aponta para o que FALTA, e uma
+  // aula que a pessoa acabou de dizer "já sei isso" é a declaração mais explícita
+  // de que não falta nada nela. Oferecê-la de novo seria o app corrigindo a
+  // palavra dela com um botão.
+  const naoVoltavel = (e) => e === 'estudada' || e === 'pulada';
 
   // Regra 1: o último toque daqui, se a aula está na lista e AINDA não foi
   // estudada. O `!== 'estudada'` é a mudança da S14a: fechar a aula retira o
   // cartão de retomada de cima dela, e a regra 2 alcança a frente.
   const ultima = estudo?.ultima;
   const ultAula = ultima && ultima.estacao === estacao ? porId.get(ultima.aula) : undefined;
-  if (ultAula && estado(ultAula) !== 'estudada') return { aula: ultAula, motivo: 'ultima-aberta' };
+  if (ultAula && !naoVoltavel(estado(ultAula))) return { aula: ultAula, motivo: 'ultima-aberta' };
 
   const abertas = lista.filter((a) => estado(a) !== 'nao-iniciada');
   if (!abertas.length) return { aula: lista[0], motivo: 'comecar' };
@@ -323,7 +438,7 @@ export function continuarDe(estudo, estacao, aulas, opcoes) {
   // mais avançada sem depender da ordem de `aulas` — que é a da playlist, e a
   // playlist muda quando um vídeo sai dela.
   const momento = (a) => String(estudo?.aulas?.[a.id]?.abertaEm ?? '');
-  const paraEstudar = abertas.filter((a) => estado(a) !== 'estudada');
+  const paraEstudar = abertas.filter((a) => !naoVoltavel(estado(a)));
   if (paraEstudar.length) {
     const maisRecente = paraEstudar.reduce((melhor, a) => {
       if (momento(a) > momento(melhor)) return a;
@@ -340,15 +455,63 @@ export function continuarDe(estudo, estacao, aulas, opcoes) {
   const estudadas = abertas;
   const fronteira = estudadas.reduce((maior, a) => (nDe(a) > nDe(maior) ? a : maior), estudadas[0]);
   const aFrente = lista
-    .filter((a) => nDe(a) > nDe(fronteira) && estado(a) !== 'estudada')
+    .filter((a) => nDe(a) > nDe(fronteira) && !naoVoltavel(estado(a)))
     .sort((x, y) => nDe(x) - nDe(y))[0];
   if (aFrente) return { aula: aFrente, motivo: 'ultima-aberta' };
 
   // Regra 2c: nada à frente — a fronteira é o fim da lista.
+  // S18a: 'estacao-percorrida' passou a ver o pulo, pela mesma régua do eixo:
+  // todas estudadas OU puladas. Uma estação de três aulas com as três puladas é
+  // percorrida, e dizer 'ultima-aberta' dela seria o mapa chamando de "ainda
+  // pela frente" o que a pessoa percorreu por inteiro.
   return {
     aula: fronteira,
-    motivo: lista.every((a) => estado(a) === 'estudada') ? 'estacao-percorrida' : 'ultima-aberta',
+    // A régua é a MESMA função que o topo e o eixo usam, agora com a lista na
+    // mão — não um `every` refeito aqui e outro lá.
+    motivo: estacaoPercorrida(estudo, estacao, lista) ? 'estacao-percorrida' : 'ultima-aberta',
   };
+}
+
+/**
+ * A estação foi PERCORRIDA? Toda aula dela está estudada ou pulada (S18a).
+ *
+ * EXISTE UMA DEFINIÇÃO DESTA PERGUNTA no app, e é aqui: o topo da Jornada, a
+ * folha, a lista de aulas e `core/eixos.js` (via `feitas = estudadas + puladas`)
+ * respondem pela mesma régua. Refazê-la em cada tela é ter duas "percorridas" —
+ * a classe de defeito que a casa chama de fonte única.
+ *
+ * `aulas` aceita as DUAS formas que os chamadores têm em mãos, e é isso que
+ * permite uma definição só:
+ *   · a LISTA de aulas da estação (o que `continuarDe` recebeu, e o que a folha
+ *     e a lista leem do arquivo de aulas) — aí só conta registro que está na
+ *     lista, porque a playlist é regerada e um vídeo que saiu dela não pode
+ *     segurar uma estação;
+ *   · o TOTAL numérico (o `indice.json`, que é o que o topo tem sem buscar o
+ *     JSON de cada estação) — aí a conta é sobre os registros daquela estação.
+ *
+ * `false` quando não há total nenhum: sem denominador não há percurso, e
+ * "percorrida" de uma estação de aulas desconhecidas seria o mapa afirmando o
+ * que não mediu.
+ *
+ * @param {object} estudo
+ * @param {string} estacao o id da estação
+ * @param {Array|number} aulas a lista da estação ou o total de aulas dela
+ * @returns {boolean}
+ */
+export function estacaoPercorrida(estudo, estacao, aulas) {
+  const lista = Array.isArray(aulas) ? aulas.filter((a) => a && texto(a.id)) : null;
+  const total = lista ? lista.length : Number(aulas) || 0;
+  if (total <= 0) return false;
+  const naLista = lista ? new Set(lista.map((a) => a.id)) : null;
+  let feitas = 0;
+  for (const [id, r] of Object.entries(estudo?.aulas ?? {})) {
+    if (!r || typeof r !== 'object' || r.estacao !== estacao) continue;
+    if (naLista && !naLista.has(id)) continue;
+    const fechada = typeof r.estudadaEm === 'string' && r.estudadaEm;
+    const pulada = typeof r.puladaEm === 'string' && r.puladaEm;
+    if (fechada || pulada) feitas += 1;
+  }
+  return feitas >= total;
 }
 
 /**
