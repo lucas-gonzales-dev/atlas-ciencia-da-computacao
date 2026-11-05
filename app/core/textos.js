@@ -18,6 +18,28 @@
 // {curly} são lugares de substituição. Quem desenha troca pelo valor real;
 // quem escreve aqui não sabe o valor ainda.
 
+// ── A CONTA DA ESTAÇÃO, NUMA BASE SÓ (S16c-fix, 04/11/2026) ────────────────
+// Duas telas dizem «3 de 93 aulas estudadas»: a linha da barra da estação
+// (`aulas.progresso`, S14b2) e a linha dos dois eixos da folha (`folha.eixos`,
+// S16c). Enquanto cada uma montava a sua, a folha mostrou a MESMA contagem duas
+// vezes, uma em cima da outra — foi o que o olho do Claude viu no v77. Regra 9
+// da casa: a mesma medida não se escreve de dois jeitos em dois lugares; aqui é
+// nem de um jeito em duas linhas do mesmo lugar. A base é função de módulo, não
+// chave de objeto: não é texto que a tela escolha, é o miolo que duas frases
+// compartilham. Os testes que varrem as CHAVES (design-system.test.js) não leem
+// função — por isso ela mora fora dos objetos congelados, e `TextosSemValoresVazios`
+// continua olhando só o que é frase.
+const baseDaEstacao = (estudadas, total) =>
+  `${estudadas} de ${total} ${total === 1 ? 'aula estudada' : 'aulas estudadas'}`;
+
+// `lembradas` a 0 NÃO entra: «0 lembradas depois» descreve o desenho, não a
+// pessoa, e é a mesma regra do zero que saiu do aria-label na S16b. O singular
+// é o da S15b-fix — «1 lembradas» é erro de concordância numa placa.
+const lembradasDepois = (lembradas) =>
+  Number.isFinite(lembradas) && lembradas > 0
+    ? ` · ${lembradas} lembrada${lembradas === 1 ? '' : 's'} depois`
+    : '';
+
 /** Textos fixos de placa: cabeçalhos, selos, botões. */
 export const placa = {
   titulo: 'Atlas',
@@ -329,12 +351,14 @@ export const folha = Object.freeze({
   // preenchimento vem do fechamento das aulas, a lembrança vem do histórico do
   // cartão, e a frase só traduz o que o núcleo mediu.
   //
-  // `lembradas` a 0 NÃO entra na frase: «0 lembradas depois» descreve o desenho,
-  // não a pessoa, e é a mesma regra do zero que saiu do aria-label na S16b.
-  eixos: (estudadas, total, lembradas) => {
-    const base = `${estudadas} de ${total} ${total === 1 ? 'aula estudada' : 'aulas estudadas'}`;
-    return lembradas > 0 ? `${base} · ${lembradas} lembrada${lembradas === 1 ? '' : 's'} depois` : base;
-  },
+  // A CONTA DA ESTAÇÃO E AS LEMBRADAS MORAM FORA DO OBJETO desde a S16c-fix
+  // (04/11/2026), e o motivo é um defeito que o olho viu: «3 de 93 aulas
+  // estudadas» aparecia DUAS vezes na folha, uma em cima da outra — a linha de
+  // medida daqui e a linha da barra (`aulas.progresso`, S14b2), cada uma montando
+  // a sua frase para a MESMA conta. Regra 9 da casa: a mesma medida não pode sair
+  // escrita de dois jeitos em duas telas — nem de um jeito em duas linhas da
+  // mesma tela. As duas frases chamam a mesma base; trocar a palavra é um lugar.
+  eixos: (estudadas, total, lembradas) => `${baseDaEstacao(estudadas, total)}${lembradasDepois(lembradas)}`,
   // O anel discreto do desenho, dito em palavras. `minutos` vem de `minutosDaFila`
   // sobre os cartões devidos daquela estação — a casa não escreve duração à mão
   // (lista do proibido), e a linha da Jornada e esta têm de dar o mesmo número
@@ -827,7 +851,14 @@ export const aulas = Object.freeze({
   comecar: (n, titulo) => `Começar: Aula ${n} — ${titulo}`,
   continuar: (n, titulo) => `Continuar: Aula ${n} — ${titulo}`,
   verTodas: (total) => `Ver as ${total} aulas`,
-  progresso: (estudadas, total, restante) => `${estudadas} de ${total} aulas estudadas · faltam ~${restante}`,
+  // S16c-fix (04/11/2026), item 3: `lembradas` entrou aqui porque a folha tinha
+  // a MESMA contagem em duas linhas, uma sobre a outra. Saiu uma; e a que ficou
+  // passou a dizer as duas medidas do desenho — o que foi estudado e o que foi
+  // lembrado depois — na ordem do eixo que a pessoa percorre. Sem o quarto
+  // argumento (a página de aulas, que não mede cartão) a frase é a de sempre,
+  // byte a byte: é o que as travas de `aulas-tela` e `fechamento-nucleo` exigem.
+  progresso: (estudadas, total, restante, lembradas = null) =>
+    `${baseDaEstacao(estudadas, total)}${lembradasDepois(lembradas)} · faltam ~${restante}`,
   estados: Object.freeze({
     'nao-iniciada': 'Não iniciada',
     aberta: 'Aberta',

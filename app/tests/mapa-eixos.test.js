@@ -78,14 +78,29 @@ test('S16b · eixos vazios (Map novo, ou null) também são o desenho de antes',
   assert.equal(mapaDaRede(CURSOS, NO_MEIO, { eixos: {} }), antes);
 });
 
-// largura 560 dá raio 10 e diâmetro 20: os números saem exatos, sem 11,428.
+// largura 560 dá raio EXTERNO 10 (e um diâmetro de 20, que desde a S16c-fix não
+// é mais o que se preenche). A conta do MIOLO é a mesma do desenhista: o traço é
+// `raio / 2.6`, centrado na borda, e o que fica dentro é `raio − traço/2`. Os
+// números abaixo são lidos daqui para o arquivo inteiro não escrever 8,1 duas
+// vezes; quem muda o raio no código muda aqui, e o teste continua acompanhando.
+const TRACO_DE_10 = Math.round((10 / 2.6) * 10) / 10;                    // 3,8
+const RAIO_INTERNO_DE_10 = Math.round((10 - TRACO_DE_10 / 2) * 10) / 10; // 8,1
+const D_INTERNO_DE_10 = Math.round(RAIO_INTERNO_DE_10 * 2 * 10) / 10;    // 16,2
+
 const UM = [{ id: 'x', title: 'Única', stage: 1, prerequisites: [] }];
 const recheioDe = (e) => mapaDaRede(UM, [], { largura: 560, altura: 400, eixos: new Map([['x', e]]) });
+const atributoDo = (svg, classe, atributo) => {
+  const m = new RegExp(`class="${classe}"[^>]*?${atributo}="([\\d.]+)"`).exec(svg);
+  return m ? Number(m[1]) : null;
+};
 const alturaDoRetangulo = (svg) => {
   const m = /class="mapa-preenchimento"[^>]*height="([\d.]+)"/.exec(svg);
   return m ? Number(m[1]) : 0;
 };
 
+// A função de altura é matemática pura e recebe O DIÂMETRO QUE SE DESENHA. Os
+// casos diretos abaixo usam 20 porque é a conta redonda; os casos desenhados usam
+// D_INTERNO_DE_10 porque é o miolo que o S16c-fix passou a preencher.
 test('S16b · a altura do preenchimento é proporcional, com o valor exato', () => {
   // 0 desenha nada; 0,5 e 1 desenham a metade e o diâmetro inteiro.
   assert.equal(alturaDoPreenchimento(0, 20), 0);
@@ -93,32 +108,36 @@ test('S16b · a altura do preenchimento é proporcional, com o valor exato', () 
   assert.equal(alturaDoPreenchimento(1, 20), 20);
   assert.equal(alturaDoRetangulo(recheioDe(eixo({ preenchimento: 0 }))), 0,
     'estudadas zero desenhou recheio — o mapa está dizendo que alguém estudou');
-  assert.equal(alturaDoRetangulo(recheioDe(eixo({ preenchimento: 0.5 }))), 10);
-  assert.equal(alturaDoRetangulo(recheioDe(eixo({ preenchimento: 1 }))), 20);
+  assert.equal(alturaDoRetangulo(recheioDe(eixo({ preenchimento: 0.5 }))), Math.round(D_INTERNO_DE_10 / 2 * 10) / 10);
+  assert.equal(alturaDoRetangulo(recheioDe(eixo({ preenchimento: 1 }))), D_INTERNO_DE_10);
 });
 
-test('S16b · o mínimo visível vale: 0,032 desenha 15% do diâmetro, e 0 não desenha nada', () => {
+test('S16b · o mínimo visível vale quando há estudo, e 0 nunca desenha nada', () => {
   // A decisão medida na S16a: 93 aulas com 3 estudadas é preenchimento 0,032,
   // menos de 1 px num círculo de 28 px. A pessoa estudaria e o mapa não mudaria.
   assert.equal(alturaDoPreenchimento(0.032, 28), 28 * MINIMO_VISIVEL);
   assert.ok(0.032 * 28 < 1, 'se 0,032 já passasse de 1 px, o mínimo não teria motivo');
   assert.equal(alturaDoPreenchimento(0, 28), 0, 'o mínimo não pode valer para quem não estudou nada');
-  // No desenho: diâmetro 20, 15% = 3 px, e 0,032 * 20 = 0,64 px (invisível).
-  assert.equal(alturaDoRetangulo(recheioDe(eixo({ preenchimento: 0.032 }))), 3);
-  // Acima do mínimo, o proporcional manda — e nunca passa do círculo.
-  assert.equal(alturaDoRetangulo(recheioDe(eixo({ preenchimento: 0.3 }))), 6);
+  // No desenho do miolo: 0,032 * 16,2 = 0,5 px, invisível; o mínimo desenhado é
+  // 30% do diâmetro interno. O número é lido de MINIMO_VISIVEL, não colado aqui.
+  assert.equal(alturaDoRetangulo(recheioDe(eixo({ preenchimento: 0.032 }))),
+    Math.round(D_INTERNO_DE_10 * MINIMO_VISIVEL * 10) / 10);
+  // Acima do mínimo, o proporcional manda — e nunca passa do miolo.
+  assert.equal(alturaDoRetangulo(recheioDe(eixo({ preenchimento: 0.5 }))), Math.round(D_INTERNO_DE_10 / 2 * 10) / 10);
   assert.equal(alturaDoPreenchimento(1.4, 20), 20, 'preenchimento não vaza para fora do círculo');
 });
 
-test('S16b · o preenchimento sobe de baixo para cima, dentro do círculo', () => {
+test('S16b · o preenchimento sobe de baixo para cima, dentro do miolo', () => {
   const svg = recheioDe(eixo({ preenchimento: 0.5 }));
-  assert.match(svg, /<clipPath id="mapa-recorte-0-x"><circle cx="24" cy="56" r="10"\/><\/clipPath>/,
-    'sem o recorte do círculo, o recheio vaza para fora da estação');
-  const m = /class="mapa-preenchimento" x="14" y="([\d.]+)" width="20" height="([\d.]+)"[^>]*clip-path="url\(#mapa-recorte-0-x\)"/.exec(svg);
+  const ri = RAIO_INTERNO_DE_10;
+  assert.ok(new RegExp(`<clipPath id="mapa-recorte-0-x"><circle cx="24" cy="56" r="${ri}"\\/><\\/clipPath>`).test(svg),
+    `sem o recorte do MIOLO, o recheio vaza para debaixo do traço: ${/<clipPath.*?<\/clipPath>/.exec(svg)?.[0]}`);
+  const m = new RegExp(`class="mapa-preenchimento" x="${Math.round((24 - ri) * 10) / 10}" y="([\\d.]+)" width="${D_INTERNO_DE_10}" height="([\\d.]+)"[^>]*clip-path="url\\(#mapa-recorte-0-x\\)"`).exec(svg);
   assert.ok(m, `o retângulo não saiu como desenhado: ${/mapa-preenchimento[^/]*/.exec(svg)?.[0]}`);
-  // Centro y=56, raio 10: a base do círculo é 66; metade cheia = 10 px de altura.
-  assert.equal(Number(m[1]), 56, 'y = centro + raio − altura, a conta da base para o topo');
-  assert.equal(Number(m[2]), 10);
+  // Centro y=56, raio interno 8,1: a base do miolo é 64,1; metade cheia = 8,1 de
+  // altura, e y cai exatamente no centro. É a conta da base para o topo.
+  assert.equal(Number(m[1]), 56, 'y = centro + raio interno − altura, a conta da base para o topo');
+  assert.equal(Number(m[2]), Math.round(D_INTERNO_DE_10 / 2 * 10) / 10);
 });
 
 test('S16b · embarcada não preenche nada e tem contorno próprio, mais forte que o comum', () => {
@@ -223,4 +242,74 @@ test('S16b · a estação sem eixo no mapa com eixos mantém o estado da viagem'
   const svg = mapaDaRede(MINI, ['a'], { largura: 560, altura: 400, eixos: new Map([['b', eixo({ estagio: 'fora', preenchimento: 0 })]]) });
   assert.match(/data-id="a"[^>]*data-estado="([^"]+)"/.exec(svg)[1], /^(concluida|disponivel|em_curso|trancada)$/,
     'sem medição, o que se mostra é a viagem, não um estágio inventado');
+});
+
+// ═════════════════ S16c-fix (04/11/2026): o MIOLO, não o círculo ═══════════
+// O olho do Claude, com o SVG ampliado: uma estação de 3 de 93 aulas parecia
+// VAZIA nos dois temas. A causa é minha (S16b), e é geometria: o raio é 11,4 com
+// um traço de 4,4 CENTRADO na borda — o miolo visível vai só até 9,2. O
+// preenchimento desenhado até 10 ficava EMBAXO do traço: existia no SVG, não
+// aparecia na tela. As duas travas abaixo param de perguntar pelo círculo e
+// passam a perguntar pelo miolo; e a de 2026-11-04 (a folha com a contagem duas
+// vezes) continua valendo, só que num lugar só.
+
+test('S16c-fix · o miolo visível: raio interno = raio − traço/2, e é ele que recorta', () => {
+  const svg = recheioDe(eixo({ preenchimento: 1 }));
+  const recorte = /<clipPath id="mapa-recorte-0-x"><circle cx="24" cy="56" r="([\d.]+)"\/><\/clipPath>/.exec(svg);
+  assert.ok(recorte, `o recorte do miolo não saiu desenhado: ${/<clipPath.*?<\/clipPath>/.exec(svg)?.[0]}`);
+  assert.equal(Number(recorte[1]), RAIO_INTERNO_DE_10,
+    'o clipPath recorta pelo raio EXTERNO: o preenchimento cai debaixo do traço do círculo');
+  // O retângulo ocupa o diâmetro interno, não o externo.
+  assert.equal(atributoDo(svg, 'mapa-preenchimento', 'width'), D_INTERNO_DE_10);
+  assert.equal(atributoDo(svg, 'mapa-preenchimento', 'x'), Math.round((24 - RAIO_INTERNO_DE_10) * 10) / 10);
+});
+
+test('S16c-fix · preenchimento 1 enche o MIOLO inteiro, e 0,032 desenha 30% dele', () => {
+  const d = D_INTERNO_DE_10;
+  // A função passou a receber o diâmetro INTERNO; a matemática é a mesma.
+  assert.equal(alturaDoPreenchimento(1, d), d, 'cheio é o miolo inteiro');
+  assert.equal(alturaDoPreenchimento(0.032, d), d * MINIMO_VISIVEL);
+  assert.equal(alturaDoPreenchimento(0, d), 0, 'o mínimo não vale para quem não estudou nada');
+  assert.equal(MINIMO_VISIVEL, 0.30,
+    'o mínimo voltou a 0,15: uma calota de 15% da ALTURA é 9% da ÁREA, e não se vê');
+
+  const cheio = recheioDe(eixo({ preenchimento: 1 }));
+  assert.equal(atributoDo(cheio, 'mapa-preenchimento', 'height'), d);
+  // A base é o fundo do MIOLO: centro y=56 + raio interno. Com cheio, y = topo do miolo.
+  assert.equal(atributoDo(cheio, 'mapa-preenchimento', 'y'), Math.round((56 - RAIO_INTERNO_DE_10) * 10) / 10);
+
+  const quaseNada = recheioDe(eixo({ preenchimento: 3 / 93 }));
+  const alturaLida = atributoDo(quaseNada, 'mapa-preenchimento', 'height');
+  const esperado = Math.round(d * MINIMO_VISIVEL * 10) / 10;
+  assert.equal(alturaLida, esperado, 'o caso medido (3 de 93) não desenha o mínimo do miolo');
+  assert.ok(alturaLida > (3 / 93) * d * 3,
+    `a altura ${alturaLida} é a proporção pura, não o mínimo: o mapa diria vazio o que foi estudado`);
+});
+
+test('S16c-fix · a trancada com eixos não deixa o trilho aparecer dentro do círculo', () => {
+  // 'c' pede 'a': com o progresso vazio ela está TRANCADA. O opacity no <g>
+  // apagava tudo, inclusive o fundo — e o trilho de trás transparentava pelo
+  // miolo, que é o que o olho viu como "linha cruzando por dentro".
+  const comEixos = mapaDaRede(MINI, [], { largura: 560, altura: 400, eixos: new Map([['c', eixo({ estagio: 'fora', estudadas: 0, total: 5, preenchimento: 0 })]]) });
+  const grupo = /<g class="mapa-estacao" data-id="c"[^>]*>/.exec(comEixos)?.[0];
+  assert.ok(grupo, 'a trancada sumiu do mapa com eixos');
+  assert.ok(!/opacity="0.45"/.test(grupo), `o grupo ainda tem opacity — o recheio fica translúcido: ${grupo}`);
+  const bloco = /<g class="mapa-estacao" data-id="c"[\s\S]*?<\/g>/.exec(comEixos)[0];
+  const circulo = /<circle cx="[\d.]+" cy="[\d.]+" r="[\d.]+" fill="([^"]*)"[^>]*>/.exec(bloco);
+  assert.ok(circulo, `não achei o círculo da trancada para conferir a opacidade: ${bloco}`);
+  assert.match(circulo[1], /^var\(--(linha-\d|fundo)\)$/, 'o fill opaco deixou de ser token da casa');
+  assert.match(bloco, /stroke-opacity="0\.45"/, 'o traço da trancada não está apagado — apagado agora é só o traço');
+});
+
+test('S16c-fix · SEM eixos a trancada continua exatamente a de antes (byte a byte)', () => {
+  // O outro lado da moeda: a correção é do ramo com eixos. O cartão do link, o
+  // og:image e o bilhete não podem sentir nada disso.
+  const semEixos = mapaDaRede(MINI, []);
+  assert.match(semEixos, /<g class="mapa-estacao" data-id="c"[^>]*opacity="0\.45">/,
+    'a trancada sem eixos perdeu o opacity de sempre');
+  assert.ok(!/stroke-opacity="0.45"/.test(/<g class="mapa-estacao" data-id="c".*?<\/g>/.exec(semEixos)[0]),
+    'entrou stroke-opacity no desenho antigo');
+  assert.equal(mapaDaRede(MINI, ['a', 'b'], { largura: 120, altura: 100 }), REFERENCIA_MINI,
+    'o mini-catalogo mudou de bytes');
+  assert.equal(sha(mapaDaRede(CURSOS, NO_MEIO)), REFERENCIA_REAL.default, 'o mapa real mudou de bytes');
 });

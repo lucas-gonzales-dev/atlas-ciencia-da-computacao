@@ -625,7 +625,17 @@
 // web/folha.js e web/telas/revisar.css (as duas linhas da estação; o anel que
 // marca o texto focado sem fingir campo). Sem isto, o aparelho antigo continua
 // desenhando o mapa declarado — cor de estação sem medição por trás.
-const VERSAO = 'atlas-v77';
+// atlas-v78: S16c-fix (04/11/2026) — tres defeitos que o OLHO viu no SVG
+// ampliado e nenhuma regua media. (1) O preenchimento caia debaixo do traco do
+// circulo: raio 11,4 com traco de 4,4 centrado na borda deixa um miolo de 9,2, e
+// a estacao de 3 de 93 aulas parecia VAZIA nos dois temas. Recorte, retangulo e
+// MINIMO_VISIVEL passam a ser do miolo, e o minimo sobe de 15% para 30%. (2) A
+// trancada usava opacity no grupo, e o trilho de tras aparecia dentro do circulo;
+// agora so o traco e translucido, com o miolo opaco. (3) «3 de 93 aulas
+// estudadas» saia duas vezes na folha, uma em cima da outra: a contagem vive so na
+// linha da barra, que passa a dizer tambem as lembradas. Mudam de bytes e estao no
+// precache: core/mapa-rede.js, core/textos.js, web/folha.js, web/aulas-pedacos.js.
+const VERSAO = 'atlas-v78';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
@@ -671,7 +681,7 @@ const VERSAO = 'atlas-v77';
 // core/mapa-rede.js (os eixos viram desenho) e core/textos.js (o bloco `mapa`,
 // com as frases do aria-label). Os testes novos (tests/mapa-eixos.test.js) não
 // estão no precache: nada de fora de app/ vai para o cache de quem usa.
-const PRECACHE_HASH = 'sha256-4e955ee4dec49821caf04028d3bfd059e12a199ccad97534446bf8915305345b';
+const PRECACHE_HASH = 'sha256-6d9f7a305e4fa80ea61760ad5d7fa77ecb3ea6de831b52d655abfbfbe11cd796';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.

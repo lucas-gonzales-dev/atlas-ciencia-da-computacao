@@ -76,7 +76,7 @@ export function hrefVideo(aula, playlist) {
  * O texto é a frase inteira e é também o `aria-label` da barra: a casa escreve
  * o que a pessoa lê, não uma paráfrase para a máquina.
  */
-export function linhaProgresso(doc, resumo) {
+export function linhaProgresso(doc, resumo, lembradas = null) {
   // S14b2 (item 8): a barra e a frase contam ESTUDADAS, não abertas. É a mesma
   // linha de código das duas telas de propósito — folha e página de aulas puxam
   // daqui (regra 9) — e por isso a troca do número acontece uma vez só. O
@@ -85,7 +85,11 @@ export function linhaProgresso(doc, resumo) {
   // seria a régua mentindo para quem não vê.
   const caixa = no(doc, 'div', 'aulas-progresso');
   const feito = Number(resumo.estudadas) || 0;
-  const frase = A.progresso(feito, resumo.total, duracaoLegivel(resumo.segundosRestantes));
+  // S16c-fix (04/11/2026), item 3: `lembradas` é o que a FOLHA passa, porque a
+  // linha da barra passou a ser a ÚNICA contagem da estação na tela. Quem não
+  // mede cartão (a página de aulas) não passa nada, e a frase sai byte a byte a
+  // de antes — é o que as travas de `aulas-tela` e `design-system` exigem.
+  const frase = A.progresso(feito, resumo.total, duracaoLegivel(resumo.segundosRestantes), lembradas);
   caixa.append(no(doc, 'p', 'aulas-progresso-texto', { text: frase }));
 
   const cheio = resumo.total > 0 ? Math.round((feito / resumo.total) * 100) : 0;

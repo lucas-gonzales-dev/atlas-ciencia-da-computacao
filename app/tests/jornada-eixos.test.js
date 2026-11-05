@@ -36,7 +36,7 @@ import {
 } from '../core/cartoes.js';
 import { eixosDaEstacao } from '../core/eixos.js';
 import { MINIMO_VISIVEL } from '../core/mapa-rede.js';
-import { folha as F, jornada as J, mapa as MAPA, revisar as REV } from '../core/textos.js';
+import { aulas as A, folha as F, jornada as J, mapa as MAPA, revisar as REV } from '../core/textos.js';
 
 const RAIZ = new URL('../', import.meta.url);
 const LER = (rel) => readFileSync(fileURLToPath(new URL(rel, RAIZ)), 'utf8');
@@ -60,6 +60,19 @@ const buscarDe = () => async (url) => {
   } catch {
     return { ok: false, status: 404, json: async () => ({}) };
   }
+  return { ok: true, status: 200, json: async () => JSON.parse(bruto) };
+};
+
+/**
+ * O aparelho em que o ÍNDICE chegou mas o JSON da estação não (o caso da S13b:
+ * offline no primeiro abrir, ou o arquivo ainda não baixado). A folha perde a
+ * barra de progresso — e é aí que se vê se a linha de medida ficou sozinha ou se
+ * ela se calou junto, deixando a estação sem nenhum número.
+ */
+const buscarSemAulas = () => async (url) => {
+  const u = String(url);
+  if (!/indice\.json$/.test(u)) return { ok: false, status: 404, json: async () => ({}) };
+  const bruto = LER('data/aulas/indice.json');
   return { ok: true, status: 200, json: async () => JSON.parse(bruto) };
 };
 
@@ -105,8 +118,11 @@ function cartoesDoEstudo(n, { criadoEm = '2026-11-01', lembradoEm = null } = {})
   return serializarCartoes(arquivo);
 }
 
-/** Sobe o app inteiro pelo caminho do app, e devolve a raiz já repintada. */
-async function subir({ estudo = null, cartoes = null, completed = [], hoje = '2026-11-04', folha = null } = {}) {
+/** Sobe o app inteiro pelo caminho do app, e devolve a raiz já repintada.
+ *  `aulasNoAparelho: false` é o caso real da S13b: o índice chegou, o JSON da
+ *  estação não. Sem a lista, a folha desenha a de sempre (nenhuma barra), e é
+ *  exatamente aí que a linha de medida dos eixos tem de continuar. */
+async function subir({ estudo = null, cartoes = null, completed = [], hoje = '2026-11-04', folha = null, aulasNoAparelho = true } = {}) {
   const doc = criarDoc();
   const raiz = doc.createElement('div');
   const win = janelaCom();
@@ -127,7 +143,7 @@ async function subir({ estudo = null, cartoes = null, completed = [], hoje = '20
     },
     setTimeout: () => 0,
     hoje,
-    buscarAulas: buscarDe(),
+    buscarAulas: aulasNoAparelho ? buscarDe() : buscarSemAulas(),
     folha
   });
   // O indice.json e a lista da estação chegam por promessa, dentro do pintar:
@@ -222,16 +238,21 @@ test('S16c · folha: a medida diz as aulas estudadas e as lembradas, com os núm
   });
   const painel = folhaPainel(raiz);
   assert.ok(painel, 'a folha da rota não abriu pelo caminho do app');
-  const linha = comClasse(painel, /^folha-eixos-medida$/);
+  // S16c-fix (item 3): com a barra no aparelho, a medida dos dois eixos VIVE na
+  // linha da barra, não numa caixa própria. A trava continua conferindo as MESMAS
+  // três coisas (estudadas, total do índice, lembradas) — só mudou de endereço.
+  const linha = comClasse(painel, /^aulas-progresso-texto$/);
   assert.equal(linha.length, 1, 'a folha não mostra a linha dos dois eixos');
+  assert.equal(comClasse(painel, /^folha-eixos-medida$/).length, 0,
+    'a caixa de medida voltou a existir em cima da barra');
 
   // 3 estudadas, 2 lembradas (o cartão da 3ª aula nunca foi revisado). O TOTAL é
   // o do indice.json, e a frase é a do textos.js chamada com os números medidos.
-  const esperado = F.eixos(3, TOTAL, 2);
-  assert.equal(textoDe(linha[0]), esperado,
-    `a folha diz outra coisa: «${textoDe(linha[0])}» — a medida não veio do storage`);
-  assert.ok(esperado.includes(String(TOTAL)), 'o total de aulas não veio do índice');
-  assert.ok(!esperado.includes('0 lembradas'), 'a frase mostrou uma contagem zero');
+  const lido = textoDe(linha[0]);
+  assert.equal(vezes(textoDe(painel), `3 de ${TOTAL} aulas estudadas`), 1,
+    `a contagem de estudadas não aparece exatamente uma vez: «${lido}»`);
+  assert.ok(lido.includes('2 lembradas depois'), `as lembradas sumiram da linha: «${lido}»`);
+  assert.ok(!/0 lembradas/.test(lido), 'a frase mostrou uma contagem zero');
 
   // Cross-check com o núcleo: a tela não refaz a conta, ela mostra a conta dele.
   const eixo = eixosDaEstacao(PRIMEIRA.id, {
@@ -265,8 +286,14 @@ test('S16c · folha: a linha de revisão só existe com pedeRevisao, e leva à a
   const fresca = await subir({ folha: PRIMEIRA.slug, estudo: estudoComEstudadas(3), cartoes, hoje: '2026-11-03' });
   assert.equal(comClasse(folhaPainel(fresca.raiz), /^folha-eixos-revisar$/).length, 0,
     'a folha pediu revisão um dia depois de a pessoa lembrar: o anel acendeu sem esfriar nada');
-  assert.equal(comClasse(folhaPainel(fresca.raiz), /^folha-eixos-medida$/).length, 1,
-    'sem pedeRevisao a folha perdeu até a linha de medida');
+  // O que tinha de continuar lá é a MEDIDA, não a caixa: com a barra no aparelho
+  // (S16c-fix, item 3) ela mora na linha da barra, uma vez só.
+  const medida = comClasse(folhaPainel(fresca.raiz), /^aulas-progresso-texto$/);
+  assert.equal(medida.length, 1, 'sem pedeRevisao a folha perdeu até a linha de medida');
+  assert.ok(textoDe(medida[0]).includes('3 de ' + TOTAL + ' aulas estudadas'),
+    `a medida sumiu da linha da barra: «${textoDe(medida[0])}»`);
+  assert.equal(comClasse(folhaPainel(fresca.raiz), /^folha-eixos-medida$/).length, 0,
+    'a caixa de medida voltou a existir em cima da barra');
 });
 
 // ═══════════════════ 3. a linha da fila do dia no topo (S15b item 4) ═════════
@@ -325,4 +352,122 @@ test('S16c · proibido: as frases novas não falam de atraso nem de ausência', 
     }
     assert.ok(!/\p{Extended_Pictographic}/u.test(texto), `${nome}: emoji na frase — placa de metrô não tem emoji`);
   }
+});
+
+// ═══════════════════ S16c-fix (04/11/2026): a contagem UMA vez só ════════════
+// O olho do Claude na folha: «3 de 93 aulas estudadas» aparecia DUAS vezes, uma
+// em cima da outra — a linha dos eixos (S16c, item 3) e a linha da barra (S14b2),
+// cada uma com a sua frase montada em textos.js. A medida é a mesma; a tela dava
+// duas respostas para uma pergunta, que é exatamente o defeito que a casa já
+// matou na fila da estação (folha.js:236, o comentário dos minutos).
+// A correção é uma linha só, a da barra, com as lembradas dentro dela. A da
+// medida fica SOZINHA onde a barra não aparece — aparelho sem o JSON da estação.
+
+const vezes = (texto, agulha) => texto.split(agulha).length - 1;
+
+test('S16c-fix · folha: a contagem de aulas estudadas aparece UMA vez, com as lembradas junto', async () => {
+  const { raiz } = await subir({
+    folha: PRIMEIRA.slug,
+    estudo: estudoComEstudadas(3),
+    cartoes: cartoesDoEstudo(2, { lembradoEm: '2026-11-02' }),
+    hoje: '2026-11-03'
+  });
+  const painel = folhaPainel(raiz);
+  const lido = textoDe(painel);
+  const agulha = `3 de ${TOTAL} aulas estudadas`;
+  assert.ok(lido.includes(agulha), `a folha não diz a contagem: «${lido.slice(0, 300)}»`);
+  assert.equal(vezes(lido, agulha), 1,
+    `«${agulha}» aparece ${vezes(lido, agulha)} vezes na folha — é a contagem duplicada`);
+  // E a linha que ficou é a COMPLETA: as lembradas vêm dentro dela, não noutra.
+  assert.ok(lido.includes('2 lembradas depois'),
+    `as lembradas sumiram da única linha que sobrou: «${lido.slice(0, 300)}»`);
+  assert.match(lido, /3 de \d+ aulas estudadas · 2 lembradas depois · faltam ~\S/,
+    'a linha única não é a da barra com as lembradas no meio');
+  // Uma linha só quer dizer uma frase: o bloco da medida saiu quando a barra está lá.
+  assert.equal(comClasse(painel, /^folha-eixos-medida$/).length, 0,
+    'a linha de medida continuou desenhada em cima da barra: duas frases, uma conta');
+});
+
+test('S16c-fix · folha: sem a barra no aparelho, a linha de medida continua lá, uma vez só', async () => {
+  // O JSON da estação não chegou: não há painel, não há linha da barra. Se a
+  // medida sumisse junto, a estação estudada apareceria sem número nenhum.
+  const { raiz } = await subir({
+    folha: PRIMEIRA.slug,
+    estudo: estudoComEstudadas(3),
+    cartoes: cartoesDoEstudo(2, { lembradoEm: '2026-11-02' }),
+    hoje: '2026-11-03',
+    aulasNoAparelho: false
+  });
+  assert.equal(comClasse(folhaPainel(raiz), /^aulas-progresso$/).length, 0,
+    'fixture: a barra apareceu sem o JSON da estação no aparelho');
+  const linha = comClasse(folhaPainel(raiz), /^folha-eixos-medida$/);
+  assert.equal(linha.length, 1, 'a linha de medida sumiu junto com a barra');
+  assert.equal(textoDe(linha[0]), F.eixos(3, TOTAL, 2));
+  assert.equal(vezes(textoDe(folhaPainel(raiz)), `3 de ${TOTAL} aulas estudadas`), 1);
+});
+
+test('S16c-fix · folha: "1 lembrada depois" no singular, e zero lembradas não aparece', async () => {
+  // Três cartões nascidos em 01/11, e UMA revisão feita de verdade: um lembrado,
+  // dois à espera. É o único jeito de ter exatamente uma lembrada num aparelho
+  // que tem aulas — `cartoesDoEstudo` revira todos ou nenhum.
+  const umSo = (() => {
+    const arquivo = lerCartoes(cartoesDoEstudo(3));
+    const id = Object.keys(arquivo.cartoes)[0];
+    return serializarCartoes(revisarCartao(arquivo.cartoes, id,
+      { nota: 'lembrei', confianca: 'certeza' }, '2026-11-02T09:00').cartoes);
+  })();
+  const um = await subir({
+    folha: PRIMEIRA.slug,
+    estudo: estudoComEstudadas(3),
+    cartoes: umSo,
+    hoje: '2026-11-03'
+  });
+  // A folha só pinta quando o índice da estação chegou; sem ele não haveria
+  // linha da barra para receber a lembrada.
+  assert.ok(comClasse(folhaPainel(um.raiz), /^aulas-progresso$/).length === 1,
+    'fixture: a folha montada sem índice não tem a linha da barra');
+  assert.equal(eixosDaEstacao(PRIMEIRA.id, {
+    estudo: estudoComEstudadas(3), cartoes: lerCartoes(umSo), indice: INDICE,
+    progresso: { completed: [] }, hoje: '2026-11-03'
+  }).lembradas, 1, 'fixture: o núcleo não conta uma lembrada');
+  // Uma aula lembrada, duas estudadas: o singular é o da regra da S15b-fix.
+  assert.match(F.eixos(2, TOTAL, 1), /· 1 lembrada depois$/);
+  assert.ok(!/1 lembradas/.test(F.eixos(2, TOTAL, 1)), 'plural no singular');
+  assert.ok(textoDe(folhaPainel(um.raiz)).includes('1 lembrada depois'),
+    'a folha não flexionou uma lembrada');
+
+  // Zero lembradas: dois cartões nascidos e NUNCA revirados. O pedaço não entra,
+  // e a linha que sobra é a da barra, sem o «0».
+  const zero = await subir({
+    folha: PRIMEIRA.slug,
+    estudo: estudoComEstudadas(2),
+    cartoes: cartoesDoEstudo(2),
+    hoje: '2026-11-03'
+  });
+  assert.equal(F.eixos(2, TOTAL, 0), `2 de ${TOTAL} aulas estudadas`,
+    'a medida sozinha mudou: «0 lembradas» é uma frase sobre o desenho, não sobre a pessoa');
+  const lidoZero = textoDe(folhaPainel(zero.raiz));
+  assert.ok(!/lembrad/.test(lidoZero), `a folha mostrou o zero: «${lidoZero.slice(0, 300)}»`);
+  assert.equal(vezes(lidoZero, `2 de ${TOTAL} aulas estudadas`), 1);
+  // A linha de medida, que só ela aparece quando não há lembrada na barra? Não:
+  // a barra existe (há aulas no aparelho), então a medida continua calada.
+  assert.equal(comClasse(folhaPainel(zero.raiz), /^folha-eixos-medida$/).length, 0);
+});
+
+test('S16c-fix · a linha da barra com lembradas passa pela lista do proibido', () => {
+  for (const l of [A.progresso(3, TOTAL, '29 h 23 min', 2), A.progresso(1, TOTAL, '29 h 23 min', 1),
+    A.progresso(0, TOTAL, '29 h 23 min', 0)]) {
+    for (const re of SEM_MEDIDA) {
+      const achado = re.exec(l);
+      assert.ok(!achado, `a linha da barra diz «${achado && achado[0]}»: ${l}`);
+    }
+  }
+  // O UM flexiona a contagem do mesmo jeito que `F.eixos` já flexiona — e as duas
+  // frases têm de sair da MESMA conta, não de duas cópias (regra 9). O `faltam`
+  // não flexiona: o restante chega já formatado de `duracaoLegivel`, e quem
+  // inventasse «falta ~1 h» estaria formatando a duração num segundo lugar.
+  assert.equal(A.progresso(1, 1, '1 h', 1), '1 de 1 aula estudada · 1 lembrada depois · faltam ~1 h',
+    'a linha da barra não flexiona a contagem de um');
+  assert.equal(A.progresso(1, 1, '1 h'), '1 de 1 aula estudada · faltam ~1 h',
+    'a linha da barra sem lembradas mudou de palavras para quem não tem cartão');
 });

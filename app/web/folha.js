@@ -56,7 +56,7 @@ function no(doc, tag, classe, attrs) {
  * A ação, por estado — a regra da 2d-2 continua de pé: UM primário por folha,
  * e nenhum na trancada e na concluída (JORNADA §3.1).
  */
-function acaoPorEstado(doc, f, curso, dataConclusao, painel = null) {
+function acaoPorEstado(doc, f, curso, dataConclusao, painel = null, lembradas = null) {
   const box = no(doc, 'div', 'folha-acoes');
 
   if (f.estado === ESTADOS.TRANCADA) {
@@ -105,7 +105,10 @@ function acaoPorEstado(doc, f, curso, dataConclusao, painel = null) {
   // não está no aparelho), nada aqui toca no desenho de hoje: o bloco abaixo do
   // else é exatamente a folha da S5, e a lista de aulas é que diz por quê.
   if (painel) {
-    box.append(linhaProgresso(doc, painel.resumo));
+    // S16c-fix: as lembradas do eixo da cor entram aqui, vindas de `blocoEixos`.
+    // É a linha da barra que passa a dizer as duas medidas; a caixa de cima sai
+    // quando ela existe, e «3 de 93 aulas estudadas» deixa de aparecer duas vezes.
+    box.append(linhaProgresso(doc, painel.resumo, lembradas));
 
     const aulasAbertas = painel.resumo.abertas > 0;
     box.append(primarioAula(doc, {
@@ -214,7 +217,15 @@ function fato(doc, rotuloTxt, valor) {
  * `pedeRevisao` não é um alarme nem fala de atraso — é a estação dizendo que os
  * cartões dela esfriaram, com o caminho para a fila.
  */
-function blocoEixos(doc, estado) {
+// `comBarra` é a decisão do item 3 da S16c-fix (04/11/2026): quando a barra de
+// progresso da estação existe na mesma folha, ela é a LINHA DA MEDIDA — e a
+// contagem de cima sai, porque as duas diziam «3 de 93 aulas estudadas» uma em
+// cima da outra. Onde a barra não nasce (trancada, concluída, ou sem as aulas no
+// aparelho), a medida continua sozinha nesta caixa.
+// Devolve `{ no, lembradas }` (ou null): `lembradas` é o que a linha da barra
+// precisa para dizer as duas coisas, e a conta é feita uma vez só — a folha não
+// chama `eixosDaEstacao` duas vezes para o mesmo número.
+function blocoEixos(doc, estado, comBarra) {
   if (!estado.indice?.estacoes?.[estado.id]) return null;
   const e = eixosDaEstacao(estado.id, {
     estudo: estado.estudo,
@@ -226,9 +237,15 @@ function blocoEixos(doc, estado) {
   if (!e.total) return null;
 
   const caixa = no(doc, 'div', 'folha-eixos');
-  caixa.append(no(doc, 'p', 'folha-eixos-medida', {
-    text: F.eixos(e.estudadas, e.total, e.lembradas)
-  }));
+  // A medida só vive aqui quando a barra não existe na folha. Quando ela existe,
+  // a frase de cima era a duplicata que o olho viu no v77.
+  let temFilho = false;
+  if (!comBarra) {
+    caixa.append(no(doc, 'p', 'folha-eixos-medida', {
+      text: F.eixos(e.estudadas, e.total, e.lembradas)
+    }));
+    temFilho = true;
+  }
 
   if (e.pedeRevisao) {
     // Os minutos são da fila DESTA estação, e a fração do tempo é a mesma da
@@ -236,13 +253,21 @@ function blocoEixos(doc, estado) {
     // respostas para a mesma pergunta.
     const devidos = cartoesDevidos(estado.cartoes, dataLocal(estado.hoje), Infinity)
       .filter((c) => c.estacao === estado.id).length;
-    if (!devidos) return caixa;
-    caixa.append(no(doc, 'a', 'folha-eixos-revisar', {
-      href: hrefDe({ tela: 'revisar' }),
-      text: F.eixosRevisao(minutosDaFila(devidos))
-    }));
+    if (devidos) {
+      caixa.append(no(doc, 'a', 'folha-eixos-revisar', {
+        href: hrefDe({ tela: 'revisar' }),
+        text: F.eixosRevisao(minutosDaFila(devidos))
+      }));
+    }
   }
-  return caixa;
+  // Com a barra desenhada, esta caixa pode ter ficado sem filho nenhum (sem
+  // medida própria e sem link de revisão). Uma div vazia na folha é um buraco no
+  // fluxo que o CSS da estação paga — sai de cena, e as lembradas seguem para a
+  // linha da barra pelo objeto devolvido.
+  return {
+    no: caixa.children.length ? caixa : null,
+    lembradas: Number.isFinite(e.lembradas) ? e.lembradas : null
+  };
 }
 
 /**
@@ -425,8 +450,17 @@ export function desenharFolha(doc, estado) {
   //     no aparelho (o `indice` chega depois da S20a, e o `cartoes` também), a
   //     linha não nasce: «0 de 0» é uma frase sobre um dado que não chegou, e a
   //     casa não descreve o que não mediu.
-  const blocoEixosNo = blocoEixos(doc, { ...estado, id: curso.id });
-  if (blocoEixosNo) corpo.append(blocoEixosNo);
+  // A conta das aulas (S13b) sobe para antes dos eixos: a barra de progresso,
+  // desenhada dentro de `acaoPorEstado`, é quem passa a levar as lembradas, e
+  // «vai nascer barra?» é a mesma conta de `comBarra` aqui embaixo. Refazer o
+  // `painelDeAulas` duas vezes na mesma folha é a folha dando duas respostas
+  // para a mesma pergunta.
+  const comAulas = (f.estado === ESTADOS.DISPONIVEL || f.estado === ESTADOS.EM_CURSO)
+    ? painelDeAulas(estudo || lerEstudo(null), curso.id, { ...aulas, resourceUrl: curso.resourceUrl })
+    : null;
+  const eixos = blocoEixos(doc, { ...estado, id: curso.id }, Boolean(comAulas));
+  if (eixos?.no) corpo.append(eixos.no);
+  const lembradas = eixos ? eixos.lembradas : null;
 
   // 4. os três fatos. A origem é a MESMA função da placa, e o que a fonte não
   //    diz a folha cala — por isso o dd pode sair com texto vazio.
@@ -456,11 +490,10 @@ export function desenharFolha(doc, estado) {
   // 100% ou a 0% sem nenhum gesto possivel, e o painel das duas ja existe (o mapa
   // do que abriu, a data). A lista vem de fora (web/aulas-dados.js): a folha nao
   // carrega nada e nao decide nada, so monta o que o nucleo calculou. Sem lista,
-  // acaoPorEstado desenha a folha exatamente como ela era hoje.
-  const comAulas = (f.estado === ESTADOS.DISPONIVEL || f.estado === ESTADOS.EM_CURSO)
-    ? painelDeAulas(estudo || lerEstudo(null), curso.id, { ...aulas, resourceUrl: curso.resourceUrl })
-    : null;
-  corpo.append(acaoPorEstado(doc, f, curso, progresso.conclusoes?.[curso.id], comAulas));
+  // acaoPorEstado desenha a folha exatamente como ela era hoje. O `comAulas` ja
+  // foi calculado no bloco dos eixos, acima, e e o mesmo objeto aqui: a folha
+  // conta as aulas uma vez so.
+  corpo.append(acaoPorEstado(doc, f, curso, progresso.conclusoes?.[curso.id], comAulas, lembradas));
 
   // 7. a anotação. O nome acessível do campo leva a estação — é a lição da
   //    2c-3: desenhado nas 35 estações, o leitor de tela dizia "Anotação"

@@ -39,21 +39,30 @@ export const CORES_DO_TEMA = Object.freeze({
 });
 
 /**
- * O mínimo visível do preenchimento, como fração do diâmetro (S16b, decisão
- * medida contra `core/eixos.js` com dados reais).
+ * O mínimo visível do preenchimento, como fração do diâmetro do MIOLO (S16b,
+ * decisão medida contra `core/eixos.js` com dados reais; recalibrada na S16c-fix).
  *
  * Por que existe: uma estação de 93 aulas com 3 estudadas dá preenchimento
  * 0,032. Num círculo de 28 px de diâmetro, isso são 0,9 px — a pessoa estuda e
  * o mapa não muda, que é o oposto do princípio 1 do desenho ("Progresso é
- * verificado, não declarado"). O mínimo desenhado é 15% do diâmetro, e só quando
+ * verificado, não declarado"). O mínimo desenhado é 30% do miolo, e só quando
  * há ao menos uma aula estudada; com zero estudadas continua zero, porque aí não
  * há nada a mostrar.
  *
+ * POR QUE 30 E NÃO 15 (S16c-fix, 04/11/2026, medido no SVG do v77): o traço do
+ * círculo é `raio / 2.6` e fica CENTRADO na borda, então metade dele cobre o
+ * desenho por dentro. No mapa da rede, com raio 11,4 e traço 4,4, o que a pessoa
+ * vê é o miolo: raio 9,2, diâmetro 18,4 px. O mínimo antigo — 15% do diâmetro
+ * EXTERNO — dava 3,4 px de calota, e 2,2 desses px ficavam debaixo do traço:
+ * restava ~1,2 px, e uma estação de 3 de 93 aulas pareceu VAZIA nos dois temas,
+ * com o retângulo existindo no SVG. Agora o recorte, o retângulo e a fração são
+ * todos do miolo, e o caso medido (0,032) desenha 5,5 px dos 18,4.
+ *
  * O número EXATO não mora aqui: `eixos.preenchimento` é a medida, e é ela que a
  * folha e o leitor de tela dizem. Este valor é uma escolha de legibilidade, e o
- * teste trava os dois lados — 0,032 desenha 15%, 0 não desenha nada.
+ * teste trava os dois lados — 0,032 desenha o mínimo do miolo, 0 não desenha nada.
  */
-export const MINIMO_VISIVEL = 0.15;
+export const MINIMO_VISIVEL = 0.30;
 
 /** A partir de quanto o preenchimento toma a cor cheia da linha (S16b). */
 export const COR_CHEIA = 0.8;
@@ -103,7 +112,12 @@ function posicoes(cursos, { largura, altura, margem, topo }) {
  *   `largura` e `altura` são o viewBox; `rotulo` desenha o selo de cada linha no topo.
  * @returns {string}
  */
-/** Quantos px de altura o preenchimento desenha, dentro do círculo. Exportado para a trava do mínimo visível. */
+/**
+ * Quantos px de altura o preenchimento desenha, dentro do MIOLO visível.
+ * `diametro` é o diâmetro interno (raio menos metade do traço), não o do círculo:
+ * desde a S16c-fix é o miolo que a pessoa vê, e o retângulo clipado a ele.
+ * Exportado para a trava do mínimo visível.
+ */
 export function alturaDoPreenchimento(preenchimento, diametro) {
   const cheio = Number(preenchimento) > 0;
   if (!cheio) return 0;
@@ -238,8 +252,14 @@ export function mapaDaRede(cursos, progresso, opcoes = {}) {
 
     const eixo = eixoDe(eixos, c.id);
     const estagio = eixo?.estagio ?? estado;
-    const diametro = raio * 2;
-    const altura = alturaDoPreenchimento(eixo?.preenchimento, diametro);
+    // S16c-fix (04/11/2026), item 1 — o MIOLO, não o círculo. O traço de
+    // `raio / 2.6` é CENTRADO na borda, então o que aparece de círculo vai só até
+    // `raio − traço/2`: num raio de 11,4, o miolo visível é 9,2. Preencher até o
+    // raio externo desenhava uma faixa que sumia debaixo do traço — uma estação
+    // de 3 de 93 aulas parecia vazia nos dois temas, com o retângulo no SVG.
+    const raioInterno = numero(raio - traco / 2);
+    const diametroInterno = numero(raioInterno * 2);
+    const altura = alturaDoPreenchimento(eixo?.preenchimento, diametroInterno);
     // Um clipPath por estação desenhada com recheio. O id carrega o índice e o
     // `id` do catálogo escapado porque duas estações com o mesmo título não
     // podem dividir o mesmo recorte — e o mapa vai embutido numa página que já
@@ -247,11 +267,16 @@ export function mapaDaRede(cursos, progresso, opcoes = {}) {
     const recorteId = `mapa-recorte-${i}-${escapar(c.id)}`;
 
     // O miolo: o fundo claro. Quem enche é o retângulo por cima, clipado ao círculo.
+    // O recorte é o MIOLO: clipar pelo raio externo deixaria o recheio vivo só
+    // na faixa que o traço tapa, que é justamente o que o olho viu como "mapa
+    // vazio com o retângulo desenhado".
     const recheio = altura > 0
-      ? `<clipPath id="${recorteId}"><circle cx="${numero(p.x)}" cy="${numero(p.y)}" r="${numero(raio)}"/></clipPath>`
+      ? `<clipPath id="${recorteId}"><circle cx="${numero(p.x)}" cy="${numero(p.y)}" r="${raioInterno}"/></clipPath>`
       : '';
+    // A base do retângulo é o fundo do miolo (`p.y + raioInterno`) e ele sobe de
+    // lá: preenchimento 1 enche o miolo inteiro, sem tocar no traço.
     const rect = altura > 0
-      ? `<rect class="mapa-preenchimento" x="${numero(p.x - raio)}" y="${numero(p.y + raio - altura)}" width="${numero(diametro)}" height="${numero(altura)}" fill="${cores.tom(p.linha, pesoDoTom(eixo?.cor))}" clip-path="url(#${recorteId})"/>`
+      ? `<rect class="mapa-preenchimento" x="${numero(p.x - raioInterno)}" y="${numero(p.y + raioInterno - altura)}" width="${diametroInterno}" height="${numero(altura)}" fill="${cores.tom(p.linha, pesoDoTom(eixo?.cor))}" clip-path="url(#${recorteId})"/>`
       : '';
     if (altura > 0) recortes.push(recheio);
 
@@ -271,8 +296,14 @@ export function mapaDaRede(cursos, progresso, opcoes = {}) {
       ? `<circle class="mapa-pede-revisao" cx="${numero(p.x)}" cy="${numero(p.y)}" r="${numero(raio * 1.45)}" fill="none" stroke="${cores.tinta}" stroke-width="${numero(raio / 6)}"/>`
       : '';
 
-    estacoes.push(`<g class="mapa-estacao" data-id="${escapar(c.id)}" data-estado="${estagio}"${trancada ? ' opacity="0.45"' : ''}>${titulo}${anelRevisao}${anelAqui}` +
-      `<circle cx="${numero(p.x)}" cy="${numero(p.y)}" r="${numero(raio)}" fill="${cheio ? cor : cores.fundo}" stroke="${cor}" stroke-width="${traco}"/>${contorno}${rect}</g>`);
+    // S16c-fix, item 2 — o `opacity="0.45"` no grupo apagava TUDO, inclusive o
+    // fundo do círculo: o trilho da linha que passa atrás ficava visível POR DENTRO
+    // da estação, e a trava parecia riscada. Apagado agora é só o TRAÇO; o miolo
+    // continua opaco (o `fill` sem opacidade), e o que está atrás fica atrás.
+    // O ramo SEM eixos — o do cartão do link, do og:image e do bilhete — não sente
+    // nada: a trava byte a byte daquela linha continua a de sempre.
+    estacoes.push(`<g class="mapa-estacao" data-id="${escapar(c.id)}" data-estado="${estagio}">${titulo}${anelRevisao}${anelAqui}` +
+      `<circle cx="${numero(p.x)}" cy="${numero(p.y)}" r="${numero(raio)}" fill="${cheio ? cor : cores.fundo}" stroke="${cor}" stroke-width="${traco}"${trancada ? ' stroke-opacity="0.45"' : ''}/>${contorno}${rect}</g>`);
   }
 
   const total = lista.length;
