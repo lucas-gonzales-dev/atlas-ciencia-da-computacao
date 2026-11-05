@@ -1096,7 +1096,48 @@ export const fechamento = Object.freeze({
   pausaConvite: 'Pare em cada pausa e tente explicar, sem voltar o vídeo, o que viu até ali.',
 });
 
+/**
+ * A lista lida em voz alta: «12, 40 e 77». É a forma como a pessoa conta os
+ * números que a frase cita, e é um jeito só de fazer isso em todo o arquivo:
+ * «12 e 40» sem vírgula quando são dois, «12, 40 e 77» quando são três.
+ */
+const unir = (ns) => {
+  const lista = (Array.isArray(ns) ? ns : []).filter((n) => n !== null && n !== undefined && n !== '');
+  if (lista.length <= 1) return String(lista[0] ?? '');
+  const restante = lista.slice(0, -1).join(', ');
+  return `${restante} e ${lista[lista.length - 1]}`;
+};
+
+/**
+ * S18b — o DESAFIO da estação (desenho J4). São as frases do «ainda não», e só
+ * elas: o que a pessoa pode fazer antes do desafio é uma destas quatro, e o
+ * `podeDesafiar` devolve exatamente a frase da primeira que falta. O número que
+ * entra em cada uma é sempre de CARTÕES ou de AULAS, nunca de dias — a espera
+ * máxima de um cartão é de dois dias, e «faltam 5 dias» não teria o que mostrar.
+ */
+export const desafio = Object.freeze({
+  /** A estação ainda não está percorrida. O estágio é o do eixo, lido da escada. */
+  naoPercorrida: (estagio) => `A estação ainda está em «${estagio}» — o desafio vem quando ela estiver percorrida.`,
+
+  /** Aulas de exercício que ela não estudou. As posições são as da lista. */
+  faltamExercicios: (ns) => `Faltam ${ns.length} ${ns.length === 1 ? 'aula' : 'aulas'} de exercício: ${unir(ns)}.`,
+
+  /**
+   * Aulas de exercício estudadas, mas sem cartão escrito nelas. É SEMPRE «um
+   * cartão», no singular, mesmo com duas aulas na lista: o que falta é um cartão
+   * POR aula, e «escreva 2 cartões das aulas 12 e 40» deixaria a pessoa escrever
+   * dois na 12 e nenhum na 40.
+   */
+  faltamCartoesDeExercicio: (ns) => `Escreva um cartão ${ns.length === 1 ? 'da aula' : 'das aulas'} de exercício ${unir(ns)}.`,
+
+  /** Faltam cartões para o piso do sorteio, e os que existem ainda estão maturando. */
+  maturando: (faltam) => `Os cartões entram dois dias depois de escritos: faltam ${faltam}.`,
+
+  /** Faltam cartões mesmo: escreva ao fechar as aulas. */
+  escrevaMais: (faltam) => `O desafio usa os seus cartões: escreva mais ${faltam} ao fechar as aulas.`,
+});
+
 /** Tudo junto, para quem precisa percorrer (o teste percorre). */
-export const TEXTOS = { placa, comValores, folha, estados, legenda, mapa, proibido, ORIGEM, TIPO_DE_ORIGEM, casco, jornada, explorar, chegada, revisar, perfil, aulas, aula, modelosDeFrente, fechamento };
+export const TEXTOS = { placa, comValores, folha, estados, legenda, mapa, proibido, ORIGEM, TIPO_DE_ORIGEM, casco, jornada, explorar, chegada, revisar, perfil, aulas, aula, modelosDeFrente, fechamento, desafio };
 
 export default TEXTOS;

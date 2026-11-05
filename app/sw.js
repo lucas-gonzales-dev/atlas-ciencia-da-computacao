@@ -675,7 +675,20 @@
 // (2) Em 375 px a duração caia embaixo DO ANEL (grid-column: 1 / -1), longe do
 // título que ela descreve; agora vai à coluna 3, a coluna do título. Muda de
 // bytes e está no precache: web/telas/aulas.css.
-const VERSAO = 'atlas-v81';
+// atlas-v82: S18b-1 (05/11/2026) — o DESAFIO da estação sem tela (desenho J4).
+// Entra core/desafio.js no precache, com o núcleo puro das três perguntas: quem
+// pode desafiar (estação percorrida + todo exercício estudado + cartão elegível
+// por exercício + piso de 10), por que ainda não (as quatro frases em
+// core/textos.js, seção desafio — que também muda de bytes) e quais cartões
+// entram no sorteio (10 a 15, um de cada aula de exercício primeiro, PRNG próprio
+// plantado pela semente: sem Math.random, porque um sorteio que muda a cada
+// render troca os cartões debaixo dos olhos de quem responde). Nada é inventado:
+// as aulas de exercício são vídeo, então o desafio usa só os cartões da pessoa
+// (regra 7). Nenhum módulo do app importa desafio.js ainda — a tela é a próxima
+// fatia — mas ele entra agora pelo mesmo motivo do viagem.js: o precache cobre o
+// disco, e um módulo fora do cache é a tela em branco no ônibus. Mudam de bytes e
+// estão no precache: core/desafio.js (novo) e core/textos.js.
+const VERSAO = 'atlas-v82';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
@@ -725,7 +738,7 @@ const VERSAO = 'atlas-v81';
 // a VERSAO acima: 106 arquivos, nenhum ENTROU e um mudou de bytes —
 // web/telas/aulas.css (a marca tracejada da pulada e a duração na coluna do
 // título em 375 px). O sw.js mediu o mesmo sha256 antes e depois.
-const PRECACHE_HASH = 'sha256-262d9ec750b6d696d35f0e4129d0eb6b98efa08d5a4c29b68190c138ff433092';
+const PRECACHE_HASH = 'sha256-ae1bf100464d46749a0333bc6ee954e58226f0b87b1f7634c5750213a0903832';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.
@@ -871,6 +884,11 @@ const PRECACHE = [
   // S16b desenha o mapa) — mas o mapa e a primeira coisa que a pessoa ve na
   // jornada, e um modulo fora do cache e a jornada em branco no onibus.
   'core/eixos.js',
+  // O DESAFIO da estacao (S18b-1, 05/11/2026): quem pode, o porque que falta e o
+  // sorteio dos 10 a 15 cartoes da propria pessoa. Modulo puro, sem tela ainda (a
+  // proxima fatia desenha) -- mas o cartao que amanha vira desafio precisa estar
+  // no onibus, e um modulo fora do cache e a tela do desafio em branco.
+  'core/desafio.js',
   'core/notes.js',
   'core/search.js',
   // Rotas da grade (S3a-1, 31/10/2026): as abas que o boot.js resolve. Sem
