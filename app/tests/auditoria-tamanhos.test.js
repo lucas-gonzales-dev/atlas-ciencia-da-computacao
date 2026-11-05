@@ -393,6 +393,108 @@ test('S20a-2 · o mapa do topo é faixa, e o único primário cabe acima da dobr
   }
 });
 
+/**
+ * S20b-1a (item 3) — OS ALVOS DE TOQUE QUE NINGUÉM MEDIA.
+ *
+ * O Claude mediu no Chrome em 375 px: o link «Ir para a próxima estação» e o
+ * botão «Exportar» do Perfil, e o link de cada estação na Explorar, tinham a
+ * altura de UMA LINHA DE LETRA — menos da metade do piso da casa. A causa é
+ * sempre a mesma e sempre invisível para as outras travas: a tela cria o
+ * elemento com uma classe de COR (`primario`, `secundario`, `.explorar-link`) e
+ * nenhuma folha dá caixa a ela. O `--alvo-toque` existe desde a S2 em tokens.css
+ * e era lido só por quem já tinha regra escrita.
+ *
+ * Por que uma varredura e não três asserts soltos: o defeito não é destes três
+ * elementos, é do MODELO — classe sem dono. A trava abaixo pega o próximo alvo
+ * nu antes de ele chegar na tela, e por isso cobre TODAS as classes que o
+ * perfil.js e o explorar.js emitem, não as que eu lembrei de listar.
+ *
+ * LIMITE HONESTO: node não tem navegador. Aqui se prova que a caixa está
+ * DECLARADA com o token; os 44 px reais fecham no testar_pagina.
+ */
+const CLASSES_TOCAVEIS = {
+  // arquivo que EMITE a classe  →  folha que precisa dar a caixa a ela
+  'web/telas/perfil.js': 'web/telas/perfil.css',
+  'web/telas/explorar.js': 'web/telas/explorar.css',
+};
+
+test('S20b-1a · toda classe de alvo emitida por uma tela tem caixa na folha dela', async () => {
+  const tokens = escanear(await ler('web/tokens.css'));
+  const piso = tokens.flatMap((r) => [...r.corpo.matchAll(/--alvo-toque:\s*(\d+)px/g)]).map((m) => Number(m[1]))[0];
+  assert.ok(piso >= 44, `--alvo-toque sumiu do tokens.css ou encolheu abaixo de 44 px: ${piso}`);
+
+  const acusados = [];
+  for (const [emissor, css] of Object.entries(CLASSES_TOCAVEIS)) {
+    const fonte = await ler(emissor);
+    const regrasCss = escanear(await ler(css));
+    // `<a>` e `<button>` são o que se toca. `el(doc, classe, texto, 'a')`,
+    // `el(doc, classe, ..., 'button')` e o `className = `...-link`` do explorar.
+    const tocaveis = new Set();
+    for (const m of fonte.matchAll(/el\(doc,\s*`([^`]*)`[^)]*,\s*'(a|button)'\s*\)/g)) {
+      for (const parte of m[1].replace(/\$\{[^}]*\}/g, ' ').split(/\s+/)) {
+        if (/^[a-z][\w-]*$/.test(parte)) tocaveis.add(parte);
+      }
+    }
+    for (const m of fonte.matchAll(/\.className\s*=\s*`([^`]*)`/g)) {
+      for (const parte of m[1].replace(/\$\{[^}]*\}/g, ' ').split(/\s+/)) {
+        if (/^[a-z][\w-]*$/.test(parte)) tocaveis.add(parte);
+      }
+    }
+    for (const classe of tocaveis) {
+      const comCaixa = regrasCss.some((r) =>
+        new RegExp(`(^|[,.\\s>])${classe}(?![\\w-])`).test(r.seletor) &&
+        /min-height:\s*var\(--alvo-toque\)/.test(r.corpo));
+      if (!comCaixa) acusados.push(`${emissor} emite .${classe} (a|button) e ${css} não dá o --alvo-toque a ela`);
+    }
+  }
+  assert.deepEqual(acusados, [], 'um alvo tocável nasceu nu: a altura dele é a linha de letra, e o piso de 44 px da casa é opcional no toque');
+});
+
+test('S20b-1a · os três alvos medidos em 375 px têm o piso declarado', async () => {
+  const perfil = escanear(await ler('web/telas/perfil.css'));
+  const explorar = escanear(await ler('web/telas/explorar.css'));
+
+  // Perfil: os dois nus (:237 e :329 criam o link com `primario`, :118 o botão
+  // com `secundario`). Escopados em `.perfil` — são classes sem prefixo e uma
+  // regra solta vazaria para as outras três telas.
+  // `tem`: uma classe pode ter MAIS DE UMA regra na folha (a de sempre, de letra
+  // e cor, e a do alvo). Cobrar a primeira que o escanear achar seria travar a
+  // ordem do arquivo, e a ordem não é o defeito — o que importa é que ALGUMA
+  // delas declare o piso.
+  const comPiso = (regras, classe) =>
+    regras.some((r) => new RegExp(`(^|[,.\\s>])${classe}(?![\\w-])`).test(r.seletor) &&
+      /min-height:\s*var\(--alvo-toque\)/.test(r.corpo));
+
+  for (const classe of ['primario', 'secundario']) {
+    assert.ok(perfil.some((r) => r.seletor.includes(`.${classe}`)),
+      `.perfil .${classe} não tem regra nenhuma: o elemento chega nu (perfil.js:118/237/329)`);
+    assert.ok(comPiso(perfil, classe), `.perfil .${classe} existe mas nenhuma regra dele lê o piso da casa`);
+  }
+
+  // O rótulo do importar é o par do botão de exportar na mesma fileira: se um
+  // tem 44 px e o outro tem a linha de letra, a fileira fica com dois andares.
+  assert.ok(comPiso(perfil, 'perfil-dados-rotulo'),
+    'o rótulo de importar ficou sem alvo de toque');
+
+  // Explorar: o link de CADA estação (explorar.js:54) — 35 alvos por tela.
+  const link = explorar.find((r) => /(^|[,.\s>])explorar-link(?![\w-])/.test(r.seletor) && /min-height/.test(r.corpo));
+  assert.ok(link, 'o .explorar-link não declara min-height: é o alvo mais tocado do app');
+  assert.match(link.corpo, /min-height:\s*var\(--alvo-toque\)/);
+
+  // O conserto é CAIXA, não pintura: nenhum dos três virou botão primário, e a
+  // letra continua a da folha. `font-size` com número à mão aqui seria o caminho
+  // de volta para a hierarquia de cartaz que a S11-0 matou, e um `background`
+  // cheio na regra do alvo é a hierarquia da tela trocada por um pedido de caixa.
+  const nus = [['perfil .primario', perfil.find((r) => r.seletor.includes('.primario'))],
+               ['perfil .secundario', perfil.find((r) => r.seletor.includes('.secundario'))],
+               ['explorar-link', link]];
+  for (const [nome, r] of nus) {
+    assert.doesNotMatch(r.corpo, /font-size:\s*\d/, `${nome}: tamanho de letra à mão na regra do alvo`);
+    assert.equal(/background:/.test(r.corpo), false,
+      `${nome}: o alvo ganhou fundo — a hierarquia da tela mudou com um pedido de caixa`);
+  }
+});
+
 test('réguas 6 · trocar de aba leva ao topo de QUEM ESTÁ ROLANDO', async () => {
   const js = await ler('web/casco.js');
   assert.match(js, /win\.scrollTo\?\.\(0, 0\)/, 'o casco perdeu o rolamento ao topo da janela');

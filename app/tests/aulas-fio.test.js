@@ -30,7 +30,10 @@ import { subirMetro } from '../web/metro.js';
 import { setNota } from '../core/notes.js';
 import { ESTUDO_KEY, estudarAula, lerEstudo, serializarEstudo } from '../core/estudo.js';
 import { duracaoLegivel } from '../core/aulas.js';
-import { aulas as AU } from '../core/textos.js';
+// `inseparavel` é a MESMA regra que o núcleo aplica à duração (S20b-1a, item 2):
+// a letra escrita aqui fica legível ('30 h 33 min') e o separador vem do core,
+// então nenhuma das duas partes escreve a regra por conta própria.
+import { aulas as AU, inseparavel } from '../core/textos.js';
 
 const AULAS = JSON.parse(readFileSync(new URL('../data/aulas/circuitos-digitais.json', import.meta.url), 'utf8'));
 const CATALOGO_BRUTO = JSON.parse(readFileSync(new URL('../data/catalog.json', import.meta.url), 'utf8'));
@@ -49,7 +52,10 @@ const um = (raiz, classe, onde) => {
   assert.equal(achei.length, 1, `${onde}: esperado exatamente um .${classe}, achei ${achei.length}`);
   return achei[0];
 };
-const textoDo = (no) => todos(no, (n) => n._texto).map((n) => n._texto).join(' ').replace(/\s+/g, ' ').trim();
+// S20b-1a (item 2): o colapso era `\s+`, e `\s` come o U+00A0 — o mini-DOM lia a
+// frase com o espaço trocado e o teste deixava de ver o byte que a tela põe.
+// Colapsa só o espaço-branco ASCII; o não separável da duração fica onde está.
+const textoDo = (no) => todos(no, (n) => n._texto).map((n) => n._texto).join(' ').replace(/[ \t\r\n]+/g, ' ').trim();
 
 /** A resposta de rede que o navegador daria ao `carregarAulas`. */
 const respostaDe = (dados, { ok = true, status = 200 } = {}) =>
@@ -150,7 +156,7 @@ test('fio: a régua da folha diz o que os dados dizem, dentro do app', async () 
   // gesto que o Atlas cobra é fechar com recordação e cartão. No zero as duas
   // frases têm o mesmo número, e é por isso que a palavra, aqui, é a trava.
   assert.equal(textoDo(um(painel, 'aulas-progresso-texto', 'linha de progresso')),
-    `0 de ${TOTAL} aulas estudadas · faltam ~30 h 33 min`);
+    `0 de ${TOTAL} aulas estudadas · faltam ~${inseparavel('30 h 33 min')}`);
 
   const barra = um(painel, 'aulas-barra', 'barra da folha');
   assert.equal(barra.getAttribute('aria-valuemax'), String(TOTAL));
@@ -303,7 +309,7 @@ test('fio: voltar da aba do YouTube repinta, mesmo sem clique novo', async () =>
   // MUTOU na S14b2 (04/11/2026), item 8: a volta de uma aula ABERTA repinta o
   // PRIMÁRIO (a asserção abaixo), e a régua continua em zero, porque a régua conta
   // estudo. Deixar `startsWith('1 de')` seria travar o verbo velho.
-  assert.equal(régua, `0 de ${TOTAL} aulas estudadas · faltam ~30 h 33 min`,
+  assert.equal(régua, `0 de ${TOTAL} aulas estudadas · faltam ~${inseparavel('30 h 33 min')}`,
     `a régua contou a abertura como estudo: "${régua}"`);
   // AULA 1, não 2: pela regra que o Claude decidiu em 04/11, a `ultima` desta
   // estação MANDA (regra 1), e quem abriu a 1 e voltou continua na 1. Eu tinha

@@ -57,8 +57,16 @@ const contaPulada = (puladas) =>
 // pulada a linha diria "faltam ~30 h" sobre nada, que é o defeito 5 do olho.
 // Nenhuma frase no lugar: quando não falta, a régua cala, do mesmo jeito que o
 // `lembradas` a zero.
+// O ESPAÇO DENTRO DA DURAÇÃO É NÃO SEPARÁVEL (S20b-1a, item 2): o navegador quebra
+// linha em qualquer espaço comum, e no celular de 375 px a frase saía
+// «faltam ~29» no fim de uma linha e «23 min» na outra — um número partido ao meio
+// deixa de ser número. O espaço antes do «faltam» continua comum: é ali que a linha
+// PODE quebrar. Só os da duração viram U+00A0.
+export const NBSP = '\u00A0';
+/** Troca os espaços COMUNS de uma duração pelo não separável (idempotente). */
+export const inseparavel = (bruto) => String(bruto ?? '').trim().replace(/ /g, NBSP);
 const faltaFazer = (restante) => {
-  const texto = String(restante ?? '').trim();
+  const texto = inseparavel(restante);
   return texto ? ` · faltam ~${texto}` : '';
 };
 
@@ -452,6 +460,41 @@ export const mapa = Object.freeze({
     'concluida-antes': ['concluída antes', 'concluídas antes'],
     fora: ['fora da rota', 'fora da rota'],
   }),
+  /**
+   * O estágio de UMA estação, dito como etiqueta da folha (S20b-1a, item 1).
+   *
+   * POR QUE EXISTE: `folha.estadoNome` responde «a malha me deixa entrar?», e não
+   * «onde eu estou?». Numa estação com 3 de 93 aulas estudadas a etiqueta saía
+   * «Disponível» — a palavra de quem ainda não tocou em nada, dita logo acima da
+   * linha que media as três. O estágio vem de `eixosDaEstacao`, o nome vem de
+   * `mapa.estagios`: um dono por palavra, nenhum literal novo aqui.
+   *
+   * O 'fora' diz «Disponível», e não «fora da rota»: na folha a estação ESTÁ na
+   * rota e a malha já disse que ela abre; o que o estágio mede é a ausência de
+   * toque. É a única vez que `estadoNome` sobrevive depois deste item, e é de
+   * propósito.
+   *
+   * A maiúscula é a da etiqueta, não da frase: o nome do estágio nasce em letra
+   * minúscula porque no `rotuloEixos` ele vai no meio da linha («35 estações: 2
+   * em percurso»). Escrever a palavra por extenso aqui seria a segunda casa da
+   * mesma palavra, e a trava «todo estágio do núcleo tem nome» deixaria de pegar
+   * um estágio novo.
+   */
+  estagioNaFolha: (estagio, estadoDaMalha = null) => {
+    if (estagio === 'fora') {
+      // 'fora' é a AUSÊNCIA DE TOQUE MEDIDO. Quando a malha tem uma declaração —
+      // `emCurso`, do embarque antigo ou de um progresso importado — a etiqueta
+      // diz a declaração: «Disponível» numa estação que a pessoa já marcou como
+      // começada é a mesma mentira pelo lado oposto, e a trava `/Em curso/` de
+      // tests/folha.test.js é justamente esta linha.
+      if (estadoDaMalha === 'em_curso') return folha.estadoNome.em_curso;
+      return folha.estadoNome.disponivel;
+    }
+    const caso = mapa.estagios[estagio];
+    if (!caso) return '';
+    const nome = caso[0];
+    return nome.charAt(0).toUpperCase() + nome.slice(1);
+  },
   /**
    * «35 estações: 2 em percurso, 1 percorrida, 3 concluídas antes, 29 fora da
    * rota. 1 pede revisão.»

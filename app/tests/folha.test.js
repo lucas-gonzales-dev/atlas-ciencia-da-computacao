@@ -19,6 +19,10 @@ import { fatosDaEstacao, ESTADOS, MARCOS, momentoDaChegada, concluirEstacao, des
 import { folha as FOLHA, comValores, placa as PLACAS, jornada as JORNADA, chegada as CHEGADA } from '../core/textos.js';
 import { desenharFolha } from '../web/folha.js';
 import { desenharMetro } from '../web/metro.js';
+// S20b-1a (item 1): o estudo da folha nasce dos GESTOS do núcleo, não de um
+// objeto desenhado à mão no teste. Um selo travado contra `{aulas: {a: {}}}`
+// escrito aqui provaria a etiqueta contra um estudo que o core não produz.
+import { lerEstudo, abrirAula, estudarAula } from '../core/estudo.js';
 import { lerRota } from '../core/rotas.js';
 import { telaDaRota } from '../web/casco.js';
 
@@ -85,15 +89,23 @@ const CATALOGO = [
   { id: 'l3a', slug: 'so', title: 'Sistemas Operacionais', stage: 3, prerequisites: ['l2b'], resourceUrl: null, resourceType: null, bibliography: null }
 ];
 
-function abrir(slug, { completed = [], emCurso = [], conclusoes = {}, notas = {} } = {}, extras = {}) {
+function abrir(slug, { completed = [], emCurso = [], conclusoes = {}, notas = {}, dominadas = {} } = {}, extras = {}) {
   const doc = criarDoc();
   const base = extras.catalogo || CATALOGO;
   const catalogo = base.map((c) => (notas[c.id] ? { ...c, nota: notas[c.id] } : c));
   const nos = desenharFolha(doc, {
-    catalogo, progresso: { completed, emCurso, conclusoes }, slug, notas,
+    catalogo, progresso: { completed, emCurso, conclusoes, dominadas }, slug, notas,
     // S6: o MOMENTO da chegada entra pela mesma porta do slug — a folha não
     // calcula nada, recebe o que o núcleo comparou.
-    momento: extras.momento ?? null
+    momento: extras.momento ?? null,
+    // S20b-1a (item 1): o selo passou a ler o ESTÁGIO medido, e a medida entra
+    // pelas mesmas portas do `web/metro.js` — estudo, índice e cartões. Sem eles
+    // (o desenho de sempre) a etiqueta cai no 'fora' e diz «Disponível».
+    estudo: extras.estudo ?? null,
+    aulas: extras.aulas ?? null,
+    indice: extras.indice ?? null,
+    cartoes: extras.cartoes ?? null,
+    hoje: extras.hoje ?? '2026-11-05'
   });
   return { doc, ...nos };
 }
@@ -462,9 +474,108 @@ test('folha: desfazer volta a folha para o estado calculado e tira o carimbo', (
   assert.match(textoDe(depois.root), /Disponível/, 'e a folha volta ao estado calculado');
 
   // E quem estava em curso volta a estar: é o "em curso" que a fatia promete.
+  // CONTINUA DE PÉ na S20b-1a, e não por acaso: sem índice nem estudo o estágio
+  // é 'fora', e 'fora' com `emCurso` na malha devolve a palavra da declaração
+  // (textos.js, o ramo do `estadoNome.em_curso`). Dizer «Disponível» numa
+  // estação que a própria pessoa marcou seria a mentira do item 1 de cabeça
+  // para baixo.
   const emCurso = abrir('estruturas-de-dados', { completed: [], emCurso: ['l2a'], conclusoes: {} });
   assert.match(textoDe(emCurso.root), /Em curso/);
   assert.equal(textoDe(emCurso.root).includes('Concluída em'), false);
+});
+
+// ═══════════ S20b-1a · o selo diz o estágio, não a liberação ═══════════
+//
+// O defeito, medido na tela: «3 de 93 aulas estudadas» na linha de baixo e
+// «DISPONÍVEL» na de cima. `F.estadoNome` responde «a malha me deixa entrar?»
+// num lugar onde a pessoa pergunta «onde eu estou?», e uma estação com estudo
+// gravado nunca está "disponível" no sentido da palavra.
+const INDICE = { estacoes: { l1b: { aulas: 5, segundos: 3600 } } };
+const LISTA_DAS_AULAS = {
+  aulas: [
+    { id: 'a1', n: 1, titulo: 'Aula 1', duracaoS: 600 },
+    { id: 'a2', n: 2, titulo: 'Aula 2', duracaoS: 600 },
+    { id: 'a3', n: 3, titulo: 'Aula 3', duracaoS: 600 },
+    { id: 'a4', n: 4, titulo: 'Aula 4', duracaoS: 600 },
+    { id: 'a5', n: 5, titulo: 'Aula 5', duracaoS: 600 }
+  ],
+  total: { aulas: 5, segundos: 3600 }
+};
+const Q = (h) => `2026-11-05T${h}`;
+/** O estudo nascido dos GESTOS do núcleo: abre e estuda as `n` primeiras. */
+function estudoCom(n) {
+  let e = lerEstudo(null);
+  for (const a of LISTA_DAS_AULAS.aulas.slice(0, n)) {
+    e = abrirAula(e, { estacao: 'l1b', aula: a.id, n: a.n }, Q('09:00'));
+    e = estudarAula(e, { estacao: 'l1b', aula: a.id, n: a.n }, Q('09:30'), { recordacao: 'lembrei', conferencia: 'confirmei' });
+  }
+  return e;
+}
+const etiqueta = (root) => textoDe(comClasse(root, 'folha-estado')[0]);
+
+test('S20b-1a: 3 aulas ESTUDADAS dizem «Em percurso», e não «Disponível»', () => {
+  const { root } = abrir('algoritmos-i', {}, { estudo: estudoCom(3), indice: INDICE, aulas: LISTA_DAS_AULAS });
+  assert.equal(etiqueta(root), 'Em percurso',
+    'a etiqueta leu a liberação da malha em vez do estágio medido');
+  // A FORMA continua a da malha — é ela que pinta o anel; só o texto mudou.
+  assert.equal(comClasse(root, 'folha-estado')[0].className.includes('disponivel'), true,
+    'a classe do estado saiu do desenho: o círculo da linha perde a cor');
+});
+
+test('S20b-1a: um toque gravado diz «Embarcada», tudo percorrido diz «Percorrida»', () => {
+  const embarcada = abrir('algoritmos-i', {}, { estudo: estudoCom(0), indice: INDICE, aulas: LISTA_DAS_AULAS });
+  assert.equal(etiqueta(embarcada.root), 'Disponível', 'sem toque nenhum a folha oferece a estação');
+
+  const comToque = abrir('algoritmos-i', {}, {
+    estudo: abrirAula(lerEstudo(null), { estacao: 'l1b', aula: 'a1', n: 1 }, Q('09:00')),
+    indice: INDICE, aulas: LISTA_DAS_AULAS
+  });
+  assert.equal(etiqueta(comToque.root), 'Embarcada');
+
+  const percorrida = abrir('algoritmos-i', {}, { estudo: estudoCom(5), indice: INDICE, aulas: LISTA_DAS_AULAS });
+  assert.equal(etiqueta(percorrida.root), 'Percorrida', 'percorrida não é concluída: quem marca é a pessoa');
+});
+
+test('S20b-1a: o carimbo diz «Concluída antes» e o desafio diz «Dominada»', () => {
+  const carimbada = abrir('algoritmos-i', { completed: ['l1b'], conclusoes: { l1b: '2026-10-30' } },
+    { estudo: lerEstudo(null), indice: INDICE });
+  assert.equal(etiqueta(carimbada.root), 'Concluída antes',
+    'o carimbo SEM medição atrás não pode dizer «Dominada» nem «Percorrida»');
+
+  const dominada = abrir('algoritmos-i', { completed: ['l1b'], conclusoes: { l1b: '2026-10-30' }, dominadas: { l1b: '2026-11-02' } },
+    { estudo: estudoCom(3), indice: INDICE, aulas: LISTA_DAS_AULAS });
+  assert.equal(etiqueta(dominada.root), 'Dominada');
+});
+
+test('S20b-1a: a trancada continua «Trancada», e sem toque nenhum diz «Disponível»', () => {
+  const trancada = abrir('estruturas-de-dados', {}, { estudo: estudoCom(3), indice: INDICE });
+  assert.equal(etiqueta(trancada.root), 'Trancada', 'sem liberação não há estágio a medir');
+
+  // 'fora' = nenhum toque gravado. A etiqueta diz o que a malha já dizia, e é a
+  // única linha do item 1 onde `estadoNome` continua mandando no texto.
+  const virgem = abrir('algoritmos-i', {}, { estudo: lerEstudo(null), indice: INDICE });
+  assert.equal(etiqueta(virgem.root), 'Disponível');
+
+  // CORREÇÃO MINHA, medida no núcleo: o `total` vem do índice, mas o
+  // `estudadas > 0` vem do estudo e NÃO depende dele (core/eixos.js:217). Eu
+  // tinha escrito este caso esperando «Disponível» «sem índice», e ele deu «Em
+  // percurso» — o índice ausente tira o denominador, não a conta. O que a folha
+  // não pode é afirmar um estágio sem nenhum dado de estudo: é o caso abaixo.
+  const semNada = abrir('algoritmos-i');
+  assert.equal(etiqueta(semNada.root), 'Disponível',
+    'folha sem estudo nem índice descreve um estágio que não mediu');
+});
+
+test('S20b-1a: «fora» com a estação marcada na malha diz «Em curso»', () => {
+  // O 'fora' diz «Disponível» por regra (item 1), mas uma estação que a pessoa
+  // MARCOU como começada sem tocar em aula nenhuma não está disponível no
+  // sentido da palavra: está em curso por declaração. É o `em_curso` do S5 que
+  // sobrevive ao estágio, e é a porta do embarque antigo e do progresso
+  // importado — a mesma mentira do item 1, lada ao contrário.
+  const marcado = abrir('algoritmos-i', { emCurso: ['l1b'] }, { estudo: lerEstudo(null), indice: INDICE });
+  assert.equal(etiqueta(marcado.root), 'Em curso', 'a folha chamou de disponível o que a pessoa já começou');
+  assert.equal(comClasse(marcado.root, 'folha-estado')[0].className.includes('em-curso'), true,
+    'a classe acompanha a malha');
 });
 
 test('folha.css: o traço do selo se desenha com stroke-dashoffset no token de chegada', () => {

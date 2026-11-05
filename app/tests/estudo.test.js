@@ -35,7 +35,7 @@ import {
 } from '../core/estudo.js';
 import { lerRota, hrefDe } from '../core/rotas.js';
 import { carregarAulas } from '../web/aulas-dados.js';
-import { aulas as textosAulas } from '../core/textos.js';
+import { aulas as textosAulas, inseparavel, NBSP } from '../core/textos.js';
 import { duracaoLegivel } from '../core/aulas.js';
 
 const ESTACAO = 'ubl-core-circuitos-digitais';
@@ -278,7 +278,11 @@ test('resumoDaEstacao: abrir não desconta nada; fechar desconta', () => {
   assert.equal(r.segundosRestantes, arquivo.total.segundos - tres, 'as três FECHADAS saem do restante');
   // A frase medida, com o número que a folha escreve hoje: 90 aulas de Circuitos
   // Digitais dão horas, e a pessoa lê "~X h" e não um nanossegundo cru.
-  assert.equal(duracaoLegivel(r.segundosRestantes), textosAulas.progresso(3, 93, duracaoLegivel(r.segundosRestantes)).split('faltam ~')[1]);
+  // S20b-1a (item 2): a frase devolve a duração com espaço NÃO SEPARÁVEL, e
+  // `duracaoLegivel` devolve com espaço comum. A comparação passa pela MESMA
+  // regra do núcleo, não por um `.replace(/\s+/g,' ')` que apagaria o byte que a
+  // trava do item 2 cobra.
+  assert.equal(inseparavel(duracaoLegivel(r.segundosRestantes)), textosAulas.progresso(3, 93, duracaoLegivel(r.segundosRestantes)).split('faltam ~')[1]);
 });
 
 test('resumoDaEstacao: uma aula de OUTRA estação não conta aqui, e lista vazia dá zeros', () => {
@@ -414,8 +418,35 @@ test('textos: a seção aulas existe e diz as frases do desenho', () => {
   // fechar com recordação e cartão, e a linha diz isso agora. A frase chumbada
   // está aqui de propósito: as telas puxam `A.progresso` (regra 9), então nenhuma
   // delas cairia sozinha se a palavra mudasse de novo em silêncio.
-  assert.equal(t.progresso(3, 93, '30 h'), '3 de 93 aulas estudadas · faltam ~30 h');
+  // S20b-1a (item 2): o separador dentro da duração é U+00A0. A letra daqui diz
+  // '30 h' e a frase sai com o espaço trocado — é o `inseparavel` do núcleo que
+  // forma o esperado, para a regra continuar morando num lugar só.
+  assert.equal(t.progresso(3, 93, '30 h'), `3 de 93 aulas estudadas · faltam ~${inseparavel('30 h')}`);
   assert.ok(!t.progresso(3, 93, '30 h').includes('abertas'), 'a linha voltou a contar abertura');
+
+  // A TRAVA DO ITEM 2: a frase tem de sair SEM espaço comum dentro da duração.
+  // O defeito medido em 375 px era «faltam ~29» no fim de uma linha e «23 min»
+  // na outra — um número partido ao meio deixa de ser número. `includes('29 h')`
+  // é a forma lida da asserção: espaço comum dentro da duração é vermelho.
+  const quebrada = t.progresso(3, 93, '29 h 23 min');
+  assert.equal(quebrada.includes('29 h'), false, 'a duração voltou a ter espaço separável: quebra entre o 29 e o h');
+  assert.equal(quebrada.includes('23 min'), false, 'a duração voltou a ter espaço separável: quebra entre o 23 e o min');
+  assert.equal(quebrada, `3 de 93 aulas estudadas · faltam ~${inseparavel('29 h 23 min')}`);
+  // O caractere, pela constante nomeada do núcleo: `inseparavel(' ')` devolve
+  // vazio (o trim dele vem antes da troca), e um esperado vazio dentro de
+  // `includes` é sempre verdadeiro — seria uma asserção que não prova nada.
+  assert.equal(quebrada.includes(`29${NBSP}h`), true, 'o separador não é o U+00A0');
+  // O espaço ANTES do «faltam» continua comum: é ali que a linha PODE quebrar, e
+  // a separação da frase inteira não faz parte do pedido.
+  assert.equal(quebrada.includes(' · faltam'), true, 'a separação da frase virou não separável');
+  assert.equal(quebrada.includes('estudadas ·'), true, 'a separação da frase virou não separável');
+  // O `inseparavel` é idempotente APLICADO À DURAÇÃO (a formatação bruta pode
+  // circular por mais de um lugar e reaplicar a regra sem estrago). Na FRASE
+  // INTEIRA ele não é idempotente por construção: os espaços comuns que ficam
+  // fora da duração seriam trocados, e é exatamente por isso que a regra é
+  // chamada dentro de `faltam`, e não em cima da frase pronta.
+  const dur = inseparavel('29 h 23 min');
+  assert.equal(inseparavel(dur), dur, 'a regra de separação não é idempotente na duração');
   // S14a: 'estudada' entrou, e a lista da tela lê o nome daqui. Se o estado sair
   // do núcleo sem sair daqui, a linha desenha um estado sem nome para o leitor.
   // S18a: 'pulada' entrou na escada e o nome entrou junto, pela mesma razão de

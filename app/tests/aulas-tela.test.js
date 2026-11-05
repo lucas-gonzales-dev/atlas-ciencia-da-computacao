@@ -20,7 +20,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { criarDoc, janelaCom, storageCom, todos, textoDe } from './hdom.js';
 import { duracaoLegivel } from '../core/aulas.js';
-import { aulas as AU, folha as F } from '../core/textos.js';
+// `inseparavel`: a regra do separador da duração vem do núcleo (S20b-1a, item 2).
+import { aulas as AU, folha as F, inseparavel } from '../core/textos.js';
 import { hrefDe } from '../core/rotas.js';
 import { ESTUDO_KEY, abrirAula, continuarDe, estadoDaAula, estudarAula, lerEstudo, serializarEstudo } from '../core/estudo.js';
 import { desenharFolha } from '../web/folha.js';
@@ -68,7 +69,9 @@ function folhaCom({ estudo = null, aulas = AULAS } = {}) {
   return { doc, ...nos };
 }
 
-const textoDo = (no) => todos(no, (n) => n._texto).map((n) => n._texto).join(' ').replace(/\s+/g, ' ').trim();
+// S20b-1a (item 2): o colapso era `\s+`, e `\s` come o U+00A0 — o mini-DOM lia a
+// frase com o espaço trocado e o teste deixava de ver o byte que a tela põe.
+const textoDo = (no) => todos(no, (n) => n._texto).map((n) => n._texto).join(' ').replace(/[ \t\r\n]+/g, ' ').trim();
 // O `comClasse` do hdom leva REGEX (é assim que os outros testes o usam); aqui a
 // pergunta é sempre "tem esta classe exata", e regex de classe é onde moreia o
 // falso positivo (procurar 'aulas-barra' achando 'aulas-barra-cheio').
@@ -89,7 +92,7 @@ test('A1: a linha de progresso diz o que os dados dizem, e a barra diz o mesmo a
   // número do zero é o mesmo nas duas frases, e é por isso que a palavra escrita
   // aqui é a trava — sem ela, a folha voltaria a dar crédito de estudo a quem só
   // clicou num título.
-  assert.equal(frase, '0 de 93 aulas estudadas · faltam ~30 h 33 min',
+  assert.equal(frase, `0 de 93 aulas estudadas · faltam ~${inseparavel('30 h 33 min')}`,
     `a frase medida nos dados reais saiu diferente: "${frase}"`);
 
   const barra = um(linha, 'aulas-barra', 'linha de progresso');
@@ -555,7 +558,7 @@ test('B7: a frase do progresso é BYTE A BYTE a mesma da folha com o mesmo estud
   // MUTOU de novo na S14b2 (04/11/2026), item 8: o NÚMERO também parou de andar,
   // porque a régua passou a contar estudo. "3 de 93" dava crédito por três
   // cliques; o honesto, com três abertas e zero fechadas, é "0 de 93".
-  assert.equal(frase, '0 de 93 aulas estudadas · faltam ~30 h 33 min', `a frase medida saiu: "${frase}"`);
+  assert.equal(frase, `0 de 93 aulas estudadas · faltam ~${inseparavel('30 h 33 min')}`, `a frase medida saiu: "${frase}"`);
 
   const { root: folha } = folhaCom({ estudo: lerEstudo(bruto) });
   const fraseDaFolha = textoDo(um(folha, 'aulas-progresso-texto', 'folha'));

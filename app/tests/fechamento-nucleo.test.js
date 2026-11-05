@@ -22,7 +22,7 @@ import {
 } from '../core/estudo.js';
 import { SEGUNDOS_POR_CARTAO, minutosDaFila } from '../core/cartoes.js';
 import { duracaoLegivel } from '../core/aulas.js';
-import { dataDeCalendario, fechamento as F, aulas as A } from '../core/textos.js';
+import { dataDeCalendario, fechamento as F, aulas as A, inseparavel } from '../core/textos.js';
 import { linhaProgresso } from '../web/aulas-pedacos.js';
 import { criarDoc, todos } from './hdom.js';
 import { readFileSync } from 'node:fs';
@@ -30,7 +30,8 @@ import { readFileSync } from 'node:fs';
 const AULAS = JSON.parse(readFileSync(new URL('../data/aulas/circuitos-digitais.json', import.meta.url), 'utf8'));
 const ESTACAO = 'ubl-core-circuitos-digitais';
 const AULA_ID = AULAS.aulas[2].id;
-const textoDo = (no) => todos(no, (n) => n._texto).map((n) => n._texto).join(' ').replace(/\s+/g, ' ').trim();
+// S20b-1a (item 2): `\s+` comia o U+00A0 da duração. Colapsa só o ASCII.
+const textoDo = (no) => todos(no, (n) => n._texto).map((n) => n._texto).join(' ').replace(/[ \t\r\n]+/g, ' ').trim();
 const comClasse = (raiz, classe) => todos(raiz, (n) => (n.className || '').split(/\s+/).includes(classe));
 const um = (raiz, classe, onde) => {
   const achei = comClasse(raiz, classe);
@@ -181,7 +182,8 @@ test('a linha de progresso conta ESTUDADAS, e a barra diz o mesmo que o olho lê
 
   const caixa = linhaProgresso(doc, resumo);
   const frase = textoDo(um(caixa, 'aulas-progresso-texto', 'linha de progresso'));
-  assert.equal(frase, `3 de 93 aulas estudadas · faltam ~${duracaoLegivel(naoEstudadas)}`);
+  // S20b-1a (item 2): a duração entra na frase com espaço NÃO SEPARÁVEL.
+  assert.equal(frase, `3 de 93 aulas estudadas · faltam ~${inseparavel(duracaoLegivel(naoEstudadas))}`);
   assert.ok(!frase.includes('abertas'), 'a linha voltou a contar abertura');
 
   const barra = um(caixa, 'aulas-barra', 'linha de progresso');
@@ -196,7 +198,7 @@ test('a linha de progresso conta ESTUDADAS, e a barra diz o mesmo que o olho lê
 test('a linha de progresso no zero e no cheio não inventa nada', () => {
   const doc = criarDoc();
   const vazioDoc = linhaProgresso(doc, { total: 93, abertas: 0, estudadas: 0, segundosRestantes: 109956 });
-  assert.equal(textoDo(um(vazioDoc, 'aulas-progresso-texto', 'progresso vazio')), '0 de 93 aulas estudadas · faltam ~30 h 33 min');
+  assert.equal(textoDo(um(vazioDoc, 'aulas-progresso-texto', 'progresso vazio')), `0 de 93 aulas estudadas · faltam ~${inseparavel('30 h 33 min')}`);
   // No cheio não se chuta o tempo: quem format zero segundo é `duracaoLegivel`,
   // e ele já tem teste próprio (core/aulas.js). O que esta trava cobra é o
   // NÚMERO da frase, que é o que a troca de verbo mexe.

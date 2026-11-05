@@ -200,9 +200,36 @@
   gap: var(--espaco-2);
 }
 
+/* O rótulo de importar (o texto é `.perfil-dados-importar-texto`, em perfil.js:125)
+   é o terceiro alvo nu desta folha — ver o bloco S20b-1a abaixo. */
 .perfil-dados-rotulo {
   font-size: var(--tipo-nota);
   color: var(--fosca);
+}
+
+/* OS ALVOS DE TOQUE NUS (S20b-1a, item 3; medidos pelo Claude em 375 px).
+   perfil.js:237 e :329 criam o link do «Ir para a próxima estação» com a classe
+   `primario`, e :118 o botão de exportar com `secundario`. Nenhuma das duas tinha
+   regra AQUI: o elemento chegava nu, com a altura da própria linha de letra —
+   menos da metade do piso da casa (--alvo-toque, web/tokens.css).
+
+   O conserto é caixa, não pintura: min-height no token + o padding horizontal que
+   faltava para o toque não cair na borda do texto. O tamanho de letra não muda
+   (herda da folha, como antes) e nenhum dos dois vira botão: o recheio e a tinta
+   do `.botao-primario` moram no folha.css, e a hierarquia desta placa é outra.
+
+   Escopado em `.perfil` (regra 15): `primario` e `secundario` são classes SEM
+   prefixo aqui, e uma regra solta vazaria para as outras três telas. `display:
+   inline-flex` é o que faz o min-height existir num `<a>` inline — mesmo caminho
+   do `.folha-fechar` (folha.css:71). */
+.perfil .primario,
+.perfil .secundario,
+.perfil-dados-rotulo {
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  min-height: var(--alvo-toque);
+  padding: var(--espaco-2) var(--espaco-3);
 }
 
 .perfil-dados-input {

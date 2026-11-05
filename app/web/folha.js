@@ -17,7 +17,7 @@
 // token (web/folha.css não escreve um número); frase à mão — tudo é
 // core/textos.js; um segundo botão primário — disponível tem UM (o curso), em
 // curso tem UM (concluir), trancada e concluída não têm nenhum.
-import { comValores, dataDeCalendario, estados, folha as F, jornada as J, placa, chegada as C, aulas as AU } from '../core/textos.js';
+import { comValores, dataDeCalendario, estados, folha as F, jornada as J, mapa, placa, chegada as C, aulas as AU } from '../core/textos.js';
 import { hrefDe } from '../core/rotas.js';
 // O estudo vazio se obtem do proprio nucleo, com lerEstudo(null) -- nunca de um
 // objeto de mao propria aqui. Reescrever a forma do estudo na tela e a receita
@@ -225,15 +225,12 @@ function fato(doc, rotuloTxt, valor) {
 // Devolve `{ no, lembradas }` (ou null): `lembradas` é o que a linha da barra
 // precisa para dizer as duas coisas, e a conta é feita uma vez só — a folha não
 // chama `eixosDaEstacao` duas vezes para o mesmo número.
-function blocoEixos(doc, estado, comBarra) {
+function blocoEixos(doc, estado, comBarra, medida) {
   if (!estado.indice?.estacoes?.[estado.id]) return null;
-  const e = eixosDaEstacao(estado.id, {
-    estudo: estado.estudo,
-    cartoes: estado.cartoes,
-    indice: estado.indice,
-    progresso: estado.progresso,
-    hoje: dataLocal(estado.hoje)
-  });
+  // S20b-1a: a conta chega feita de `desenharFolha`, que precisa do estágio para
+  // a etiqueta. Refazê-la aqui seria a folha chamando `eixosDaEstacao` duas vezes
+  // para o mesmo número — o que este comentário sempre proibiu.
+  const e = medida;
   if (!e.total) return null;
 
   const caixa = no(doc, 'div', 'folha-eixos');
@@ -438,9 +435,32 @@ export function desenharFolha(doc, estado) {
   // 2. o nome, no maior tamanho da escala (e para ele que o diálogo aponta).
   corpo.append(no(doc, 'h2', 'folha-titulo', { id: 'folha-titulo', text: f.titulo }));
 
+  // A MEDIDA DA ESTAÇÃO (S20b-1a, item 1): lida ANTES da etiqueta, porque o texto
+  // dela passou a ser o estágio medido. `blocoEixos` recebe esta mesma conta em
+  // vez de refazê-la — continua sendo UMA chamada a `eixosDaEstacao` por folha.
+  // Sem o índice no aparelho a conta sai 'fora' (total 0), e 'fora' diz o que a
+  // malha já dizia: a folha não inventa medida que não chegou.
+  const medida = eixosDaEstacao(curso.id, {
+    estudo: estado.estudo,
+    cartoes: estado.cartoes,
+    indice: estado.indice,
+    progresso: estado.progresso,
+    hoje: dataLocal(estado.hoje)
+  });
+
   // 3. o estado, por forma E por texto — nunca só a cor (JORNADA §3.1).
+  // S20b-1a: a FORMA é a da malha (a classe continua `folha-estado <estado>`, é
+  // ela que pinta o anel e o cinza da trancada); o TEXTO passou a ser o estágio
+  // medido. `F.estadoNome` respondia «a malha me deixa entrar?» num lugar onde a
+  // pessoa perguntava «onde eu estou?», e a etiqueta mentia: dizia «Disponível»
+  // numa estação com 3 de 93 aulas estudadas, logo acima da linha que media as
+  // três. A trancada continua «Trancada» — sem liberação não há estágio a medir,
+  // e «Embarcada» numa porta fechada seria convite. O círculo da linha não é
+  // tocado aqui.
   corpo.append(no(doc, 'p', `folha-estado ${String(f.estado).replace(/_/g, '-')}`, {
-    text: F.estadoNome[f.estado] || ''
+    text: f.estado === ESTADOS.TRANCADA
+      ? F.estadoNome.trancada
+      : (mapa.estagioNaFolha(medida.estagio, f.estado) || F.estadoNome[f.estado] || '')
   }));
 
   // 3b. OS DOIS EIXOS (S16c): o que foi estudado e o que foi lembrado depois,
@@ -456,7 +476,7 @@ export function desenharFolha(doc, estado) {
   const comAulas = (f.estado === ESTADOS.DISPONIVEL || f.estado === ESTADOS.EM_CURSO)
     ? painelDeAulas(estudo || lerEstudo(null), curso.id, { ...aulas, resourceUrl: curso.resourceUrl })
     : null;
-  const eixos = blocoEixos(doc, { ...estado, id: curso.id }, Boolean(comAulas));
+  const eixos = blocoEixos(doc, { ...estado, id: curso.id }, Boolean(comAulas), medida);
   if (eixos?.no) corpo.append(eixos.no);
   const lembradas = eixos ? eixos.lembradas : null;
 

@@ -44,7 +44,16 @@
    tokens.css declara como o MAIOR texto da tela (32px, o nome da estacao na
    placa). Numa lista de 35 itens a hierarquia mentia e a tela virava cartaz.
    Lista e corpo: --tipo-corpo. --tipo-estacao fica so na placa da Jornada. */
-.explorar-link { color: var(--tinta); font-size: var(--tipo-corpo); text-decoration: underline; text-underline-offset: 3px; }
+/* S20b-1a (item 3): o link da estação, criado em explorar.js:54, era o alvo mais
+   tocado da tela e media a altura de uma linha de --tipo-corpo em 375 px. Entra o
+   piso de toque com o padding vertical que faltava; o tamanho de letra e o
+   sublinhado ficam exatamente como estavam — a lista continua sendo lista de
+   links, não fileira de botões. */
+.explorar-link {
+  color: var(--tinta); font-size: var(--tipo-corpo); text-decoration: underline; text-underline-offset: 3px;
+  display: inline-flex; align-items: center; box-sizing: border-box;
+  min-height: var(--alvo-toque); padding: var(--espaco-1) var(--espaco-2);
+}
 .explorar-nome { font-size: var(--tipo-corpo); color: var(--tinta); }
 .explorar-selo {
   font-family: var(--fonte-mono); font-size: var(--tipo-nota); text-transform: uppercase;

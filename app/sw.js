@@ -704,7 +704,30 @@
 // erro nenhum. A trava do round-trip está em tests/desafio.test.js. Mudam de bytes e
 // estão no precache: core/desafio.js, core/textos.js, core/eixos.js, core/viagem.js,
 // web/metro.js, web/telas/perfil.js.
-const VERSAO = 'atlas-v83';
+// atlas-v84: S20b-1a (05/11/2026) — três consertos pequenos, cada um com a sua
+// trava. (1) O SELO QUE MENTIA: `web/folha.js` escrevia `F.estadoNome[f.estado]`
+// na etiqueta de texto, que responde «a malha me deixa entrar?» num lugar onde a
+// pessoa pergunta «onde eu estou?» — uma estação com 3 de 93 aulas estudadas saía
+// «DISPONÍVEL» logo acima da linha que media as três. O texto passa a ser o
+// estágio de `eixosDaEstacao` pela escada de `mapa.estagioNaFolha` (core/textos.js),
+// com a primeira letra maiúscula; a trancada continua «Trancada» (sem liberação não
+// há estágio a medir) e 'fora' diz «Disponível» — com `emCurso` na malha diz «Em
+// curso», que é a mesma mentira do lado oposto. A FORMA (a classe `folha-estado
+// <estado>`, que pinta o anel) não muda, e o círculo da linha não é tocado. A conta
+// do estágio é feita UMA vez em `desenharFolha` e emprestada ao `blocoEixos`, que
+// antes a refazia. (2) A DURAÇÃO PARTIDA: «faltam ~29 h 23 min» quebrou entre o 29
+// e o h em 375 px; `faltaFazer` troca os espaços da duração por U+00A0 (o espaço
+// ANTES do «faltam» continua comum — é ali que a linha pode quebrar), e a regra sai
+// como `inseparavel`/`NBSP` para os testes formarem o esperado sem escrever o byte à
+// mão. Consequência medida: os literais de seis arquivos de teste, e o `textoDo` de
+// três mini-DOMs, que colapsavam com `\s+` e comiam o U+00A0. (3) OS ALVOS NUS: o
+// link `primario` (perfil.js:237/:329), o botão `secundario` (:118), o rótulo
+// `perfil-dados-importar-texto` e o `.explorar-link` (explorar.js:54) não tinham
+// regra nenhuma nas folhas das telas e chegavam com a altura de uma linha de letra.
+// Ganham `min-height: var(--alvo-toque)` + o padding que faltava, escopados, sem
+// mudar a letra e sem virar botão. Mudam de bytes e estão no precache:
+// core/textos.js, web/folha.js, web/telas/perfil.css, web/telas/explorar.css.
+const VERSAO = 'atlas-v84';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
@@ -754,7 +777,15 @@ const VERSAO = 'atlas-v83';
 // a VERSAO acima: 106 arquivos, nenhum ENTROU e um mudou de bytes —
 // web/telas/aulas.css (a marca tracejada da pulada e a duração na coluna do
 // título em 375 px). O sw.js mediu o mesmo sha256 antes e depois.
-const PRECACHE_HASH = 'sha256-713a4e1254880668a261198881e9f22cbe04e65c760f16347f5d89b20d6c25a2';
+// Recalculado na S20b-1a (05/11/2026), com a árvore parada e DEPOIS de subir a
+// VERSAO acima: 107 arquivos, nenhum ENTROU e quatro mudaram de bytes —
+// core/textos.js (o U+00A0 da duração, `inseparavel`/`NBSP` e o 'fora' com
+// emCurso na escada do selo), web/folha.js (a etiqueta lendo o estágio, a conta
+// do estágio feita uma vez e emprestada ao bloco dos eixos), web/telas/perfil.css
+// e web/telas/explorar.css (o piso de toque dos alvos nus). Os testes novos não
+// estão no precache: nada de fora de app/web e app/core vai para o cache de quem
+// usa. O sw.js mediu o mesmo sha256 antes e depois.
+const PRECACHE_HASH = 'sha256-ae45a4db2b5c6da41ef5060a744a777f82bc871ebf8301f0350b65a590146df9';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.

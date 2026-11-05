@@ -36,7 +36,7 @@ import {
 } from '../core/cartoes.js';
 import { eixosDaEstacao } from '../core/eixos.js';
 import { MINIMO_VISIVEL } from '../core/mapa-rede.js';
-import { aulas as A, folha as F, jornada as J, mapa as MAPA, revisar as REV } from '../core/textos.js';
+import { aulas as A, folha as F, jornada as J, mapa as MAPA, revisar as REV, inseparavel } from '../core/textos.js';
 
 const RAIZ = new URL('../', import.meta.url);
 const LER = (rel) => readFileSync(fileURLToPath(new URL(rel, RAIZ)), 'utf8');
@@ -466,8 +466,11 @@ test('S16c-fix · a linha da barra com lembradas passa pela lista do proibido', 
   // frases têm de sair da MESMA conta, não de duas cópias (regra 9). O `faltam`
   // não flexiona: o restante chega já formatado de `duracaoLegivel`, e quem
   // inventasse «falta ~1 h» estaria formatando a duração num segundo lugar.
-  assert.equal(A.progresso(1, 1, '1 h', 1), '1 de 1 aula estudada · 1 lembrada depois · faltam ~1 h',
+  // S20b-1a (item 2): o «1 h» sai com espaço NÃO SEPARÁVEL — a letra do esperado
+  // passa pela mesma regra do núcleo, senão este arquivo cobraria o espaço que a
+  // tela não põe mais.
+  assert.equal(A.progresso(1, 1, '1 h', 1), `1 de 1 aula estudada · 1 lembrada depois · faltam ~${inseparavel('1 h')}`,
     'a linha da barra não flexiona a contagem de um');
-  assert.equal(A.progresso(1, 1, '1 h'), '1 de 1 aula estudada · faltam ~1 h',
+  assert.equal(A.progresso(1, 1, '1 h'), `1 de 1 aula estudada · faltam ~${inseparavel('1 h')}`,
     'a linha da barra sem lembradas mudou de palavras para quem não tem cartão');
 });

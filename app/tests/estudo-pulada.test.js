@@ -35,7 +35,7 @@ import {
 } from '../core/estudo.js';
 import { CARTOES_KEY } from '../core/cartoes.js';
 import { eixosDaEstacao } from '../core/eixos.js';
-import { aulas as AU, jornada as J } from '../core/textos.js';
+import { aulas as AU, jornada as J, inseparavel } from '../core/textos.js';
 import { resumoDaViagem } from '../core/viagem.js';
 import { alvoDoTopo, desenharTopo } from '../web/telas/jornada-topo.js';
 import { montar as montarLista } from '../web/telas/aulas.js';
@@ -628,14 +628,17 @@ test('S18a-fix · "faltam" não conta a pulada, e a linha diz quantas foram disp
 
   const doc = criarDoc();
   const frase = textoDo(comClasse(linhaProgresso(doc, r), /^aulas-progresso-texto$/)[0]);
-  assert.equal(frase, `0 de ${bruto.length} aulas estudadas · 2 puladas · faltam ~${duracaoLegivel(r.segundosRestantes)}`,
+  // S20b-1a (item 2): a duração na frase sai com espaço NÃO SEPARÁVEL, e
+  // `duracaoLegivel` devolve com espaço comum — as duas funções têm donos
+  // diferentes, então o esperado passa pela mesma regra do núcleo.
+  assert.equal(frase, `0 de ${bruto.length} aulas estudadas · 2 puladas · faltam ~${inseparavel(duracaoLegivel(r.segundosRestantes))}`,
     `a linha da lista saiu assim: ${frase}`);
 
   // Singular e plural, e o pedaço que some no zero.
   let uma = pularAula(lerEstudo(null), { estacao: PRIMEIRA.id, aula: bruto[0].id, n: 1 }, Q('09:00'));
   const rUma = resumoDaEstacao(uma, PRIMEIRA.id, bruto);
   assert.equal(textoDo(comClasse(linhaProgresso(criarDoc(), rUma), /^aulas-progresso-texto$/)[0]),
-    `0 de ${bruto.length} aulas estudadas · 1 pulada · faltam ~${duracaoLegivel(rUma.segundosRestantes)}`,
+    `0 de ${bruto.length} aulas estudadas · 1 pulada · faltam ~${inseparavel(duracaoLegivel(rUma.segundosRestantes))}`,
     '«1 puladas» é erro de concordância numa placa');
 
   let todas = lerEstudo(null);
@@ -651,6 +654,6 @@ test('S18a-fix · "faltam" não conta a pulada, e a linha diz quantas foram disp
   // chamam a mesma `linhaProgresso`, e o pulo aparece nas duas.
   assert.equal(
     textoDo(comClasse(linhaProgresso(criarDoc(), rUma, 1), /^aulas-progresso-texto$/)[0]),
-    `0 de ${bruto.length} aulas estudadas · 1 pulada · 1 lembrada depois · faltam ~${duracaoLegivel(rUma.segundosRestantes)}`
+    `0 de ${bruto.length} aulas estudadas · 1 pulada · 1 lembrada depois · faltam ~${inseparavel(duracaoLegivel(rUma.segundosRestantes))}`
   );
 });
