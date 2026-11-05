@@ -28,7 +28,9 @@ import { lerEstudo } from '../core/estudo.js';
 // página de aulas. Importar em vez de reimplementar é a regra 9: duas telas
 // formatando a mesma duração de dois jeitos é o defeito que a casa proíbe.
 import { linhaProgresso, notaAbrirAula, painelDeAulas, primarioAula, seloLinha } from './aulas-pedacos.js';
-import { ESTADOS, fatosDaEstacao } from '../core/viagem.js';
+import { ESTADOS, fatosDaEstacao, dataLocal } from '../core/viagem.js';
+import { eixosDaEstacao } from '../core/eixos.js';
+import { cartoesDevidos, minutosDaFila } from '../core/cartoes.js';
 // `origemDoRecurso` e `naFonte` já existem no metro.js e já têm testes. A folha
 // IMPORTA, em vez de reimplementar: reimplementar é como nasce a segunda palavra
 // para a mesma origem, e a crítica da v1 contou duas.
@@ -198,6 +200,49 @@ function fato(doc, rotuloTxt, valor) {
   dd.append(valor);
   linha.append(dt, dd);
   return linha;
+}
+
+/**
+ * As duas linhas dos DOIS EIXOS na folha da estação (S16c, desenho J3).
+ *
+ * Nada aqui é conta da tela: `eixosDaEstacao` mede, `minutosDaFila` converte,
+ * `cartoesDevidos` filtra o que já estava na agenda. A folha só traduz em frase,
+ * e a frase vem de `core/textos.js`.
+ *
+ * Ela se cala quando não há medida: sem o índice por estação (que chega depois,
+ * na repintura) não há total, e «0 de 0» descreveria um dado que não chegou. O
+ * `pedeRevisao` não é um alarme nem fala de atraso — é a estação dizendo que os
+ * cartões dela esfriaram, com o caminho para a fila.
+ */
+function blocoEixos(doc, estado) {
+  if (!estado.indice?.estacoes?.[estado.id]) return null;
+  const e = eixosDaEstacao(estado.id, {
+    estudo: estado.estudo,
+    cartoes: estado.cartoes,
+    indice: estado.indice,
+    progresso: estado.progresso,
+    hoje: dataLocal(estado.hoje)
+  });
+  if (!e.total) return null;
+
+  const caixa = no(doc, 'div', 'folha-eixos');
+  caixa.append(no(doc, 'p', 'folha-eixos-medida', {
+    text: F.eixos(e.estudadas, e.total, e.lembradas)
+  }));
+
+  if (e.pedeRevisao) {
+    // Os minutos são da fila DESTA estação, e a fração do tempo é a mesma da
+    // aba: dois cálculos de «quanto falta» na mesma tela é a tela dando duas
+    // respostas para a mesma pergunta.
+    const devidos = cartoesDevidos(estado.cartoes, dataLocal(estado.hoje), Infinity)
+      .filter((c) => c.estacao === estado.id).length;
+    if (!devidos) return caixa;
+    caixa.append(no(doc, 'a', 'folha-eixos-revisar', {
+      href: hrefDe({ tela: 'revisar' }),
+      text: F.eixosRevisao(minutosDaFila(devidos))
+    }));
+  }
+  return caixa;
 }
 
 /**
@@ -374,6 +419,14 @@ export function desenharFolha(doc, estado) {
   corpo.append(no(doc, 'p', `folha-estado ${String(f.estado).replace(/_/g, '-')}`, {
     text: F.estadoNome[f.estado] || ''
   }));
+
+  // 3b. OS DOIS EIXOS (S16c): o que foi estudado e o que foi lembrado depois,
+  //     lidos do núcleo — a folha não refaz conta nenhuma. Sem índice por estação
+  //     no aparelho (o `indice` chega depois da S20a, e o `cartoes` também), a
+  //     linha não nasce: «0 de 0» é uma frase sobre um dado que não chegou, e a
+  //     casa não descreve o que não mediu.
+  const blocoEixosNo = blocoEixos(doc, { ...estado, id: curso.id });
+  if (blocoEixosNo) corpo.append(blocoEixosNo);
 
   // 4. os três fatos. A origem é a MESMA função da placa, e o que a fonte não
   //    diz a folha cala — por isso o dd pode sair com texto vazio.

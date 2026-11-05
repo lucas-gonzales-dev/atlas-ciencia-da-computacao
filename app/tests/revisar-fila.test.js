@@ -664,7 +664,31 @@ test('S15b-fix · revisar.css: a confiança em três colunas, a borda da casa, o
 
   // O anel é um só na casa (web/base.css): aqui estava em --alerta, outra cor sem motivo.
   assert.ok(!/--alerta/.test(CSS_FIX), 'revisar.css ainda pinta foco com --alerta');
-  assert.ok(!/:focus-visible/.test(CSS_FIX), 'revisar.css ainda declara :focus-visible próprio, contra o anel da base.css');
+
+  // S16c item B trouxe `:focus-visible` DE VOLTA a este arquivo, e a proibição
+  // genérica da S15b-fix caiu junto — não por capricho: o que a asserção protegia
+  // era «nenhum CONTROLE tem anel próprio nesta tela», e um :focus-visible que
+  // CALA o anel num h1 não compete com base.css, ele corrige o anel que a S15b-fix
+  // herdou ao focar texto. Então a régua aperta no que importa, em vez de sumir:
+  // os únicos alvos de :focus-visible aqui são os três de foco programático (h1 e
+  // blockquote, que nunca são controle), e cada um tem de deixar uma marca no
+  // lugar do outline — que é a regra que `auditoria-teclado-leitor.test.js` cobra
+  // da pasta inteira (teclado 2), conferida aqui na mesma base.
+  const ALVOS_DE_TEXTO = ['.revisar-titulo', '.revisar-frente', '.revisar-verso'];
+  const semComentario = CSS_FIX.replace(/\/\*[\s\S]*?\*\//g, ' ');
+  const regrasDeFoco = [...semComentario.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+    .filter(([, seletor]) => /:focus-visible/.test(seletor));
+  assert.ok(regrasDeFoco.length > 0,
+    'sumiu todo :focus-visible do revisar.css: o anel voltou a moldar o texto que ninguém clica');
+  for (const [, bruto, corpo] of regrasDeFoco) {
+    for (const parte of bruto.split(',')) {
+      const alvo = parte.trim().replace(/:focus-visible\s*$/, '').trim();
+      assert.ok(ALVOS_DE_TEXTO.includes(alvo),
+        `:focus-visible em «${alvo}»: só os três alvos de foco programático podem falar do anel`);
+      assert.match(corpo, /box-shadow\s*:/,
+        `«${alvo}» mata o outline sem pôr outra marca na mesma regra`);
+    }
+  }
 
   // O <a> primário media 70px e o <button> 46px, e a conta fecha no osso: o piso
   // --alvo-toque (44) é o CONTENT box do link (border-box é o padrão do UA só para

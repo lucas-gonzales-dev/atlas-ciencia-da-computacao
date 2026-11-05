@@ -89,6 +89,32 @@
 
 .topo-marcar:hover { color: var(--cor, var(--tinta)); }
 
+/* S16c — a LEGENDA do mapa de dois eixos, e a linha da fila do dia.
+   As duas são discreta por desenho: a legenda decifra o desenho sem disputar com
+   ele, e a fila é um LINK — o único primário da Jornada continua sendo o caminho
+   de estudo (S4b). O formato é o mesmo do .topo-marcar acima, e por um motivo:
+   três links discretos com três tamanhos diferentes na mesma tela é a tela
+   dizendo qual deles manda. */
+.topo-legenda,
+.topo-revisoes {
+  font-family: var(--fonte-corpo);
+  font-size: var(--tipo-nota);
+  color: var(--fosca);
+  margin: 0;
+}
+
+/* O espaçamento é o `gap` da grade do .topo, e nada mais: uma margem própria
+   aqui seria a legenda brigando com o ritmo que a tela já tem. */
+
+.topo-revisoes {
+  justify-self: start;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  min-height: var(--alvo-toque);
+}
+
+.topo-revisoes:hover { color: var(--cor, var(--tinta)); }
+
 /* UM PRIMÁRIO POR TELA (S4b, estendido ao topo pela S20a): com a folha aberta o
    recurso dela é o primário visível, e o botão do topo cede a forma para o
    contorno da mesma família — o MESMO mecanismo do .placa-acao acima, não um

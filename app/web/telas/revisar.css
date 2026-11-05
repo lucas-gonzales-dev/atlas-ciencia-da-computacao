@@ -164,6 +164,30 @@
   color: var(--tinta);
 }
 
+/* S16c, item B — O ANEL nos alvos de foco programático. Os três são h1 e
+   blockquote: a S15b-fix põe o foco neles para o teclado não atravessar a tela
+   inteira a cada cartão, e o anel RETANGULAR da base.css desenhava então uma
+   moldura em volta de um texto que ninguém clica — o leitor via um campo onde não
+   há campo. O anel sai nestes três, e só neles: um h1 e um blockquote nunca são
+   controle, então a regra não alcança botão nem link, e o foco dos controles
+   continua o da base.css.
+
+   O `outline: none` não fica sozinho, e isso não é capricho — é a régua da casa
+   (auditoria-teclado-leitor.test.js, teclado 2), que proíbe matar o outline sem
+   pôr outra marca na MESMA regra: quem enxerga e tecla precisa continuar sabendo
+   onde está. A marca escolhida é uma barra, no lado de fora do texto, na cor da
+   linha: diz "a leitura começa aqui" sem fechar uma caixa em volta dele. */
+.revisar-titulo:focus-visible,
+.revisar-frente:focus-visible,
+.revisar-verso:focus-visible {
+  outline: none;
+  /* O substituto é o MECANISMO da casa para traço de foco — `0 0 0` com desfoque
+     zero é anel, não sombra, e é assim que base.css já desenha o seu e que a
+     JORNADA 4 pulsa a próxima estação. A régua de sombra (regra 9) exige isso: sem
+     o `0 0 0`, um box-shadow com deslocamento seria elevação onde não há camada. */
+  box-shadow: 0 0 0 var(--espaco-1) var(--cor, var(--tinta));
+}
+
 /* ── a confiança opcional ───────────────────────────────────────────────── */
 /* S15b-fix, item 3: três linhas de largura inteira com borda de painel (6px)
    pesavam MAIS que a pergunta que a pessoa acabou de ler — a régua visual do

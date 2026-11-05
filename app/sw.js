@@ -618,7 +618,14 @@
 // O aria-label passa a contar os estágios, com as frases em core/textos.js e o
 // plural da S15b-fix. Ninguém passa eixos ainda — quem os dá é a S16c. Mudam de
 // bytes e estão no precache: core/mapa-rede.js e core/textos.js.
-const VERSAO = 'atlas-v76';
+// atlas-v77: S16c (04/11/2026) — os dois eixos chegam à tela. Entram no
+// offline core/eixos.js (S16a) e core/mapa-rede.js com `eixos` (S16b); saem
+// trocados web/metro.js (o fio que entrega estudo+índice+cartões ao desenho),
+// web/telas/jornada-topo.js (mapa medido, legenda, linha da fila do dia),
+// web/folha.js e web/telas/revisar.css (as duas linhas da estação; o anel que
+// marca o texto focado sem fingir campo). Sem isto, o aparelho antigo continua
+// desenhando o mapa declarado — cor de estação sem medição por trás.
+const VERSAO = 'atlas-v77';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
@@ -664,7 +671,7 @@ const VERSAO = 'atlas-v76';
 // core/mapa-rede.js (os eixos viram desenho) e core/textos.js (o bloco `mapa`,
 // com as frases do aria-label). Os testes novos (tests/mapa-eixos.test.js) não
 // estão no precache: nada de fora de app/ vai para o cache de quem usa.
-const PRECACHE_HASH = 'sha256-1bff64107c3851c0264382a832d7169e76287f4519b99b0f1a71ef61c83eb472';
+const PRECACHE_HASH = 'sha256-4e955ee4dec49821caf04028d3bfd059e12a199ccad97534446bf8915305345b';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.

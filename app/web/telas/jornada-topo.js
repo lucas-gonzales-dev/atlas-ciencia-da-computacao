@@ -36,13 +36,15 @@
 // conta passa a caber nas duas larguras. tests/auditoria-tamanhos.test.js mede.
 
 import { duracaoLegivel } from '../../core/aulas.js';
+import { eixosDaRede, houveEstudo } from '../../core/eixos.js';
 import { mapaDaRede } from '../../core/mapa-rede.js';
 import { hrefDe } from '../../core/rotas.js';
-import { aulas as AU, jornada as J } from '../../core/textos.js';
+import { aulas as AU, jornada as J, mapa as MAPA_TEXTO, revisar as REV_TEXTO } from '../../core/textos.js';
+import { cartoesDevidos, minutosDaFila } from '../../core/cartoes.js';
 // S20a-3: o topo pergunta ao núcleo se a estação da retomada ainda é retomada.
 // ESTADOS/estadoDaEstacao são a MESMA fonte que a folha, a placa e o perfil usam
 // — a regra de «concluída» não pode ter duas contas no app (regra da fonte única).
-import { ESTADOS, estadoDaEstacao } from '../../core/viagem.js';
+import { ESTADOS, estadoDaEstacao, dataLocal } from '../../core/viagem.js';
 
 function no(doc, tag, classe, attrs) {
   const n = doc.createElement(tag);
@@ -93,7 +95,40 @@ export async function carregarIndice(buscar = (url) => fetch(url)) {
   }
   const total = numerico(dados?.total?.aulas);
   if (!total) return { ok: false, erro: 'formato' };
-  return { ok: true, dados: { total: { aulas: total, segundos: numerico(dados.total.segundos) } } };
+  return {
+    ok: true,
+    dados: {
+      total: { aulas: total, segundos: numerico(dados.total.segundos) },
+      // S16c: a tabela por estação, que é o que core/eixos.js lê para saber o
+      // total e os segundos de cada uma. Ela chega no MESMO arquivo que a
+      // contagem da rede — buscar um índice por estação para desenhar o mapa era
+      // o que este índice existe para evitar (design/v3, J3).
+      estacoes: dados?.estacoes && typeof dados.estacoes === 'object' ? dados.estacoes : null
+    }
+  };
+}
+
+/**
+ * A linha da fila do dia no topo (S15b item 4, que a S15b deixou para cá).
+ *
+ * É um LINK e nunca um segundo primário: a Jornada tem UM caminho, e quem voltou
+ * para estudar não pode ver dois recheios na mesma tela. Com zero devidos a
+ * linha NÃO EXISTE — "Em dia" é o que a aba diz, e repeti-la no topo seria a
+ * rede falando de uma fila vazia.
+ *
+ * A frase é `revisar.hoje`, a mesma da aba, chamada e não copiada: duas frases
+ * para a mesma fila é a fila dizendo duas coisas na mesma hora. O total e os
+ * minutos vêm de `cartoesDevidos` e `minutosDaFila`, sem conta nova nesta tela.
+ */
+function linhaDeRevisoes(doc, dados) {
+  const arquivo = dados.cartoes;
+  if (!arquivo || !arquivo.cartoes) return null;
+  const devidos = cartoesDevidos(arquivo, dataLocal(dados.hoje), Infinity).length;
+  if (!devidos) return null;
+  return no(doc, 'a', 'topo-revisoes', {
+    href: hrefDe({ tela: 'revisar' }),
+    text: REV_TEXTO.hoje(devidos, minutosDaFila(devidos))
+  });
 }
 
 /** A primeira estação da primeira linha do catálogo (hoje, Circuitos Digitais). */
@@ -268,11 +303,27 @@ export function desenharTopo(dados, doc) {
   const caixa = no(doc, 'section', `topo${curso ? ` l${curso.stage}` : ''}`);
   const folhaAberta = Boolean(dados.folhaAberta);
 
+  // S16c: os DOIS EIXOS chegam ao desenho. A conta é UMA por pintura, no núcleo
+  // (`eixosDaRede`), e o mapa recebe o Map pronto — a tela não inventa cor nem
+  // preenchimento, ela entrega a medida. Sem o índice por estação no aparelho
+  // ainda (ele chega numa repintura), o Map vem VAZIO e o mapa desenha o de
+  // antes: vazio é «não medimos», não «meio desenhado».
+  const eixos = eixosDaRede(catalogo, {
+    estudo: dados.estudo, cartoes: dados.cartoes, indice: dados.indice,
+    progresso: dados.progresso, hoje: dataLocal(dados.hoje)
+  });
+
   const mapa = () => {
     if (!catalogo.length) return null;
     const quadro = no(doc, 'div', 'topo-mapa');
     const svg = mapaDaRede(catalogo, dados.progresso || { completed: [] }, {
-      acessivel: J.topo.mapaAcessivel(catalogo.length, feitas),
+      // Com MEDIÇÃO, o rótulo CONTA os estágios (a frase é do mapaDaRede, que lê
+      // textos.js). Sem nenhuma aula estudada — primeira visita, ou só aulas
+      // ABERTAS — vale o rótulo da S20a: «nenhuma estudada ainda». Ele é mais
+      // honesto que «35 fora da rota» justamente porque abrir não é estudar, e
+      // um leitor de tela anunciaria uma medida que ainda não existe.
+      acessivel: houveEstudo(eixos) ? null : J.topo.mapaAcessivel(catalogo.length, feitas),
+      eixos,
       ...MAPA_TOPO
     });
     // O SVG é string (core/mapa-rede.js é DOM-free de propósito, e é assim que
@@ -295,22 +346,39 @@ export function desenharTopo(dados, doc) {
 
   const titulo = no(doc, 'h1', 'topo-titulo', { text: J.topo.titulo });
 
+  // A LEGENDA do mapa de dois eixos (S16c, item 4). Ela é uma linha discreta
+  // DEBAIXO do desenho, e só existe quando há medição: com a rede toda vazia,
+  // «Cheio: estudado» falaria de um desenho que nunca mudou. É a regra da casa
+  // para cor — a forma diz, a palavra decifra (design/README heurística 6).
+  const legenda = () => (houveEstudo(eixos)
+    ? no(doc, 'p', 'topo-legenda', { text: MAPA_TEXTO.legenda })
+    : null);
+
+  // Só entra o que EXISTE: mapa sem catálogo, legenda sem medição, fila sem
+  // cartão devido. Nenhum dos três é um nó com nada dentro — é a regra da casa
+  // para linha que a fonte não sustenta.
+  const puxa = (n) => { if (n) caixa.append(n); };
+
   if (alvo.modo === 'volta' && curso) {
     // J5: o cartão vem primeiro — quem voltou não quer ver o mapa antes de ver
     // onde estava. O mapa fica ABAIXO, com as estações estudadas acesas.
     caixa.append(acaoDoTopo(doc, { alvo, aula, curso, folhaAberta }));
+    puxa(linhaDeRevisoes(doc, dados));
     caixa.append(titulo);
     caixa.append(medida());
-    const quadro = mapa();
-    if (quadro) caixa.append(quadro);
+    puxa(mapa());
+    puxa(legenda());
   } else {
     // J1: a rede é a primeira coisa — o mapa de 35 nós vazios diz o tamanho do
     // compromisso antes de qualquer frase.
-    const quadro = mapa();
-    if (quadro) caixa.append(quadro);
+    puxa(mapa());
+    puxa(legenda());
     caixa.append(titulo);
     caixa.append(medida());
-    if (curso) caixa.append(acaoDoTopo(doc, { alvo, aula, curso, folhaAberta }));
+    if (curso) {
+      caixa.append(acaoDoTopo(doc, { alvo, aula, curso, folhaAberta }));
+      puxa(linhaDeRevisoes(doc, dados));
+    }
   }
 
   // Embaixo, discreto: o mesmo fluxo do "Marcar o que já estudei" de hoje. O

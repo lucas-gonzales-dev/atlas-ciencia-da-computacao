@@ -203,3 +203,50 @@ export function eixosDaEstacao(id, { estudo, cartoes, indice, progresso, hoje } 
     segundosRestantes: Math.round(segundos * (1 - preenchimento)),
   };
 }
+
+/**
+ * Os eixos da rede INTEIRA, num Map de id para o resultado acima (S16c).
+ *
+ * Por que existe: a tela não pode chamar `eixosDaEstacao` trinta e cinco vezes
+ * dentro de um `map()` e ainda saber se tinha como desenhar — quem desenha o mapa
+ * precisa de UMA resposta por estação e de uma resposta sobre o índice. Esta é a
+ * conta por estação; a decisão sobre o índice fica uma vez só, aqui.
+ *
+ * Devolve um Map VAZIO quando o índice ainda não chegou ou quando ele não traz a
+ * tabela por estação (`indice.estacoes`). Isso não é um meio-desenho: vazio é a
+ * resposta honesta, porque sem `aulas` por estação não há total, e sem total não
+ * há preenchimento. `core/mapa-rede.js` lê Map vazio como «sem eixos» e desenha
+ * exatamente o mapa de antes, byte a byte — a trava da S16b continua valendo.
+ */
+export function eixosDaRede(catalogo, opcoes = {}) {
+  const saida = new Map();
+  const lista = Array.isArray(catalogo) ? catalogo : [];
+  if (!opcoes.indice?.estacoes || typeof opcoes.indice.estacoes !== 'object') return saida;
+  for (const c of lista) {
+    if (!c || typeof c.id !== 'string') continue;
+    if (!opcoes.indice.estacoes[c.id]) continue;
+    saida.set(c.id, eixosDaEstacao(c.id, opcoes));
+  }
+  return saida;
+}
+
+/** Quantas estações há em cada estágio, e quantas pedem revisão. Para quem ROTULA o mapa. */
+export function contarEstagios(lista, eixos) {
+  const estagios = {};
+  let pedindoRevisao = 0;
+  for (const c of (Array.isArray(lista) ? lista : [])) {
+    const e = typeof eixos?.get === 'function' ? eixos.get(c?.id) : eixos?.[c?.id];
+    if (!e) continue;
+    estagios[e.estagio] = (estagios[e.estagio] || 0) + 1;
+    if (e.pedeRevisao) pedindoRevisao += 1;
+  }
+  return { estagios, pedindoRevisao };
+}
+
+/** Houve medição em alguma estação? É o que liga a legenda: sem medida, nada a decifrar. */
+export function houveEstudo(eixos) {
+  if (!eixos || typeof eixos.forEach !== 'function') return false;
+  let viu = false;
+  eixos.forEach((e) => { if (e && e.estudadas > 0) viu = true; });
+  return viu;
+}

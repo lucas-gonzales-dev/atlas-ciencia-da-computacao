@@ -324,6 +324,22 @@ export const folha = Object.freeze({
   // S13b: "Concluir estação" saiu dos botões e virou link discreto — fechar a
   // estação não é o gesto principal de quem está estudando aula por aula.
   marcarConcluida: 'Marcar a estação como concluída',
+  // ── OS DOIS EIXOS DA ESTAÇÃO (S16c, princípio 1 do desenho) ──────────────
+  // As duas linhas que a folha lê de core/eixos.js. Nenhum número mora aqui: o
+  // preenchimento vem do fechamento das aulas, a lembrança vem do histórico do
+  // cartão, e a frase só traduz o que o núcleo mediu.
+  //
+  // `lembradas` a 0 NÃO entra na frase: «0 lembradas depois» descreve o desenho,
+  // não a pessoa, e é a mesma regra do zero que saiu do aria-label na S16b.
+  eixos: (estudadas, total, lembradas) => {
+    const base = `${estudadas} de ${total} ${total === 1 ? 'aula estudada' : 'aulas estudadas'}`;
+    return lembradas > 0 ? `${base} · ${lembradas} lembrada${lembradas === 1 ? '' : 's'} depois` : base;
+  },
+  // O anel discreto do desenho, dito em palavras. `minutos` vem de `minutosDaFila`
+  // sobre os cartões devidos daquela estação — a casa não escreve duração à mão
+  // (lista do proibido), e a linha da Jornada e esta têm de dar o mesmo número
+  // para a mesma fila.
+  eixosRevisao: (minutos) => `Os cartões desta estação pedem revisão: ~${minutos} min`,
   // O estado por texto (JORNADA §3.1): forma E palavra, nunca só a cor.
   estadoNome: Object.freeze({
     concluida: 'Concluída',
@@ -408,6 +424,17 @@ export const mapa = Object.freeze({
     if (!pedindoRevisao) return corpo;
     return `${corpo} ${pedindoRevisao} ${pedindoRevisao === 1 ? 'pede revisão.' : 'pedem revisão.'}`;
   },
+  /**
+   * A LEGENDA do mapa de dois eixos (S16c, item 4 do desenho: J3 e princípio 1).
+   *
+   * Ela só existe quando há o que decifrar: com a rede toda vazia, "Cheio:
+   * estudado" é uma frase sobre um desenho que não mudou. Por isso a tela a liga
+   * por `estudadas > 0`, e não por «sempre».
+   *
+   * Duas cláusulas, dois canais, sem conselho: o desenho diz O QUE a forma
+   * significa, nunca o que a pessoa deveria fazer com isso.
+   */
+  legenda: 'Cheio: estudado. Cor forte: lembrado depois.',
 });
 
 /**
@@ -499,6 +526,14 @@ export const jornada = {
       [estacao, linha ? `Linha ${linha}` : null, duracao].filter(Boolean).join(' · '),
     mapaAcessivel: (total, feitas) =>
       `As ${total} estações da rede; ${feitas ? `${feitas} estudadas` : 'nenhuma estudada ainda'}`,
+    // A fila do dia dita pelo topo (S15b item 4, adiada para a S16c). É um LINK,
+    // nunca um segundo primário: quem voltou para estudar tem um caminho, e a
+    // revisão é o convite discreto embaixo dele. Os números vêm de
+    // `cartoesDevidos` e `minutosDaFila`, e a frase é a MESMA da aba Revisar —
+    // dois textos para a mesma fila é a fila dizer duas coisas na mesma hora.
+    // A frase é a DA ABABA, chamada e não copiada: dois textos para a mesma fila
+    // é a fila dizendo duas coisas diferentes na mesma tela.
+    revisoes: (cartoes, minutos) => revisar.hoje(cartoes, minutos),
   }),
 
   numeros: {

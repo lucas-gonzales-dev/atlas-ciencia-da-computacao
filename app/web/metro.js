@@ -34,6 +34,13 @@ import { desenharFolha } from './folha.js';
 // DOM, fechada na tela). A correção mora aqui, no metrô, que é o dono da tela.
 import { carregarAulas } from './aulas-dados.js';
 import { estudoDoStorage, ligarAberturaDeAula } from './aulas-pedacos.js';
+// S16c: os CARTÕES entram no desenho do mapa e da folha. O defeito que esta
+// importação paga é o terceiro encontro com a mesma armadilha (S11-0 defeito 1,
+// S13c): a peça sabe receber o dado, o teste entrega o dado à peça, e ninguém no
+// app o passa. Ler o storage aqui, no dono da tela, pela MESMA porta da aba
+// Revisar (revisar.js:99) — um segundo leitor de `atlas.cartoes.v1` seria duas
+// verdades sobre a mesma fila.
+import { CARTOES_KEY, lerCartoes } from '../core/cartoes.js';
 // S20a: o topo da Jornada (J1 primeira visita / J5 a volta) é um módulo próprio,
 // pelo mesmo motivo da S4a dividir o metro.js: a regra de desenhá-lo não é a
 // regra do diagrama. A leitura do indice.json mora aqui dentro, nunca no core/.
@@ -534,6 +541,10 @@ export function desenharMetro(doc, root, estado) {
     // J5 quer a duração da aula retomada. `ui.aulas` é outra coisa (a lista da
     // estação da folha aberta) e misturar as duas daria duração de outra aula.
     aulas: estado.aulasAlvo,
+    // S16c: os cartões e a data chegam ao topo pelo mesmo caminho do estudo.
+    // Sem eles o mapa não tem cor (a lembrança mora no histórico do cartão) e a
+    // linha da fila do dia não existe.
+    cartoes: estado.cartoes || null, hoje: estado.hoje,
     embarqueAberto: Boolean(estado.embarqueAberto),
     // UM PRIMÁRIO POR TELA (S4b, estendido ao topo): com a folha aberta é o
     // recurso dela que manda, e o botão do topo nasce sem a classe.
@@ -816,7 +827,11 @@ export function desenharMetro(doc, root, estado) {
       // `estudo` é lido do aparelho A CADA pintura, porque a pessoa abre aula no
       // YouTube e volta sem recarregar nada.
       aulas: estado.aulas || null,
-      estudo: estado.estudo || null
+      estudo: estado.estudo || null,
+      // S16c: as duas linhas dos eixos na folha. `indice` é o mesmo objeto que o
+      // topo já recebeu — a tabela por estação vive nele — e `cartoes` é o
+      // arquivo lido desta pintura.
+      indice: estado.indice || null, cartoes: estado.cartoes || null, hoje: estado.hoje
     });
     root.append(desenhada.root);
     nos.folha = desenhada.root;
@@ -1020,6 +1035,19 @@ export async function subirMetro(deps = {}) {
   // invocation` (aulas-dados.js, nota do header): `fetch` solto perde o `this`.
   const buscar = deps.buscarAulas || ((url) => fetch(url));
 
+  /**
+   * Os cartões do aparelho, lidos pela mesma porta da aba Revisar.
+   * `hoje` entra por deps (a régua de data não pode depender do relógio); sem
+   * ele é o dia local do aparelho, como em todo o resto do app.
+   */
+  const hojeDoApp = deps.hoje;
+  const cartoesDoStorage = () => {
+    if (!storage || typeof storage.getItem !== 'function') return lerCartoes(null);
+    let bruto = null;
+    try { bruto = storage.getItem(CARTOES_KEY); } catch { bruto = null; }
+    return lerCartoes(bruto);
+  };
+
   const ui = {
     // O catálogo é GUARDADO já com as anotações dentro: é a única forma de o
     // redesenho achar o texto que a pessoa escreveu (fatia 2c-3).
@@ -1197,7 +1225,11 @@ export async function subirMetro(deps = {}) {
       // S20a: o índice e as aulas do alvo entram pelo mesmo caminho do resto do
       // estado de tela — `null` é honesto (ainda não chegaram) e o topo tem a
       // frase sem número e a linha de apoio sem duração para esse caso.
-      indice: ui.indice, aulasAlvo: ui.aulasAlvo, alvo: ui.alvo
+      indice: ui.indice, aulasAlvo: ui.aulasAlvo, alvo: ui.alvo,
+      // S16c: os cartões e a data. Lidos A CADA pintura, pelo mesmo motivo do
+      // `estudo`: a pessoa responde um cartão na aba, volta à Jornada sem
+      // recarregar, e o mapa tem de contar o que o storage diz agora.
+      cartoes: cartoesDoStorage(), hoje: hojeDoApp
     });
 
     // `folhaVisivel` é por INSTÂNCIA, `devolverAposFechar` é do MÓDULO: entre o
