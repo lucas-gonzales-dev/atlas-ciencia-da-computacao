@@ -40,6 +40,28 @@ const lembradasDepois = (lembradas) =>
     ? ` · ${lembradas} lembrada${lembradas === 1 ? '' : 's'} depois`
     : '';
 
+// A conta do pulo, na mesma base das duas telas (regra 9). Zero não aparece: é a
+// mesma regra do `lembradas` acima.
+const contaPulada = (puladas) =>
+  Number.isFinite(puladas) && puladas > 0
+    ? ` · ${puladas} pulada${puladas === 1 ? '' : 's'}`
+    : '';
+
+// O resto a fazer (S18a-fix, item 5). Quando não falta nada, o pedaço INTEIRO
+// sai da frase — e quem decide é quem tem os SEGUNDOS na mão, passando `null`,
+// porque `duracaoLegivel(0)` fabrica "1 min" (o `Math.max(min, 1)` dele) e texto
+// formatado não se interpreta de volta sem virar adivinhação.
+//
+// POR QUE SUMIR E NÃO DIZER "faltam ~0 min": `faltam` é uma conta do que FALTA, e
+// pulada não falta — foi dispensada por palavra da pessoa. Numa estação toda
+// pulada a linha diria "faltam ~30 h" sobre nada, que é o defeito 5 do olho.
+// Nenhuma frase no lugar: quando não falta, a régua cala, do mesmo jeito que o
+// `lembradas` a zero.
+const faltaFazer = (restante) => {
+  const texto = String(restante ?? '').trim();
+  return texto ? ` · faltam ~${texto}` : '';
+};
+
 /** Textos fixos de placa: cabeçalhos, selos, botões. */
 export const placa = {
   titulo: 'Atlas',
@@ -535,14 +557,23 @@ export const jornada = {
       `${disciplinas} disciplinas da ${fonte}, ${aulas.toLocaleString('pt-BR')} aulas. Estude uma, lembre amanhã, e o mapa acende.`,
     medidaSemAulas: (disciplinas, fonte) =>
       `${disciplinas} disciplinas da ${fonte}. Estude uma, lembre amanhã, e o mapa acende.`,
-    comecar: 'Começar pela primeira aula',
+    // S18a-fix (item 4): a palavra «primeira» é uma AFIRMAÇÃO sobre o número, e
+    // não um enfeite. Dizê-la para quem já pulou a Aula 1 é o topo prometendo a
+    // aula que a pessoa acabou de dispensar. Com n ≠ 1 a frase vira «Começar:
+    // Aula n» — o mesmo verbo, o número honesto.
+    comecar: (n = 1) => (Number(n) === 1
+      ? 'Começar pela primeira aula'
+      : `Começar: Aula ${Number(n) || 1}`),
     // S20a-3, o TERCEIRO caso da chave: quem tem viagem marcada mas nunca
     // abriu aula nenhuma no aparelho. Não é a primeira visita (a rede já tem
     // chão percorrido) nem a volta J5 (não há aula para retomar). O verbo é
     // "Começar", o objeto é a ESTAÇÃO — a mesma que a lateral chama de "Sua
     // próxima estação". "Pela primeira aula" não cabe aqui: a primeira aula
     // desta estação pode ser a 40ª disciplina da viagem.
-    comecarEstacao: (estacao) => `Começar: ${estacao} · Aula 1`,
+    // O `· Aula 1` era escrito à mão: numa estação cuja Aula 1 foi pulada, a
+    // placa prometia a aula errada (S18a-fix, item 4). Agora é o n que o núcleo
+    // respondeu; sem ele, continua sendo a 1, que é a primeira visita real.
+    comecarEstacao: (estacao, n = 1) => `Começar: ${estacao} · Aula ${Number(n) || 1}`,
     marcar: 'Já estudei algumas disciplinas',
     apoioComecar: (estacao, n, duracao) =>
       [estacao, `Aula ${n}`, duracao].filter(Boolean).join(' · '),
@@ -857,8 +888,12 @@ export const aulas = Object.freeze({
   // lembrado depois — na ordem do eixo que a pessoa percorre. Sem o quarto
   // argumento (a página de aulas, que não mede cartão) a frase é a de sempre,
   // byte a byte: é o que as travas de `aulas-tela` e `fechamento-nucleo` exigem.
-  progresso: (estudadas, total, restante, lembradas = null) =>
-    `${baseDaEstacao(estudadas, total)}${lembradasDepois(lembradas)} · faltam ~${restante}`,
+  // S18a-fix (item 5): `puladas` entrou na frase porque o pulo É uma resposta da
+  // pessoa, e escondê-la deixava a linha dizendo "93 de 93" numa estação onde
+  // nenhuma aula foi estudada. É a mesma regra do `lembradas`: o zero não entra
+  // («0 puladas» descreve o desenho, não a pessoa), o singular é o da S15b-fix.
+  progresso: (estudadas, total, restante, lembradas = null, puladas = 0) =>
+    `${baseDaEstacao(estudadas, total)}${contaPulada(puladas)}${lembradasDepois(lembradas)}${faltaFazer(restante)}`,
   estados: Object.freeze({
     'nao-iniciada': 'Não iniciada',
     aberta: 'Aberta',

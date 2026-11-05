@@ -654,7 +654,19 @@
 // core/estudo.js, core/eixos.js, core/textos.js, web/metro.js,
 // web/telas/jornada-topo.js, web/folha.js, web/aulas-pedacos.js,
 // web/telas/aula.js, web/telas/aula.css, web/telas/aulas.js, web/telas/aulas.css.
-const VERSAO = 'atlas-v79';
+// atlas-v80: S18a-fix (05/11/2026) — o que só o OLHO em 375 px viu, na página de
+// aulas. (1) O título de uma aula saía CORTADO com reticências, três aulas
+// diferentes com o mesmo nome na tela e a pessoa sem como saber quais eram: o
+// clamp de duas linhas era régua da FOLHA, não da LISTA, e cai na lista. Abaixo
+// de --bp-celular a linha vira uma coluna só — título inteiro, duração e botão na
+// linha de baixo. (2) O "Já sei isso" era 93 caixas de 1px numa coluna e media
+// 343 px debaixo do Assistir: vira TEXTO discreto (sem borda, sem fundo,
+// sublinhado no hover e no :focus-visible), com a caixa invisível de --alvo-toque
+// ainda mandando no toque. Mudam de bytes e estão no precache (lidos de
+// git diff --cached --stat, não da memória): web/telas/aulas.css,
+// web/aulas-pedacos.js, web/telas/jornada-topo.js, core/estudo.js,
+// core/eixos.js, core/textos.js.
+const VERSAO = 'atlas-v80';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
@@ -700,7 +712,7 @@ const VERSAO = 'atlas-v79';
 // core/mapa-rede.js (os eixos viram desenho) e core/textos.js (o bloco `mapa`,
 // com as frases do aria-label). Os testes novos (tests/mapa-eixos.test.js) não
 // estão no precache: nada de fora de app/ vai para o cache de quem usa.
-const PRECACHE_HASH = 'sha256-01223d89d98f86824874d45b761bcdc1dd2f5723f85752bf615043a6d2c61ec3';
+const PRECACHE_HASH = 'sha256-a571e44d224ced637ff1dd2037db9bacbc9647e2ad0f9b744fd103414da310b9';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.

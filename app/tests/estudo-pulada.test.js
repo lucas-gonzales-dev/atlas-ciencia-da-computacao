@@ -26,10 +26,12 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-import { comClasse, criarDoc, storageCom, textoDe, todos, esperar } from './hdom.js';
+import { comClasse, criarDoc, janelaCom, storageCom, textoDe, todos, esperar } from './hdom.js';
+import { duracaoLegivel } from '../core/aulas.js';
+import { linhaProgresso } from '../web/aulas-pedacos.js';
 import {
-  ESTUDO_KEY, abrirAula, continuarDe, desfazerPulo, estadoDaAula, estudarAula,
-  estacaoPercorrida, lerEstudo, pularAula, serializarEstudo
+  ESTUDO_KEY, abrirAula, aulaNaEstacao, continuarDe, desfazerPulo, estadoDaAula, estudarAula,
+  estacaoPercorrida, lerEstudo, primeiraPendente, pularAula, resumoDaEstacao, serializarEstudo
 } from '../core/estudo.js';
 import { CARTOES_KEY } from '../core/cartoes.js';
 import { eixosDaEstacao } from '../core/eixos.js';
@@ -208,7 +210,7 @@ test('S18a · o topo com a estação inteira estudada não oferece aula dela, e 
   }, doc);
   const btns = comClasse(raiz, /^botao-primario$/);
   assert.equal(btns.length, 1, `${btns.length} primários na volta da estação percorrida`);
-  assert.equal(btns[0].textContent, J.topo.comecarEstacao(alvo.curso.title), 'o primário não saiu da frase da volta sem aula');
+  assert.equal(btns[0].textContent, J.topo.comecarEstacao(alvo.curso.title, alvo.n), 'o primário não saiu da frase da volta sem aula');
   assert.equal(btns[0].getAttribute('href'), `#/estacao/${alvo.curso.slug}/aula/1`, 'o primário não leva à primeira aula da próxima');
   assert.equal(textoDe(raiz).includes(AU.continuar(93, '')), false, 'o topo ofereceu «Continuar» de uma aula já estudada');
 
@@ -232,18 +234,102 @@ test('S18a · pulando a rede inteira, o topo nunca oferece a primeira aula dispe
   // O que o pedido proíbe, na frase: «Começar pela primeira aula» de Circuitos
   // Digitais para quem acabou de dispensar as 93 aulas dela.
   assert.equal(alvo.modo !== 'primeira', true, 'a J1 voltou para quem pulou a rede inteira');
-  assert.equal(alvo.curso.id !== PRIMEIRA.id, true, 'o topo ofereceu a estação que a pessoa percorreu por inteiro');
+  // S18a-fix: antes este caso tinha de oferecer uma estação (a única fora da
+  // régua, vítima do vídeo dividido) e por isso dizia «nunca a PRIMEIRA». Com o
+  // registro de duas estações, não sobra nenhuma: o topo é terminal e não aponta
+  // para estação nenhuma — `alvo.curso` é null, e a frase é a do fim da viagem.
+  assert.equal(alvo.curso, null, `o topo ainda ofereceu ${alvo.curso?.title} a quem dispensou a rede inteira`);
 
-  // E o fato medido do catálogo, que torna este caso a ÚNICA estação fora da
-  // régua: um vídeo (tMCWr3a-unk) pertence a duas estações ao mesmo tempo
-  // — Análise de Algoritmos e Linguagens Formais. O registro de estudo é por
-  // ID de aula e guarda UMA estação, então pular pela segunda tira a primeira
-  // do conjunto das percorridas. O topo cai nela, e é o comportamento certo
-  // para o que o aparelho sabe. Fica dito, não consertado: dividir o registro
-  // por (estação, aula) é decisão de núcleo para outra fatia.
+  // S18a-fix (item 6): o fato medido do catálogo era a ÚNICA estação fora da
+  // régua — um vídeo (tMCWr3a-unk) pertence a duas estações ao mesmo tempo,
+  // Análise de Algoritmos e Linguagens Formais. Como o registro de estudo é por
+  // ID de aula e guardava UMA estação, pular pela segunda tirava a primeira do
+  // conjunto das percorridas, e este teste MEDIA O DEFEITO (1 estação sobrando).
+  // Agora o registro é de duas estações (`estacao` dona + `tambem`), então
+  // percorrer a rede inteira percorre a rede inteira. A trava virou a do conserto:
+  // sobra ZERO, e o topo diz terminal.
   const naoPercorridas = CATALOGO.filter((c) => !estacaoPercorrida(e, c.id, Number(INDICE.estacoes[c.id].aulas)));
-  assert.equal(naoPercorridas.length, 1, `${naoPercorridas.length} estações fora da régua — o vídeo compartilhado mudou de dono?`);
-  assert.equal(alvo.curso.id, naoPercorridas[0].id, 'o topo e a régua divergem na estação que sobrou');
+  assert.equal(naoPercorridas.length, 0, `${naoPercorridas.length} estações fora da régua: o vídeo compartilhado trocou de dono de novo`);
+  assert.equal(alvo.modo, 'terminal', `o topo ofereceu ${alvo.curso?.id} de quem percorreu a rede toda`);
+});
+
+// ───────────── 3b. o vídeo que mora em duas estações (S18a-fix, item 6) ─────────────
+
+// O par compartilhado, LIDO do catálogo e dos dois JSON de aulas — se a UBL
+// publicar outra playlist com outro vídeo em comum, isto acompanha; se o vídeo
+// deixar de ser dividido, a primeira asserção abaixo denuncia e o arquivo para.
+const COMPARTILHADO = 'tMCWr3a-unk';
+const DONAS = CATALOGO.filter((c) =>
+  JSON.parse(LER(`data/aulas/${c.slug}.json`)).aulas.some((a) => a.id === COMPARTILHADO));
+
+test('S18a-fix · um vídeo do catálogo pertence a duas estações (a premissa, lida)', () => {
+  assert.deepEqual(DONAS.map((c) => c.slug).sort(), ['analise-algoritmos', 'linguagens-formais-automatos'],
+    `«${COMPARTILHADO}» não está mais exatamente nessas duas estações: ${DONAS.map((c) => c.slug)}`);
+});
+
+test('S18a-fix · tocar pela segunda estação NÃO tira a aula da primeira', () => {
+  const [a, b] = DONAS;
+  let e = lerEstudo(null);
+  e = abrirAula(e, { estacao: a.id, aula: COMPARTILHADO, n: 5 }, Q('08:00'));
+  e = abrirAula(e, { estacao: b.id, aula: COMPARTILHADO, n: 7 }, Q('09:00'));
+
+  assert.equal(e.aulas[COMPARTILHADO].estacao, a.id, 'a segunda estação desdonou a primeira');
+  assert.deepEqual(e.aulas[COMPARTILHADO].tambem, [b.id], 'a estação nova não entrou na lista');
+
+  // A pergunta é uma função só, e responde para as duas.
+  assert.equal(estadoDaAula(e, COMPARTILHADO), 'aberta');
+  for (const c of [a, b]) {
+    assert.equal(aulaNaEstacao(e, COMPARTILHADO, c.id), true,
+      `${c.slug} deixou de ter a aula que a pessoa tocou nela`);
+  }
+});
+
+test('S18a-fix · as duas estações ficam percorridas ao mesmo tempo', () => {
+  // É o caminho de quem cursa a grade inteira: as duas estações têm o vídeo, a
+  // pessoa dispensa-o uma vez, e as duas contas têm de fechar.
+  const [a, b] = DONAS;
+  let e = lerEstudo(null);
+  for (const curso of [a, b]) {
+    const daEstacao = JSON.parse(LER(`data/aulas/${curso.slug}.json`)).aulas.map((x) => ({ ...x, n: Number(x.n) }));
+    for (const aula of daEstacao) {
+      e = pularAula(e, { estacao: curso.id, aula: aula.id, n: aula.n }, Q('10:00'));
+    }
+  }
+  const total = (c) => Number(INDICE.estacoes[c.id].aulas);
+  assert.equal(estacaoPercorrida(e, a.id, total(a)), true, `${a.slug} ficou aberta por causa do vídeo dividido`);
+  assert.equal(estacaoPercorrida(e, b.id, total(b)), true, `${b.slug} ficou aberta por causa do vídeo dividido`);
+
+  // `estudarAula` faz o mesmo que `abrirAula`/`pularAula`: os três acrescentam.
+  const so = pularAula(lerEstudo(null), { estacao: a.id, aula: COMPARTILHADO, n: 3 }, Q('11:00'));
+  const comEstudo = estudarAula(so, { estacao: b.id, aula: COMPARTILHADO, n: 4 }, Q('12:00'));
+  assert.equal(comEstudo.aulas[COMPARTILHADO].estacao, a.id, 'fechar pela segunda estação roubou a dona');
+  assert.deepEqual(comEstudo.aulas[COMPARTILHADO].tambem, [b.id]);
+});
+
+test('S18a-fix · o round-trip preserva `tambem`, byte a byte', () => {
+  // O formato com dois donos é o formato que deriva: ler → escrever → ler tem de
+  // dar o mesmo texto, e é isto que impede um storage com `tambem: "logica"` de
+  // entrar no app dizendo ser uma lista.
+  const [a, b] = DONAS;
+  let e = abrirAula(lerEstudo(null), { estacao: a.id, aula: COMPARTILHADO, n: 5 }, Q('08:00'));
+  e = abrirAula(e, { estacao: b.id, aula: COMPARTILHADO, n: 7 }, Q('09:00'));
+
+  const bruto = serializarEstudo(e);
+  const deNovo = lerEstudo(bruto);
+  assert.equal(serializarEstudo(deNovo), bruto, 'o round-trip não devolveu os mesmos bytes');
+  assert.deepEqual(deNovo.aulas[COMPARTILHADO].tambem, [b.id], '`tambem` sumiu na leitura');
+  assert.equal(deNovo.aulas[COMPARTILHADO].estacao, a.id, 'a dona sumiu na leitura');
+
+  // O que um storage mexido à mão não pode virar: string, duplicata, a própria
+  // dona repetida, id vazio. `lerEstudo` saneia, e um registro antigo (sem o
+  // campo) sai igual a si mesmo — é a definição de «sem migração» do pedido.
+  const sujo = JSON.parse(bruto);
+  const antiga = JSON.parse(bruto);
+  sujo.aulas[COMPARTILHADO] = { ...sujo.aulas[COMPARTILHADO], tambem: ['x', 'x', a.id, '', null, 7] };
+  delete antiga.aulas[COMPARTILHADO].tambem;
+  assert.deepEqual(lerEstudo(JSON.stringify(sujo)).aulas[COMPARTILHADO].tambem, ['x'], 'o saneamento deixou passar a forma errada');
+  assert.equal('tambem' in lerEstudo(JSON.stringify(antiga)).aulas[COMPARTILHADO], false, 'registro sem tambem ganhou um vazio');
+  assert.equal(lerEstudo(JSON.stringify(antiga)).aulas[COMPARTILHADO].estacao, a.id, 'um registro antigo deixou de valer');
 });
 
 // ───────────────────── 4. o clique, pela tela de verdade ─────────────────────
@@ -251,10 +337,13 @@ test('S18a · pulando a rede inteira, o topo nunca oferece a primeira aula dispe
 /** Sobe a LISTA da primeira estação no mini-DOM, com o estudo que o teste escolher. */
 async function lista(bruto = null) {
   const doc = criarDoc();
-  const win = {
-    localStorage: storageCom(bruto ? { [ESTUDO_KEY]: bruto } : {}),
-    addEventListener: () => {}, removeEventListener: () => {}, setTimeout: () => 0
-  };
+  // S18a-fix (item 3): `janelaCom` agora tem `scrollY`/`scrollTo`, e o documento
+  // tem `defaultView` — é por esse caminho que o gravador do pulo alcança a
+  // rolagem, exatamente como na janela do navegador. Sem o vínculo, o teste do
+  // foco mediria o dublê e não a tela.
+  const win = janelaCom();
+  if (bruto) win.localStorage.setItem(ESTUDO_KEY, bruto);
+  doc._view = win;
   const raiz = doc.createElement('div');
   const instancia = await montarLista(raiz, {
     document: doc, window: win,
@@ -321,4 +410,209 @@ test('S18a · aula estudada NÃO ganha botão nenhum, e a pulada da linha não t
   assert.equal(pulo.tag, 'button', 'link que executa ação: a lista do proibido');
   assert.equal(pulo.getAttribute('href'), null);
   assert.equal(pulo.getAttribute('type'), 'button');
+});
+
+// ───────────── 5. o que só o olho via (S18a-fix, itens 1, 2, 3, 4, 5) ─────────────
+
+/* O CSS é lido como TEXTO e dissecado por seletor, como em acabamento.test.js:
+   o node não pinta, e o que o Chrome mostrou em 375 px foi uma REGRA ausente.
+   A trava do conserto tem de ser a regra, com o valor; a prova de que ela morde
+   é apagar a regra e ver o caso cair. */
+const CSS_AULAS = () => LER('web/telas/aulas.css').replace(/\/\*[\s\S]*?\*\//g, '');
+const semComentario = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '');
+/** Todo bloco `{...}` do arquivo, com o seletor limpo. Dentro do @media o seletor
+ *  é o MESMO de fora, e o que separa os dois é o `sel` exato — por isso o teste
+ *  pede a correspondência inteira e não o fim da string. */
+function blocos(css, seletor) {
+  const re = /([^{}]+)\{([^{}]*)\}/g;
+  const saida = [];
+  let m;
+  while ((m = re.exec(css)) !== null) {
+    const sel = m[1].trim();
+    if (!sel || sel.startsWith('@')) continue;
+    const partes = sel.split(',').map((s) => s.trim());
+    if (seletor === undefined || partes.includes(seletor)) saida.push({ sel, corpo: m[2] });
+  }
+  return saida;
+}
+/** O bloco DECLARADO com exatamente este seletor — o primeiro dele no arquivo. */
+const regra = (css, seletor) => blocos(css, seletor)[0]?.corpo || '';
+
+/** O texto que a pessoa lê num nó (mesma leitura do `textoDo` de fechamento-nucleo). */
+const textoDo = (no) => textoDe(no);
+const fraseDaLinha = (resumo, lembradas = null) =>
+  textoDo(comClasse(linhaProgresso(criarDoc(), resumo, lembradas), /^aulas-progresso-texto$/)[0]);
+
+test('S18a-fix · o título da LISTA não é cortado, e a tela estreita põe o botão embaixo', () => {
+  const css = CSS_AULAS();
+
+  // Item 1. A folha continua com o clamp de duas linhas (é a régua do painel de
+  // 69 estações, travada em acabamento.test.js); a LISTA tem de DESFAZER ele.
+  assert.match(css, /\.aula-titulo-texto\s*\{[^}]*-webkit-line-clamp:\s*2/,
+    'o clamp saiu do compartilhado: a folha voltou a cortar título');
+  const daLista = regra(css, '.aula-link .aula-titulo-texto');
+  assert.ok(daLista, 'não há regra desfazendo o clamp dentro de .aula-link: o título da lista continua cortado em 375 px');
+  assert.match(daLista, /display:\s*block/, 'sem sair do -webkit-box o clamp de duas linhas não é desfeito');
+  assert.match(daLista, /-webkit-line-clamp:\s*unset/, 'a lista continua espremendo o título em 2 linhas');
+  assert.match(daLista, /(?:^|[;\s])line-clamp:\s*unset/, 'o `line-clamp` padrão ficou com o número herdado');
+  assert.doesNotMatch(daLista, /overflow:\s*hidden/, 'overflow: hidden recorta o que as linhas ganham');
+
+  // Item 1, a tela estreita: uma coluna só, e o botão desce para a linha de baixo.
+  const media = /@media[^{]*\(max-width:\s*59\d[^{]*\{([\s\S]*?)\n\}/.exec(css);
+  assert.ok(media, 'não há bloco @media abaixo de 600 px para a página de aulas');
+  const dentro = media[1];
+  assert.match(dentro, /\.aula-item\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/,
+    'em 375 px a linha ainda é de duas colunas: o título continua afogado');
+  assert.match(dentro, /\.aulas-pular\s*\{[^}]*justify-self:\s*end/,
+    'o botão não desceu para baixo da linha em tela estreita');
+  // De 600 px para cima nada muda: a grade de quatro colunas é a de sempre.
+  assert.match(css, /\.aula-link\s*\{[^}]*grid-template-columns:\s*auto auto minmax\(0, 1fr\) auto/,
+    'a grade larga mudou: o pedido era mexer só abaixo de 600 px');
+});
+
+test('S18a-fix · o "Já sei isso" é texto discreto, não caixa, e sublinha no hover e no foco', () => {
+  const css = CSS_AULAS();
+  const pular = regra(css, '.aulas-pular');
+  assert.match(pular, /(?:^|[;\s])border:\s*0/, 'voltou a borda: 93 caixas numa coluna de 93 linhas');
+  assert.match(pular, /background:\s*none/);
+  assert.doesNotMatch(pular, /solid var\(--borda\)/, 'o botão discreto voltou a ser caixa com muro');
+  assert.match(pular, /min-height:\s*var\(--alvo-toque\)/, 'sem borda ninguém pode esquecer o alvo de 44 px');
+  assert.match(pular, /min-width:\s*var\(--alvo-toque\)/);
+  assert.match(pular, /color:\s*var\(--tinta\)/, 'a cor do pulo é a do texto, AA nos dois temas');
+
+  const hover = blocos(css, '.aulas-pular:hover').concat(blocos(css, '.aulas-pular:focus-visible'));
+  assert.equal(hover.length >= 1, true, 'sem borda e sem fundo, nada diz que o texto é tocável');
+  for (const b of hover) assert.match(b.corpo, /text-decoration:\s*underline/);
+  assert.ok(blocos(css, '.aulas-pular:hover').length && blocos(css, '.aulas-pular:focus-visible').length,
+    'mouse e teclado precisam do mesmo sinal (o sublinhado)');
+
+  // Na página da aula, a largura do texto — não a linha inteira (343 px no olho).
+  const naPagina = regra(css, '.aula .aulas-pular');
+  assert.match(naPagina, /align-self:\s*flex-start/, 'o pulo da página da aula continua ocupando a linha toda');
+});
+
+test('S18a-fix · depois do clique na lista, o foco fica no botão da MESMA aula e a rolagem não pula', async () => {
+  let e = lerEstudo(null);
+  e = abrir(e, TRES[1], '08:00');
+  const { doc, win, raiz } = await lista(serializarEstudo(e));
+  const painel = comClasse(raiz, /^aulas-painel$/)[0];
+
+  win.scrollY = 4200; // a pessoa rolou até a Aula 2 de 93
+  const botao = comClasse(
+    linhas(raiz).find((l) => l.getAttribute('data-aula') === TRES[1].id).parent,
+    /^aulas-pular$/
+  )[0];
+  painel.dispatch('click', { target: botao });
+
+  // O que o olho mediu: `document.activeElement` era o BODY, e quem usa teclado
+  // voltava ao topo de uma página de 93 linhas sem nenhum aviso.
+  const ativo = doc.activeElement;
+  assert.ok(ativo, 'sem activeElement o foco caiu no body de novo');
+  assert.equal(ativo.tag, 'button', `o foco parou em <${ativo.tag}>`);
+  assert.equal(ativo.getAttribute('data-aula'), TRES[1].id, 'o foco foi para o botão de outra aula');
+  assert.equal(ativo.getAttribute('data-pulo'), 'desfazer', 'o botão focado não é o da nova ação (Desfazer)');
+  assert.equal(ativo.textContent, AU.desfazerPulo, 'foco no botão velho, com o texto velho');
+
+  // E a rolagem: o navegador move a viewport ao focar, menos com preventScroll.
+  assert.equal(win.scrollY, 4200, `a página pulou para ${win.scrollY}`);
+  assert.equal(win._rolagens.some(([x, y]) => y === 4200), true, 'a rolagem não foi devolvida ao lugar de antes');
+});
+
+test('S18a-fix · com a Aula 1 pulada, o topo oferece a Aula 2 — nos três modos', () => {
+  const progresso = progVazio();
+  const resumo = resumoDaViagem(progresso, CATALOGO);
+  const tela = (alvo, aulas, indice = INDICE) => {
+    const raiz = desenharTopo({
+      alvo, catalogo: CATALOGO, progresso: alvo.progressoFix || progresso, resumo,
+      estudo: alvo.estudoFix || lerEstudo(null), indice, aulas, embarqueAberto: false
+    }, criarDoc());
+    const btn = comClasse(raiz, /^botao-primario$/)[0] || comClasse(raiz, /^topo-primario$/)[0];
+    return { texto: btn.textContent, href: btn.getAttribute('href') };
+  };
+
+  // ── modo 'primeira': nada no aparelho além do pulo. É o caso exato do olho:
+  // pularam a Aula 1 de Circuitos, e a Jornada dizia «Começar pela primeira
+  // aula». A palavra «primeira» é uma afirmação sobre o número, e era falsa.
+  let soPulo = lerEstudo(null);
+  soPulo = pularAula(soPulo, { estacao: PRIMEIRA.id, aula: TRES[0].id, n: 1 }, Q('09:00'));
+  const aPrimeira = { ...alvoDoTopo(CATALOGO, soPulo, resumo, progresso, INDICE), estudoFix: soPulo };
+  assert.equal(aPrimeira.modo, 'primeira', 'premissa perdida: o pulo sozinho não deixou de ser primeira visita');
+  assert.equal(aPrimeira.n, 2, `o topo respondeu ${aPrimeira.n} para quem dispensou a Aula 1`);
+  const tPrimeira = tela(aPrimeira, AULAS);
+  assert.equal(tPrimeira.texto, J.topo.comecar(2));
+  assert.equal(tPrimeira.texto.includes('primeira'), false, 'a frase continua afirmando «primeira» sobre a 2ª aula');
+  assert.match(tPrimeira.href, /\/aula\/2$/);
+
+  // ── modo 'volta': abriu a Aula 1, pulou, e o ponto de retorno é ela.
+  let comToque = lerEstudo(null);
+  comToque = abrir(comToque, TRES[0], '08:00');
+  comToque = pular(comToque, TRES[0], '09:00');
+  const aVolta = { ...alvoDoTopo(CATALOGO, comToque, resumo, progresso, INDICE), estudoFix: comToque };
+  assert.equal(aVolta.modo, 'volta');
+  assert.equal(aVolta.n, 2, 'a volta ainda oferece a aula que a pessoa acabou de dispensar');
+  assert.equal(aVolta.idAula, null, 'a volta guardou o id da aula pulada');
+  assert.equal(tela(aVolta, AULAS).texto, AU.continuar(2, AULAS[1].titulo));
+
+  // ── modo 'proxima': viagem marcada sem toque, e a Aula 1 da próxima pulada.
+  const marcado = progVazio();
+  marcado.completed = [PRIMEIRA.id];
+  const resumoMarcado = resumoDaViagem(marcado, CATALOGO);
+  const proxima = CATALOGO.find((c) => c.id === resumoMarcado.proximaEstacao.id);
+  const aulasProximas = JSON.parse(LER(`data/aulas/${proxima.slug}.json`)).aulas.map((a) => ({ ...a, n: Number(a.n) }));
+  let pulaProxima = pularAula(lerEstudo(null), { estacao: proxima.id, aula: aulasProximas[0].id, n: 1 }, Q('09:00'));
+  const alvoProx = { ...alvoDoTopo(CATALOGO, pulaProxima, resumoMarcado, marcado, INDICE), estudoFix: pulaProxima };
+  assert.equal(alvoProx.modo, 'proxima');
+  assert.equal(alvoProx.curso.id, proxima.id);
+  assert.equal(alvoProx.n, 2, 'a placa «Começar: <estação> · Aula 1» promete a aula pulada');
+  assert.equal(
+    tela({ ...alvoProx, progressoFix: marcado }, aulasProximas).texto,
+    J.topo.comecarEstacao(proxima.title, 2)
+  );
+
+  // A pergunta tem UM dono: a função do núcleo diz o mesmo em os três.
+  assert.equal(primeiraPendente(soPulo, PRIMEIRA.id, 93), 2);
+  assert.equal(primeiraPendente(comToque, PRIMEIRA.id, 93), 2);
+  assert.equal(primeiraPendente(pulaProxima, proxima.id, Number(INDICE.estacoes[proxima.id].aulas)), 2);
+});
+
+test('S18a-fix · "faltam" não conta a pulada, e a linha diz quantas foram dispensadas', () => {
+  // A estação inteira pulada: percorrida, e o «faltam» desaparece — não é um
+  // zero formatado, é a régua calando, como o `lembradas` a zero.
+  const bruto = JSON.parse(LER(`data/aulas/${PRIMEIRA.slug}.json`)).aulas.map((a) => ({ ...a, n: Number(a.n) }));
+  const soma = (lista) => lista.reduce((t, a) => t + (Number(a.duracaoS) || 0), 0);
+
+  let e = lerEstudo(null);
+  for (const a of bruto.slice(0, 2)) e = pularAula(e, { estacao: PRIMEIRA.id, aula: a.id, n: a.n }, Q('09:00'));
+  const r = resumoDaEstacao(e, PRIMEIRA.id, bruto);
+  assert.equal(r.puladas, 2, 'o resumo não separa as puladas');
+  assert.equal(r.segundosRestantes, soma(bruto) - soma(bruto.slice(0, 2)),
+    'a pulada continua dentro do que falta fazer');
+
+  const doc = criarDoc();
+  const frase = textoDo(comClasse(linhaProgresso(doc, r), /^aulas-progresso-texto$/)[0]);
+  assert.equal(frase, `0 de ${bruto.length} aulas estudadas · 2 puladas · faltam ~${duracaoLegivel(r.segundosRestantes)}`,
+    `a linha da lista saiu assim: ${frase}`);
+
+  // Singular e plural, e o pedaço que some no zero.
+  let uma = pularAula(lerEstudo(null), { estacao: PRIMEIRA.id, aula: bruto[0].id, n: 1 }, Q('09:00'));
+  const rUma = resumoDaEstacao(uma, PRIMEIRA.id, bruto);
+  assert.equal(textoDo(comClasse(linhaProgresso(criarDoc(), rUma), /^aulas-progresso-texto$/)[0]),
+    `0 de ${bruto.length} aulas estudadas · 1 pulada · faltam ~${duracaoLegivel(rUma.segundosRestantes)}`,
+    '«1 puladas» é erro de concordância numa placa');
+
+  let todas = lerEstudo(null);
+  for (const a of bruto) todas = pularAula(todas, { estacao: PRIMEIRA.id, aula: a.id, n: a.n }, Q('09:00'));
+  const rToda = resumoDaEstacao(todas, PRIMEIRA.id, bruto);
+  assert.equal(rToda.segundosRestantes, 0, 'com tudo pulado ainda sobra tempo a fazer?');
+  const fraseToda = textoDo(comClasse(linhaProgresso(criarDoc(), rToda), /^aulas-progresso-texto$/)[0]);
+  assert.equal(fraseToda, `0 de ${bruto.length} aulas estudadas · ${bruto.length} puladas`,
+    `estação toda dispensada não é percorrida na linha: ${fraseToda}`);
+  assert.equal(fraseToda.includes('faltam'), false, 'a linha diz o que falta quando não falta nada');
+
+  // E a folha e a lista dizem a MESMA frase, da mesma base (regra 9): as duas
+  // chamam a mesma `linhaProgresso`, e o pulo aparece nas duas.
+  assert.equal(
+    textoDo(comClasse(linhaProgresso(criarDoc(), rUma, 1), /^aulas-progresso-texto$/)[0]),
+    `0 de ${bruto.length} aulas estudadas · 1 pulada · 1 lembrada depois · faltam ~${duracaoLegivel(rUma.segundosRestantes)}`
+  );
 });

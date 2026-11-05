@@ -78,6 +78,103 @@ const LIMITE_TEXTO = 2000;
 
 const texto = (v) => (typeof v === 'string' && v.trim() ? v : '');
 const numero = (v) => (Number.isFinite(Number(v)) && Number(v) >= 0 ? Number(v) : null);
+
+/**
+ * O `tambem` de um registro, saneado (S18a-fix, item 6).
+ *
+ * POR QUE SANEAR E NÃO SÓ COPIAR: `...r` até traz o campo, mas traz do jeito
+ * que veio, e um storage mexido à mão (`tambem: "logica"`, `tambem: [null]`,
+ * `tambem: ['a','a']`) passaria a existir no formato sem que ninguém o
+ * definisse. Pior: `serializarEstudo` escreveria aquilo de volta, e a leitura
+ * seguinte teria de adivinhar. Este é o único lugar onde a forma de `tambem` é
+ * decidida, e é por isso que `lerEstudo` chama — um formato com dois donos é o
+ * formato que deriva.
+ *
+ * As três regras que saem daqui, cada uma com o motivo:
+ *   · só string não vazia entra — id de estação é texto do catálogo;
+ *   · a estação DONA nunca aparece na lista: `estacao` já a conta, e repeti-la
+ *     faria `aulaNaEstacao` contar a mesma estação duas vezes em quem somasse;
+ *   · a lista sai ordenada e sem duplicata: é o que faz ler → escrever → ler dar
+ *     os mesmos bytes, a trava de round-trip que a casa cobra de todo formato.
+ *
+ * Ausência, texto, objeto, lista vazia: tudo vira `[]`, e `lerEstudo` então não
+ * põe o campo. É a definição de "sem migração" do pedido: um registro escrito
+ * antes da S18a-fix continua válido e querendo dizer exatamente uma estação.
+ */
+function saneearTambem(bruto, dona) {
+  if (!Array.isArray(bruto)) return [];
+  const vistos = new Set();
+  for (const v of bruto) {
+    const id = texto(v);
+    if (!id || id === dona) continue;
+    vistos.add(id);
+  }
+  return [...vistos].sort();
+}
+
+/**
+ * A pergunta "esta aula É desta estação?", uma vez só no app (S18a-fix, item 6).
+ *
+ * POR QUE EXISTE: o registro de estudo é keyed pelo ID do vídeo, e um vídeo do
+ * catálogo pode pertencer a duas estações ao mesmo tempo — `tMCWr3a-unk` está em
+ * Análise de Algoritmos e em Linguagens Formais, as duas do currículo, e é o
+ * caminho normal de quem cursa a grade inteira. Com `r.estacao` sozinho, quem
+ * tocasse pela segunda estação tirava a aula da primeira: as duas nunca ficavam
+ * percorridas juntas, e cada tela que filtra por `r.estacao === id` tinha a
+ * resposta errada.
+ *
+ * `estacao` continua sendo a PRIMEIRA estação que gravou (ela é o endereço que
+ * `ultima`, a folha e o mapa já conhecem, e nenhum registro antigo tem `tambem`);
+ * `tambem` são as outras por onde a pessoa passou. Quem pergunta, pergunta aqui —
+ * `estacaoPercorrida`, `core/eixos.js` e o resumo da estação perguntam todos, e é
+ * assim que a definição de "uma estação percorrida" não se reescreve em três
+ * lugares com três sombras de diferença.
+ *
+ * `estudo.aulas` pode chegar de fora, por isso o null-check: sem registro, a
+ * aula não é de estação nenhuma.
+ */
+export function aulaNaEstacao(estudo, aulaId, estacao) {
+  return registroNaEstacao(estudo?.aulas?.[texto(aulaId)], estacao);
+}
+
+/** A mesma pergunta, pelo registro já na mão — para quem varre `estudo.aulas`. */
+function registroNaEstacao(r, estacao) {
+  if (!r || typeof r !== 'object') return false;
+  const dona = texto(estacao);
+  if (!dona) return false;
+  if (texto(r.estacao) === dona) return true;
+  return saneearTambem(r.tambem, texto(r.estacao)).includes(dona);
+}
+
+/**
+ * A estação desta aula, somando a dona e as que entraram depois. Devolve sempre
+ * uma lista nova: quem recebe não pode guardar a referência e empurrar id para
+ * dentro do estado alheio (regra 1 da casa: nada muta a entrada).
+ */
+function estacoesDoRegistro(r) {
+  const dona = texto(r?.estacao);
+  const outras = saneearTambem(r?.tambem, dona);
+  return dona ? [dona, ...outras] : outras;
+}
+
+/**
+ * Acrescentar a estação que a pessoa acabou de usar, SEM trocar a dona
+ * (S18a-fix, item 6). É o único jeito pelos quais os três gravadores escrevem
+ * `estacao`/`tambem`, porque os três têm de fazer o mesmo e um deles fazendo
+ * diferente seria o registro dependente da ordem dos cliques.
+ *
+ * @returns {{estacao: string, tambem: string[]}} `tambem` é omitido pelo
+ *   chamador quando vazio, e é assim que um registro antigo sai do round-trip
+ *   igual a si mesmo.
+ */
+function anexarEstacao(antes, estacao) {
+  const dona = texto(antes?.estacao) || texto(estacao);
+  const todas = new Set(estacoesDoRegistro(antes ?? { estacao }));
+  todas.add(texto(estacao));
+  todas.delete('');
+  todas.delete(dona);
+  return { estacao: dona, tambem: [...todas].sort() };
+}
 /** O texto que a pessoa escreveu, sem as pontas e com teto. Cortar é melhor que recusar: quem digitou 2.400 caracteres escreveu a recordação, e perder o que passou do teto não apaga o que ela lembrou. */
 const escrever = (v) => String(v ?? '').trim().slice(0, LIMITE_TEXTO);
 
@@ -128,7 +225,18 @@ export function lerEstudo(bruto) {
     // O `...r` preserva o que a S14 gravar ao lado (estudadaEm, puladaEm) sem
     // que esta função precise conhecer o futuro: perder um campo no round-trip
     // ler->escrever seria apagar estudo sem ninguém ter pedido.
-    aulas[id] = { ...r, estacao: texto(r.estacao), n: numero(r.n), abertaEm: r.abertaEm };
+    const registro = { ...r, estacao: texto(r.estacao), n: numero(r.n), abertaEm: r.abertaEm };
+    // S18a-fix (item 6): `tambem` é preservado na leitura, e PRESERVAR aqui é a
+    // única prova de que o campo existe. Um `...r` sozinho até o carrega, mas
+    // sem sanear ele aceitaria `tambem: "logica"` (string, não lista), uma
+    // estação repetida no `estacao`, ou `tambem: []` — e aí `serializarEstudo`
+    // escreveria no storage um formato que `aulaNaEstacao` não sabe ler. A lista
+    // sai ordenada e sem duplicata de propósito: é o que faz ler → escrever →
+    // ler dar os mesmos BYTES, a trava que a casa chama de "não deriva".
+    const tambem = saneearTambem(r.tambem, registro.estacao);
+    if (tambem.length) registro.tambem = tambem;
+    else delete registro.tambem;
+    aulas[id] = registro;
   }
 
   const u = dado.ultima;
@@ -165,9 +273,16 @@ export function abrirAula(estudo, { estacao, aula, n } = {}, quando) {
   if (!texto(aula) || !texto(estacao) || !HE_QUANDO.test(String(quando ?? ''))) return novo;
 
   const antes = novo.aulas[aula];
+  // S18a-fix (item 6): a estação que chegou ACRESCENTA, não substitui. Antes
+  // deste commit, abrir `tMCWr3a-unk` pela segunda estação reescrevia `estacao`
+  // e a primeira perdia a aula — e como o pulo/o estudo são um registro só por
+  // vídeo, uma das duas estações ficava eternamente "faltando" para quem cursa
+  // a grade inteira. `estacao` é a dona original; a nova entra em `tambem`.
+  const deQuem = anexarEstacao(antes, estacao);
   novo.aulas[aula] = {
     ...(antes ?? {}),
-    estacao,
+    estacao: deQuem.estacao,
+    ...(deQuem.tambem.length ? { tambem: deQuem.tambem } : {}),
     n: numero(n),
     // o abertaEm da PRIMEIRA vez não muda quando se abre de novo (decisão 3).
     abertaEm: typeof antes?.abertaEm === 'string' && antes.abertaEm ? antes.abertaEm : quando,
@@ -208,9 +323,13 @@ export function estudarAula(estudo, { estacao, aula, n } = {}, quando, { recorda
   if (!texto(aula) || !texto(estacao) || !HE_QUANDO.test(String(quando ?? ''))) return novo;
 
   const antes = novo.aulas[aula];
+  // S18a-fix (item 6): a mesma regra do `abrirAula` — fechar por uma estação
+  // não desdona a aula da outra. Ver o comentário de `anexarEstacao`.
+  const deQuem = anexarEstacao(antes, estacao);
   novo.aulas[aula] = {
     ...(antes ?? {}),
-    estacao,
+    estacao: deQuem.estacao,
+    ...(deQuem.tambem.length ? { tambem: deQuem.tambem } : {}),
     n: numero(n),
     abertaEm:
       typeof antes?.abertaEm === 'string' && antes.abertaEm ? antes.abertaEm : quando,
@@ -244,9 +363,13 @@ export function estudarAula(estudo, { estacao, aula, n } = {}, quando, { recorda
  *   · não cria cartão: o cartão nasce no fechamento, e a pulada não fecha;
  *   · não conta no `preenchimento` nem na `cor` do eixo, porque o eixo conta
  *     `estudadas`;
- *   · `resumoDaEstacao` continua somando a duração dela em `segundosRestantes`:
- *     'pulada' cai no `else` de quem não estudou. Um pulo é uma recusa honesta
- *     de fazer, não tempo que ela já gastou.
+ *   · `resumoDaEstacao` NÃO soma a duração dela em `segundosRestantes` desde a
+ *     S18a-fix (item 5). O texto antigo dizia o contrário, e estava errado na
+ *     direção que dói: com tudo pulado a estação era percorrida e a linha ainda
+ *     dizia "faltam ~30 h". `faltam` é o que falta FAZER, e o que a pessoa
+ *     acabou de dizer que não vai fazer não falta. O pulo continua sem entrar
+ *     como tempo estudado — ele aparece na frase como `puladas`, na conta dela,
+ *     e não misturado com estudo.
  *
  * A `ultima` NÃO muda, e é a diferença mais visível entre este e os outros dois:
  * quem pulou não "esteve" na aula, e o cartão de retomada apontando para uma
@@ -267,9 +390,15 @@ export function pularAula(estudo, { estacao, aula, n } = {}, quando) {
   if (!texto(aula) || !texto(estacao) || !HE_QUANDO.test(String(quando ?? ''))) return novo;
 
   const antes = novo.aulas[aula];
+  // S18a-fix (item 6): o pulo é o gesto que mais expõe o defeito — pular
+  // `tMCWr3a-unk` em Linguagens Formais tirava a aula de Análise de Algoritmos
+  // e a estação ficava para sempre incompleta. Mesma regra dos outros dois
+  // gravadores: acrescenta, nunca troca a dona.
+  const deQuem = anexarEstacao(antes, estacao);
   novo.aulas[aula] = {
     ...(antes ?? {}),
-    estacao,
+    estacao: deQuem.estacao,
+    ...(deQuem.tambem.length ? { tambem: deQuem.tambem } : {}),
     n: numero(n),
     puladaEm:
       typeof antes?.puladaEm === 'string' && antes.puladaEm ? antes.puladaEm : quando,
@@ -505,7 +634,11 @@ export function estacaoPercorrida(estudo, estacao, aulas) {
   const naLista = lista ? new Set(lista.map((a) => a.id)) : null;
   let feitas = 0;
   for (const [id, r] of Object.entries(estudo?.aulas ?? {})) {
-    if (!r || typeof r !== 'object' || r.estacao !== estacao) continue;
+    if (!r || typeof r !== 'object') continue;
+    // S18a-fix (item 6): a régua da estação é a MESMA pergunta que o eixo e o
+    // topo fazem. Com `r.estacao === estacao` puro, uma estação que tem o vídeo
+    // compartilhado apenas como `tambem` nunca fechava a conta.
+    if (!registroNaEstacao(r, estacao)) continue;
     if (naLista && !naLista.has(id)) continue;
     const fechada = typeof r.estudadaEm === 'string' && r.estudadaEm;
     const pulada = typeof r.puladaEm === 'string' && r.puladaEm;
@@ -543,14 +676,71 @@ export function resumoDaEstacao(estudo, estacao, aulas) {
   const lista = Array.isArray(aulas) ? aulas.filter((a) => a && texto(a.id)) : [];
   let abertas = 0;
   let estudadas = 0;
+  let puladas = 0;
   let segundosRestantes = 0;
   for (const a of lista) {
     const e = estadoDaAula(estudo, a.id);
     if (e !== 'nao-iniciada') abertas += 1;
-    if (e === 'estudada') estudadas += 1;
-    else segundosRestantes += Number(a.duracaoS) || 0;
+    if (e === 'estudada') {
+      estudadas += 1;
+      continue;
+    }
+    // S18a-fix (item 5): a pulada sai do "faltam" e entra na sua própria conta.
+    // As duas coisas acontecem neste `continue`, e a ordem é o defeito inteiro:
+    // se ela caísse no `else` de quem não estudou, a estação percorrida por
+    // pulo diria "faltam ~30 h" para quem acabou de dizer que não falta nada.
+    if (e === 'pulada') {
+      puladas += 1;
+      continue;
+    }
+    segundosRestantes += Number(a.duracaoS) || 0;
   }
-  return { total: lista.length, abertas, estudadas, segundosRestantes };
+  return { total: lista.length, abertas, estudadas, puladas, segundosRestantes };
+}
+
+/**
+ * O primeiro `n` da estação que ainda não está feito (S18a-fix, item 4).
+ *
+ * POR QUE EXISTE, E POR QUE MORA AQUI: o topo da Jornada dizia "Começar pela
+ * primeira aula · Aula 1" para quem tinha acabado de pulá-la, enquanto a folha,
+ * ao lado, dizia "Continuar: Aula 2". Duas telas, duas respostas para a mesma
+ * pergunta — e a pergunta ("por onde eu começo, dada a minha palavra?") não
+ * tinha dono no núcleo. Este é o dono.
+ *
+ * A resposta vem dos REGISTROS e do total, e não de uma lista de aulas, porque é
+ * exatamente o que quem chama tem em mão: o topo da Jornada só conhece o
+ * `indice.json` (o total por estação) e o `estudo` — ele não busca o JSON das 93
+ * aulas de cada estação para desenhar um botão. Uma função que pedisse a lista
+ * obrigaria a tela a carregar a rede inteira no primeiro paint.
+ *
+ * "Feito" é `estudada` OU `pulada`: a mesma régua de `estacaoPercorrida`, porque
+ * o pulo é uma palavra da pessoa e um começo que a ignora é o app corrigindo-a.
+ * Considera toda aula cujo registro é desta estação (`aulaNaEstacao`), e a
+ * estação sem registro nenhum devolve 1 — não há evidência de que algo esteja
+ * feito.
+ *
+ * @param {object} estudo
+ * @param {string} estacao
+ * @param {number} total da estação (o `indice.json`); 0 ou ausente devolve null
+ * @returns {number|null} o `n` por onde começar, ou null sem denominador
+ */
+export function primeiraPendente(estudo, estacao, total) {
+  const teto = Number(total) || 0;
+  if (teto <= 0) return null;
+  const feitas = new Set();
+  for (const [id, r] of Object.entries(estudo?.aulas ?? {})) {
+    if (!r || typeof r !== 'object') continue;
+    if (!registroNaEstacao(r, estacao)) continue;
+    const fechada = typeof r.estudadaEm === 'string' && r.estudadaEm;
+    const pulada = typeof r.puladaEm === 'string' && r.puladaEm;
+    if (!fechada && !pulada) continue;
+    const n = numero(r.n);
+    if (n !== null && n > 0 && n <= teto) feitas.add(n);
+  }
+  for (let n = 1; n <= teto; n += 1) {
+    if (!feitas.has(n)) return n;
+  }
+  return null;
 }
 
 /**

@@ -158,16 +158,26 @@
  * que `.aulas-progresso` e `.aulas-erro`, que a página da aula também reusa
  * (aula.css, cabeçalho).
  *
- * DISCRETO quer dizer: sem recheio. O recheio é o primário (folha.css), e esta
- * casa dá um primário por tela; o gesto de declarar "já sei" é recusa, não
- * convite, e pintá-lo de cor de linha diria o contrário. O peso dele é o texto e
- * uma borda fina de --borda, e a borda engrossa no toque pela cor da LINHA, o
- * mesmo sinal que a página já dá no `.aula-pausa`. Nenhum valor à mão, nenhuma
- * cor escrita: os tokens trocam sozinhos no tema escuro (tokens.css:235).
+ * DISCRETO quer dizer: sem recheio E SEM MURO. O recheio é o primário (folha.css),
+ * e esta casa dá um primário por tela; o gesto de declarar "já sei" é recusa, não
+ * convite, e pintá-lo de cor de linha diria o contrário.
  *
- * O piso de 44 px é o --alvo-toque, e ele manda na ALTURA e na LARGURA: um
- * botão de duas palavras curtas numa lista de 93 linhas seria tocável só no
- * texto se fosse deixado encolher. */
+ * S18a-fix (item 2, o olho em 375 px): a borda de 1 px × 93 linhas eram 93 CAIXAS
+ * numa coluna, e a régua de corte do conferir as contava como caixas com conteúdo
+ * apertado. Uma lista de linhas tem uma coluna de texto, e o gesto discreto dela é
+ * texto: sem borda, sem fundo, sem raio. O sinal de que é tocável passa a ser o
+ * sublinhado, no hover e no `:focus-visible` — o mesmo sinal que a casa já dá em
+ * `.aula-link:hover` e nos links de pausa, e que o teclado vê.
+ *
+ * O contraste é --tinta nos dois temas (o mesmo texto do título da linha, a
+ * régua AA do design-system não admite cor de linha aqui: o pulo não é a cor da
+ * estação, é a palavra da pessoa).
+ *
+ * O piso de 44 px é o --alvo-toque, e ele fica MUDO ao olho: sem borda e sem
+ * fundo, a caixa invisível continua mandando na ALTURA e na LARGURA, porque um
+ * botão de duas palavras numa lista de 93 linhas seria tocável só no texto se
+ * fosse deixado encolher. O `width: auto` abaixo de 600 px é o que impede o
+ * stretch da grade de esticar o texto. */
 .aulas-pular {
   box-sizing: border-box;
   display: inline-flex;
@@ -176,24 +186,35 @@
   min-height: var(--alvo-toque);
   min-width: var(--alvo-toque);
   padding: 0 var(--espaco-3);
-  border: var(--anel-trancada) solid var(--borda);
-  border-radius: var(--raio-placa);
+  border: 0;
   background: none;
   font-family: var(--fonte-corpo);
   font-size: var(--tipo-corpo);
   color: var(--tinta);
+  text-decoration: none;
   cursor: pointer;
-  transition: border-color var(--movimento-toque) var(--curva-chegada);
+  transition: color var(--movimento-toque) var(--curva-chegada);
 }
 
-.aulas-pular:hover {
-  border-color: var(--cor, var(--tinta));
+.aulas-pular:hover,
+.aulas-pular:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: var(--espaco-1);
 }
 
-/* O desfazer é a mesma peça em outro humor: o texto vem de `desfazerPulo` e a
-   borda, de --fosca, para não parecer que há duas coisas a escolher na linha. */
+/* O desfazer é a mesma peça em outro humor: o texto vem de `desfazerPulo`, e a
+   --fosca continua sendo o que ele é — nem caixa, nem cor de linha. AA nos dois
+   temas: 6,26:1 no claro e 7,60:1 no escuro (tokens.css:30 e :234). */
 .aulas-pular-desfazer {
-  border-color: var(--fosca);
+  color: var(--fosca);
+}
+
+/* S18a-fix (item 2): na PÁGINA da aula a raiz é uma coluna flex, e o filho sem
+   `align-self` herda a largura da linha inteira — o "Já sei isso" media 343 px
+   debaixo do Assistir numa tela de 375. Texto discreto ocupa a largura do texto. */
+.aula .aulas-pular {
+  align-self: flex-start;
+  width: auto;
 }
 
 /* ── a lista ────────────────────────────────────────────────────────────── */
@@ -328,6 +349,20 @@
   overflow: hidden;
 }
 
+/* S18a-fix (item 1, o olho em 375 px): o clamp de DUAS linhas era a régua do
+   corte. Numa lista em coluna de 93 linhas, o título de "Sistemas de Numeração
+   ..." saía cortado com reticências três vezes seguidas — três aulas diferentes
+   com o mesmo nome, e a pessoa não tinha como saber quais eram. O corte serve à
+   FOLHA, onde uma linha de cada estação compete com outras 69; na LISTA a linha
+   É o título, e o espaço de baixo não custa nada a quem rola.
+   `display: block` é o que desfaz o clamp: sem -webkit-box, as linhas vêm todas. */
+.aula-link .aula-titulo-texto {
+  display: block;
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
+  overflow: visible;
+}
+
 /* A etiqueta de exercício, no mesmo estilo dos selos de estado do Explorar:
    mono, --tipo-nota, maiúscula, --raio-selo. Não compete com o título: ela vem
    depois e quebra junto. */
@@ -371,6 +406,43 @@
 
 .aulas-erro p {
   margin: 0;
+}
+
+/* ── a tela estreita: a linha vira coluna (S18a-fix, item 1) ─────────────
+ *
+ * Em 375 px a grade de duas colunas deixava ~250 px para o título de três
+ * linhas, e foi assim que o clamp cortou "Sistemas de Numeração…". Abaixo de
+ * 600 px a linha é UMA coluna só: o título ocupa a largura inteira sem corte, e
+ * a duração e o botão descem para a linha de baixo. De 600 px para cima nada
+ * aqui existe, e a grade de duas colunas continua como estava.
+ *
+ * O botão vai à DIREITA (`justify-self: end`) porque é onde o polegar o achava
+ * antes, e o `width: auto` desfaz o stretch da grade — discreto quer dizer a
+ * largura do texto, não a largura da tela. */
+@media (max-width: 599px) {
+  .aula-item {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+  }
+
+  /* O título passa a ser a ÚLTIMA coluna da primeira linha (3 colunas, não 4):
+     com a duração fora da régua, ele fica com a largura toda que sobra do
+     número. O `grid-column: 1 / -1` da duração é o que a faz descer sozinha para
+     a linha de baixo, e o `row-gap` dá o respiro entre as duas. */
+  .aula-link {
+    grid-template-columns: auto auto minmax(0, 1fr);
+    row-gap: var(--espaco-1);
+  }
+
+  .aula-duracao {
+    grid-column: 1 / -1;
+    text-align: left;
+  }
+
+  .aulas-pular {
+    justify-self: end;
+    width: auto;
+  }
 }
 
 /* ── o computador: a lista ganha fôlego, e só ──────────────────────────── */

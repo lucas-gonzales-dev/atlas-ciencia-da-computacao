@@ -116,7 +116,7 @@ test('estados: JORNADA viagem vazia — o topo com o mapa, o primeiro passo e o 
   const { raiz } = await metro({ completed: [] });
   exigeTextoESaida(raiz, [
     J.topo.titulo,
-    J.topo.comecar,
+    J.topo.comecar(1),
     J.topo.marcar
   ], 'Jornada vazia');
   // A medida do compromisso, lida do catálogo (35 estações).

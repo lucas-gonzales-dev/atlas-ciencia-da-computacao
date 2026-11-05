@@ -1483,7 +1483,7 @@ test('jornada: na primeira visita, o topo dá o primeiro passo e o convite de ma
   const textoVazio = textoDe(vazio.root);
   // S20a: a frase da abertura cedeu o lugar ao TOPO — o primeiro passo (J1) e o
   // convite discreto de marcar, que abre a mesma lista de antes.
-  assert.ok(textoVazio.includes(J.topo.comecar),
+  assert.ok(textoVazio.includes(J.topo.comecar(1)),
     'na viagem vazia o topo não dá o primeiro passo');
   assert.ok(textoVazio.includes(J.topo.marcar),
     'na viagem vazia o topo não convida quem já estudou');

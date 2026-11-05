@@ -49,7 +49,7 @@ import { ESTADOS, estadoDaEstacao, dataLocal, resumoDaViagem } from '../../core/
 // mora em core/estudo.js e é a mesma de `continuarDe` e da folha — o topo não
 // refaz um `every` sobre as aulas, porque duas «percorridas» no app é o defeito
 // que a regra da fonte única existe para impedir.
-import { estacaoPercorrida } from '../../core/estudo.js';
+import { estadoDaAula, estacaoPercorrida, primeiraPendente } from '../../core/estudo.js';
 
 function no(doc, tag, classe, attrs) {
   const n = doc.createElement(tag);
@@ -237,7 +237,14 @@ export function alvoDoTopo(catalogo, estudo, resumo, progresso, indice) {
   const percorridas = temRegistro ? percorridasDoEstudo(estudo, lista, indice) : new Set();
   const percorrida = !concluida && curso && percorridas.has(curso.id);
   if (curso && !concluida && !percorrida) {
-    return { modo: 'volta', curso, n: numerico(u.n) || 1, idAula: u.aula || null };
+    // S18a-fix (item 4): a `ultima` pode ser uma aula que a pessoa ACABOU DE
+    // DISPENSAR. «Continuar: Aula 1» para quem pulou a Aula 1 é a Jornada
+    // contradizendo a folha ao lado, e o endereço errado num botão que a pessoa
+    // vai tocar. A pergunta tem dono no núcleo (`primeiraPendente`); aqui só se
+    // faz ela, e o `idAula` é anulado — sem ele a aula do `n` vem da lista.
+    const pulou = u.aula ? estadoDaAula(estudo, u.aula) === 'pulada' : false;
+    if (!pulou) return { modo: 'volta', curso, n: numerico(u.n) || 1, idAula: u.aula || null };
+    return { modo: 'volta', curso, n: pendenteDa(estudo, curso, indice), idAula: null };
   }
 
   // «com progresso» = concluiu OU está em curso OU tem toque gravado. Quem
@@ -263,14 +270,27 @@ export function alvoDoTopo(catalogo, estudo, resumo, progresso, indice) {
       : resumo;
     const proxima = estacaoDoResumo(lista, pergunta);
     if (!proxima) return { modo: 'terminal', curso: null, n: 1, idAula: null };
-    return { modo: 'proxima', curso: proxima, n: 1, idAula: null };
+    return { modo: 'proxima', curso: proxima, n: pendenteDa(estudo, proxima, indice), idAula: null };
   }
 
   // A primeira visita. `percorridas` é vazia aqui por construção: com qualquer
   // estação percorrida o ramo acima já respondeu (percorridas.size > 0 é «com
   // progresso»). Não acrescento uma régua de «nada sobra» neste caminho — seria
   // código morto, e o fim da viagem já é travado pelo caso `terminal` acima.
-  return { modo: 'primeira', curso: primeiraEstacao(lista), n: 1, idAula: null };
+  const primeira = primeiraEstacao(lista);
+  return { modo: 'primeira', curso: primeira, n: pendenteDa(estudo, primeira, indice), idAula: null };
+}
+
+/**
+ * O `n` por onde começar nesta estação (S18a-fix, item 4): a pergunta é do
+ * núcleo (`primeiraPendente`, core/estudo.js), e o desate a 1 é só o que acontece
+ * quando o `índice` não chegou — sem total não há pendência conhecida, e a
+ * primeira visita real responde 1 do mesmo jeito.
+ */
+function pendenteDa(estudo, curso, indice) {
+  const total = numerico(indice?.estacoes?.[curso?.id]?.aulas);
+  if (!(total > 0)) return 1;
+  return primeiraPendente(estudo, curso.id, total) || 1;
 }
 
 /**
@@ -352,7 +372,9 @@ function acaoDoTopo(doc, { alvo, aula, curso, folhaAberta }) {
   // diria «primeira» a quem está na 12ª estação.
   const texto = alvo.modo === 'volta'
     ? AU.continuar(alvo.n, aula?.titulo || curso.title)
-    : (alvo.modo === 'proxima' ? J.topo.comecarEstacao(curso.title) : J.topo.comecar);
+    : (alvo.modo === 'proxima'
+      ? J.topo.comecarEstacao(curso.title, alvo.n)
+      : J.topo.comecar(alvo.n));
   const classe = folhaAberta
     ? 'botao topo-primario'
     : 'botao botao-primario topo-primario';

@@ -201,7 +201,10 @@ test('a linha de progresso no zero e no cheio não inventa nada', () => {
   // e ele já tem teste próprio (core/aulas.js). O que esta trava cobra é o
   // NÚMERO da frase, que é o que a troca de verbo mexe.
   const cheioDoc = linhaProgresso(doc, { total: 93, abertas: 93, estudadas: 93, segundosRestantes: 0 });
-  assert.match(textoDo(um(cheioDoc, 'aulas-progresso-texto', 'progresso cheio')), /^93 de 93 aulas estudadas · faltam ~/);
+  // S18a-fix (item 5): no cheio o pedaço «faltam» sai INTEIRO. Um "faltam ~1 min"
+  // seria a frase de `duracaoLegivel(0)` — o floor dele, não uma medida — e a casa
+  // não escreve conta que não fez. O que se cobra aqui é o silêncio.
+  assert.equal(textoDo(um(cheioDoc, 'aulas-progresso-texto', 'progresso cheio')), '93 de 93 aulas estudadas');
   assert.equal(um(cheioDoc, 'aulas-barra', 'progresso cheio').getAttribute('aria-valuenow'), '93');
   // Sem total não há fração: 0/0 não pode virar "NaN" na tela nem no aria.
   const sem = linhaProgresso(doc, { total: 0, abertas: 0, estudadas: 0, segundosRestantes: 0 });

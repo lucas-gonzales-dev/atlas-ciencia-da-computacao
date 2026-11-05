@@ -261,7 +261,7 @@ test('continuarDe: uma última que saiu da playlist não é retomada', () => {
 // transição, e a S14b troca a frase por `estudadas`.
 test('resumoDaEstacao: abrir não desconta nada; fechar desconta', () => {
   assert.deepEqual(resumoDaEstacao(estudoVazio(), ESTACAO, AULAS), {
-    total: 93, abertas: 0, estudadas: 0, segundosRestantes: arquivo.total.segundos,
+    total: 93, abertas: 0, estudadas: 0, puladas: 0, segundosRestantes: arquivo.total.segundos,
   });
   let e = estudoVazio();
   for (const n of [1, 2, 3]) e = abrirAula(e, { estacao: ESTACAO, aula: AULAS[n - 1].id, n }, '2026-11-04T10:00');
@@ -291,9 +291,9 @@ test('resumoDaEstacao: uma aula de OUTRA estação não conta aqui, e lista vazi
   // sobrepõem, então nenhum vídeo pertence a duas estações hoje.
   const deFora = abrirAula(estudoVazio(), { estacao: 'ubl-core-calculo-i', aula: 'id-de-aula-de-calculo', n: 1 }, '2026-11-04T10:00');
   assert.deepEqual(resumoDaEstacao(deFora, ESTACAO, AULAS), {
-    total: 93, abertas: 0, estudadas: 0, segundosRestantes: arquivo.total.segundos,
+    total: 93, abertas: 0, estudadas: 0, puladas: 0, segundosRestantes: arquivo.total.segundos,
   });
-  assert.deepEqual(resumoDaEstacao(estudoVazio(), ESTACAO, []), { total: 0, abertas: 0, estudadas: 0, segundosRestantes: 0 });
+  assert.deepEqual(resumoDaEstacao(estudoVazio(), ESTACAO, []), { total: 0, abertas: 0, estudadas: 0, puladas: 0, segundosRestantes: 0 });
 });
 
 test('resumoDaEstacao e continuarDe contam pelo ESTADO, não pelo campo', () => {

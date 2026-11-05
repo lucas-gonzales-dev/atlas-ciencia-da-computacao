@@ -235,6 +235,14 @@ export function criarDoc() {
     // que a folha sabe a quem devolver o foco ao fechar. Lido de `foco`, o
     // dublê responde a mesma pergunta que o navegador responde.
     get activeElement() { return doc.foco; },
+    // S18a-fix (item 3): o navegador expõe `document.defaultView`, e é por ele
+    // que um pedaço de tela alcança a rolagem da janela sem receber `win` por
+    // parâmetro (`painel.ownerDocument.defaultView`). Sem este campo o gravador
+    // do pulo veria `undefined` e pularia a parte do scroll — verde mudo outra
+    // vez. A janela é montada por fora (`doc._view = win`) porque quem escolhe a
+    // janela é o teste, não o documento.
+    _view: null,
+    get defaultView() { return doc._view; },
     // `matchMedia` existe para a régua de movimento (item 2): o teste pergunta
     // com a flag ligada e desligada, e a resposta é o que o `--reduced-motion`
     // abaixo define. Uma tela que chamar matchMedia sem isto aqui quebra no
@@ -258,6 +266,17 @@ export function janelaCom({ onLine = true } = {}) {
   const win = {
     onLine,
     localStorage: storageCom(),
+    // S18a-fix (item 3): `scrollY` e `scrollTo` existem na janela real, e é por
+    // eles que o gravador do pulo devolve a página ao lugar de onde a pessoa
+    // estava. O dublê guarda o número e expõe `_rolagens` para o teste ver
+    // quantas vezes e com que valor a janela foi movida — sem isto, um
+    // `scrollTo` ausente passaria igual a um `scrollTo` que ninguém chamou.
+    scrollY: 0,
+    _rolagens: [],
+    scrollTo(x, y) {
+      win.scrollY = Number(y) || 0;
+      win._rolagens.push([Number(x) || 0, Number(y) || 0]);
+    },
     setTimeout: () => 0,
     clearTimeout: () => {},
     addEventListener: (tipo, fn) => { (ouvintes[tipo] ||= []).push(fn); },

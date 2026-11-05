@@ -89,7 +89,18 @@ export function linhaProgresso(doc, resumo, lembradas = null) {
   // linha da barra passou a ser a ÚNICA contagem da estação na tela. Quem não
   // mede cartão (a página de aulas) não passa nada, e a frase sai byte a byte a
   // de antes — é o que as travas de `aulas-tela` e `design-system` exigem.
-  const frase = A.progresso(feito, resumo.total, duracaoLegivel(resumo.segundosRestantes), lembradas);
+  // S18a-fix (item 5): nada a fazer não é "faltam ~1 min". `duracaoLegivel(0)`
+  // fabrica "1 min" (o floor dele), e a frase diria falta sobre uma estação
+  // percorrida — toda estudada ou toda dispensada. Quem tem os segundos na mão
+  // decide o silêncio; `textos.js` não readivinha texto formatado.
+  const segundosRestantes = Number(resumo.segundosRestantes) || 0;
+  const frase = A.progresso(
+    feito,
+    resumo.total,
+    segundosRestantes > 0 ? duracaoLegivel(segundosRestantes) : null,
+    lembradas,
+    Number(resumo.puladas) || 0
+  );
   caixa.append(no(doc, 'p', 'aulas-progresso-texto', { text: frase }));
 
   const cheio = resumo.total > 0 ? Math.round((feito / resumo.total) * 100) : 0;
@@ -213,7 +224,22 @@ export function ligarPuloDeAula({ storage, painel, aoMudar }) {
     try {
       storage?.setItem?.(ESTUDO_KEY, serializarEstudo(novo));
     } catch { /* aparelho sem espaço: a tela continua, só não lembra amanhã */ }
+    // S18a-fix (item 3, o teclado): a repintura destrói o nó que estava focado, e
+    // o navegador devolve o foco ao BODY — quem usa teclado e toca "Já sei isso"
+    // na Aula 60 volta ao TOPO da página de 93 linhas sem nenhum aviso, e o
+    // scroll pula junto. A âncora é a mesma da folha ao fechar: o foco vai para o
+    // botão DA MESMA AULA, agora com a outra ação (desfazer), e a rolagem é
+    // restabelecida com `preventScroll`, que é o que impede o navegador de mover a
+    // viewport de novo ao focar.
+    const win = painel?.ownerDocument?.defaultView;
+    const y = typeof win?.scrollY === 'number' ? win.scrollY : null;
     if (typeof aoMudar === 'function') aoMudar();
+    if (typeof win?.scrollTo === 'function' && y !== null) win.scrollTo(0, y);
+    const alvo = painel?.querySelector?.(`button[data-pulo][data-aula="${id}"]`);
+    if (typeof alvo?.focus === 'function') {
+      painel.ownerDocument.activeElement?.blur?.();
+      alvo.focus({ preventScroll: true });
+    }
   };
   painel?.addEventListener?.('click', aoClique);
   return () => painel?.removeEventListener?.('click', aoClique);

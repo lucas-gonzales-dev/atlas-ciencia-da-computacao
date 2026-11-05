@@ -34,6 +34,10 @@
 
 import { retencao } from './fsrs.js';
 import { diasEntre } from './cartoes.js';
+// S18a-fix (item 6): a pergunta «esta aula é desta estação?» tem UM dono, e ele
+// mora em core/estudo.js. O eixo filtrava por `r.estacao === id` e perdia toda
+// aula que a pessoa tocou pela segunda estação do vídeo compartilhado.
+import { aulaNaEstacao } from './estudo.js';
 
 /** Limiar do "pede revisão": abaixo disto a memória está esfriando. Desenho, J3. */
 export const LIMITE_RECUPERABILIDADE = 0.8;
@@ -75,14 +79,21 @@ function concluida(id, progresso) {
 /**
  * As aulas desta estação em um dado estado, lidas do estudo.
  *
- * Filtra por `r.estacao`, não pela lista de vídeos da estação: o mapa não carrega
+ * Filtra pelos REGISTROS, não pela lista de vídeos da estação: o mapa não carrega
  * o JSON de cada estação (é o que o pedido manda), e o registro da aula já traz a
  * estação dela — é a única fonte que sobrevive sem rede.
+ *
+ * A pergunta "esta aula é desta estação?" é `aulaNaEstacao`, do núcleo, e não um
+ * `r.estacao === id` aqui (S18a-fix, item 6). Com a comparação crua, o vídeo que
+ * pertence a duas estações (`tMCWr3a-unk`) só aparecia na última por onde passou:
+ * o eixo de Análise de Algoritmos nunca acendia a aula que a pessoa tinha fechado
+ * por Linguagens Formais.
  */
 function aulasNoEstado(id, estudo, estado) {
   const out = [];
   for (const [aulaId, r] of Object.entries(estudo?.aulas ?? {})) {
-    if (!r || typeof r !== 'object' || r.estacao !== id) continue;
+    if (!r || typeof r !== 'object') continue;
+    if (!aulaNaEstacao(estudo, aulaId, id)) continue;
     // A escada de core/estudo.js: 'estudada' está acima de 'aberta', e quem fecha
     // tem as duas datas. Um registro com estudadaEm NÃO é uma aula aberta.
     const pulada = diaDe(r.puladaEm);

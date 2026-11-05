@@ -420,11 +420,11 @@ test('S20a-3 · a chave tem três casos, e cada um tem frase própria vinda de t
     `a volta com aula não disse «${AU.continuar(3, AULA_3.titulo)}»: ${tCom}`);
   assert.equal(tSem.includes(J.topo.comecarEstacao(semToque.curso.title)), true,
     `a volta sem aula não disse «${J.topo.comecarEstacao(semToque.curso.title)}»: ${tSem}`);
-  assert.equal(tNada.includes(J.topo.comecar), true,
-    `a primeira visita não disse «${J.topo.comecar}»: ${tNada}`);
+  assert.equal(tNada.includes(J.topo.comecar(1)), true,
+    `a primeira visita não disse «${J.topo.comecar(1)}»: ${tNada}`);
   // As três frases têm de ser TRÊS frases. Se uma for a outra, a tela está
   // mentindo para alguém — e é exatamente assim que o defeito 4 entrou.
-  assert.equal(new Set([AU.continuar(3, AULA_3.titulo), J.topo.comecarEstacao('X'), J.topo.comecar]).size, 3,
+  assert.equal(new Set([AU.continuar(3, AULA_3.titulo), J.topo.comecarEstacao('X', 1), J.topo.comecar(1)]).size, 3,
     'duas das três situações da chave compartilham frase');
 });
 
@@ -467,7 +467,7 @@ test('S20a-3 · O CAMINHO DO ACHADO: embarque → marcar Circuitos → recarrega
     return cls.includes('botao-primario') || (cls.includes('placa-acao') && !/\bcom-topo-primario\b/.test(raiz.className));
   });
   assert.equal(cheios.length, 1, `${cheios.length} alvos recheados na volta sem aula`);
-  assert.equal(textoDe(raiz).includes(J.topo.comecar), false,
+  assert.equal(textoDe(raiz).includes(J.topo.comecar(1)), false,
     '«Começar pela primeira aula» continua na tela de quem já percorreu uma estação');
 
   // O «Já estudei algumas disciplinas» fica, e o h1/medida ficam (item 1 do pedido).
