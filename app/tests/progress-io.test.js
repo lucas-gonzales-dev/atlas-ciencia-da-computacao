@@ -42,6 +42,11 @@ import { criarDoc, storageCom, todos } from './hdom.js';
 import { montar } from '../web/telas/aula.js';
 import { readFileSync } from 'node:fs';
 import { agendarConclusao } from '../core/revisao.js';
+// S20b-8: as transições da viagem que produzem as datas e o em curso. O arquivo de
+// backup é escrito a partir delas, e não de objeto literal: só assim a trava mede o
+// que o core decide gravar, em vez de medir a forma que eu escolhi escrever aqui.
+import { lerProgresso, iniciarEstacao, concluirEstacao } from '../core/viagem.js';
+import { importarViagem } from '../core/dados-pessoa.js';
 
 const CURSOS = [
   { id: 'logica', title: 'Logica de Programacao' },
@@ -340,6 +345,137 @@ test('S20b-1b · uma dominada com os números volta inteira', () => {
   assert.equal(rSem.dominadas, null);
   assert.equal(rSem.trazDominadas, false);
   assert.match(rSem.mensagem, /não traz estações dominadas/);
+});
+
+// ─────────────── S20b-8: a data de conclusão e o que está em curso vão no arquivo ───────────────
+//
+// O defeito foi MEDIDO no Chrome (06/11/2026): exportar e importar num aparelho novo
+// dava `conclusoes: {"ubl-core-introducao-cc-python-i": "2026-09-20"}` antes e
+// `conclusoes: {}` depois. A estação seguia concluída — o que se perdia era O DIA, e
+// é dele que a caderneta faz o carimbo (core/caderneta.js). Os dados abaixo nascem de
+// `iniciarEstacao` e `concluirEstacao` (core/viagem.js), nunca de objeto escrito à mão:
+// a data do carimbo é o que essas funções decidem gravar, e um literal aqui provaria
+// a forma, não o comportamento.
+
+test('S20b-8 · exportar e importar devolve os mesmos conclusões e o mesmo em curso', () => {
+  // Uma viagem real: lógica iniciada e concluída, eda iniciada, python-1 no aparelho
+  // sem nada. `concluirEstacao` remove do em curso e grava a data; `iniciarEstacao`
+  // põe no em curso sem tocar em datas. É o par de transições que a tela faz.
+  let p = lerProgresso(null);
+  p = iniciarEstacao(p, 'logica', CURSOS);
+  p = iniciarEstacao(p, 'eda', CURSOS);
+  p = concluirEstacao(p, 'logica', '2026-10-20', CURSOS);
+  assert.deepEqual(p.conclusoes, { logica: '2026-10-20' }, 'a cena não nasceu como o core a faz nascer');
+  assert.deepEqual(p.emCurso, ['eda'], 'a cena não nasceu como o core a faz nascer');
+
+  const v = vida();
+  const texto = serializeExport(CURSOS, p.completed, AGORA, {}, {
+    ...EXTRAS(v), conclusoes: p.conclusoes, emCurso: p.emCurso
+  });
+  const pacote = JSON.parse(texto);
+  assert.deepEqual(pacote.conclusoes, p.conclusoes, 'o export remixou ou esqueceu o dia de cada conclusão');
+  assert.deepEqual(pacote.emCurso, p.emCurso, 'o export esqueceu o que está em curso');
+
+  const r = parseImport(texto, CURSOS);
+  assert.equal(r.ok, true, r.erro);
+  assert.deepEqual(r.conclusoes, p.conclusoes, 'a data de conclusão se perdeu na volta — a caderneta chega muda no aparelho novo');
+  assert.equal(r.trazConclusoes, true);
+  assert.deepEqual(r.emCurso, p.emCurso, 'em curso se perdeu na volta');
+  assert.equal(r.trazEmCurso, true);
+
+  // A data NÃO é recalculada na volta: «concluída em 20/10» vira «concluída hoje» se
+  // alguém saneia o campo com uma data nova, e o carimbo contaria outra viagem.
+  assert.equal(r.conclusoes.logica, '2026-10-20', 'a data foi reescrita no import');
+
+  // Byte a byte, como a trava dos baldes: exportar de novo o que acabou de voltar.
+  const segunda = serializeExport(CURSOS, r.completed, AGORA, r.anotacoes, {
+    ...EXTRAS({ estudo: r.estudo, cartoes: r.cartoes, rascunhos: r.rascunhos }),
+    conclusoes: r.conclusoes, emCurso: r.emCurso
+  });
+  assert.equal(segunda, texto, 'conclusões ou em curso entram por uma porta e saem por outra');
+});
+
+test('S20b-8 · um arquivo que não fala deles mantém os do aparelho', () => {
+  // O `dominadas` já abriu este caminho (S20b-1b); estes dois ficaram para trás, e
+  // é por isso que o backup de outubro perde a data. Devolver `{}` de um v2 seria
+  // ordem de apagar as datas de quem importar — pior que não levar nada.
+  const revisoesV2 = agendarConclusao(agendarConclusao({}, 'logica', '2026-10-20'), 'eda', '2026-10-20');
+  const v2 = JSON.stringify({
+    formato: FORMATO,
+    versao: 2,
+    exportadoEm: '2026-10-20T10:00:00.000Z',
+    completed: ['logica', 'eda'],
+    ignorados: 0,
+    anotacoes: {},
+    revisoes: revisoesV2
+  }, null, 2) + '\n';
+
+  const r = parseImport(v2, CURSOS);
+  assert.equal(r.ok, true, r.erro);
+  assert.equal(r.conclusoes, null, 'o v2 não fala de datas: devolver vazio apagaria a viagem do aparelho');
+  assert.equal(r.trazConclusoes, false);
+  assert.equal(r.emCurso, null, 'o v2 não fala de em curso: devolver [] seria esvaziar a intenção');
+  assert.equal(r.trazEmCurso, false);
+
+  // O outro lado, que é a tela: quem aplica mantém. `importarViagem` recebe o estado
+  // do aparelho e é ele quem devolve o par `traz…`/valor.
+  const noAparelho = lerProgresso({ completed: ['logica'], conclusoes: { logica: '2026-09-20' }, emCurso: ['eda'] });
+  const aplicado = importarViagem(v2, {
+    courses: CURSOS, completed: noAparelho.completed,
+    conclusoes: noAparelho.conclusoes, emCurso: noAparelho.emCurso
+  });
+  assert.equal(aplicado.ok, true, aplicado.erro);
+  assert.deepEqual(aplicado.conclusoes, { logica: '2026-09-20' }, 'importar backup velho rebaixou a data de conclusão');
+  assert.deepEqual(aplicado.emCurso, ['eda'], 'importar backup velho esvaziou o que estava em curso');
+});
+
+test('S20b-8 · vazio no aparelho não cria a chave no arquivo', () => {
+  // `{}` ou `[]` dentro do v3 significariam «apaga o que o outro aparelho tem». O
+  // arquivo que não tem a coisa fica CALADO sobre ela, como já faz com as dominadas.
+  const v = vida();
+  const pacote = JSON.parse(serializeExport(CURSOS, ['logica'], AGORA, {}, {
+    ...EXTRAS(v), conclusoes: {}, emCurso: []
+  }));
+  assert.equal('conclusoes' in pacote, false, 'um `{}` no arquivo é uma ordem de apagar, não um vazio decorativo');
+  assert.equal('emCurso' in pacote, false, 'um `[]` no arquivo é uma ordem de apagar, não um vazio decorativo');
+
+  const r = parseImport(JSON.stringify(pacote), CURSOS);
+  assert.equal(r.conclusoes, null);
+  assert.equal(r.trazConclusoes, false);
+  assert.equal(r.emCurso, null);
+  assert.equal(r.trazEmCurso, false);
+});
+
+test('S20b-8 · o importador rejeita lixo sem derrubar o resto da viagem', () => {
+  // A malha é a de `lerProgresso`: data fora de AAAA-MM-DD derruba o registro, não o
+  // objeto; `emCurso` que não é lista é «não falou» (o arquivo está ilegível nesse
+  // campo), e `conclusoes` texto idem. Um arquivo editado à mão não pode apagar nem
+  // inventar dia, e não pode travar a importação inteira.
+  const v = vida();
+  const texto = JSON.stringify({
+    ...JSON.parse(serializeExport(CURSOS, ['logica', 'eda'], AGORA, {}, EXTRAS(v))),
+    conclusoes: { logica: '2026-10-20', eda: 'ontem', python: 42 },
+    emCurso: ['python-1', 7, 'python-1']
+  }, null, 2);
+
+  const r = parseImport(texto, CURSOS);
+  assert.equal(r.ok, true, r.erro);
+  assert.deepEqual(r.conclusoes, { logica: '2026-10-20' }, 'a data ilegível entrou no arquivo do destino');
+  assert.deepEqual(r.emCurso, ['python-1'], 'o id que não é string ou a lista duplicada passou pela malha');
+  assert.equal(r.trazConclusoes, true);
+  assert.equal(r.trazEmCurso, true);
+
+  // E a forma errada do campo inteiro: `null`, texto, lista. Não-falou, não-vazio.
+  for (const lixo of [null, 'conclusoes', ['logica']]) {
+    const bruto = JSON.stringify({
+      ...JSON.parse(serializeExport(CURSOS, ['logica'], AGORA, {}, EXTRAS(v))),
+      conclusoes: lixo, emCurso: lixo === null ? 'eda' : lixo
+    });
+    const rr = parseImport(bruto, CURSOS);
+    assert.equal(rr.ok, true, rr.erro);
+    assert.equal(rr.conclusoes, null, `conclusoes=${JSON.stringify(lixo)} deveria ser ilegível, não vazio`);
+    assert.equal(rr.trazConclusoes, false, 'campo ilegível não pode virar ordem de apagar');
+  }
 });
 
 // ─────────────── S20b-1b item 2: o persist, uma vez só, depois do primeiro cartão ───────────────

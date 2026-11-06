@@ -696,12 +696,18 @@ export async function montar(raiz, ctx) {
         // (web/metro.js: `atlas.viagem.detalhe.v1`). O arquivo que não falou delas
         // deixa `salvarViagem` com as do aparelho: importar backup velho não
         // rebaixa ninguém, que é a regra do desenho J4.
-        if (storage && deVolta.trazDominadas) {
+        // S20b-8: cada um dos três campos do progresso segue a própria fala. Antes
+        // disto, `completed` vinha do arquivo e `emCurso`/`conclusoes` vinham do
+        // aparelho: a estação voltava concluída com a data de outro lugar, e a
+        // caderneta (core/caderneta.js) lia `conclusoes[id]` para carimbar o dia.
+        // Arquivo que não falou de um deles mantém o do aparelho — a mesma regra
+        // das dominadas, com o `traz*` como sinal.
+        if (storage && (deVolta.trazDominadas || deVolta.trazConclusoes || deVolta.trazEmCurso)) {
           try {
             salvarViagem(storage, {
               completed: deVolta.completed,
-              emCurso: estado.emCurso,
-              conclusoes: estado.conclusoes,
+              emCurso: deVolta.trazEmCurso ? deVolta.emCurso : estado.emCurso,
+              conclusoes: deVolta.trazConclusoes ? deVolta.conclusoes : estado.conclusoes,
               dominadas: deVolta.dominadas
             });
           } catch { /* sem storage: o estado da tela ainda pinta o arquivo */ }
@@ -711,7 +717,13 @@ export async function montar(raiz, ctx) {
           estudo: deVolta.trazEstudo ? deVolta.estudo : estado.estudo,
           cartoes: deVolta.trazCartoes ? deVolta.cartoes : estado.cartoes,
           rascunhos: deVolta.trazRascunhos ? deVolta.rascunhos : estado.rascunhos,
-          dominadas: deVolta.trazDominadas ? deVolta.dominadas : estado.dominadas
+          dominadas: deVolta.trazDominadas ? deVolta.dominadas : estado.dominadas,
+          // S20b-8: os dois campos que ficavam no aparelho. Sem isto, a próxima
+          // exportação desta tela escreveria as datas velhas por cima das que
+          // acabaram de chegar — o storage teria a viagem nova e a memória da
+          // tela, a antiga, e a caderneta pintaria uma das duas.
+          emCurso: deVolta.trazEmCurso ? deVolta.emCurso : estado.emCurso,
+          conclusoes: deVolta.trazConclusoes ? deVolta.conclusoes : estado.conclusoes
         };
         avisar(alvo, `${deVolta.mensagem}${gravou && guardouFila && guardouBaldes ? '' : ` ${T.dados.semStorage}`}`);
         if (catalogo && montado) desenhar(catalogo);

@@ -320,6 +320,25 @@ export function buildExport(courses, completed = [], agora = new Date(), notas =
   const dominadasArquivo = Object.keys(lerProgresso({ dominadas: extras?.dominadas }).dominadas).length
     ? lerProgresso({ dominadas: extras?.dominadas }).dominadas
     : null;
+  // S20b-8 (06/11/2026): `conclusoes` e `emCurso` são o MESMO caso do `dominadas`,
+  // medido no Chrome pelo Claude: quem exporta e importa num aparelho novo mantém a
+  // estação concluída e perde O DIA, porque a tela passava só `completed`. A caderneta
+  // lê esse dia (core/caderneta.js, carimbos de embarque e de estação percorrida), e o
+  // bilhete do Perfil mostra «Concluída em» — sem a data, os dois ficam mudos sobre uma
+  // viagem que continua visível. A malha é a de `lerProgresso`, a mesma do storage: um
+  // `conclusoes` texto ou uma data fora de AAAA-MM-DD caem registro a registro, e `emCurso`
+  // sai deduplicado e sem id que não é string. Vazio NÃO entra no arquivo (ver o
+  // comentário do pacote abaixo): `{}`/`[]` no arquivo é ordem de apagar no destino.
+  const progressoArquivo = lerProgresso({
+    emCurso: extras?.emCurso,
+    conclusoes: extras?.conclusoes
+  });
+  const conclusoesArquivo = Object.keys(progressoArquivo.conclusoes).length
+    ? progressoArquivo.conclusoes
+    : null;
+  const emCursoArquivo = progressoArquivo.emCurso.length
+    ? progressoArquivo.emCurso
+    : null;
 
   const pacote = {
     formato: FORMATO,
@@ -352,7 +371,13 @@ export function buildExport(courses, completed = [], agora = new Date(), notas =
     ...(estudoTexto !== null ? { estudo: estudoTexto } : {}),
     ...(cartoesTexto !== null ? { cartoes: cartoesTexto } : {}),
     ...(rascunhosArquivo !== null ? { rascunhos: rascunhosArquivo } : {}),
-    ...(dominadasArquivo !== null ? { dominadas: dominadasArquivo } : {})
+    ...(dominadasArquivo !== null ? { dominadas: dominadasArquivo } : {}),
+    // S20b-8: o dia de cada conclusão e o que está em curso. `dominadas` abriu o
+    // caminho (S20b-1b) e estes dois foram deixados para trás — a data é a única
+    // coisa que faz a caderneta saber QUANDO, e sem ela o backup devolve uma viagem
+    // sem história. Mesma regra: só entram quando o balde falou.
+    ...(conclusoesArquivo !== null ? { conclusoes: conclusoesArquivo } : {}),
+    ...(emCursoArquivo !== null ? { emCurso: emCursoArquivo } : {})
   };
   return pacote;
 }
@@ -432,6 +457,12 @@ export function parseImport(texto, courses = [], extras = {}) {
   // diz que não há dominada nenhuma» (objeto vazio legível) de «não falou».
   let dominadasDoArquivo = null;
   let trouxeDominadas = false;
+  // S20b-8: o dia de cada conclusão e o que estava em curso. Mesmo contrato das
+  // dominadas — `null` é «o arquivo não falou», e quem aplica mantém o do aparelho.
+  let conclusoesDoArquivo = null;
+  let trouxeConclusoes = false;
+  let emCursoDoArquivo = null;
+  let trouxeEmCurso = false;
   if (Array.isArray(dados)) {
     idsCandidatos = dados;
   } else if (dados && typeof dados === 'object') {
@@ -512,6 +543,27 @@ export function parseImport(texto, courses = [], extras = {}) {
         ? lerProgresso({ dominadas: d }).dominadas
         : null;
       trouxeDominadas = d && typeof d === 'object' && !Array.isArray(d);
+    }
+    // S20b-8 (06/11/2026): os dois campos que a versão 3 deixou para trás. A causa
+    // medida no Chrome: o arquivo trazia `completed` e a estação voltava concluída
+    // sem dia, porque só `dominadas` atravessava. A malha é a mesma de `lerProgresso`
+    // — `conclusoes` texto ou data fora de AAAA-MM-DD derrubam o registro, nunca o
+    // objeto; `emCurso` lista com lixo sai deduplicada e só com strings.
+    if (dados.conclusoes !== undefined) {
+      const c = dados.conclusoes;
+      // `traz*` é «o arquivo FALOU legível deste campo», e um `{}` legível conta como
+      // fala: é a ordem de apagar que a tela sabe ler. Campo ilegível (texto, número,
+      // lista, null) é MUDO — `traz… false`, nunca `true` com valor vazio, que seria
+      // uma ordem de apagar nascida de um arquivo que ninguém editou para isso.
+      const legivel = Boolean(c) && typeof c === 'object' && !Array.isArray(c);
+      conclusoesDoArquivo = legivel ? lerProgresso({ conclusoes: c }).conclusoes : null;
+      trouxeConclusoes = legivel;
+    }
+    if (dados.emCurso !== undefined) {
+      const e = dados.emCurso;
+      const legivel = Array.isArray(e);
+      emCursoDoArquivo = legivel ? lerProgresso({ emCurso: e }).emCurso : null;
+      trouxeEmCurso = legivel;
     }
   } else {
     return { ok: false, erro: 'O arquivo não contém nem o envelope do Atlas nem uma lista de ids.' };
@@ -653,6 +705,13 @@ export function parseImport(texto, courses = [], extras = {}) {
     rascunhosIlegiveis: baldeRascunhos.ilegivel === true,
     dominadas: dominadasDoArquivo,
     trazDominadas: trouxeDominadas,
+    // S20b-8. Os dois campos que a versão 3 levou sem saber. `null` + `traz… false`
+    // é «o arquivo não falou», e é a tela quem decide manter o do aparelho — o
+    // contrário (devolver `{}` de um v2) reescreveria a viagem sem datas.
+    conclusoes: conclusoesDoArquivo,
+    trazConclusoes: trouxeConclusoes,
+    emCurso: emCursoDoArquivo,
+    trazEmCurso: trouxeEmCurso,
     versao: versaoDoArquivo,
     mensagem
   };

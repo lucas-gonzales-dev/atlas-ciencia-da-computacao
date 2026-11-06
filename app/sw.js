@@ -941,7 +941,26 @@
 // o scanner divide cada declaração por ':' e descarta as que dão mais de duas partes,
 // então `minmax(0, 1fr)` não existe no objeto — a mesma lei que reescreveu a régua do
 // Explorar na S20b-5. Mudam de bytes web/telas/perfil.css e este sw.js.
-const VERSAO = 'atlas-v95';
+// atlas-v96: S20b-8 (06/11/2026) — O BACKUP PERDE A DATA DE CONCLUSÃO, medido no Chrome:
+// exportar e importar num aparelho novo dava `conclusoes: {"ubl-core-introducao-cc-python-i":
+// "2026-09-20"}` antes e `conclusoes: {}` depois, com a estação SEGUINDO concluída. O que se
+// perdia era o DIA, e é dele que a caderneta faz o carimbo (core/caderneta.js: o embarque e a
+// estação percorrida lêem `conclusoes[id]`), e o bilhete do Perfil lê `Concluída em`.
+// A causa é uma lista, não uma regra: a versão 3 do arquivo (S20b-1b) levou estudo, cartões,
+// rascunhos e `dominadas`, e `completed` sempre veio sozinho — `emCurso` e `conclusoes` nunca
+// entraram nos extras. Repetido o caminho das `dominadas`, campo a campo: o export monta os
+// dois pela malha de `lerProgresso` (data fora de AAAA-MM-DD derruba o registro, nunca o
+// objeto; id que não é string cai do em curso) e só os põe no pacote quando falaram — `{}` ou
+// `[]` dentro do v3 é ordem de apagar no destino. O import devolve o par valor + `traz*`, com
+// uma diferença deliberada das dominadas: `importarViagem` devolve O DO APARELHO quando o
+// arquivo ficou calado, porque quem escreve a viagem é o `salvarViagem`, e a tela do Perfil só
+// o chama se algum dos três falou — um `null` silencioso ali reescreveria a viagem sem datas.
+// Campo ILEGÍVEL é mudo (`traz… false`), nunca `true` com valor vazio: ordem de apagar não pode
+// nascer de um arquivo que ninguém editou para isso. `versao` do formato CONTINUA 3: o campo é
+// aditivo, um v3 lido por um v3 velho ignora o que não conhece, e subir a versão cortaria quem
+// ainda não atualizou — e nada disto foi publicado. Mudam de bytes core/progress-io.js,
+// core/dados-pessoa.js, web/telas/perfil.js e tests/progress-io.test.js.
+const VERSAO = 'atlas-v96';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
@@ -1014,7 +1033,7 @@ const VERSAO = 'atlas-v95';
 // fora de app/web e app/core vai para o cache de quem usa. O sw.js mediu o mesmo
 // sha256 antes e depois de eu subir a VERSAO, prova de que ele não está na própria
 // lista.
-const PRECACHE_HASH = 'sha256-1e00b1847461c67d5a37183609f2a779f5ce960107776cc145ce05d8c0e87456';
+const PRECACHE_HASH = 'sha256-d46a813f6779313ff5df318f7d90ead36df296b9aa6b792f6de3b81582832512';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.

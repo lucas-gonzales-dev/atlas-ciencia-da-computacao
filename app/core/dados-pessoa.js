@@ -151,7 +151,12 @@ export function exportarViagem(estado = {}, opts = {}) {
     estudo: estado.estudo,
     cartoes: estado.cartoes,
     rascunhos: estado.rascunhos,
-    dominadas: estado.dominadas
+    dominadas: estado.dominadas,
+    // S20b-8: o dia de cada conclusão e o que está em curso. Vão pelos mesmos
+    // `extras` das dominadas; quem decide se a chave entra no arquivo é o
+    // progress-io, e a tela só entrega o objeto que `carregarViagem` remontou.
+    conclusoes: estado.conclusoes,
+    emCurso: estado.emCurso
   });
   const nome = nomeDoArquivo(agora);
 
@@ -186,6 +191,13 @@ export function importarViagem(texto, estado = {}) {
 
   const anotacoesAnteriores = estado.anotacoes && typeof estado.anotacoes === 'object' ? estado.anotacoes : {};
   const revisoesAnteriores = estado.revisoes && typeof estado.revisoes === 'object' ? estado.revisoes : {};
+  // S20b-8: o que ESTE aparelho sabe sobre datas e intenção. Ler do estado, nunca
+  // do storage: o núcleo não toca em `window` (regra da casa), e a tela já montou
+  // o progresso por `carregarViagem`.
+  const conclusoesAnteriores = estado.conclusoes && typeof estado.conclusoes === 'object' && !Array.isArray(estado.conclusoes)
+    ? estado.conclusoes
+    : {};
+  const emCursoAnteriores = Array.isArray(estado.emCurso) ? estado.emCurso : [];
 
   if (!r.ok) {
     return {
@@ -218,6 +230,18 @@ export function importarViagem(texto, estado = {}) {
     trazRascunhos: Boolean(r.trazRascunhos),
     dominadas: r.dominadas && typeof r.dominadas === 'object' ? { ...r.dominadas } : null,
     trazDominadas: Boolean(r.trazDominadas),
+    // S20b-8: o dia de cada conclusão e o que estava em curso. Aqui a regra é a do
+    // cabeçalho desta função — «arquivo que não fala de um campo não apaga o que já
+    // existe» — e não a das `dominadas`, que devolvem `null` e deixam a tela decidir:
+    // `conclusoes` e `emCurso` são da VIAGEM, e quem os escreve é o `salvarViagem`
+    // abaixo, que só roda quando algum dos três falou. Devolver o do aparelho quando
+    // o arquivo ficou calado é o que faz a trava «importar backup velho não rebaixa
+    // ninguém» valer sem depender de a tela lembrar do ternário. Cópia rasa: o
+    // progress-io já saneou campo a campo, e remixar aqui seria segunda regra.
+    conclusoes: r.trazConclusoes ? { ...r.conclusoes } : { ...(conclusoesAnteriores) },
+    trazConclusoes: Boolean(r.trazConclusoes),
+    emCurso: r.trazEmCurso ? [...r.emCurso] : [...emCursoAnteriores],
+    trazEmCurso: Boolean(r.trazEmCurso),
     versao: r.versao,
     mensagem: `${r.mensagem} ${T.dados.importadoGuarda}`
   };
