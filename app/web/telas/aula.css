@@ -389,6 +389,23 @@
   align-self: flex-start;
 }
 
+/* S18c-4 · a caixa do «escrever mais» numa aula já estudada. Ela é agrupamento,
+   não controle: sem borda, sem fundo, sem cor — o desenho é dos filhos. O nome
+   antigo (`fechamento-mais`) era o do botão «Outro cartão» logo acima, e a folha
+   o desenha com moldura: por isso a caixa saía vermelha na captura. O grid de uma
+   coluna empilha editor e «Guardar o cartão», e o `justify-self: start` segura os
+   dois na largura do próprio rótulo — num grid o botão esticado ao meio era o
+   «pendurado para fora» que a captura mostrou. */
+.aula .fechamento-escrever {
+  display: grid;
+  gap: var(--espaco-2);
+}
+
+.aula .fechamento-mais-abrir,
+.aula .fechamento-mais-guardar {
+  justify-self: start;
+}
+
 .aula .fechamento-limite,
 .aula .fechamento-origem,
 .aula .fechamento-por-hoje {

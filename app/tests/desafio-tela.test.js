@@ -870,7 +870,11 @@ const campoEm = (raiz, nome) => {
   return c;
 };
 
-const caixaMais = (main) => porClasse(main, 'fechamento-mais')[0];
+// S18c-4: a caixa do «escrever mais» deixou de dividir o nome com o botão «Outro
+// cartão» (`.fechamento-mais`), porque a folha a desenhava com a moldura do botão.
+// Os botões dentro dela guardam o nome antigo (`fechamento-mais-abrir/-guardar`);
+// o que mudou foi só a caixa que os agrupa.
+const caixaMais = (main) => porClasse(main, 'fechamento-escrever')[0];
 
 /** Tocar «Escrever mais um cartão» e devolver a caixa do editor aberto. */
 function abrirEditor(app) {

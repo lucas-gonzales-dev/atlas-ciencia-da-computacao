@@ -399,7 +399,12 @@ function erroDoCampo(doc, texto, id) {
  * @returns {Element} o contêiner, que se troca a si mesmo ao tocar
  */
 function blocoEscreverMais(doc, { win, storage, pega, estacao, aula, aoGravar }) {
-  const caixa = no(doc, 'div', 'fechamento-mais');
+  // S18c-4: o nome era `fechamento-mais`, a mesma classe do botão "Outro
+  // cartão" (linha 682) — e a folha desenha `.aula .fechamento-mais` com
+  // border e align-self, então a CAIXA saía com a moldura do botão dentro da
+  // tela, e o "Guardar o cartão" ficava pendurado fora dela. Uma caixa de
+  // agrupamento não tem desenho próprio: o nome é outro.
+  const caixa = no(doc, 'div', 'fechamento-escrever');
 
   const abrir = () => {
     caixa.textContent = '';

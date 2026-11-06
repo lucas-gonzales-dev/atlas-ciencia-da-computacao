@@ -1009,8 +1009,24 @@
 // não muda. `limparErros`/`marcarErro` do fechamento agora apontam para as formas de módulo.
 // Mudam de bytes web/telas/aula.js, web/aulas-pedacos.js, web/folha.js, core/textos.js,
 // tests/desafio-tela.test.js e tests/desafio.test.js; nenhum arquivo novo, o PRECACHE não cresce.
+// atlas-v100: S18c-4 (06/11/2026) — A CAIXA DUPLA DO «Escrever mais um cartão», achada na captura
+// da atlas-v99: o botão saía dentro de UMA SEGUNDA caixa vermelha, e o «Guardar o cartão» pendurado
+// para fora dela, à esquerda. Não é defeito de espaçamento: é COLISÃO DE NOME. `web/telas/aula.js`
+// vestia a caixa do editor com `fechamento-mais`, a MESMA classe do botão «Outro cartão» do
+// fechamento, e a folha desenha `.aula .fechamento-mais` com `border`, `border-radius` e
+// `align-self: flex-start` — um `div` de agrupamento vestido com o desenho de um `button`, e o
+// `align-self` que não significa nada fora de um flex container. A caixa agora veste
+// `fechamento-escrever`, e ganha em `aula.css` só `display: grid` + `gap`: sem borda, sem fundo, sem
+// cor, porque o desenho é dos filhos; `justify-self: start` nos dois botões segura cada um na largura
+// do próprio rótulo (num grid, o botão esticado ao meio era o «pendurado para fora»). A régua nova em
+// tests/auditoria-tamanhos.test.js é a GERAL, não o caso: varre as classes literais de `no(doc, tag,
+// 'classes')` em aula.js e nenhuma pode vestir duas tags diferentes se a folha a desenha com borda —
+// travar só `fechamento-escrever` deixaria a próxima colisão nascer verde. Mudam de bytes
+// web/telas/aula.js, web/telas/aula.css, tests/auditoria-tamanhos.test.js e
+// tests/desafio-tela.test.js (a caixa procurada pela trava da S18c-3); nenhum arquivo novo, o
+// PRECACHE não cresce.
 
-const VERSAO = 'atlas-v99';
+const VERSAO = 'atlas-v100';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
@@ -1083,7 +1099,7 @@ const VERSAO = 'atlas-v99';
 // fora de app/web e app/core vai para o cache de quem usa. O sw.js mediu o mesmo
 // sha256 antes e depois de eu subir a VERSAO, prova de que ele não está na própria
 // lista.
-const PRECACHE_HASH = 'sha256-884c0d59f667c7170a0db67aa3816738134fd0a7ea7ad611ec5c20bf28b038ac';
+const PRECACHE_HASH = 'sha256-4d2cec58efd9636e7f27f82701a0bf97b964ef5c70ebc21863e9580ce62c584e';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.

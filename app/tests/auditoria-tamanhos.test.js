@@ -896,6 +896,60 @@ test('S20b-7 · em 1024 o Perfil divide a sobra, não a empilha à esquerda', as
     'o teto de 1024 sem centralizar: a sobra fica toda de um lado e o Perfil encosta na esquerda enquanto o Explorar fica centrado');
 });
 
+/*
+ * S18c-4 (atlas-v100) — A COLISÃO DE NOME QUE DESENHOU UMA CAIXA COMO BOTÃO.
+ *
+ * O defeito não é o nome `fechamento-mais`: é a mesma classe vestindo um `div` de
+ * agrupamento e um `button`, com a folha desenhando a classe com borda. Quem abre
+ * o editor da aula já estudada recebeu uma segunda caixa vermelha em volta, e o
+ * «Guardar o cartão» ficou fora dela — porque `align-self` do botão não significa
+ * nada num div que não é filho de flex. A régua abaixo é a GENERAL que o pedido
+ * pediu: varre as classes literais de aula.js, e nenhuma pode aparecer em duas
+ * tags diferentes se a folha a desenha com borda. Travar só o caso deixaria a
+ * próxima colisão nascer verde.
+ */
+test('S18c-4 · nenhuma classe de aula.js veste duas tags quando a folha a desenha com borda', async () => {
+  const js = await ler('web/telas/aula.js');
+  const css = escanear(await ler('web/telas/aula.css'));
+
+  // Só `no(doc, 'tag', 'classes')` com a classe LITERAL em aspas simples. Os nomes
+  // montados por template (`fechamento-${...}`) não têm string fixa para procurar
+  // na folha, e fingir que têm produziria falsa sensação de cobertura.
+  const tagsDaClasse = new Map();
+  for (const m of js.matchAll(/no\(\s*doc\s*,\s*'([a-z0-9-]+)'\s*,\s*'([^']*)'/g)) {
+    const [, tag, bruto] = m;
+    for (const nome of bruto.trim().split(/\s+/)) {
+      if (!nome || nome.includes('$') || nome.includes('{')) continue;
+      if (!tagsDaClasse.has(nome)) tagsDaClasse.set(nome, new Set());
+      tagsDaClasse.get(nome).add(tag);
+    }
+  }
+
+  // «Desenhada com borda» = alguma regra da folha declara border/border-color/
+  // border-style/border-width com um valor que não é `none` nem `0`. `border: none`
+  // não pinta caixa, e contar como borda acusaria um CSS que resolveu o problema.
+  const comBorda = (nome) => {
+    const re = new RegExp(`\\.${nome}(?![\\w-])`);
+    return css.some((r) => re.test(r.seletor) &&
+      [...r.corpo.matchAll(/(?:^|[;{\s])border[a-z-]*\s*:\s*([^;]+)/g)]
+        .some(([, valor]) => !/^(?:\s*(?:none|0)\s*)$/.test(valor)));
+  };
+
+  const ofensas = [...tagsDaClasse]
+    .filter(([nome, tags]) => tags.size > 1 && comBorda(nome))
+    .map(([nome, tags]) => `.${nome} em ${[...tags].sort().join(' + ')} (a folha desenha com borda)`);
+  assert.equal(ofensas.length, 0,
+    `classe de aula.js vestindo duas tags com desenho de borda — um dos dois herda o\n` +
+    `vestido do outro: ${ofensas.join('\n')}`);
+
+  // O caso, travado direto: a caixa do «escrever mais» é agrupamento e não pode
+  // voltar ao nome do botão «Outro cartão».
+  assert.match(js, /no\(doc,\s*'div',\s*'fechamento-escrever'/,
+    'a caixa do escrever mais voltou a vestir fechamento-mais: herda a moldura e o align-self do botão «Outro cartão»');
+  assert.match(js, /no\(doc,\s*'button',\s*'fechamento-mais'/,
+    'o botão «Outro cartão» perdeu a classe que a folha desenha com a cor da estação');
+});
+
 test('réguas 6 · trocar de aba leva ao topo de QUEM ESTÁ ROLANDO', async () => {
   const js = await ler('web/casco.js');
   assert.match(js, /win\.scrollTo\?\.\(0, 0\)/, 'o casco perdeu o rolamento ao topo da janela');
