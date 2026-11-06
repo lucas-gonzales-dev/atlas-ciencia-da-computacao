@@ -29,7 +29,7 @@ import { detectCycles, unlockedCourses, nextUp } from './progress.js';
 // S5: `TIPO_DE_ORIGEM` é o dicionário resourceType → palavra (textos.js é puro,
 // sem import de node e sem DOM, por isso o núcleo pode lê-lo sem quebrar a regra
 // de cima). A folha mostra a palavra; o que a fonte não diz, a folha não diz.
-import { TIPO_DE_ORIGEM } from './textos.js';
+import { TIPO_DE_ORIGEM, recomeco } from './textos.js';
 
 /** Os quatro estados de uma estação (JORNADA.md §3.1). */
 export const ESTADOS = Object.freeze({
@@ -205,6 +205,43 @@ export function dataLocal(hoje) {
   const d = hoje instanceof Date && !Number.isNaN(hoje.getTime()) ? hoje : new Date();
   const deslocada = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
   return deslocada.toISOString().slice(0, 10);
+}
+
+/**
+ * S19a (desenho J5, item 2) — a FRASE DE RECOMECO, ou `null`.
+ *
+ * A pergunta que ela responde é «hoje é uma borda de calendário?», e a resposta
+ * só é dada a quem JÁ ESTUDOU: para a primeira visita o recomeço não existe
+ * (não há o que retomar), e uma frase de «volta» a quem nunca voltou seria o
+ * app inventando uma história sobre a pessoa. Daí os dois parâmetros: a data e a
+ * medida de que houve estudo, esta respondida por quem chama (a tela mede o
+ * aparelho; o `houveEstudo` aqui é o booleano, nunca um novo `every`).
+ *
+ * Dia 1 do mês VENCE a segunda-feira: os dois podem cair no mesmo dia
+ * (2027-02-01 é segunda E dia 1) e a frase mais rara é a do mês — dizer as duas
+ * seria uma linha de texto sobre a mesma borda, e o desenho pede uma frase.
+ *
+ * O DIA DA SEMANA é calculado sem fuso, da mesma escola de `diaDepois`
+ * (core/cartoes.js, regra 13): `new Date(ano, mes - 1, dia)` com os campos
+ * lidos da string, e `getDay()` no calendário LOCAL. Um `new Date('2026-11-02')`
+ * cortaria em UTC — para São Paulo (UTC-3) isso são 21h do dia 1º, e a
+ * segunda-feira viraria domingo em qualquer tela do hemisfério sul. A data de
+ * entrada passa por `dataLocal`, então aceita `Date` ou `aaaa-mm-dd` com o mesmo
+ * resultado, e um formato ilegível devolve `null`: sem data não há borda.
+ *
+ * @param {Date|string|undefined|null} hoje
+ * @param {boolean} houveEstudo
+ * @returns {string|null} a frase de core/textos.js, nunca escrita aqui
+ */
+export function fraseDeRecomeco(hoje, houveEstudo) {
+  if (!houveEstudo) return null;
+  const bruto = dataLocal(hoje);
+  const partes = String(bruto).slice(0, 10).split('-').map(Number);
+  if (partes.length !== 3 || !partes.every(Number.isFinite)) return null;
+  const [ano, mes, dia] = partes;
+  if (dia === 1) return recomeco.mes;
+  if (new Date(ano, mes - 1, dia).getDay() === 1) return recomeco.semana;
+  return null;
 }
 
 /**

@@ -44,7 +44,7 @@ import { cartoesDevidos, minutosDaFila } from '../../core/cartoes.js';
 // S20a-3: o topo pergunta ao núcleo se a estação da retomada ainda é retomada.
 // ESTADOS/estadoDaEstacao são a MESMA fonte que a folha, a placa e o perfil usam
 // — a regra de «concluída» não pode ter duas contas no app (regra da fonte única).
-import { ESTADOS, estadoDaEstacao, dataLocal, resumoDaViagem } from '../../core/viagem.js';
+import { ESTADOS, estadoDaEstacao, dataLocal, resumoDaViagem, fraseDeRecomeco } from '../../core/viagem.js';
 // S18a: o topo pergunta ao núcleo se a estação da volta foi PERCORRIDA. A régua
 // mora em core/estudo.js e é a mesma de `continuarDe` e da folha — o topo não
 // refaz um `every` sobre as aulas, porque duas «percorridas» no app é o defeito
@@ -361,7 +361,7 @@ function estacaoDoResumo(catalogo, resumo) {
  * topo nasce sem a classe — não é um primário esvaziado por CSS, é a tela
  * deixando de ter dois.
  */
-function acaoDoTopo(doc, { alvo, aula, curso, folhaAberta, temAulaEstudada }) {
+function acaoDoTopo(doc, { alvo, aula, curso, folhaAberta, temAulaEstudada, hoje }) {
   const caixa = no(doc, 'div', 'topo-acao');
   const href = hrefDe({ tela: 'estacao', slug: curso.slug, painel: 'aula', n: alvo.n });
   // Os três modos têm FRASE PRÓPRIA, e todas saem de core/textos.js (regra 9):
@@ -389,6 +389,18 @@ function acaoDoTopo(doc, { alvo, aula, curso, folhaAberta, temAulaEstudada }) {
     ? 'botao topo-primario'
     : 'botao botao-primario topo-primario';
   caixa.append(no(doc, 'a', classe, { href, text: texto }));
+  // S19a (desenho J5, item 2): a frase de recomeço, uma linha abaixo do gesto.
+  // Ela vem depois do primário e não é link — quem voltou tem de ver o próximo
+  // passo antes de ver qualquer frase sobre o calendário, e a frase acompanha o
+  // botão em vez de disputar com ele. `fraseDeRecomeco` devolve `null` em todo
+  // dia que não é borda e para quem não tem estudo no aparelho: a frase nasce
+  // do núcleo e a tela só pinta, sem `if` de data escrito aqui.
+  // O booleano é a MEDIDA da estação do alvo (`temAulaEstudada`, o mesmo
+  // `estudadas > 0` do verbo do botão acima): sem estudo medido a frase cala, e
+  // dizer «semana nova» a quem abriu o app pela primeira vez seria o app
+  // inventando uma pausa que a pessoa não fez.
+  const recomeco = fraseDeRecomeco(hoje, temAulaEstudada);
+  if (recomeco) caixa.append(no(doc, 'p', 'topo-recomeco', { text: recomeco }));
   const dur = aula?.duracaoS ? duracaoLegivel(aula.duracaoS) : null;
   caixa.append(no(doc, 'p', 'topo-apoio', {
     text: alvo.modo === 'volta'
@@ -494,7 +506,7 @@ export function desenharTopo(dados, doc) {
   if (alvo.modo === 'volta' && curso) {
     // J5: o cartão vem primeiro — quem voltou não quer ver o mapa antes de ver
     // onde estava. O mapa fica ABAIXO, com as estações estudadas acesas.
-    caixa.append(acaoDoTopo(doc, { alvo, aula, curso, folhaAberta, temAulaEstudada }));
+    caixa.append(acaoDoTopo(doc, { alvo, aula, curso, folhaAberta, temAulaEstudada, hoje: dados.hoje }));
     puxa(linhaDeRevisoes(doc, dados));
     caixa.append(titulo);
     caixa.append(medida());
@@ -508,7 +520,7 @@ export function desenharTopo(dados, doc) {
     caixa.append(titulo);
     caixa.append(medida());
     if (curso) {
-      caixa.append(acaoDoTopo(doc, { alvo, aula, curso, folhaAberta, temAulaEstudada }));
+      caixa.append(acaoDoTopo(doc, { alvo, aula, curso, folhaAberta, temAulaEstudada, hoje: dados.hoje }));
       puxa(linhaDeRevisoes(doc, dados));
     }
   }

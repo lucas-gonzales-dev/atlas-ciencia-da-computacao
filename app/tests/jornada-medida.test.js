@@ -29,7 +29,10 @@ import { comClasse, criarDoc, storageCom, textoDe, todos, esperar } from './hdom
 import { estadoDaLista, subirMetro } from '../web/metro.js';
 import { desenharTopo } from '../web/telas/jornada-topo.js';
 import { ESTUDO_KEY, abrirAula, estudarAula, lerEstudo, serializarEstudo } from '../core/estudo.js';
-import { jornada as J } from '../core/textos.js';
+// S19a: a frase de recomeço é do núcleo (a pergunta é do calendário) e as
+// palavras são de core/textos.js. O teste importa os dois, e não a tela.
+import { fraseDeRecomeco } from '../core/viagem.js';
+import { jornada as J, recomeco as RC } from '../core/textos.js';
 
 const RAIZ = new URL('../', import.meta.url);
 const LER = (rel) => readFileSync(fileURLToPath(new URL(rel, RAIZ)), 'utf8');
@@ -53,6 +56,17 @@ function estudoCom(n) {
   for (const a of AULAS_PRIMEIRA.aulas.filter((x) => Number(x.n) <= n)) {
     e = abrirAula(e, { estacao: PRIMEIRA.id, aula: a.id, n: a.n }, Q('09:00'));
     e = estudarAula(e, { estacao: PRIMEIRA.id, aula: a.id, n: a.n }, Q('09:30'),
+      { recordacao: 'lembrei', conferencia: 'confirmei' });
+  }
+  return e;
+}
+
+/** S19a: o mesmo gesto, com o estudo carimbado no DIA em que a tela abre. */
+function estudoComEm(n, dia) {
+  let e = lerEstudo(null);
+  for (const a of AULAS_PRIMEIRA.aulas.filter((x) => Number(x.n) <= n)) {
+    e = abrirAula(e, { estacao: PRIMEIRA.id, aula: a.id, n: a.n }, `${dia}T09:00`);
+    e = estudarAula(e, { estacao: PRIMEIRA.id, aula: a.id, n: a.n }, `${dia}T09:30`,
       { recordacao: 'lembrei', conferencia: 'confirmei' });
   }
   return e;
@@ -263,4 +277,129 @@ test('S20b-4 · sem índice fica o número antigo, e não um zero inventado', as
   assert.ok(emCurso, 'os três números sumiram da pintura sem índice');
   assert.equal(emCurso.valor, String(1),
     `sem índice a tela perdeu a declaração da malha: ${emCurso.valor}`);
+});
+
+// ══════════════ S19a · a frase de recomeço (desenho J5, item 2) ══════════════
+// O desenho pede a frase em começo de semana ou de mês, e pede que ela não
+// conte ausência. As duas metades têm causas diferentes e são travadas à parte:
+// a palavra é do calendário (o dia da semana, sem fuso — regra 13 de
+// core/cartoes.js), e o direito de dizê-la é da medição (sem estudo no aparelho
+// não há recomeço, há primeira visita).
+//
+// A PROVA PELO CONTRÁRIO: tire a checagem de `houveEstudo` em
+// core/viagem.js::fraseDeRecomeco e o caso «segunda SEM estudo não mostra» cai.
+// É a única forma de esta trava significar «a frase pergunta se houve estudo»
+// em vez de «a frase imprime uma palavra quando o calendário manda».
+
+const SEGUNDA = '2026-11-02';       // segunda-feira, dia 2
+const TERCA = '2026-11-03';         // terça-feira, dia 3
+const TERCA_DIA_1 = '2026-12-01';   // terça-feira E dia 1 → o mês vence
+const SEGUNDA_DIA_1 = '2027-02-01'; // segunda-feira E dia 1 → o mês vence
+
+const topoEm = (doc, hoje, estudo) => desenharTopo({
+  alvo: alvoProxima(2), catalogo: CATALOGO, progresso: { completed: [] },
+  resumo: { concluidas: 0 }, estudo, indice: INDICE, aulas: AULAS_PRIMEIRA.aulas,
+  embarqueAberto: false, hoje
+}, doc);
+
+const recomecoNaTela = (doc, hoje, n) => {
+  const topo = topoEm(doc, hoje, estudoComEm(n, hoje));
+  const nó = comClasse(topo, /^topo-recomeco$/)[0];
+  return { topo, texto: textoDe(topo), frase: nó ? nó.textContent : null };
+};
+
+test('S19a · segunda-feira com estudo traz a frase da semana', () => {
+  const { frase } = recomecoNaTela(criarDoc(), SEGUNDA, 2);
+  assert.equal(frase, RC.semana, `a segunda não disse a frase da semana: ${String(frase)}`);
+});
+
+test('S19a · dia 1 traz a frase do mês, e o dia 1 VENCE a segunda', () => {
+  // Os dois dias abaixo são dia 1; um deles é também segunda. Se a ordem dos
+  // dois ramos se invertesse, 2027-02-01 diria «semana» — e a frase mais rara
+  // do calendário perderia para a mais comum.
+  assert.equal(fraseDeRecomeco(TERCA_DIA_1, true), RC.mes);
+  assert.equal(fraseDeRecomeco(SEGUNDA_DIA_1, true), RC.mes,
+    'segunda que é dia 1 disse a frase da semana: o dia 1 não venceu');
+  const { frase } = recomecoNaTela(criarDoc(), SEGUNDA_DIA_1, 2);
+  assert.equal(frase, RC.mes, 'a tela pintou outra borda do que o núcleo respondeu');
+});
+
+test('S19a · terça não mostra nada', () => {
+  assert.equal(fraseDeRecomeco(TERCA, true), null, 'terça virou borda de calendário');
+  const { frase, texto } = recomecoNaTela(criarDoc(), TERCA, 2);
+  assert.equal(frase, null, `a tela pintou uma frase de recomeço num dia comum: ${texto}`);
+});
+
+test('S19a · segunda SEM estudo não mostra — não se fala de pausa de quem não começou', () => {
+  assert.equal(fraseDeRecomeco(SEGUNDA, false), null,
+    'a frase saiu sem estudo no aparelho: é o recomeço inventando uma ausência');
+  assert.equal(fraseDeRecomeco(SEGUNDA_DIA_1, false), null, 'o dia 1 furou a falta de estudo');
+  const { frase } = recomecoNaTela(criarDoc(), SEGUNDA, 0);
+  assert.equal(frase, null, 'a tela deu boas-vindas de volta à primeira visita');
+});
+
+test('S19a · nenhuma frase fala em dias, em ausência ou em ter voltado', () => {
+  // O desenho é explícito: «nenhuma contagem de ausência». Um número de dias,
+  // um «faz» ou um «voltou» aqui é a tela cobrando a pessoa pela vida dela.
+  const duas = [RC.semana, RC.mes];
+  for (const frase of duas) {
+    assert.match(frase, /^(Semana nova|Mês novo)\./, `a frase perdeu o nome da borda: ${frase}`);
+    assert.equal(/\d/.test(frase), false, `a frase de recomeço tem um número: ${frase}`);
+    assert.equal(/\b(dias?|semanas?|meses?)\b.*\d|\d.*\b(dias?|semanas?|meses?)\b/i.test(frase), false,
+      `a frase conta tempo: ${frase}`);
+    for (const proibida of ['voltou', 'sumiu', 'faltou', 'ausência', 'ausencia', 'parou', 'ficou sem', 'retomou']) {
+      assert.equal(frase.toLowerCase().includes(proibida), false,
+        `a frase fala de ausência («${proibida}»): ${frase}`);
+    }
+  }
+});
+
+test('S19a · a frase é um parágrafo, não um segundo caminho, e o primário continua um só', () => {
+  const { topo } = recomecoNaTela(criarDoc(), SEGUNDA, 2);
+  const nó = comClasse(topo, /^topo-recomeco$/)[0];
+  assert.ok(nó, 'sumiu o .topo-recomeco: a frase não chega mais à tela');
+  // `getAttribute` do mini-DOM devolve `null` para atributo ausente (é o que o
+  // DOM real faz também), e a mira é a TAG: um `<a>` com a classe estaria certo
+  // no assert de baixo e errado na tela.
+  // O dublê da casa guarda a tag em `.tag` (tests/hdom.js:12), não em
+  // `tagName` — ler o campo errado daria `undefined` e o assert passaria a
+  // medir o dublê em vez da tela, que é o defeito que o próprio hdom registra.
+  assert.equal(String(nó.tag).toLowerCase(), 'p',
+    `a frase saiu de um <${String(nó.tag).toLowerCase()}>: recomeço não é caminho`);
+  assert.equal(nó.getAttribute('href'), null,
+    'a frase de recomeço virou link: a tela teria dois caminhos na mesma caixa');
+  const primarios = todos(topo, (n) => String(n.className || '').split(/\s+/).includes('botao-primario'));
+  assert.equal(primarios.length, 1, `${primarios.length} primários na Jornada: um deles é a frase`);
+});
+
+test('S19a · a frase mora em core/textos.js, e quem decide o dia mora em core/viagem.js', () => {
+  // Regra 9 da casa: nenhuma frase escrita na tela, e nenhum `getDay()` solto
+  // num arquivo de desenho — a conta do calendário é do núcleo, e a palavra é
+  // do texto. As duas quedas são diferentes e as duas são baratas de evitar.
+  assert.equal(RC.semana, 'Semana nova. Uma aula e as revisões de hoje já movem o mapa.');
+  assert.equal(RC.mes, 'Mês novo. Uma aula e as revisões de hoje já movem o mapa.');
+  for (const rel of ['web/telas/jornada-topo.js', 'web/telas/jornada.css', 'web/metro.js']) {
+    const fonte = LER(rel).split('\n').filter((l) => !l.trim().startsWith('//')).join('\n');
+    assert.equal(/Semana novo|Mês novo/.test(fonte), false,
+      `${rel} escreve a frase de recomeço: ela vem de core/textos.js`);
+    assert.equal(/getDay\(/.test(fonte), false,
+      `${rel} calcula o dia da semana: a borda do calendário é de core/viagem.js`);
+  }
+});
+
+test('S19a · o dia da semana é lido SEM fuso — a segunda de quem estuda às 23h', () => {
+  // `new Date('2026-11-02')` é meia-noite EM UTC: para São Paulo (UTC-3) são
+  // 21h de 1º de novembro, e a segunda-feira viraria domingo. A trava não pode
+  // depender do fuso da máquina que roda o teste, então ela compara com a
+  // tabela do calendário, escrita aqui como ORÁCULO (e não como frase).
+  const espelho = { '2026-11-02': 'semana', '2026-11-03': null, '2026-11-09': 'semana', '2026-12-01': 'mes' };
+  for (const [dia, esperado] of Object.entries(espelho)) {
+    const saida = fraseDeRecomeco(dia, true);
+    const frase = esperado === 'semana' ? RC.semana : esperado === 'mes' ? RC.mes : null;
+    assert.equal(saida, frase, `${dia} deveria dar «${esperado}» e devolveu «${String(saida)}»`);
+  }
+  // Data ilegível ou ausente não é borda de nada: a frase cala.
+  for (const ruim of ['', 'lixo', '2026-13-45', null, undefined]) {
+    assert.equal(fraseDeRecomeco(ruim, true), null, `${String(ruim)} abriu uma borda do calendário`);
+  }
 });

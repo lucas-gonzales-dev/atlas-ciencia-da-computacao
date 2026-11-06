@@ -1025,8 +1025,19 @@
 // web/telas/aula.js, web/telas/aula.css, tests/auditoria-tamanhos.test.js e
 // tests/desafio-tela.test.js (a caixa procurada pela trava da S18c-3); nenhum arquivo novo, o
 // PRECACHE não cresce.
+// atlas-v101: S19a — a FRASE DE RECOMECO (desenho v3, J5 item 2). Em começo de semana ou
+// de mês, quem já tem estudo no aparelho vê uma linha abaixo do primário dizendo que uma
+// aula e as revisões de hoje já movem o mapa; nenhuma contagem de ausência, nenhum número
+// de dias, e nenhum «voltou». A conta do dia é do núcleo (`fraseDeRecomeco` em
+// core/viagem.js, sem fuso — regra 13 de core/cartoes.js), as palavras são de
+// core/textos.js (o bloco `recomeco`), e a tela só pinta um <p class="topo-recomeco">,
+// sem link, com o primário continuando um só. Mudam de bytes core/viagem.js,
+// core/textos.js, web/telas/jornada-topo.js e web/telas/jornada.css — os quatro no
+// precache. Sem subir a VERSAO, quem tem v100 no cache recebe um jornada-topo.js
+// chamando fraseDeRecomeco de um viagem.js que não o exporta: TypeError no boot da
+// Jornada e a tela em branco no ônibus.
 
-const VERSAO = 'atlas-v100';
+const VERSAO = 'atlas-v101';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
@@ -1099,7 +1110,12 @@ const VERSAO = 'atlas-v100';
 // fora de app/web e app/core vai para o cache de quem usa. O sw.js mediu o mesmo
 // sha256 antes e depois de eu subir a VERSAO, prova de que ele não está na própria
 // lista.
-const PRECACHE_HASH = 'sha256-4d2cec58efd9636e7f27f82701a0bf97b964ef5c70ebc21863e9580ce62c584e';
+// Recalculado ao fechar a S19a (06/11/2026), com a árvore parada e DEPOIS de subir a
+// VERSAO para atlas-v101: quatro folhas do precache mudaram de bytes — core/viagem.js
+// (fraseDeRecomeco), core/textos.js (o bloco recomeco), web/telas/jornada-topo.js (o
+// <p class="topo-recomeco">) e web/telas/jornada.css (a regra dele). tests/
+// jornada-medida.test.js não está no cache, como todo teste.
+const PRECACHE_HASH = 'sha256-b83cda917f4f3b1e53d1f4adc4974095f225fd49be123fe1bb66b958eb09c489';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.

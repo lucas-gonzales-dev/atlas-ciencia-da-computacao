@@ -111,6 +111,21 @@
   overflow-wrap: anywhere;
 }
 
+/* S19a (desenho J5, item 2): a frase de recomeço. Corpo, tinta — não fosca:
+ * fosca é o tom do apoio (a duração, o rótulo miúdo), e o recomeço é uma frase
+ * dita à pessoa, não uma anotação ao lado do botão. `.topo-acao` já é um grid
+ * com `gap: var(--espaco-2)`, então a margem só respira o fim do parágrafo e
+ * nenhuma medida de largura é escrita aqui (lista do proibido, régua 12).
+ * É um <p>, não um link: quem voltou tem um primário, e um segundo caminho
+ * clicável na mesma caixa é o defeito do dois-primários em roupa de texto. */
+.topo-recomeco {
+  margin: 0 0 var(--espaco-2);
+  font-size: var(--tipo-corpo);
+  line-height: var(--entrelinha-corpo);
+  color: var(--tinta);
+  overflow-wrap: anywhere;
+}
+
 /* O "Já estudei algumas disciplinas": o mesmo texto do topo, um degrau abaixo.
    LINK DISCRETO de verdade — sem recheio, sem borda, na cor da linha quando a
    houver. Não compete com o primário, que é um só por tela. */

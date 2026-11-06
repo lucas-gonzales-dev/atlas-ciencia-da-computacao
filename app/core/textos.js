@@ -666,6 +666,26 @@ export const jornada = {
 };
 
 /**
+ * S19a (desenho J5, item 2) — a FRASE DE RECOMECO. Ela existe para o dia em que
+ * a pessoa abre o app depois de uma pausa, e o desenho diz como essa frase é:
+ * nenhuma contagem de ausência, e uma frase em começo de semana ou de mês. O
+ * motivo de ela não falar em dias é o mesmo que tirou o "faz N dias" do app: a
+ * tela não sabe se quem sumiu esteve mal, e um número sobre a ausência cobra a
+ * pessoa pela vida dela. Aqui o recomeço é o do CALENDÁRIO, não o da culpa — a
+ * semana e o mês viram sozinhos, e a frase só diz que uma aula e as revisões de
+ * hoje já movem o mapa. Não há número nenhum, e é a única forma de a frase
+ * continuar verdadeira em 2027.
+ *
+ * Quem decide SE e QUAL frase sai é `fraseDeRecomeco` (core/viagem.js); este
+ * bloco só guarda as palavras. Duas, e cada uma com o mesmo fim: ninguém no app
+ * escreve a frase na tela (regra 9).
+ */
+export const recomeco = Object.freeze({
+  semana: 'Semana nova. Uma aula e as revisões de hoje já movem o mapa.',
+  mes: 'Mês novo. Uma aula e as revisões de hoje já movem o mapa.',
+});
+
+/**
  * A EXPLORAR (S7, 01/11/2026): a rede inteira em lista, para quem quer ver o
  * caminho sem embarcar em nada. Nenhuma frase daqui diz "estude", "assista" ou
  * "comece agora": a Explorar mostra a rede, quem decide é a pessoa na estação.
@@ -1466,6 +1486,6 @@ export const caderneta = Object.freeze({
 });
 
 /** Tudo junto, para quem precisa percorrer (o teste percorre). */
-export const TEXTOS = { placa, comValores, folha, estados, legenda, mapa, proibido, ORIGEM, TIPO_DE_ORIGEM, casco, jornada, explorar, chegada, revisar, perfil, aulas, aula, modelosDeFrente, fechamento, desafio, caderneta };
+export const TEXTOS = { placa, comValores, folha, estados, legenda, mapa, proibido, ORIGEM, TIPO_DE_ORIGEM, casco, jornada, recomeco, explorar, chegada, revisar, perfil, aulas, aula, modelosDeFrente, fechamento, desafio, caderneta };
 
 export default TEXTOS;
