@@ -817,7 +817,17 @@
 // Muda de bytes e está no precache: core/textos.js, web/metro.js,
 // web/telas/jornada-topo.js, web/telas/jornada.css. tests/jornada-medida.test.js (novo),
 // tests/auditoria-tamanhos.test.js e package.json nao estao no cache.
-const VERSAO = 'atlas-v88';
+// atlas-v89: S17a-1 (05/11/2026) — A CADERNETA, só o núcleo da série do percurso,
+// sem tela. O Perfil tinha um bilhete carimbado pela conclusão DECLARADA; o princípio
+// 4 do desenho troca isso por oito carimbos que nascem de critério MEDIDO, com os
+// espaços vazios à vista. Entra core/caderneta.js no precache (modulo novo, importado
+// por tela nenhuma ainda — o mesmo motivo do viagem.js: o precache cobre o disco) e
+// mudam de bytes core/textos.js (o bloco caderneta com todas as frases, mais as duas
+// regras da lista do proibido: número de dias e palavra de sequência) e este sw.js.
+// A frase da baldeação perdeu a palavra «primeira»: a trava 10 da série a pegou.
+// Sem subir a VERSAO, quem tem v88 no cache recebe um core/textos.js novo sem a
+// caderneta ao lado: a tela que amanhã importar o módulo abre em branco no onibus.
+const VERSAO = 'atlas-v89';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
@@ -882,7 +892,7 @@ const VERSAO = 'atlas-v88';
 // web/telas/jornada.css (o desfazer da colisão de classe no `.topo`). O arquivo
 // novo (tests/jornada-medida.test.js) e as duas travas tocadas não estão no
 // precache: nada de fora de app/web e app/core vai para o cache de quem usa.
-const PRECACHE_HASH = 'sha256-8849bdd8d41cca7467603c8f9c2cec5dffc8a47365e1f19f41f621ab39cd14d0';
+const PRECACHE_HASH = 'sha256-a66a933202ce0cca8c21bc4f19a47bf54200822c72b54d25f56bf28158e680e8';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.
@@ -1028,6 +1038,11 @@ const PRECACHE = [
   // S16b desenha o mapa) — mas o mapa e a primeira coisa que a pessoa ve na
   // jornada, e um modulo fora do cache e a jornada em branco no onibus.
   'core/eixos.js',
+  // A CADERNETA do percurso (S17a-1, 05/11/2026): os oito carimbos medidos, com os
+  // espaços vazios à vista. Modulo puro, sem tela ainda (a proxima fatia desenha o
+  // Perfil) — mas o bilhete que hoje se lê no Perfil vira esta conta, e um modulo
+  // fora do cache é a caderneta em branco no onibus.
+  'core/caderneta.js',
   // O DESAFIO da estacao (S18b-1, 05/11/2026): quem pode, o porque que falta e o
   // sorteio dos 10 a 15 cartoes da propria pessoa. Modulo puro, sem tela ainda (a
   // proxima fatia desenha) -- mas o cartao que amanha vira desafio precisa estar

@@ -543,6 +543,8 @@ export const proibido = [
   'duração escrita à mão',
   'número de largura à mão em @media',
   'nome de estágio inventado',
+  'número de dias ou de tempo na frase de um carimbo',
+  'palavra de sequência na frase de um carimbo',
 ];
 
 /**
@@ -1223,7 +1225,73 @@ export const desafio = Object.freeze({
   },
 });
 
+/**
+ * A CADERNETA DO PERCURSO (S17a-1, desenho design/v3/00-desenho.md, princípio 4).
+ *
+ * O desenho troca o bilhete carimbado pela conclusão DECLARADA por uma série de
+ * carimbos que nascem de critério MEDIDO, com os espaços vazios à vista. Este
+ * bloco tem as três palavras de cada carimbo: o NOME, o CRITÉRIO (o que a série
+ * exige, escrito para ser conferido) e a FRASE (o fato nu, para quem tem o
+ * carimbo). O vazio é UM texto só: com os oito sempre presentes, um texto por
+ * espaço vazio seria oito frases para a mesma ausência.
+ *
+ * A FRASE NÃO DÍZ NÚMERO DE DIAS E NEM PALAVRA DE SEQUÊNCIA, e isto é regra, não
+ * estilo. «Você voltou à linha depois de 9 dias» faria a caderneta falar de
+ * ausência e atraso, que a régua 9 (design/README §9) proíbe e que a volta de
+ * quem voltou não precisa ouvir. A data fica no carimbo (`data`), e quem renderiza
+ * mostra dd/mm/aaaa; à frase cabe o fato.
+ *
+ * O critério do «calibrado» é ARBITRADO: o desenho só diz «confiança bate com
+ * acerto em 20 revisões», sem definir o que «bater» quer dizer. A definição está
+ * em core/caderneta.js, junto do motivo.
+ */
+export const caderneta = Object.freeze({
+  rotulo: 'Caderneta',
+  serie: 'percurso',
+  vazio: 'Ainda não aconteceu.',
+  embarque: {
+    nome: 'Embarque',
+    criterio: 'A primeira aula aberta.',
+    frase: 'Você abriu uma aula.',
+  },
+  primeiraAula: {
+    nome: 'Primeira aula estudada',
+    criterio: 'O primeiro fechamento de aula.',
+    frase: 'Você fechou uma aula.',
+  },
+  primeiraRevisao: {
+    nome: 'Primeira revisão no dia seguinte',
+    criterio: 'Uma revisão de cartão num dia depois do dia em que o cartão foi escrito, com qualquer nota.',
+    frase: 'Você voltou a um cartão no dia seguinte.',
+  },
+  consolidado: {
+    nome: 'Primeiro cartão consolidado',
+    criterio: 'Um cartão que aguenta um intervalo longo, com as duas últimas notas lembradas.',
+    frase: 'Um cartão seu aguenta esperar.',
+  },
+  estacaoPercorrida: {
+    nome: 'Primeira estação percorrida',
+    criterio: 'Uma estação com todas as aulas estudadas ou puladas.',
+    frase: 'Você percorreu uma estação inteira.',
+  },
+  baldeacao: {
+    nome: 'Primeira baldeação',
+    criterio: 'Duas estações concluídas em linhas diferentes, uma pré-requisito da outra.',
+    frase: 'Você trocou de linha na rede.',
+  },
+  deVolta: {
+    nome: 'De volta à linha',
+    criterio: 'Uma atividade depois de sete dias ou mais sem nenhuma.',
+    frase: 'Você voltou à linha.',
+  },
+  calibrado: {
+    nome: 'Calibrado',
+    criterio: 'Nas últimas 20 revisões com confiança, certeza acerta mais que acho, e acho mais que chute.',
+    frase: 'Dizer que sabe bate com lembrar.',
+  },
+});
+
 /** Tudo junto, para quem precisa percorrer (o teste percorre). */
-export const TEXTOS = { placa, comValores, folha, estados, legenda, mapa, proibido, ORIGEM, TIPO_DE_ORIGEM, casco, jornada, explorar, chegada, revisar, perfil, aulas, aula, modelosDeFrente, fechamento, desafio };
+export const TEXTOS = { placa, comValores, folha, estados, legenda, mapa, proibido, ORIGEM, TIPO_DE_ORIGEM, casco, jornada, explorar, chegada, revisar, perfil, aulas, aula, modelosDeFrente, fechamento, desafio, caderneta };
 
 export default TEXTOS;
