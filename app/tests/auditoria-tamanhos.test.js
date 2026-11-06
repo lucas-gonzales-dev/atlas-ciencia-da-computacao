@@ -1,0 +1,961 @@
+// Projeto Atlas — S10-auditoria, régua 6 (tamanhos).
+//
+// O que a régua pede: os 4 tamanhos do testar_pagina, sem texto cortado, sem
+// rolagem lateral, e as abas de baixo SEM COBRIR CONTEÚDO. O defeito foi visto
+// na tela (02/11/2026, com a suíte toda verde): no celular e no tablet as abas
+// passavam por cima de "Viagem", "Em curso", "Linhas abertas" e do texto "Já
+// estudou alguma? Marque as que você já fez".
+//
+// A CAUSA não era um número pequeno demais, e é por isso que esta trava não
+// cobra número nenhum como se ele fosse o remédio: `main { padding-bottom: … }`
+// reserva espaço no FIM DO DOCUMENTO, e o documento é que rola. O último item
+// sobe com a rolagem até a borda inferior da página, que é a BARRA — a reserva
+// não segura nada em lugar nenhum. Um `padding-bottom` maior só empurra a
+// mentira para mais fundo.
+//
+// O que fecha a régua de verdade, e o que cada teste abaixo pergunta:
+//   · no celular e no tablet a JANELA não rola; quem rola é o `main`, que tem
+//     sua própria caixa e o seu próprio forro — a reserva passa a viver com o
+//     conteúdo, e o último item para no topo da faixa, não atrás dela;
+//   · a altura da barra e a reserva leem o MESMO token, para não poderem
+//     discordar em dias diferentes;
+//   · no computador a janela volta a rolar e a barra entra no fluxo (é lá que
+//     o painel sticky da Jornada tem de colar embaixo do topo);
+//   · nada força rolagem lateral: nenhuma largura fixa maior que o celular
+//     nasce no CSS, e `overflow-x` só existe onde o trilho das 7 linhas pede.
+//
+// LIMITE HONESTO: node não tem navegador. Aqui se prova a ESTRUTURA (quem rola,
+// quem reserva, com que token). Os pixels — texto cortado, barra cobrindo item
+// — só se provam no testar_pagina, nos 4 tamanhos, e é lá que esta fatia fecha.
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readdir, readFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const RAIZ = fileURLToPath(new URL('..', import.meta.url)); // app/
+const ler = (c) => readFile(join(RAIZ, c), 'utf8');
+const semComentario = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '');
+
+async function cssDaTela() {
+  const saida = [];
+  const ande = async (p) => {
+    for (const e of await readdir(p, { withFileTypes: true })) {
+      const c = join(p, e.name);
+      if (e.isDirectory()) await ande(c);
+      else if (e.name.endsWith('.css')) saida.push(c.slice(join(RAIZ, 'web').length - 3).split('\\').join('/'));
+    }
+  };
+  await ande(join(RAIZ, 'web'));
+  assert.ok(saida.length >= 8, `esperava ao menos 8 .css em web/, vieram ${saida.length}`);
+  return saida;
+}
+
+/**
+ * Regras com a media query em que moram — e isto é o coração do arquivo.
+ *
+ * O varredor ingênuo de `regras()` devolve as regras de dentro de um `@media`
+ * misturadas com as da base, e a régua 6 É sobre a diferença entre elas: a barra
+ * é fixa no pé na base e volta ao fluxo no computador. Ler as duas como uma
+ * folha só diria que `position: static` convive com `position: fixed` na mesma
+ * regra, o que é falso dos dois jeitos. Varremos as chaves contando a pilha: o
+ * que estiver dentro de um `@media` traz a condição junto; o resto é base.
+ */
+function escanear(textoCss) {
+  const limpo = semComentario(textoCss);
+  const out = [];
+  const pilha = [];
+  let buf = '';
+  for (const ch of limpo) {
+    if (ch === '{') {
+      // `html,` + quebra de linha + `body { … }` é UMA regra com DOIS alvos, e o
+      // espaço depois da vírgula não significa nada para o navegador. Uma trava
+      // que pergunta "esta regra é do body?" com `/(^|,)body(,|$)/` sobre o texto
+      // cru diria que não — e era assim que a régua 6 reprovava um CSS que estava
+      // certo (03/11/2026): o `height: auto` que devolve a altura ao body no
+      // computador mora exatamente numa lista `html, body`. A lista é remontada
+      // sem os espaços que separam os alvos; o que as travas lêem depois é a
+      // mesma lista que o navegador vê.
+      pilha.push(buf.trim().replace(/\s+/g, ' ').replace(/\s*,\s*/g, ','));
+      buf = '';
+    } else if (ch === '}') {
+      const corpo = buf.trim();
+      const sel = pilha.pop();
+      if (corpo) {
+        out.push({
+          seletor: sel,
+          corpo,
+          media: pilha.filter((s) => s.startsWith('@')).join(' && '),
+          decls: Object.fromEntries(
+            corpo.split(';').map((d) => d.split(':')).filter((p) => p.length === 2).map((p) => [p[0].trim(), p[1].trim()])
+          ),
+        });
+      }
+      buf = '';
+    } else buf += ch;
+  }
+  return out;
+}
+
+const ehMediaDesktop = (m) => /min-width:\s*1024px/.test(m || '');
+const naBase = (r) => r.media === '';
+
+test('réguas 6 · a janela não rola no celular e no tablet: quem rola é o main', async () => {
+  const casco = escanear(await ler('web/casco.css'));
+  const janela = casco.filter((r) => naBase(r) && /(^|,)(html|body)(,|$)/.test(r.seletor));
+  assert.ok(
+    janela.length >= 1,
+    'web/casco.css não trava a janela: sem isto o documento inteiro rola atrás da barra fixa e a reserva do main é decorativa'
+  );
+  const trava = janela.some((r) => /(100dvh|100vh)/.test(r.corpo) && /overflow:\s*hidden/.test(r.corpo));
+  assert.ok(
+    trava,
+    `a janela não está trancada (height dvh + overflow hidden). Regras lidas: ${janela.map((r) => `${r.seletor}{${r.corpo}}`).join(' | ')}`
+  );
+
+  const alvo = casco.filter((r) => naBase(r) && /(^|,)main(,|$)/.test(r.seletor));
+  assert.ok(alvo.length >= 1, 'web/casco.css sem regra para main');
+  const rola = alvo.some((r) => /overflow(-y)?:\s*auto/.test(r.corpo));
+  assert.ok(rola, `o main não é container de rolagem, então o forro dele continua sendo o fim do documento: ${alvo.map((r) => r.corpo).join(' | ')}`);
+  const naoCorta = alvo.every((r) => !/overflow-x:\s*hidden/.test(r.corpo));
+  assert.ok(naoCorta, 'o main corta o eixo x: conteúdo largo ficaria INALCANÇÁVEL em vez de rolar para o lado');
+});
+
+/**
+ * A caixa do main TERMINA no topo da barra — e isto não é a mesma coisa que
+ * "reservar espaço embaixo", que foi a primeira tentativa desta fatia e o
+ * testar_pagina devolveu errada: com `overflow-y: auto` e o forro em
+ * `padding-bottom`, mas sem altura limitada, o main tem altura de conteúdo, nada
+ * rola, e a barra segue desenhada sobre o meio da tela. Limite é diferente de
+ * reserva, e só a caixa limitada faz o conteúdo existir de fato acima da faixa.
+ * Daí as duas cobranças abaixo: o body em coluna (é ela que dá altura ao main) e
+ * o `min-height: 0` (sem ele o item flex mantém a altura do conteúdo).
+ */
+test('réguas 6 · a caixa do main termina no topo da barra: limite, não reserva', async () => {
+  const casco = escanear(await ler('web/casco.css'));
+  const body = casco.filter((r) => naBase(r) && /(^|,)body(,|$)/.test(r.seletor));
+  assert.ok(
+    body.some((r) => /display:\s*flex/.test(r.corpo) && /flex-direction:\s*column/.test(r.corpo)),
+    `o body não é coluna de altura fechada: sem isto o main não tem caixa limitada e o overflow dele é decorativo — ${body.map((r) => r.corpo).join(' | ')}`
+  );
+
+  // A FAIXA É DESCONTADA DO BODY, e é esse o ponto que a primeira tentativa desta
+  // fatia errou: o desconto morava num `margin-bottom` do main, e `.metro { margin:
+  // 0 auto }` (metro.css, duas classes+zero vs. um elemento, e carregado depois do
+  // casco) passou por cima e zerou a margem. A barra sendo `fixed` está fora do
+  // fluxo: não havia espaço sobrando para aquele auto centrar, e ela seguia
+  // cobrindo. Cobrar `margin-bottom` no main seria cobrar um número que o CSS das
+  // telas pode comer a qualquer hora — por isto a trava pergunta ao BODY.
+  const corpo = body.find((r) => /height:\s*calc\(/.test(r.corpo));
+  assert.ok(
+    corpo,
+    `o body não desconta a faixa da barra da própria altura — a caixa do main passaria por baixo dela: ${body.map((r) => r.corpo).join(' | ')}`
+  );
+  assert.ok(
+    /--altura-barra/.test(corpo.corpo) && /100dvh/.test(corpo.corpo),
+    `o desconto do body não é 100dvh menos --altura-barra (${corpo.corpo}): altura à mão ou token errado voltam a cobrir o fim da tela`
+  );
+
+  const main = casco.filter((r) => naBase(r) && /(^|,)main(,|$)/.test(r.seletor));
+  const caixa = main.find((r) => /flex:/.test(r.corpo));
+  assert.ok(caixa, 'o main não é item flex: quem recebe o espaço que sobra do topo e da barra tem de ser ele');
+  assert.ok(
+    /min-height:\s*0/.test(caixa.corpo),
+    `o main não tem min-height: 0 — em coluna flex o item guarda a altura do conteúdo e a caixa estoura a tela: ${caixa.corpo}`
+  );
+  assert.ok(
+    /overflow-y:\s*auto/.test(caixa.corpo),
+    `o main não é o rolador (${caixa.corpo}): o clip que protege o último item acontece na caixa dele`
+  );
+  assert.ok(
+    main.every((r) => !/margin-bottom/.test(r.corpo)),
+    'voltou o margin-bottom no main: as telas anulam com .metro{margin:0 auto} e o conserto vira decorativo outra vez'
+  );
+
+  const desktop = casco.filter((r) => ehMediaDesktop(r.media) && /(^|,)(main|body)(,|$)/.test(r.seletor));
+  assert.ok(
+    desktop.some((r) => /height:\s*auto/.test(r.corpo) && /(^|,)body(,|$)/.test(r.seletor)),
+    'o @media de 1024px não devolve a altura ao body: no computador a tela terminaria 56 px antes do fim da janela'
+  );
+  assert.ok(
+    desktop.some((r) => /(^|,)main(,|$)/.test(r.seletor) && /flex:\s*none/.test(r.corpo)),
+    'o @media de 1024px não solta o main da coluna: ele continuaria disputando altura com um documento que rola sozinho'
+  );
+});
+
+/**
+ * A trava que esta fatia precisou DEPOIS de se consertar.
+ *
+ * O primeiro defeito da régua 6 foi o `padding-bottom` no fim do documento. O
+ * segundo foi meu conserto ter sido anulado por outro arquivo, e o testar_pagina
+ * é que viu: `base.css` dava `min-height: 100dvh` ao body, e min-height é um
+ * PISO — estica a caixa de volta à tela inteira por cima do `height: calc(100dvh
+ * - …)` do casco. A barra seguiu cobrindo "Viagem" com a caixa do main certa no
+ * papel. Especificidade e ordem de carga não salvam aqui: `min-height` não briga
+ * com `height`, ele o manda calar.
+ *
+ * Por isso a trava não olha só o casco: ela varre TODAS as folhas e reprova
+ * qualquer `min-height` de viewport na janela (html/body). A caixa da janela tem
+ * de ter UM dono, e é o casco; a base garante a cor além do conteúdo pelo html.
+ */
+test('réguas 6 · nenhum outro arquivo anula o desconto da barra (min-height na janela)', async () => {
+  const arquivos = await cssDaTela();
+  const acusados = [];
+  for (const c of arquivos) {
+    for (const r of escanear(await ler(c))) {
+      // Só o BODY. O `html` é o outro par do mesmo problema e não tem culpa:
+      // min-height no html estica a RAIZ do documento, que é onde o fundo do tema
+      // mora, e não alonga a caixa do body — esta é a que o casco limitou. O que
+      // anulava o conserto era o piso no body, filho direto daquela caixa.
+      if (!/(^|,)body(,|$)/.test(r.seletor)) continue;
+      for (const m of r.corpo.matchAll(/min-height:\s*([^;]+)/g)) {
+        if (/100\s*(d)?vh/.test(m[1])) acusados.push(`${c} ${r.seletor} → min-height: ${m[1].trim()}`);
+      }
+    }
+  }
+  assert.deepEqual(
+    acusados,
+    [],
+    'um min-height de volta inteira na janela estica o body por cima do desconto do casco e as abas voltam a cobrir o fim da tela — a caixa da janela é do casco.css'
+  );
+
+  // O html é quem garante que a cor do tema pinta a janela toda, e isso não briga
+  // com nada: o html não é a caixa que o casco limita.
+  const base = escanear(await ler('web/base.css'));
+  const janela = base.filter((r) => naBase(r) && /(^|,)html(,|$)/.test(r.seletor));
+  assert.ok(
+    janela.some((r) => /min-height:\s*100dvh/.test(r.corpo)),
+    'o base.css perdeu a garantia de que o html cobre a janela: conteúdo curto voltaria a deixar calha sem cor além da placa'
+  );
+});
+
+test('réguas 6 · o token da barra é uma altura, não uma reserva solta', async () => {
+  const tokens = await ler('web/tokens.css');
+  const declarada = tokens.match(/--altura-barra:\s*(\d+)px/);
+  assert.ok(declarada, 'falta o token --altura-barra: a altura da barra e o forro do main precisam ler o mesmo número, ou discordam em dias diferentes');
+  const altura = Number(declarada[1]);
+
+  // O piso de toque manda na barra: dois rótulos empilhados com o ícone passam
+  // dos 44 px, e o que for menos que isso reserva menos do que a barra ocupa.
+  const tipo = Number((tokens.match(/--tipo-nota:\s*(\d+)px/) || [])[1]);
+  const entre = Number((tokens.match(/--entrelinha-nota:\s*([\d.]+)/) || [])[1]);
+  const espaco = Number((tokens.match(/--espaco-1:\s*(\d+)px/) || [])[1]);
+  const piso = 22 + espaco + tipo * entre + 3; // ícone + ar + rótulo + a borda-estado de 3 px
+  assert.ok(
+    altura >= Math.ceil(piso),
+    `--altura-barra: ${altura}px não cobre a própria barra (${piso.toFixed(1)}px de ícone + rótulo + borda): o rótulo sairia cortado`
+  );
+  assert.ok(altura <= 72, `--altura-barra: ${altura}px é um terço da tela do celular: reserva demais também é defeito`);
+
+  // A barra é o ÚNICO lugar onde o número vira caixa: quem desconta a faixa do
+  // layout é o main, e a trava acima confere que ele lê o mesmo token. Se a
+  // altura da barra fosse só um número solto no .abas, o desconto e a barra
+  // viveriam vidas separadas — e a reserva voltaria a mentir em dias diferentes.
+  const casco = escanear(await ler('web/casco.css'));
+  const abas = casco.find((r) => naBase(r) && r.seletor === '.abas');
+  assert.ok(
+    abas && /--altura-barra/.test(abas.corpo),
+    `.abas não usa --altura-barra: o token virou decoração e nada garante que a faixa desenhada seja a faixa descontada`
+  );
+});
+
+test('réguas 6 · a barra tem altura declarada e não depende do conteúdo para existir', async () => {
+  const casco = escanear(await ler('web/casco.css'));
+  const abas = casco.filter((r) => naBase(r) && /\.abas\b/.test(r.seletor) && !/\.abas\s+a/.test(r.seletor));
+  assert.ok(abas.length >= 1, 'sem regra .abas na base');
+  // A forma aceita é `var(--altura-barra)` OU o mesmo token dentro de calc():
+  // num celular com recorte a barra é mais alta que o token, e tem de ser — mas
+  // o token continua sendo o dono do número, é o que o forro do main lê também.
+  const comAltura = abas.find((r) => /height:\s*(var\(--altura-barra\)|calc\([^)]*--altura-barra[^)]*\))/.test(r.corpo));
+  assert.ok(
+    comAltura,
+    `.abas não fixa a altura no --altura-barra na base — se a altura é o conteúdo, o forro reserva uma coisa e a barra ocupa outra: ${abas.map((r) => r.corpo).join(' | ')}`
+  );
+  assert.ok(
+    /--margem-segura-baixo/.test(comAltura.corpo),
+    `a barra perdeu a margem segura do app instalado: ${comAltura.corpo}`
+  );
+});
+
+test('réguas 6 · no computador a janela volta a rolar e a barra entra no fluxo', async () => {
+  const casco = escanear(await ler('web/casco.css'));
+  const desktop = casco.filter((r) => ehMediaDesktop(r.media));
+  assert.ok(desktop.length >= 1, 'sem @media (min-width: 1024px) no casco: as abas ficam presas no pé também no computador');
+
+  const abas = desktop.filter((r) => /\.abas\b/.test(r.seletor) && !/\.abas\s+a/.test(r.seletor));
+  const solta = abas.find((r) => /position:\s*static/.test(r.corpo));
+  assert.ok(solta, 'o @media de 1024px não tira .abas do fixed');
+  assert.ok(
+    solta && /height:\s*auto|height:\s*var\(--alvo-toque\)/.test(solta.corpo),
+    `o @media libertou a posição mas deixou a altura da barra: no computador ela continuaria com 56 px de forro vazio: ${abas.map((r) => r.corpo).join(' | ')}`
+  );
+
+  const janela = desktop.filter((r) => /(^|,)(html|body)(,|$)/.test(r.seletor));
+  assert.ok(
+    janela.some((r) => /overflow:\s*visible|height:\s*auto/.test(r.corpo)),
+    `o @media de 1024px não devolve o scroll à janela: o painel sticky da lateral cola embaixo de um body que não rola e não anda um pixel — ${janela.map((r) => r.seletor).join(', ') || 'nenhuma regra html/body no desktop'}`
+  );
+
+  const main = desktop.filter((r) => /(^|,)main(,|$)/.test(r.seletor));
+  assert.ok(
+    main.some((r) => /padding-bottom/.test(r.corpo) && !/--altura-barra/.test(r.corpo)),
+    'no computador o forro do main continua lendo --altura-barra: as abas estão no topo, não no pé'
+  );
+});
+
+test('réguas 6 · nenhuma largura fixa maior que o celular nasce no CSS', async () => {
+  const arquivos = await cssDaTela();
+  const acusados = [];
+  for (const c of arquivos) {
+    if (c === 'web/tokens.css') continue; // os tokens são a declaração, e o painel é do desktop
+    for (const r of escanear(await ler(c))) {
+      for (const m of r.corpo.matchAll(/(?:^|[;\s])(?:min-)?width:\s*(\d{3,})px/g)) {
+        if (Number(m[1]) > 250 && !ehMediaDesktop(r.media)) {
+          acusados.push(`${c}:${r.seletor} → ${m[0].trim()} (${r.media || 'base'})`);
+        }
+      }
+    }
+  }
+  assert.deepEqual(acusados, [], 'largura fixa em base/tablet: no celular de 375 px isso empurra a página para o lado');
+});
+
+test('réguas 6 · rolagem lateral só onde o trilho das 7 linhas pede', async () => {
+  const arquivos = await cssDaTela();
+  const DONO = 'web/metro.css .linhas'; // a faixa das 7: 7 alvos de 44 px não cabem em 375 px
+  const achados = [];
+  for (const c of arquivos) {
+    for (const r of escanear(await ler(c))) {
+      if (/overflow-x:\s*(auto|scroll)/.test(r.corpo)) achados.push(`${c} ${r.seletor}`);
+      // `overflow: auto` nos DOIS eixos é uma rolagem lateral que ninguém declarou
+      // como intenção. O main fica de fora por construção: ele pede overflow-y, que
+      // é o rolador vertical desta fatia e está na trava acima.
+      if (/overflow:\s*(auto|scroll)/.test(r.corpo) && !/(^|,)main(,|$)/.test(r.seletor)) {
+        achados.push(`${c} ${r.seletor} (overflow nos dois eixos)`);
+      }
+    }
+  }
+  assert.deepEqual(
+    achados,
+    [DONO],
+    'apareceu um segundo container de rolagem lateral: cada um deles é uma régua 6 nova para conferir nos 4 tamanhos'
+  );
+});
+
+/**
+ * S20a-2 (04/11/2026, os três defeitos que o olho pegou no Chrome com a suíte
+ * verde): o mapa do topo era o quadrado 4:3 do cartão do link (640x480), e o
+ * `svg { width: 100%; height: auto }` dele faz a altura acompanhar a COLUNA,
+ * que no computador é `1fr` (jornada.css: `1fr var(--largura-lateral)` com
+ * `column-gap: var(--espaco-8)`). Quanto mais larga a janela, mais alto o mapa —
+ * e o primário, que vem depois dele na ordem da J1, sumia sob a dobra.
+ *
+ * A conta abaixo é a da casa: lê os tokens e o viewBox, e pergunta se o topo do
+ * botão fica acima da dobra. Com o 4:3 ela dava 816 px em 1280 e 1.296 em 1920
+ * (o vão que ele mediu); com a faixa 8:3 dá 495 e 735. LIMITE HONESTO: node não
+ * tem navegador — aqui se prova a PROPORÇÃO e a aritmética do layout; os pixels
+ * reais fecham no testar_pagina.
+ */
+test('S20a-2 · o mapa do topo é faixa, e o único primário cabe acima da dobra', async () => {
+  const fonte = await ler('web/telas/jornada-topo.js');
+  const faixa = /const MAPA_TOPO = \{\s*largura:\s*(\d+),\s*altura:\s*(\d+)\s*\}/.exec(fonte);
+  assert.ok(faixa, 'a faixa do mapa do topo sumiu do arquivo que desenha o topo');
+  const vbL = Number(faixa[1]);
+  const vbA = Number(faixa[2]);
+  const propor = vbA / vbL;
+  assert.ok(propor <= 0.45,
+    `o mapa do topo voltou à proporção ${propor.toFixed(2)}: o 4:3 do cartão do link é um bloco que empurra o primário para baixo da dobra`);
+
+  const tokens = await ler('web/tokens.css');
+  const px = (nome) => {
+    const m = new RegExp(`--${nome}:\\s*(\\d+(?:\\.\\d+)?)px`).exec(tokens);
+    assert.ok(m, `falta o token --${nome}: a conta da dobra lê os números da casa, nenhum à mão`);
+    return Number(m[1]);
+  };
+  const entre = (nome) => Number(new RegExp(`--${nome}:\\s*([\\d.]+)`).exec(tokens)[1]);
+  const pad = px('espaco-4');            // .metro { padding: ... }
+  const gap = px('espaco-8');            // column-gap da grade do computador
+  const lateral = px('largura-lateral'); // a coluna da direita
+  const acima = 2 * px('espaco-3') + px('marca-altura') // --altura-topo, margem segura 0
+    + pad                                              // respirinho do .metro
+    + px('tipo-estacao') * entre('entrelinha-titulo')  // o h1
+    + px('tipo-corpo') * entre('entrelinha-corpo')     // a linha de medida
+    + 3 * pad;                                         // .topo { gap } — mapa, título, medida, ação
+  const dobra = 800;                     // 1280x800: a janela em que o olho pegou o defeito
+  const alvo = px('alvo-toque');
+
+  for (const larguraJanela of [1280, 1920]) {
+    const coluna = larguraJanela - 2 * pad - lateral - gap;
+    const mapa = coluna * propor;
+    const topoBotao = acima + mapa;
+    assert.ok(coluna > 0, `${larguraJanela}: a grade não deixa coluna para o mapa`);
+    assert.ok(topoBotao + alvo / 2 <= dobra,
+      `${larguraJanela}px: o único primário da Jornada começa em ${Math.round(topoBotao)} px e não cabe na dobra de ${dobra} (mapa de ${Math.round(mapa)} px)`);
+  }
+
+  // S20b-3, item 2 — o vão de 870 px à direita do mapa em 1920. A escolha foi o
+  // mapa CRESCER até a coluna (não virar duas colunas no topo): a faixa 8:3 é a
+  // geometria já assinada por MAPA_TOPO, a conta acima já é `coluna × propor`, e
+  // dobrar o topo em duas colunas mexeria na ordem de leitura da J1, que é o DOM.
+  // O piso automático do item de grid segurava o quadro na largura do desenho.
+  const css = await ler('web/telas/jornada.css');
+  const quadro = /\.topo-mapa\s*\{([^}]*)\}/.exec(css);
+  assert.ok(quadro, 'sumiu a regra que dá forma ao quadro do mapa do topo');
+  assert.ok(/min-width:\s*0/.test(quadro[1]),
+    '.topo-mapa voltou a não ter min-width: 0: o piso do item de grid devolve o vão de 870 px à direita do mapa em telas largas');
+  assert.ok(/width:\s*100%/.test(quadro[1]),
+    '.topo-mapa não declara a largura da coluna: o mapa para de crescer com a janela');
+  const svg = /\.topo-mapa svg\s*\{([^}]*)\}/.exec(css);
+  assert.ok(svg && /height:\s*auto/.test(svg[1]),
+    'o svg do topo perdeu height: auto: a altura deixaria de seguir a faixa 8:3 e o primário voltaria a descer da dobra');
+
+  // S20b-4, item 1 — a COLISÃO DE CLASSE que devolveu o vão. A Jornada chama a
+  // peça de `.topo`, o cabeçalho fixo do casco (web/casco.css:70) chama o dele de
+  // `.topo` também, e o `justify-content: space-between` de lá sobrevive ao
+  // cascade: num grid de uma coluna ele distribui a sobra como vão em volta da
+  // trilha, e a trilha para de esticar (medido: `section.topo` com 1.481 px e
+  // coluna de 645). A conta de cima é `coluna × propor` — se a coluna não
+  // estica, a conta mente e o mapa encolhe. As duas linhas abaixo são o
+  // desfazer da herança; o teto do `.topo-mapa` é o respiro, não o vão.
+  const topo = /\.topo\s*\{([^}]*)\}/.exec(css);
+  assert.ok(topo, 'sumiu a regra que dá forma ao topo da Jornada');
+  assert.ok(/grid-template-columns:\s*minmax\(0,\s*1fr\)/.test(topo[1]),
+    '.topo voltou a não declarar a coluna: o `justify-content` herdado do cabeçalho distribui a largura como vão e o mapa para em 645 px');
+  assert.ok(/justify-content:\s*normal/.test(topo[1]),
+    '.topo herdou o space-between do cabeçalho (web/casco.css:70): é a colisão de classe que segura o mapa à esquerda em 1920');
+  assert.ok(/max-width:\s*var\(--bp-computador\)/.test(quadro[1]),
+    '.topo-mapa sem teto: o mapa engole a tela inteira em monitores largos, em vez de deixar a diferença como respiro');
+});
+
+/**
+ * S20b-1a (item 3) — OS ALVOS DE TOQUE QUE NINGUÉM MEDIA.
+ *
+ * O Claude mediu no Chrome em 375 px: o link «Ir para a próxima estação» e o
+ * botão «Exportar» do Perfil, e o link de cada estação na Explorar, tinham a
+ * altura de UMA LINHA DE LETRA — menos da metade do piso da casa. A causa é
+ * sempre a mesma e sempre invisível para as outras travas: a tela cria o
+ * elemento com uma classe de COR (`primario`, `secundario`, `.explorar-link`) e
+ * nenhuma folha dá caixa a ela. O `--alvo-toque` existe desde a S2 em tokens.css
+ * e era lido só por quem já tinha regra escrita.
+ *
+ * Por que uma varredura e não três asserts soltos: o defeito não é destes três
+ * elementos, é do MODELO — classe sem dono. A trava abaixo pega o próximo alvo
+ * nu antes de ele chegar na tela, e por isso cobre TODAS as classes que o
+ * perfil.js e o explorar.js emitem, não as que eu lembrei de listar.
+ *
+ * LIMITE HONESTO: node não tem navegador. Aqui se prova que a caixa está
+ * DECLARADA com o token; os 44 px reais fecham no testar_pagina.
+ */
+const CLASSES_TOCAVEIS = {
+  // arquivo que EMITE a classe  →  folhas que podem dar a caixa a ela.
+  //
+  // S20b-6 (item 3) mudou o lado direito deste mapa de propósito. Até aqui a
+  // tela era a ÚNICA dona da caixa, porque as classes que ela emitia
+  // (`primario`, `secundario`) não existiam em folha nenhuma da casa: o
+  // elemento chegava nu e o navegador pintava o botão cinza do sistema. Agora
+  // a tela emite as classes REAIS (`botao botao-primario`, `botao
+  // botao-secundario`), e o piso delas mora em metro.css, junto com o desenho.
+  // Exigir o `--alvo-toque` dentro de perfil.css seria obrigar a tela a
+  // redeclarar a mesma medida que ela acabou de herdar — dois donos para um
+  // número, que é exatamente o que a S20b-1a combateu. A régua continua a
+  // mesma, e agora mais forte: o alvo tem piso, venha de quem vier das folhas
+  // que a tela carrega.
+  'web/telas/perfil.js': ['web/telas/perfil.css', 'web/metro.css', 'web/folha.css'],
+  'web/telas/explorar.js': ['web/telas/explorar.css', 'web/metro.css', 'web/folha.css'],
+};
+
+test('S20b-1a · toda classe de alvo emitida por uma tela tem caixa na folha dela', async () => {
+  const tokens = escanear(await ler('web/tokens.css'));
+  const piso = tokens.flatMap((r) => [...r.corpo.matchAll(/--alvo-toque:\s*(\d+)px/g)]).map((m) => Number(m[1]))[0];
+  assert.ok(piso >= 44, `--alvo-toque sumiu do tokens.css ou encolheu abaixo de 44 px: ${piso}`);
+
+  const acusados = [];
+  for (const [emissor, folhas] of Object.entries(CLASSES_TOCAVEIS)) {
+    const fonte = await ler(emissor);
+    // S20b-6: uma lista de folhas, não uma. O piso pode vir da folha da tela ou
+    // da folha da casa — o que não pode é não vir de nenhuma.
+    const regrasCss = (await Promise.all(folhas.map(async (f) => escanear(await ler(f))))).flat();
+    // `<a>` e `<button>` são o que se toca. `el(doc, classe, texto, 'a')`,
+    // `el(doc, classe, ..., 'button')` e o `className = `...-link`` do explorar.
+    const tocaveis = new Set();
+    for (const m of fonte.matchAll(/el\(doc,\s*`([^`]*)`[^)]*,\s*'(a|button)'\s*\)/g)) {
+      for (const parte of m[1].replace(/\$\{[^}]*\}/g, ' ').split(/\s+/)) {
+        if (/^[a-z][\w-]*$/.test(parte)) tocaveis.add(parte);
+      }
+    }
+    for (const m of fonte.matchAll(/\.className\s*=\s*`([^`]*)`/g)) {
+      for (const parte of m[1].replace(/\$\{[^}]*\}/g, ' ').split(/\s+/)) {
+        if (/^[a-z][\w-]*$/.test(parte)) tocaveis.add(parte);
+      }
+    }
+    for (const classe of tocaveis) {
+      const comCaixa = regrasCss.some((r) =>
+        new RegExp(`(^|[,.\\s>])${classe}(?![\\w-])`).test(r.seletor) &&
+        /min-height:\s*var\(--alvo-toque\)/.test(r.corpo));
+      if (!comCaixa) acusados.push(`${emissor} emite .${classe} (a|button) e nenhuma de ${folhas.join(', ')} dá o --alvo-toque a ela`);
+    }
+  }
+  assert.deepEqual(acusados, [], 'um alvo tocável nasceu nu: a altura dele é a linha de letra, e o piso de 44 px da casa é opcional no toque');
+});
+
+test('S20b-1a · os três alvos medidos em 375 px têm o piso declarado', async () => {
+  const perfil = escanear(await ler('web/telas/perfil.css'));
+  const explorar = escanear(await ler('web/telas/explorar.css'));
+
+  // `tem`: uma classe pode ter MAIS DE UMA regra na folha (a de sempre, de letra
+  // e cor, e a do alvo). Cobrar a primeira que o escanear achar seria travar a
+  // ordem do arquivo, e a ordem não é o defeito — o que importa é que ALGUMA
+  // delas declare o piso.
+  const comPiso = (regras, classe) =>
+    regras.some((r) => new RegExp(`(^|[,.\\s>])${classe}(?![\\w-])`).test(r.seletor) &&
+      /min-height:\s*var\(--alvo-toque\)/.test(r.corpo));
+
+  // S20b-6 (item 3) — O DONO DA CAIXA MUDOU, E A RÉGUA VEM ATRÁS.
+  // Os dois nus desta folha (`primario`, `secundario`) eram classes que não
+  // existiam em folha nenhuma da casa: o navegador desenhava o botão cinza do
+  // sistema e a tela tinha de fabricar a caixa sozinha. Agora perfil.js emite
+  // `botao botao-primario` / `botao botao-secundario`, e o piso vem do `.botao`
+  // de metro.css, junto com o desenho. Cobrar o piso dentro de perfil.css seria
+  // obrigar a tela a redeclarar a medida que ela acabou de herdar. O que a régua
+  // cobra, então, é as DUAS pontas: a folha da casa tem o piso do `.botao`, e o
+  // js do Perfil não emite mais a classe crua que motivou esta trava.
+  const metro = escanear(await ler('web/metro.css'));
+  assert.ok(comPiso(metro, 'botao'),
+    'o .botao de metro.css perdeu o --alvo-toque: é o piso dos botões do Perfil, da folha e das aulas');
+  const fontePerfil = await ler('web/telas/perfil.js');
+  for (const crua of ['primario', 'secundario']) {
+    assert.equal(
+      new RegExp(`el\\(doc,\\s*[\`']${crua}[\`'\\s],`).test(fontePerfil), false,
+      `perfil.js voltou a emitir a classe crua \`${crua}\`: ela não existe nas folhas da casa e o elemento nasce nu (perfil.js:371/588/777)`
+    );
+  }
+
+  // O rótulo do importar é o par do botão de exportar na mesma fileira: se um
+  // tem 44 px e o outro tem a linha de letra, a fileira fica com dois andares.
+  // Ele continua sendo filho DESTA folha (é um <label>, não um .botao), então o
+  // piso dele se prova aqui — mesmo depois de a S20b-6 ter dado a ele o desenho
+  // do secundário da casa.
+  assert.ok(comPiso(perfil, 'perfil-dados-rotulo'),
+    'o rótulo de importar ficou sem alvo de toque');
+
+  // Explorar: o link de CADA estação (explorar.js:54) — 35 alvos por tela.
+  const link = explorar.find((r) => /(^|[,.\s>])explorar-link(?![\w-])/.test(r.seletor) && /min-height/.test(r.corpo));
+  assert.ok(link, 'o .explorar-link não declara min-height: é o alvo mais tocado do app');
+  assert.match(link.corpo, /min-height:\s*var\(--alvo-toque\)/);
+
+  // O conserto é CAIXA, não pintura: nenhum dos três virou botão primário, e a
+  // letra continua a da folha. `font-size` com número à mão aqui seria o caminho
+  // de volta para a hierarquia de cartaz que a S11-0 matou, e um `background`
+  // cheio na regra do alvo é a hierarquia da tela trocada por um pedido de caixa.
+  const nus = [['perfil-dados-rotulo', perfil.find((r) => /(^|[,.\s>])\.perfil-dados-rotulo(?![\w-])/.test(r.seletor) && /min-height/.test(r.corpo))],
+               ['explorar-link', link]];
+  assert.ok(nus[0][1], 'nenhuma regra do .perfil-dados-rotulo declara min-height: o par do botão de exportar ficou sem caixa');
+  for (const [nome, r] of nus) {
+    assert.doesNotMatch(r.corpo, /font-size:\s*\d/, `${nome}: tamanho de letra à mão na regra do alvo`);
+    assert.equal(/background:/.test(r.corpo), false,
+      `${nome}: o alvo ganhou fundo — a hierarquia da tela mudou com um pedido de caixa`);
+  }
+});
+
+/**
+ * S20b-1b (item 1) — o que a régua mediu embaixo de "Importar uma viagem".
+ *
+ * O Claude mediu no Chrome em 375 e 768 px: menos de 24 px. A primeira leitura
+ * da casa apontava o label, e a folha já dava o piso a ele (perfil.css:231, na
+ * lista com `.primario`/`.secundario`): o que mede a linha de letra é o
+ * `<input type=file>` — o widget nativo, que não é `<a>` nem `<button>` e por
+ * isso NÃO passou pela varredura de cima, que só enxerga o que `el(doc, ..., 'a'
+ * |'button')` emite. Alvo que nasce de createElement direto é o buraco do modelo.
+ *
+ * Cobro o input por nome de classe, e a letra dele intacta: o pedido foi caixa,
+ * não tipografia. LIMITE HONESTO: node não tem navegador — aqui se prova a
+ * declaração; os 24 px reais fecham no testar_pagina.
+ */
+test('S20b-1b · o input de importar tem o piso de toque declarado', async () => {
+  const perfil = escanear(await ler('web/telas/perfil.css'));
+  const input = perfil.find((r) => /(^|[,\s>])\.perfil-dados-input(?![\w-])/.test(r.seletor));
+  assert.ok(input, '.perfil-dados-input não tem regra na folha: é o input type=file do Perfil (perfil.css:235)');
+  assert.match(input.corpo, /min-height:\s*var\(--alvo-toque\)/,
+    'o input de importar voltou a ter a altura da própria letra — é ele que se aperta, não o rótulo da linha 231');
+  assert.doesNotMatch(input.corpo, /font-size:\s*\d/, 'tamanho de letra à mão na regra do alvo');
+  assert.match(input.corpo, /font-size:\s*var\(--tipo-nota\)/, 'a letra do input mudou com um pedido de caixa');
+  assert.equal(/background:/.test(input.corpo), false, 'o input ganhou fundo: hierarquia trocada por um pedido de alvo');
+});
+
+/**
+ * S17b-fix (item 1) — O PERFIL INTEIRO NUMA FAIXA DE 360 PX.
+ *
+ * Escrito ANTES do conserto, porque é a trava da prova: rebotar
+ * `max-width: var(--largura-lateral)` tem de derrubar alguma coisa sozinha. O
+ * Claude mediu no Chrome com a atlas-v91: `section` do Perfil com 360 px numa
+ * janela de 1.920, e o resto da tela vazio. A causa é um token EMPRESTADO de
+ * outra tela — --largura-lateral é a coluna direita da Jornada (o painel ao lado
+ * do mapa), não uma largura de leitura.
+ *
+ * O piso da conta é a coluna, e a trava é DECLARADA de propósito: node não tem
+ * navegador, então aqui se prova que a folha manda o Perfil usar a largura do
+ * computador, e que o bilhete de 5 casas tem `minmax(0, …)` — o `1fr` puro tem
+ * piso automático igual ao maior nome de estação, e em 1280 a fileira saía para
+ * fora do próprio cartão. Os px reais fecham no testar_pagina.
+ */
+test('S17b-fix · o Perfil usa a tela, e não a coluna da Jornada', async () => {
+  const tokens = escanear(await ler('web/tokens.css'));
+  const px = (nome) => {
+    const m = new RegExp(`--${nome}:\\s*(\\d+(?:\\.\\d+)?)px`).exec(tokens.map((r) => r.corpo).join(';'));
+    assert.ok(m, `falta o token --${nome}: esta conta lê os números da casa, nenhum à mão`);
+    return Number(m[1]);
+  };
+  const lateral = px('largura-lateral');
+  const computador = px('bp-computador');
+
+  const perfil = escanear(await ler('web/telas/perfil.css'));
+  const larga = perfil.filter((r) => ehMediaDesktop(r.media) && /(^|[,\s>])\.perfil(?![\w-])/.test(r.seletor));
+  assert.ok(larga.length >= 1, 'nenhuma regra de .perfil dentro do @media de 1024: a largura do Perfil voltou a ser a da base');
+  const teto = larga.find((r) => /max-width:/.test(r.corpo));
+  assert.ok(teto, `.perfil no computador sem max-width: o cartão cresce sem teto e a linha de leitura passa de 1.920`);
+  assert.doesNotMatch(teto.corpo, /max-width:\s*var\(--largura-lateral\)/,
+    `o Perfil voltou a --largura-lateral (${lateral} px): a coluna direita da Jornada como largura de página, e o resto da janela fica vazio`);
+  assert.match(teto.corpo, /max-width:\s*var\(--bp-computador\)/,
+    `--bp-computador (${computador} px) é o número da casa em que a janela deixa de ser estreita; o teto do Perfil não é mais um palpite: "${teto.corpo}"`);
+
+  // O bilhete: 5 casas por fileira. `1fr` tem piso automático (o maior nome de
+  // estação), e com o Perfil largo a conta não fecha — a fileira sai do cartão.
+  const fileira = perfil.find((r) => naBase(r) && /(^|[,\s>])\.perfil-bilhete-fileira(?![\w-])/.test(r.seletor));
+  assert.ok(fileira, 'sumiu a regra do bilhete: 7 fileiras de 5 casas');
+  assert.match(fileira.corpo, /grid-template-columns:\s*repeat\(\s*5,\s*minmax\(0,\s*1fr\)\s*\)/,
+    `o bilhete voltou a repeat(5, 1fr): o piso automático de 1fr é o maior nome de estação, e em 1280 a fileira transborda o próprio cartão — "${fileira.corpo}"`);
+
+  // As duas séries lado a lado, de 1024 para cima. Abaixo disso é UMA coluna: a
+  // mesma folha, sem fork de DOM — o wrapper existe nos dois, só muda a grade.
+  const series = perfil.filter((r) => /(^|[,\s>])\.perfil-series(?![\w-])/.test(r.seletor));
+  assert.ok(series.length >= 1, '.perfil-series sem regra: o wrapper que põe as duas séries lado a lado não existe');
+  const dupla = series.find((r) => ehMediaDesktop(r.media) && /grid-template-columns:/.test(r.corpo));
+  assert.ok(dupla, 'as duas séries não viram duas colunas de 1024 para cima (item 1 do pedido)');
+  assert.match(dupla.corpo, /grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(0,\s*1fr\)/,
+    `duas colunas sem minmax(0,…) é o piso automático de 1fr de novo, agora dentro do Perfil largo: "${dupla.corpo}"`);
+  const base = series.find((r) => naBase(r));
+  assert.ok(!base || !/grid-template-columns:.*(1fr\s+1fr)/.test(base.corpo),
+    'as duas séries viraram duas colunas ABAIXO de 1024: o pedido era uma coluna só');
+});
+
+/**
+ * S17b-fix (item 4) — o quarto alvo nu do Perfil. Medido pelo Claude em 375 e
+ * 768: o link da próxima estação mede menos de 24 px. A varredura da S20b-1a não
+ * o pegou porque o template é `el(doc, \`${CLASSE}-proxima-link\`, …, 'a')` e o
+ * \${} é descartado na extração — o modelo só enxerga classe escrita por extenso.
+ * É o mesmo buraco do `<input type=file>` da S20b-1b, e a resposta é a mesma:
+ * trava nominal, caixa, e a letra intacta.
+ */
+test('S17b-fix · o link da próxima estação tem o piso de toque declarado', async () => {
+  const perfil = escanear(await ler('web/telas/perfil.css'));
+  // S20b-6 (item 2) ensinou um truque a esta trava: o `find` lia a PRIMEIRA regra
+  // do seletor, e a folha agora tem duas para o mesmo link — a de cor, no topo da
+  // folha, e a de caixa, embaixo. Cobrar a primeira era travar a ORDEM do
+  // arquivo, e a ordem não é o defeito (a S20b-1a, linha 505, já sabia disso:
+  // «cobrar a primeira que o escanear achar seria travar a ordem do arquivo»).
+  // Varre todas: piso e display têm de estar em ALGUMA, e nenhum número à mão em
+  // NENHUMA.
+  const link = perfil.filter((r) => /(^|[,.\s>])\.perfil-proxima-link(?![\w-])/.test(r.seletor));
+  assert.ok(link.length, '.perfil-proxima-link não tem regra na folha: é o <a> criado em perfil.js:285, e sem caixa a altura dele é a linha de letra');
+  const caixa = link.find((r) => /min-height:\s*var\(--alvo-toque\)/.test(r.corpo));
+  assert.ok(caixa,
+    `o link da próxima voltou a medir a própria letra — menos dos 44 px da casa (${link.map((r) => r.seletor).join(' | ')})`);
+  assert.match(caixa.corpo, /display:\s*inline-flex/, 'min-height não existe num <a> em linha: sem inline-flex o piso é decorativo');
+  for (const r of link) {
+    assert.doesNotMatch(r.corpo, /font-size:\s*\d/, 'tamanho de letra à mão na regra do alvo');
+    assert.doesNotMatch(r.corpo, /background:/, 'o alvo ganhou fundo: hierarquia trocada por um pedido de caixa');
+  }
+});
+
+/**
+ * S20b-5 (atlas-v93) — A MARGEM DO EXPLORAR.
+ *
+ * Escrito ANTES do conserto, porque é a trava da prova: rebotar o `0` de
+ * `padding: var(--espaco-4) 0` tem de derrubar alguma coisa sozinha. O Claude
+ * mediu no Chrome com a atlas-v92: em 375 e em 1280 "A rede inteira", o título,
+ * a descrição e as linhas ficam a 0 px da borda. A raiz da tela não tinha recheio
+ * lateral, e `main` (casco.css:84: `flex: 1 1 0; min-height: 0; overflow-y: auto`)
+ * também não tem — não havia nada em pé entre o texto e a janela.
+ *
+ * Estas duas travas leem as DECLARAÇÕES pela mesma varredura de pilha das outras
+ * da S20b: node não tem navegador, então provam o que a folha manda, e os px
+ * reais fecham no testar_pagina. Sem regex com barra invertida de propósito — a
+ * primeira versão desta trava tinha `\\\\s` escrito e casava barra literal, e o
+ * `find` devolvia undefined: uma trava que não acha o seletor reprova um CSS
+ * correto, que é o pior dos dois erros.
+ */
+const regraDe = (folha, seletor, media) =>
+  folha.find((r) => r.seletor.split(',').includes(seletor) && (media === undefined ? r.media === '' : r.media.includes(media)));
+
+test('S20b-5 · a raiz do Explorar tem margem lateral declarada', async () => {
+  const folha = escanear(await ler('web/telas/explorar.css'));
+
+  const raiz = regraDe(folha, '.explorar-raiz');
+  assert.ok(raiz, '.explorar-raiz sem regra na base (explorar.css:6): é a tela inteira');
+
+  // O recheio nos QUATRO lados. `--espaco-4 0` é um shorthand perfeitamente
+  // válido — e é exatamente o defeito: 0 nos lados é borda.
+  const recheio = raiz.decls.padding;
+  assert.ok(recheio, 'a raiz do Explorar perdeu o padding: sem ele o texto encosta na janela');
+  assert.equal(recheio.includes(' '), false,
+    `padding de dois valores em .explorar-raiz ("${recheio}"): o segundo valor são os lados, e foi assim que a tela nasceu sem margem`);
+  assert.match(recheio, /var\(--espaco-\d\)/,
+    `o recheio da raiz não vem de um token da casa: "${recheio}"`);
+  for (const lad of ['padding-left', 'padding-right', 'padding-inline']) {
+    assert.equal(raiz.decls[lad], undefined, `${lad} declarado na raiz: dois donos para a mesma margem`);
+  }
+
+  // O teto da coluna, de 1024 para cima. Sem ele, a lista de 35 linhas
+  // atravessa a janela e a descrição de 62ch fica sozinha no branco — a mesma
+  // lei do Perfil (perfil.css:537, S17b-fix item 1) e do topo da Jornada.
+  const larga = regraDe(folha, '.explorar-raiz', 'min-width: 1024px');
+  assert.ok(larga, 'nenhuma regra de .explorar-raiz dentro do @media de 1024: a lista voltou a atravessar a tela');
+  assert.equal(larga.decls['max-width'], 'var(--bp-computador)',
+    `o teto do Explorar não é --bp-computador: "${larga.decls['max-width']}"`);
+  assert.ok(larga.decls['margin-inline'], 'coluna de 1024 sem centralizar: o teto encosta a lista na margem esquerda');
+
+  // A LETRA não mudou com um pedido de margem.
+  assert.equal(raiz.decls['font-size'], undefined, 'a raiz ganhou tamanho de letra: hierarquia trocada por um pedido de margem');
+});
+
+/**
+ * S20b-5 (item 2) — A FILEIRA DE FILTROS EM 375.
+ *
+ * Em 375 o `display: flex` + `flex-wrap` da base punha "Buscar estação" AO LADO
+ * do campo (os dois cabiam na linha e o rótulo virava legenda lateral) e jogava
+ * "Linha" no canto oposto do seletor dela. O DOM é chato por construção —
+ * `controles.append(rotuloBusca, input, rotuloLinha, select, status)`
+ * (explorar.js:116) —, então o rótulo não segura o campo dentro de si: o que os
+ * pareia é a ordem e a largura toda. A ordem do DOM já é a certa.
+ */
+test('S20b-5 · no celular cada rótulo de filtro fica em cima do próprio campo', async () => {
+  const folha = escanear(await ler('web/telas/explorar.css'));
+
+  for (const seletor of ['.explorar-rotulo-campo', '.explorar-controles input', '.explorar-controles select']) {
+    const empilhado = regraDe(folha, seletor, 'max-width: 599px');
+    assert.ok(empilhado, `${seletor} sem regra dentro do @media de 599: o filtro do celular não foi consertado`);
+    assert.equal(empilhado.decls.width, '100%', `${seletor} sem largura toda no celular: continua dividindo a linha com o vizinho`);
+    assert.notEqual(empilhado.decls.display, 'none', `${seletor} escondido no celular: em 375 o rótulo é a única pista do que é cada campo`);
+  }
+
+  // box-sizing é o preço de 100% com padding — a lei de aula.css:23, das linhas
+  // da própria explorar.css e de .explorar-link:54. Sem ele, 100% + recheio dos
+  // dois lados passa da tela e o celular ganha rolagem horizontal.
+  const campos = regraDe(folha, '.explorar-controles input');
+  assert.ok(campos, 'sumiu a regra dos campos de filtro da base');
+  assert.equal(campos.decls['box-sizing'], 'border-box',
+    'largura toda no celular com padding e sem box-sizing: rolagem horizontal em 375');
+
+  // O piso de toque dos campos continua de pé — o pedido era empilhar, e o
+  // --alvo-toque da S20b-1a não se negocia por causa de um layout de rótulo.
+  assert.equal(campos.decls['min-height'], 'var(--alvo-toque)', 'o filtro do celular perdeu a caixa de toque da S20b-1a');
+});
+
+/**
+ * S20b-6 (atlas-v94) — O ACABAMENTO DO PERFIL.
+ *
+ * O Lucas capturou a atlas-v91 inteira e me mandou a captura. Havia quatro
+ * elementos saindo com o estilo do NAVEGADOR porque nenhuma folha dava regra a
+ * eles: os cartões encostando na borda, dois links azuis, um botão cinza e o
+ * seletor de arquivo do sistema no meio da fileira. As travas antigas não viram
+ * nada disso porque contam DOM e declaracoes de alvo — e um elemento sem regra
+ * nenhuma nao tem o que contar.
+ *
+ * Esta trava fecha a lacuna do MODELO, nao a lista: ela pergunta se o que
+ * aparece na tela tem `color`/`padding` DECLARADOS em lugar proprio, e nao se a
+ * classe certa existe. LIMITE HONESTO como em toda a S20b: node nao tem
+ * navegador, entao aqui se prova a declaracao; o azul que sobrou, o cinza e os
+ * px fecham no testar_pagina, nos dois temas.
+ */
+test('S20b-6 · o Perfil nao tem mais elemento sem declaracao propria', async () => {
+  const perfil = escanear(await ler('web/telas/perfil.css'));
+
+  // ITEM 1 — a margem da tela. `.perfil` e o cartao inteiro (perfil.css:3), e a
+  // base nao tinha recheio nenhum: em 375 e em 1280 o conteudo encostava na
+  // janela. Mesmo formato da S20b-5: shorthand de UM valor, token, e
+  // box-sizing porque recheio sem ele estoura a largura.
+  const raiz = regraDe(perfil, '.perfil');
+  assert.ok(raiz, '.perfil sem regra na base: e a ancora do casco e a moldura da tela');
+  assert.ok(raiz.decls.padding, '.perfil perdeu o padding: os cartoes voltam a encostar na borda da tela');
+  assert.equal(raiz.decls.padding.includes(' '), false,
+    `padding de dois valores em .perfil ("${raiz.decls.padding}"): o segundo valor sao os lados, e foi assim que o Explorar nasceu sem margem`);
+  assert.match(raiz.decls.padding, /var\(--espaco-\d\)/,
+    `a margem do Perfil nao vem de um token da casa: "${raiz.decls.padding}"`);
+  assert.equal(raiz.decls['box-sizing'], 'border-box',
+    '.perfil com padding e sem box-sizing: a largura do cartao passa da janela e o celular ganha rolagem lateral');
+  // O teto da coluna (S17b-fix item 1, dentro do @media de 1024) nao pode ter
+  // sido trocado por recheio: sao duas regras de folhas diferentes do mesmo
+  // problema, e uma nao compra a outra.
+  const larga = perfil.filter((r) => ehMediaDesktop(r.media) && /(^|[,\s>])\.perfil(?![\w-])/.test(r.seletor));
+  assert.ok(larga.some((r) => /max-width:/.test(r.corpo)),
+    'o Perfil largo perdeu o max-width: a margem nova nao segura linha de leitura nenhuma sozinha');
+
+  // ITEM 2 — os dois links azuis. `color` nao e vaidade aqui: na casa, cor e
+  // LINHA, e as sete cores de linha moram em --linha-N. Um <a> sem `color` cai
+  // na cor de hipertexto do navegador, que nao e linha nenhuma dos sete.
+  for (const alvo of ['.perfil-proxima-link', '.perfil-sobre-codigo']) {
+    const regras = perfil.filter((r) => r.seletor.split(',').map((s) => s.trim()).includes(alvo));
+    assert.ok(regras.length, `${alvo} nao tem regra na folha: e ele que pinta a cor do link`);
+    // A ULTIMA cor declarada, nao alguma. Escrito assim porque a primeira versao
+    // desta trava passou com o link AZUL na tela: `.perfil-sobre-codigo` tinha
+    // `color: var(--linha-6)` mais abaixo na folha, a regra do topo tambem tinha
+    // tinta, e `some()` achou as duas. No navegador vence a ultima, e o que a
+    // pessoa lia era o azul da linha 6. `some` era a trava fraca; o que importa e
+    // qual cor chega viva na tela.
+    // A regra que VENCE é a última, e é isso que a prova abaixo mutar.
+  const comCor = regras.filter((r) => r.decls.color);
+    assert.ok(comCor.length,
+      `${alvo} sem color declarada em nenhuma regra: sai azul-padrao do navegador (perfil.js:330 e :412)`);
+    const ultima = comCor[comCor.length - 1];
+    assert.match(ultima.decls.color, /var\(--tinta\)/,
+      `${alvo}: a cor que vence a cascade nao e a tinta da casa — "${ultima.decls.color}" (linha ${ultima.linha ?? '?'} da folha; uma regra mais abaixo com outra cor anula o topo)`);
+  }
+  // O anel de foco dos dois links, no token, nao em numero a mao.
+  const anel = perfil.filter((r) => /:focus-visible/.test(r.seletor) &&
+    /perfil-proxima-link|perfil-sobre-codigo/.test(r.seletor));
+  assert.ok(anel.length >= 1, 'os dois links do Perfil perderam a regra de :focus-visible');
+  for (const r of anel) {
+    assert.match(r.corpo, /outline:\s*var\(--anel-foco\)/, `anel fora do token: "${r.corpo.trim()}"`);
+    assert.match(r.corpo, /outline-offset:\s*var\(--afastamento-foco\)/, 'afastamento do anel escrito a mao');
+  }
+
+  // ITEM 4 — o input escondido SEM sair da tecla. `display: none` e
+  // `visibility: hidden` tiram o elemento da arvore de foco: o Tab passaria por
+  // cima do importar, que e exatamente o que a S20b-1b veio garantir. A casa
+  // esconde com clip-path (base.css:51 .so-leitor), e e isso que a folha faz.
+  const input = perfil.find((r) => /(^|[,\s>])\.perfil-dados-input(?![\w-])/.test(r.seletor));
+  assert.ok(input, '.perfil-dados-input sem regra: e o input type=file do Perfil');
+  for (const proibida of ['display: none', 'display:none', 'visibility: hidden', 'visibility:hidden']) {
+    assert.equal(input.corpo.replace(/\s+/g, ' ').includes(proibida.replace(/\s+/g, ' ')), false,
+      `.perfil-dados-input com "${proibida}": o Tab passa por cima do importar (a S20b-1b perdeu o alvo)`);
+  }
+  assert.match(input.corpo, /clip-path:/, 'o input nao se esconde com clip-path: sobrou a pincelada do sistema na tela');
+  // O piso dele continua, e o ROTULO passa a ter o desenho de botao (item 4).
+  assert.match(input.corpo, /min-height:\s*var\(--alvo-toque\)/, 'o input de importar perdeu o piso de toque');
+  const fontePerfil = await ler('web/telas/perfil.js');
+  // O template e \\`\\${CLASSE}-dados-rotulo botao botao-secundario\\` — nao procure
+  // "perfil" escrito: \\${} so existe no DOM montado, e o modelo desta casa ja
+  // perdeu dois alvos por causa disso (a S20b-1b e a nota do S17b-fix acima).
+  assert.match(fontePerfil, /dados-rotulo[^`]*botao-secundario/,
+    'o rotulo de importar nao veste o secundario da casa: continua texto nu ao lado do botao de exportar');
+});
+
+/*
+ * S20b-7 (atlas-v95) — TRÊS COISAS QUE A CAPTURA DE PÁGINA INTEIRA MOSTROU.
+ *
+ * As três travas abaixo perguntam por `corpo`, nunca por `decls`, e o motivo é do
+ * scanner (linha ~90): `decls` nasce de dividir cada declaração por ':' e ficar só
+ * com as que dão exatamente duas partes. `repeat(3, minmax(0, 1fr))` tem DOIS dois-
+ * pontos, cai fora do objeto e a trava perguntaria `undefined` para um CSS certo.
+ * (A régua do Explorar, S20b-5, foi reescrita por causa deste mesmo truque.)
+ */
+test('S20b-7 · os três números cabem em 375: nenhuma coluna 1fr crua sobrou', async () => {
+  const perfil = escanear(await ler('web/telas/perfil.css'));
+  const lugares = [[naBase, 'a base'], [(r) => /max-width:\s*599px/.test(r.media), 'o bloco do celular']];
+  for (const [condicao, nome] of lugares) {
+    const numeros = perfil.filter((r) => condicao(r) && /(^|,)\.perfil-numeros(,|$)/.test(r.seletor));
+    assert.ok(numeros.length, `${nome}: .perfil-numeros sem regra`);
+    for (const r of numeros) {
+      const cru = r.corpo.replace(/\s+/g, ' ');
+      const tem1fr = /grid-template-columns:[^;]*1fr/.test(cru);
+      if (tem1fr) {
+        assert.match(cru, /grid-template-columns:[^;]*minmax\(0,/,
+          `${nome}: .perfil-numeros com 1fr sem o zero — a largura mínima de uma coluna 1fr é o conteúdo dela (min-content), e o «6 revisões feitas» em mono --tipo-titulo passa da borda da tela em 375: "${cru}"`);
+      }
+    }
+  }
+  // O par da mesma perna: trocar a coluna sem dar `min-width: 0` ao card deixa o
+  // texto maior que a célula empurrar a grade de novo. É o mesmo par que o bilhete
+  // usa desde a S17b-fix, e um compra a ausência do outro.
+  const celular = perfil.filter((r) => /max-width:\s*599px/.test(r.media) &&
+    /\.perfil-numeros\s+\.perfil-card/.test(r.seletor));
+  assert.ok(celular.length, 'no celular ninguém abre espaço dentro do card dos três números');
+  assert.match(celular[0].corpo, /min-width:\s*0/, 'o card dos números sem min-width: 0: o texto grande ainda estoura a grade');
+  assert.match(celular[0].corpo, /padding:\s*var\(--espaco-\d\)/, 'o recheio do número no celular foi escrito à mão, sem token');
+});
+
+test('S20b-7 · na série do domínio o círculo fica AO LADO do nome', async () => {
+  const perfil = escanear(await ler('web/telas/perfil.css'));
+  const compacto = perfil.filter((r) => naBase(r) && /(^|,)\.perfil-carimbo-compacto(,|$)/.test(r.seletor));
+  assert.ok(compacto.length, '.perfil-carimbo-compacto sem regra: é a célula dos 43 espaços');
+  // A herança é o defeito: este selo veste as duas classes, e .perfil-carimbo é o
+  // bloco EM PÉ da série do percurso (regra 8 — círculo, nome, critério, frase).
+  // Sem a direction declarada aqui, o compacto recebe `column` do irmão.
+  const r = compacto[0];
+  assert.match(r.corpo, /flex-direction:\s*row/,
+    `.perfil-carimbo-compacto sem flex-direction: row — herda o column de .perfil-carimbo e o círculo cai em cima do nome: "${r.corpo.replace(/\s+/g, ' ')}"`);
+  assert.match(r.corpo, /display:\s*flex/, 'o compacto perdeu o display que faz a direction valer');
+});
+
+test('S20b-7 · em 1024 o Perfil divide a sobra, não a empilha à esquerda', async () => {
+  const perfil = escanear(await ler('web/telas/perfil.css'));
+  const larga = perfil.filter((r) => ehMediaDesktop(r.media) && /(^|[,;\s])\.perfil(?![\w-])/.test(r.seletor));
+  assert.ok(larga.length, 'ninguém limita o Perfil no computador: a trava da S17b-fix perdeu o dono');
+  const dona = larga.find((r) => /max-width:/.test(r.corpo));
+  assert.ok(dona, `o bloco de 1024 do .perfil perdeu o max-width (regras: ${larga.map((x) => x.corpo.replace(/\s+/g, ' ')).join(' | ')})`);
+  assert.match(dona.corpo, /margin-inline:\s*auto/,
+    'o teto de 1024 sem centralizar: a sobra fica toda de um lado e o Perfil encosta na esquerda enquanto o Explorar fica centrado');
+});
+
+/*
+ * S18c-4 (atlas-v100) — A COLISÃO DE NOME QUE DESENHOU UMA CAIXA COMO BOTÃO.
+ *
+ * O defeito não é o nome `fechamento-mais`: é a mesma classe vestindo um `div` de
+ * agrupamento e um `button`, com a folha desenhando a classe com borda. Quem abre
+ * o editor da aula já estudada recebeu uma segunda caixa vermelha em volta, e o
+ * «Guardar o cartão» ficou fora dela — porque `align-self` do botão não significa
+ * nada num div que não é filho de flex. A régua abaixo é a GENERAL que o pedido
+ * pediu: varre as classes literais de aula.js, e nenhuma pode aparecer em duas
+ * tags diferentes se a folha a desenha com borda. Travar só o caso deixaria a
+ * próxima colisão nascer verde.
+ */
+test('S18c-4 · nenhuma classe de aula.js veste duas tags quando a folha a desenha com borda', async () => {
+  const js = await ler('web/telas/aula.js');
+  const css = escanear(await ler('web/telas/aula.css'));
+
+  // Só `no(doc, 'tag', 'classes')` com a classe LITERAL em aspas simples. Os nomes
+  // montados por template (`fechamento-${...}`) não têm string fixa para procurar
+  // na folha, e fingir que têm produziria falsa sensação de cobertura.
+  const tagsDaClasse = new Map();
+  for (const m of js.matchAll(/no\(\s*doc\s*,\s*'([a-z0-9-]+)'\s*,\s*'([^']*)'/g)) {
+    const [, tag, bruto] = m;
+    for (const nome of bruto.trim().split(/\s+/)) {
+      if (!nome || nome.includes('$') || nome.includes('{')) continue;
+      if (!tagsDaClasse.has(nome)) tagsDaClasse.set(nome, new Set());
+      tagsDaClasse.get(nome).add(tag);
+    }
+  }
+
+  // «Desenhada com borda» = alguma regra da folha declara border/border-color/
+  // border-style/border-width com um valor que não é `none` nem `0`. `border: none`
+  // não pinta caixa, e contar como borda acusaria um CSS que resolveu o problema.
+  const comBorda = (nome) => {
+    const re = new RegExp(`\\.${nome}(?![\\w-])`);
+    return css.some((r) => re.test(r.seletor) &&
+      [...r.corpo.matchAll(/(?:^|[;{\s])border[a-z-]*\s*:\s*([^;]+)/g)]
+        .some(([, valor]) => !/^(?:\s*(?:none|0)\s*)$/.test(valor)));
+  };
+
+  const ofensas = [...tagsDaClasse]
+    .filter(([nome, tags]) => tags.size > 1 && comBorda(nome))
+    .map(([nome, tags]) => `.${nome} em ${[...tags].sort().join(' + ')} (a folha desenha com borda)`);
+  assert.equal(ofensas.length, 0,
+    `classe de aula.js vestindo duas tags com desenho de borda — um dos dois herda o\n` +
+    `vestido do outro: ${ofensas.join('\n')}`);
+
+  // O caso, travado direto: a caixa do «escrever mais» é agrupamento e não pode
+  // voltar ao nome do botão «Outro cartão».
+  assert.match(js, /no\(doc,\s*'div',\s*'fechamento-escrever'/,
+    'a caixa do escrever mais voltou a vestir fechamento-mais: herda a moldura e o align-self do botão «Outro cartão»');
+  assert.match(js, /no\(doc,\s*'button',\s*'fechamento-mais'/,
+    'o botão «Outro cartão» perdeu a classe que a folha desenha com a cor da estação');
+});
+
+test('réguas 6 · trocar de aba leva ao topo de QUEM ESTÁ ROLANDO', async () => {
+  const js = await ler('web/casco.js');
+  assert.match(js, /win\.scrollTo\?\.\(0, 0\)/, 'o casco perdeu o rolamento ao topo da janela');
+  assert.match(
+    js,
+    /main\.scrollTo\?\.|main\.scrollTop\s*=\s*0/,
+    'quem rola passou a ser o main e o casco só zera a janela: trocar de aba deixaria a tela nova aberta no meio da rolagem da anterior'
+  );
+});

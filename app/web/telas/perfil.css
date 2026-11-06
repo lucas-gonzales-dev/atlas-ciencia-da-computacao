@@ -1,0 +1,720 @@
+/* Projeto Atlas — a tela PERFIL (S9). Folha escopada em .perfil (regra 15).
+ * Só tokens: nenhuma cor, duração ou medida escrita à mão aqui. */
+/* S20b-6 (item 1) — A MARGEM DA PÁGINA. Capturei a atlas-v91 no Chrome e os
+   cartões encostavam na borda: `main` (casco.css:84) não tem recheio lateral
+   nenhum, e esta folha era a única tela da casa sem o seu — revisar.css:30 e
+   explorar.css:6 (S20b-5) têm `--espaco-4` nos lados, com o mesmo comentário
+   crítico da S11-0 («a margem da PÁGINA, a mesma de toda tela»).
+
+   O recheio mora na RAIZ da tela e não num @media, porque em 375 a margem é a
+   régua 6 (nada de rolagem lateral) e em 1280 é a linha de leitura: um valor só
+   serve os dois. O teto continua o da S17b-fix item 1, logo abaixo.
+
+   `--cor: var(--tinta)` NÃO é decoração deste pedido: os botões da casa (item 3)
+   são `.botao.botao-secundario`, que em folha.css:293 vale `border-color: var(--cor)
+   color: var(--cor)`, e `--cor` é a LINHA — metro.css:17-23 só o declaram em `.l1`
+   a `.l7`, e o Perfil não é linha nenhuma. Com `--cor` vazio o botão sai com
+   contorno invisível e texto `--cor` ausente. revisar.css:28 e aula.css:17 caíram
+   no mesmo defeito antes e declaram a mesma linha; a folha deles declara, a daqui
+   declara. É a lei da casa, não um palpite. */
+.perfil {
+  --cor: var(--tinta);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-6);
+  padding: var(--espaco-4);
+}
+
+/* S20b-6 (item 2) — DOIS LINKS QUE SAÍAM AZUIS.
+
+   Capturei a atlas-v91 e vi o que nenhum teste via: `.perfil-proxima-link` e
+   `.perfil-sobre-codigo` não tinham `color` nenhuma e vinham com a cor padrão de
+   hipertexto do navegador, num site onde a única cor que marca LINHA é a das
+   sete linhas (design-system §2). Uma palavra azul que não é linha nenhuma é um
+   objeto de outra paleta aparecendo na tela, e o azul do navegador nem batia com
+   a cor de linha mais próxima que a casa tem no tema escuro.
+
+   `--tinta` nos dois: é o que o `.perfil-casa` do bilhete, o `.perfil-h1`, a
+   `.revisar-primario`, o pular do casco e a marca d'água do mapa já fazem —
+   «link em tinta é o normal desta casa», não exceção. O sublinhado é a única
+   marca de link que sobra quando a cor não ajuda, e é régua de acessibilidade
+   (texto que só se distingue por cor falha em daltônico e em cinza).
+   `text-underline-offset` no token de ar que já existe: sublinhado colado na
+   letra engole a descendente.
+
+   O anel é `outline: var(--anel-foco) solid var(--tinta)` com
+   `outline-offset: var(--afastamento-foco)` — exatamente base.css:44. Escrevo
+   aqui, e não deixo só o universal, porque este arquivo é o quarto a declarar a
+   caixa desses dois links e uma regra `:focus` de outra folha pode comer o
+   universal pela ordem; design-system.test.js:641 cobra o anel em tokens, não em
+   número à mão, e é o que ele acha aqui.
+
+   O primário e o secundário entram por nome COMPLETO (`.botao-primario`,
+   `.botao-secundario`) porque perfil.js:371/381/588/777 emite agora as classes da
+   casa — as cruas `primario`/`secundario` eram palavras que nenhuma outra folha
+   da casa usa, e o elemento chegava nu: sem borda, sem recheio, com o fundo
+   padrão do sistema (item 3). O recheio do primário vem de folha.css:289, o
+   contorno do secundário de folha.css:293; o que falta aqui só pode ser o que é
+   da tela: `--cor` e o anel.
+
+   A REGRA DESTE ARQUIVO, agora: a caixa do alvo de toque que a S20b-1a deu a
+   esses elementos é do `.perfil-dados-rotulo` (e do input, mais abaixo), e NÃO
+   dos botões — as duas já têm a caixa do `.botao` da casa (metro.css:348, com o
+   mesmo `--alvo-toque`), e declarar o piso de novo sobre um botão desenhado é o
+   caminho de volta para dois donos para a mesma medida. */
+.perfil-proxima-link,
+.perfil-sobre-codigo {
+  color: var(--tinta);
+  text-decoration: underline;
+  text-underline-offset: var(--espaco-1);
+}
+
+.perfil-proxima-link:focus-visible,
+.perfil-sobre-codigo:focus-visible {
+  outline: var(--anel-foco) solid var(--tinta);
+  outline-offset: var(--afastamento-foco);
+}
+
+/* O sublinhado do botão é um problema de outra natureza: a casa pinta o
+   `.botao` como CONTROLE (folha.css:296 devolve `text-decoration: none` a um `<a>`
+   que virou botão) — e sublinhar um retângulo recheado é o cartaz que a S11-0
+   matou. Os dois links acima continuam sendo texto; estes dois abaixo são
+   botões, e perdem a linha. */
+.perfil a.botao {
+  text-decoration: none;
+}
+
+.perfil-rotulo,
+.perfil-placa {
+  font-family: var(--fonte-placa);
+  font-size: var(--tipo-placa);
+  font-weight: var(--peso-placa);
+  letter-spacing: var(--espacamento-placa);
+  text-transform: uppercase;
+  color: var(--fosca);
+  margin: 0;
+}
+
+.perfil-h1 {
+  font-size: var(--tipo-estacao);
+  line-height: var(--entrelinha-apertada);
+  font-weight: var(--peso-placa);
+  color: var(--tinta);
+  margin: var(--espaco-2) 0 0;
+}
+
+.perfil-titulo {
+  font-size: var(--tipo-titulo);
+  line-height: var(--entrelinha-titulo);
+  color: var(--tinta);
+  margin: 0 0 var(--espaco-3);
+}
+
+.perfil-card {
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-placa);
+  padding: var(--espaco-4);
+}
+
+/* OS TRÊS NÚMEROS — mono, porque é número de leitura rápida.
+ * S20b-7 (item 1): `1fr` NÃO é uma largura, é um piso automático — o mínimo de uma
+ * coluna `1fr` é o maior conteúdo dela (`min-content`), e o número «6 revisões feitas»
+ * com --tipo-titulo em mono passa dos 125 px que sobravam em 375. `minmax(0, 1fr)`
+ * permite 0, e aí quem decide é o `min-width: 0` do card mais abaixo. A mesma perna foi
+ * trocada no bilhete pela S17b-fix; aqui era a última `1fr` crua da página. */
+.perfil-numeros {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--espaco-2);
+}
+
+.perfil-numero-valor {
+  font-family: var(--fonte-mono);
+  font-size: var(--tipo-titulo);
+  color: var(--tinta);
+}
+
+/* O BILHETE — 7 fileiras de 5 casas. A fileira é a linha; a casa, a estação. */
+.perfil-grade {
+  display: grid;
+  gap: var(--espaco-2);
+}
+
+/* S17b-fix (item 1): `1fr` é um piso automático — a largura mínima de uma casa é
+   o maior nome de estação, e em 1280 a fileira inteira saía para fora do próprio
+   cartão. `minmax(0, 1fr)` deixa a casa encolher e o texto quebrar no lugar. */
+.perfil-bilhete-fileira {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--espaco-1);
+}
+
+.perfil-casa {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--espaco-1);
+  padding: var(--espaco-1);
+  min-height: var(--alvo-toque);
+  color: var(--fosca);
+  text-decoration: none;
+  border-radius: var(--raio-placa);
+  transition: background var(--movimento-toque) var(--curva-mecanica);
+}
+
+.perfil-casa:hover {
+  background: var(--fundo);
+}
+
+.perfil-selo {
+  width: var(--estacao);
+  height: var(--estacao);
+  border-radius: var(--raio-estacao);
+  border: var(--anel-trancada) solid var(--trancada);
+  box-sizing: border-box;
+  flex: 0 0 auto;
+}
+
+.perfil-casa-carimbada {
+  color: var(--tinta);
+}
+
+.perfil-casa-carimbada .perfil-selo {
+  border-color: var(--selo-linha, var(--linha-1));
+  background: var(--selo-linha, var(--linha-1));
+}
+
+/* A cor é da LINHA da casa, e linha é a única coisa que cor marca (DS §2). */
+.perfil-casa[data-linha="1"] { --selo-linha: var(--linha-1); }
+.perfil-casa[data-linha="2"] { --selo-linha: var(--linha-2); }
+.perfil-casa[data-linha="3"] { --selo-linha: var(--linha-3); }
+.perfil-casa[data-linha="4"] { --selo-linha: var(--linha-4); }
+.perfil-casa[data-linha="5"] { --selo-linha: var(--linha-5); }
+.perfil-casa[data-linha="6"] { --selo-linha: var(--linha-6); }
+.perfil-casa[data-linha="7"] { --selo-linha: var(--linha-7); }
+
+.perfil-nome {
+  font-size: var(--tipo-nota);
+  line-height: var(--entrelinha-nota);
+  text-align: center;
+}
+
+.perfil-data {
+  font-family: var(--fonte-mono);
+  font-size: var(--tipo-nota);
+  color: var(--fosca);
+}
+
+/* EM BRANCO — o primeiro carimbo ainda não existe; um gesto por tela. */
+.perfil-em-branco {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-4);
+}
+
+.perfil-em-branco-texto {
+  font-size: var(--tipo-corpo);
+  line-height: var(--entrelinha-corpo);
+  color: var(--tinta);
+  margin: 0;
+}
+
+/* A CADERNETA (S17b) — os 51 espaços, ganhos e vazios, na mesma folha.
+ *
+ * O VAZIO É DESENHO, NÃO LACUNA: ele tem contorno, nome e o critério escrito
+ * («Abre quando: …»). Princípio 4 do desenho: o carimbo nasce de critério medido
+ * e a pessoa lê a régua antes de ter o feito. Esconder os vazios seria voltar ao
+ * bilhete, onde só existia o que já estava carimbado.
+ *
+ * AS DUAS FORMAS são as duas séries, e a forma carrega o significado (não a cor
+ * sozinha — régua 1): o percurso é a CASA (o quadrado do selo do bilhete, o mesmo
+ * raio da placa), o domínio é o CÍRCULO da linha (o mesmo --raio-estacao do mapa).
+ * Quem tem eixo na mão vê um contorno sem tinta; quem tem o carimbo vê a cor da
+ * linha no domínio e a tinta no percurso.
+ *
+ * NENHUMA cor, duração ou medida escrita aqui: só tokens. --alvo-toque não é
+ * preciso: o carimbo não é tocável, e a única coisa clicável da seção é o link da
+ * próxima estação, que já tem o piso lá embaixo.
+ */
+.perfil-caderneta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-3);
+}
+
+.perfil-carimbos {
+  display: grid;
+  gap: var(--espaco-3);
+}
+
+.perfil-carimbo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-1);
+  border-top: 1px solid var(--borda);
+  padding-top: var(--espaco-3);
+}
+
+.perfil-carimbo-cab {
+  display: flex;
+  align-items: baseline;
+  gap: var(--espaco-2);
+}
+
+.perfil-carimbo-nome {
+  font-size: var(--tipo-corpo);
+  font-weight: var(--peso-forte);
+  color: var(--tinta);
+  margin: 0;
+}
+
+/* O selo do percurso: a CASA. O do domínio: o CÍRCULO da linha. Mesma caixa
+   (--estacao, o diâmetro da estação no mapa), formas diferentes. */
+.perfil-carimbo-casa,
+.perfil-carimbo-circulo {
+  width: var(--estacao);
+  height: var(--estacao);
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  /* O contorno SEM COR do espaço vazio reusa o anel fino do selo vazio do
+   * bilhete (linha 88): é o token que a casa já destina a «existe, ainda não
+   * aconteceu». Nada de cor aqui — o vazio informa pela forma e pelo NOME. */
+  border: var(--anel-trancada) solid var(--trancada);
+}
+
+.perfil-carimbo-casa {
+  border-radius: var(--raio-placa);
+}
+
+.perfil-carimbo-circulo {
+  border-radius: var(--raio-estacao);
+}
+
+.perfil-vazio .perfil-carimbo-nome {
+  color: var(--fosca);
+  font-weight: var(--peso-normal);
+}
+
+/* O CARIMBO GANHO leva a cor. No domínio ela é da LINHA — a mesma conta do
+   bilhete aqui em cima, e linha é a única coisa que cor marca (DS §2). No
+   percurso a série não tem linha nenhuma: é tinta. */
+.perfil-carimbo[data-estado="carimbado"] .perfil-carimbo-casa {
+  border-color: var(--tinta);
+  background: var(--tinta);
+}
+
+.perfil-carimbo[data-estado="carimbado"] .perfil-carimbo-circulo[data-linha="1"] { border-color: var(--linha-1); background: var(--linha-1); }
+.perfil-carimbo[data-estado="carimbado"] .perfil-carimbo-circulo[data-linha="2"] { border-color: var(--linha-2); background: var(--linha-2); }
+.perfil-carimbo[data-estado="carimbado"] .perfil-carimbo-circulo[data-linha="3"] { border-color: var(--linha-3); background: var(--linha-3); }
+.perfil-carimbo[data-estado="carimbado"] .perfil-carimbo-circulo[data-linha="4"] { border-color: var(--linha-4); background: var(--linha-4); }
+.perfil-carimbo[data-estado="carimbado"] .perfil-carimbo-circulo[data-linha="5"] { border-color: var(--linha-5); background: var(--linha-5); }
+.perfil-carimbo[data-estado="carimbado"] .perfil-carimbo-circulo[data-linha="6"] { border-color: var(--linha-6); background: var(--linha-6); }
+.perfil-carimbo[data-estado="carimbado"] .perfil-carimbo-circulo[data-linha="7"] { border-color: var(--linha-7); background: var(--linha-7); }
+
+.perfil-carimbo-criterio,
+.perfil-carimbo-vazio,
+.perfil-recorde-criterio {
+  font-size: var(--tipo-nota);
+  line-height: var(--entrelinha-nota);
+  color: var(--fosca);
+  margin: 0;
+}
+
+/* A frase do carimbo (o fato medido) e o dia, mono — mesmo tratamento do dado
+   do bilhete: número e data se lêem em uma passada. */
+.perfil-carimbo-data {
+  font-size: var(--tipo-corpo);
+  line-height: var(--entrelinha-corpo);
+  color: var(--tinta);
+  margin: 0;
+}
+
+.perfil-carimbo-dia,
+.perfil-recorde-valor {
+  font-family: var(--fonte-mono);
+  font-size: var(--tipo-nota);
+  color: var(--fosca);
+  margin: 0;
+}
+
+/* A MARCA da estação «concluída antes»: palavra, não cor, e sem frase. É o caso
+   em que houve conclusão sem medição — o carimbo diz a marca, não um feito. */
+.perfil-carimbo-marca {
+  font-family: var(--fonte-placa);
+  font-size: var(--tipo-placa);
+  letter-spacing: var(--espacamento-placa);
+  text-transform: uppercase;
+  color: var(--fosca);
+  margin: 0;
+}
+
+/* O DOMÍNIO AGRUPADO POR LINHA — as 7 fileiras do bilhete, a mesma gramática.
+   Em 375 px o espaço é uma linha da coluna: nada de rolagem lateral (o
+   `minmax(0, 1fr)` é o que deixa o texto comprido quebrar em vez de estourar). */
+.perfil-fileira {
+  display: grid;
+  gap: var(--espaco-3);
+  grid-template-columns: minmax(0, 1fr);
+  border-top: 1px solid var(--borda);
+  padding-top: var(--espaco-3);
+}
+
+.perfil-fileira:last-child {
+  border-top: none;
+}
+
+/* S17b-fix (item 2) — o domínio compacto, sem os 7.800 px.
+ *
+ * Cada um dos 35 espaços de estação repetia a MESMA régua comprida («Abre quando:
+ * O desafio da estação aprovado: oito em cada dez…»). A frase é uma por critério,
+ * e o critério é compartilhado: ela sobe para `.perfil-dominio-regra`, uma vez no
+ * alto da seção, e o vazio de baixo fica com o contorno e o nome. O espaço não
+ * sumiu — continua presente, visível e nomeado (o `aria-label` é a régua 1:
+ * contorno sem palavra nenhuma no leitor de tela é ausência que só quem enxerga
+ * percebe). Ganho e «concluída antes» seguem no padrão, com frase e dia.
+ *
+ * A grade é `auto-fill`, não `repeat(2, …)`, por causa da coluna de 1024: do
+ * lado da Série do percurso cada fileira tem ~466 px, e ali cabem DUAS células
+ * de 160; em 375 a conta dá UMA com folga e o nome não estoura a tela. O piso do
+ * `minmax` é `--celula-caderneta` (160 px em tokens.css), o menor espaço em que
+ * um nome de estação cabe com o selo ao lado — o mesmo tratamento que a casa dá
+ * à largura de leitura e à do painel: o número mora no token, não na folha.
+ */
+.perfil-dominio-regra {
+  border-top: 1px solid var(--borda);
+  padding-top: var(--espaco-2);
+}
+
+
+
+/* Os VAZIOS de uma fileira: a grade compacta. O piso da célula é
+   `--celula-caderneta` (160 px em tokens.css), e o `auto-fill` faz a conta da
+   largura — em 375 cabem duas células de 160 + o ar; abaixo do piso delas o
+   nome da estação quebraria em três linhas. Quem tem mais de um nome é a
+   «concluída antes», em linha própria, acima. */
+.perfil-dominio-grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--celula-caderneta), 1fr));
+  gap: var(--espaco-2) var(--espaco-4);
+}
+
+/* O espaço vazio COMPACTO: contorno e nome, e nada de frase. A régua do critério
+   subiu para `.perfil-dominio-regra`, uma vez por seção (item 2), e é ela que o
+   leitor de tela ouve em cada célula, pelo `aria-label` da JS.
+ *
+ * É UMA célula da grade, e não `display: contents`: o selo e o nome ficam lado a
+   lado dentro dos 160 px, em vez de virarem dois itens da grade — com `contents`
+   cada vazio ocuparia duas células e a fileira inteira se desmountaria. Perde a
+   borda de cima e o padding do carimbo cheio, porque em grade de 43 células isso
+   é 43 linhas pintadas por nada; o que resta é o contorno do selo, que já é o que
+   separa um do outro. */
+.perfil-carimbo-compacto {
+  display: flex;
+  /* S20b-7 item 2 — o círculo AO LADO do nome, e não em cima. A causa é herança:
+     este selo carrega as duas classes, e .perfil-carimbo nasceu como o bloco EM PÉ da
+     série do percurso (círculo, nome, critério e frase em coluna). O compacto herdou a
+     perna vertical do irmão e só tirou o centro. O comentário logo acima dizia «lado a
+     lado»: a intenção estava escrita, a linha que a realizava não. A trava em
+     tests/auditoria-tamanhos.test.js exige a DECLARAÇÃO, porque o computed de um
+     flex-item sem largura é 'auto' — e 'auto' pode ser 300 px estourando a grade. */
+  flex-direction: row;
+  align-items: baseline;
+  gap: var(--espaco-2);
+  border-top: none;
+  padding-top: 0;
+}
+
+.perfil-carimbo-compacto .perfil-carimbo-nome {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.perfil-recordes,
+.perfil-proxima {
+  gap: var(--espaco-2);
+}
+
+.perfil-recorde {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-1);
+  border-top: 1px solid var(--borda);
+  padding-top: var(--espaco-2);
+}
+
+.perfil-recorde-nome {
+  font-size: var(--tipo-corpo);
+  font-weight: var(--peso-forte);
+  color: var(--tinta);
+  margin: 0;
+}
+
+.perfil-proxima-texto {
+  font-size: var(--tipo-corpo);
+  line-height: var(--entrelinha-corpo);
+  color: var(--tinta);
+  margin: 0;
+}
+
+/* S17b-fix (item 4) — o link da próxima, medido pelo Claude em 375 e 768: menos
+ * de 24 px. É o quarto alvo nu desta folha, e o MODELO é o mesmo dos três da
+ * S20b-1a: a tela cria o `<a>` com uma classe própria e nenhuma regra lhe dá
+ * caixa, então a altura dele é a linha de letra. Caixa, não pintura: min-height
+ * no token + o ar horizontal para o toque não cair na borda do texto. A letra
+ * continua a da folha, nenhum fundo, e ele não virou botão.
+ *
+ * `display: inline-flex` é o que faz o min-height existir num `<a>` em linha —
+ * o mesmo caminho do `.folha-fechar` (folha.css:71). A varredura da S20b-1a não
+ * o pegava: ela lê `el(doc, \`…\`, …, 'a')` e descarta o que vem de \${}, então o
+ * template \`\${CLASSE}-proxima-link\` não deixa classe nenhuma para procurar.
+ * É o buraco conhecido do modelo (o mesmo do input type=file na S20b-1b), e por
+ * isso a trava abaixo é nominal. */
+/* S20b-6 (item 2), os dois pedaços que faltavam num link que já tinha caixa:
+   --cor é o que a casa declara em todo controle (.revisar-primario, .topo-primario,
+   a placa) e o anel da casa, em tokens, para a régua de teclado achar aqui dentro
+   — o universal de base.css:44 cobre o :focus-visible, e uma regra de outra folha
+   pode comê-lo pela ordem. `text-decoration` está na regra S20b-6 lá em cima, e a
+   caixa abaixo é o piso da S20b-1a: continuam 44 px e um toque de --espaco-3. */
+.perfil-proxima-link {
+  --cor: var(--tinta);
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  min-height: var(--alvo-toque);
+  padding: var(--espaco-2) var(--espaco-3);
+}
+
+/* O CARIMBO NOVO desce uma vez. A voz é a CHEGADA, não o toque: um feito que
+   entrou na caderneta é o trem chegando, e --movimento-abrir (320 ms) cai na
+   faixa orgânica de 200 a 340 ms do desenho. --deslocamento-entrada (8 px) é o
+   mesmo deslocamento com que a tela inteira entra, e --curva-atlas é a curva da
+   casa. Nada de partícula, nada de brilho, nada de `infinite`.
+
+   Com prefers-reduced-motion o elemento aparece parado: os tokens vão a zero no
+   bloco do fim de tokens.css (regua 11) e `both` continua entregando o estado
+   final, que é o carimbo VISÍVEL — a informação não depende do movimento. */
+.perfil-carimbo[data-novo="descer"] {
+  animation: carimbo-desce var(--movimento-abrir) var(--curva-atlas) both;
+}
+
+@keyframes carimbo-desce {
+  from { opacity: 0; transform: translateY(calc(-1 * var(--deslocamento-entrada))); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .perfil-carimbo[data-novo="descer"] {
+    animation: none;
+  }
+}
+
+/* SEUS DADOS */
+.perfil-dados-fica {
+  font-size: var(--tipo-corpo);
+  line-height: var(--entrelinha-corpo);
+  color: var(--tinta);
+  margin: 0 0 var(--espaco-3);
+}
+
+.perfil-dados-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espaco-2);
+  align-items: center;
+}
+
+/* O grupo é a CAIXA DO PAR rótulo-botão + input. `position: relative` é o que dá
+   ao input absoluto (S20b-6 item 4, mais abaixo) o retângulo que ele cobre, e
+   `inline-flex` porque o par divide a fileira com «Exportar viagem»: `flex` aqui
+   faria o grupo esticar e empurrar o botão para fora da linha. */
+.perfil-dados-importar {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--espaco-2);
+}
+
+/* O rótulo de importar (o texto é `.perfil-dados-importar-texto`) era o terceiro
+   alvo nu desta folha — o piso dele está no bloco S20b-1a, abaixo.
+
+   S20b-6 (item 4): estas duas linhas (`--tipo-nota` e `--fosca`) saíram junto com
+   o widget do sistema. O rótulo AGORA É o botão que a pessoa vê, e a letra e a cor
+   dele vêm do `.botao` da casa (metro.css:351, fonte de placa em `--tipo-corpo`,
+   peso forte) e do `--cor` do `.botao-secundario` (folha.css:293). Deixar uma nota
+   em cinza-fosco sobre um botão desenhado era o mesmo defeito do item 1 da S20b-3:
+   um objeto de outra paleta no meio da tela, agora dentro do retângulo. */
+
+/* OS ALVOS DE TOQUE NUS (S20b-1a, item 3; medidos pelo Claude em 375 px).
+   Três elementos nasciam sem caixa nenhuma nesta folha e tinham a altura da
+   própria linha de letra, menos da metade do piso da casa (--alvo-toque).
+
+   S20b-6 (item 3) deixou um deles com MENOS regra, não mais: os dois links
+   «Ir para a próxima estação» e o botão de exportar ganharam as classes reais da
+   casa (`botao botao-primario` / `botao botao-secundario`), e o `.botao` de
+   metro.css:348 já lhes dá `min-height: var(--alvo-toque)`, recheio, borda,
+   raio e cor. O que sobrou aqui é o que sempre foi só desta tela: o RÓTULO de
+   importar. `display: inline-flex` é o que faz o min-height existir num `<a>` ou
+   `<label>` inline — mesmo caminho do `.folha-fechar` (folha.css:71).
+
+   S20b-6 tirou daqui o `padding`, e deixou o resto: o rótulo-agora-botão tem o
+   recheio do `.botao` (metro.css:349, 12x16), e redeclarar 8x12 por cima seria pôr
+   dois botões da mesma fileira em dois andares — exatamente o defeito que a S20b-1a
+   veio consertar. O `min-height` fica porque é a MESMA medida do `.botao`, e a
+   trava nominal da S20b-1a continua de pé: um `<label>` é inline por natureza, e
+   sem `display` + piso declarados aqui, a folha da tela não garante o alvo.
+
+   O teto desta regra é o que a S20b-6 não negocia: nenhum dos alvos ganhou
+   `font-size` à mão nem `background` — o pedido era caixa, e hierarquia de tela
+   não se mexe de carona. */
+.perfil-dados-rotulo {
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  min-height: var(--alvo-toque);
+}
+
+/* S20b-6 (item 4) — O INPUT SOME DA PINTURA, NÃO DA TECLA.
+
+   O `<input type=file>` nativo desenhava «Escolher arquivo / Nenhum arquivo
+   escolhido» no meio da fileira: um controle do sistema numa tela que decidiu a
+   própria tipografia. A casa esconde assim (base.css:52 `.so-leitor`): posição
+   absoluta, 1x1, `clip-path`, e NADA de `display: none` — `display:none` tira o
+   elemento da árvore de foco e o Tab passaria direto por cima do importar.
+
+   O alvo de toque continua sendo o input, que é quem recebe o clique e o
+   teclado: ele é `position: absolute`, ocupa o grupo INTEIRO
+   (`inset: 0`, `width/height: 100%`) e tem o `--alvo-toque` por baixo como piso
+   — se o grupo encolher, o piso dele ainda é 24 px. `opacity: 0` não entra:
+   apagaria também o anel que eu quero ver.
+
+   O `z-index` existe porque o rótulo-botão é `position: relative` (ele precisa
+   estar acima do input em 375, quando a fileira quebra e os dois viram
+   coluna): com os dois em `auto`, o que vem depois no DOM venceria e o input
+   cobriria o próprio desenho. `pointer-events: auto` no input é o preço de
+   `appearance: none` — sem ele alguns navegadores deixam o clique passar.
+
+   O foco: como o input é transparente e cobre o grupo, o anel cai SOBRE o
+   rótulo-botão — por isso a regra é no GRUPO com `:focus-within`, e o anel é o
+   da casa (`--anel-foco` + `--afastamento-foco`, base.css:45). O input em si não
+   pinta anel: ele é a caixa de 1x1 que `clip-path` recorta. */
+.perfil-dados-importar:focus-within {
+  outline: var(--anel-foco) solid var(--tinta);
+  outline-offset: var(--afastamento-foco);
+  border-radius: var(--raio-placa);
+}
+
+.perfil-dados-input {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  min-height: var(--alvo-toque);
+  margin: 0;
+  border: 0;
+  padding: 0;
+  font-size: var(--tipo-nota);
+  appearance: none;
+  clip-path: inset(50%);
+  overflow: hidden;
+}
+
+
+
+.perfil-dados-recado {
+  font-size: var(--tipo-nota);
+  line-height: var(--entrelinha-nota);
+  color: var(--alerta);
+  background: var(--alerta-fundo);
+  border-radius: var(--raio-selo);
+  padding: var(--espaco-2);
+  margin: var(--espaco-2) 0 0;
+}
+
+.perfil-sobre-linha {
+  font-size: var(--tipo-nota);
+  color: var(--fosca);
+  margin: 0 0 var(--espaco-1);
+}
+
+/* S20b-6 (item 2) — A CAUSA REAL, e não a que o diagnóstico apontou. O pedido
+   dizia que os dois links saíam azuis "porque não têm regra". Um deles tinha:
+   `.perfil-sobre-codigo` tinha `color: var(--linha-6)` aqui embaixo, e o azul que
+   a pessoa lia era a COR DA LINHA 6, não o padrão do navegador. O que a minha
+   regra nova no topo da folha faria era nada — mesma especificidade, regra mais
+   tarde no arquivo vence. Por isto a trava S20b-6 não pergunta se "alguma regra
+   declara tinta": pergunta se a ÚLTIMA cor declarada para o seletor é a tinta.
+   --linha-6 é a cor de uma das sete linhas; o Perfil não é linha nenhuma. */
+.perfil-sobre-codigo {
+  font-size: var(--tipo-nota);
+}
+
+.perfil-falha {
+  font-size: var(--tipo-corpo);
+  color: var(--tinta);
+  margin: 0;
+}
+
+/* Celular: o bilhete não pode rolar na horizontal — as cinco casas dividem a
+   largura, e o nome encolhe antes de o selo sumir. */
+@media (max-width: 599px) {
+  .perfil-numeros {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  /* S20b-7 (item 1) — os três números cabem em 375. Trocar a coluna por si só não
+     bastava: o --espaco-4 do card come 2×16 px de dentro dos ~104 px que a grade dá a
+     cada um, e sobravam 72 para um número em mono --tipo-titulo. Menos recheio e
+     `min-width: 0` no card (o mesmo par que o bilhete usa desde a S17b-fix) é o que
+     deixa o texto encolher em vez de empurrar a borda da tela. */
+  .perfil-numeros .perfil-card {
+    padding: var(--espaco-2);
+    min-width: 0;
+  }
+
+  .perfil-nome {
+    display: none;
+  }
+}
+
+/* S17b-fix (item 1) — o Perfil usa a tela.
+ *
+ * O defeito: `.perfil { max-width: var(--largura-lateral) }` — 360 px, que é a
+ * coluna DIREITA da Jornada (o painel ao lado do mapa). Numa tela de 1.920 o
+ * Perfil inteiro, com as 7 fileiras do bilhete e os 51 espaços da caderneta,
+ * ficava espremido numa faixa de 360 e o resto da janela ficava vazio. Não era
+ * escolha de leitura: era um token emprestado de outra tela.
+ *
+ * O teto agora é --bp-computador (1024), o número da casa em que a janela deixa
+ * de ser estreita. LIMITE HONESTO: abaixo de ~1.070 px (1024 + as laterais do
+ * .metro) a janela ainda é menor que o teto e o vão continua lá — a 1.280 sobram
+ * ~206 px, a 1.920 sobram ~846. Fechar isso de vez pede um token de largura
+ * próprio do Perfil, e isso é decisão dele, não deste conserto.
+ *
+ * AS DUAS SÉRIES LADO A LADO: são 8 e 43 nós, e um deles em cada linha deixava a
+ * Série do domínio com 7.800 px de altura (o item 2). O wrapper é `1fr 1fr` com
+ * `minmax(0,…)` nos dois: as duas colunas têm a mesma largura por construção, e
+ * o nome comprido da estação quebra dentro da célula em vez de empurrar a grade.
+ * Abaixo de 1024 continua UMA coluna só, a de sempre.
+ */
+@media (min-width: 1024px) {
+  .perfil {
+    max-width: var(--bp-computador);
+    /* S20b-7 (item 3) — o teto sem o centro era a metade do conserto. A --largura-lateral
+       da S17b-fix escondia o efeito porque 360 px colados à esquerda e 360 centrados
+       parecem a mesma coisa numa captura; com o teto em 1024, a janela de 1280 mostra os
+       256 px sobrando de um lado só. `margin-inline: auto` divide a sobra, do mesmo jeito
+       que .explorar-raiz faz desde a S20b-5. As páginas de aula e a Revisar ficam como
+       estão: a coluna de leitura à esquerda nelas é decisão antiga, não defeito. */
+    margin-inline: auto;
+  }
+
+  .perfil-series {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--espaco-6);
+    align-items: start;
+  }
+}

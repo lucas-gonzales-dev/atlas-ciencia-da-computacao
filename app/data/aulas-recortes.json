@@ -1,0 +1,11 @@
+{
+  "porque": "Na fonte da UBL, Introdução à Ciência da Computação com Python I e II apontam para a MESMA playlist (PLcoJJSvnDgcKpOi_UeneTNTIVOigRQwcn): o curso da USP inteiro, as duas partes em sequência, com palestras extras no fim. A divisão é editorial do Atlas, conferida em 04/11/2026: a Parte 2 começa em '25 - Matrizes' (Semana 1 da Parte 2 no Coursera: Matrizes) e termina em recursão; as dicas do COH-PIAH (posição 57) são do exercício da Parte 1, citado nas avaliações da Parte 1. As palestras sem parte declarada (Scrapy 1 a 3, Jogos, Impactos da Computação) ficam na II como complementares. Posições contam só os vídeos visíveis, como em core/aulas.js. Fontes: https://www.coursera.org/learn/ciencia-computacao-python-conceitos-2 e https://www.mooc-list.com/course/introducao-ciencia-da-computacao-com-python-parte-2-coursera",
+  "recortes": {
+    "ubl-core-introducao-cc-python-i": { "trechos": [[1, 31], [57, 57]] },
+    "ubl-core-introducao-cc-python-ii": { "trechos": [[32, 56], [58, 58]] }
+  },
+  "porqueDosPrefixos": "Começos de título que a limpeza genérica de core/aulas.js não reconhece como o nome da estação: o erro de digitação da própria fonte ('Teoria das Grafos', nas duas primeiras aulas).",
+  "prefixos": {
+    "ubl-core-teoria-grafos": ["Teoria das Grafos"]
+  }
+}

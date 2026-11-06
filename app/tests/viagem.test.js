@@ -23,7 +23,8 @@ import {
   iniciarEstacao,
   desfazerConclusao,
   marcosNovos,
-  linhasAbertas
+  linhasAbertas,
+  numerosDaJornada
 } from '../core/viagem.js';
 
 /** Disciplina mínima da grade, com o que as regras de fato leem. */
@@ -62,12 +63,14 @@ test('lerProgresso aceita as três formas: array cru, objeto v3 e lixo', () => {
   assert.deepEqual(lerProgresso(['alfa', 'beta']), {
     completed: ['alfa', 'beta'],
     emCurso: [],
-    conclusoes: {}
+    conclusoes: {},
+    // S18b-2: o formato ganhou `dominadas` (o carimbo do desafio, desenho J4).
+    dominadas: {}
   });
   // discrimina: quem não saneia devolve emCurso duplicado ou conclusão sem data
   assert.deepEqual(
     lerProgresso({ completed: ['alfa', 'alfa'], emCurso: ['beta', 'beta'], conclusoes: { alfa: '2026-10-01', beta: '2026-99-99' } }),
-    { completed: ['alfa'], emCurso: ['beta'], conclusoes: { alfa: '2026-10-01' } }
+    { completed: ['alfa'], emCurso: ['beta'], conclusoes: { alfa: '2026-10-01' }, dominadas: {} }
   );
   // discrimina: quem lança exceção derruba a tela com storage corrompido
   for (const lixo of [null, undefined, 42, 'alfa', {}, NaN]) {
@@ -408,4 +411,44 @@ test('na grade real: 35 estações, 7 linhas de 5', async () => {
   // a primeira estação da fonte está disponível para quem chega do zero
   assert.equal(r.proximaEstacao.id, grade[0].id);
   assert.equal(r.situacao, 'open');
+});
+
+// ──────────────────── os três números da Jornada (S4a) ────────────────────
+//
+// O número de LINHAS ABERTAS é MEDIDO, não imaginado: a fatia S4a traz "2/7" como
+// exemplo de formato, e na grade real quem chega do zero tem 5 linhas abertas
+// (1, 3, 4, 5 e 7) porque a grade aberta da fonte não tranca a 2 e a 6 no início.
+// Fixar o 2 aqui seria o teste concordar com a prosa e a tela mentir.
+
+test('viagem: numerosDaJornada conta carimbos, em curso e linhas abertas', async () => {
+  // caso 1 — viagem vazia na grade de brinquedo
+  assert.deepEqual(numerosDaJornada(progressoVazio(), GRADE), {
+    carimbos: 0, emCurso: 0, linhasAbertas: 1
+  }, 'na grade de brinquedo vazia só a linha 1 tem estação disponível');
+
+  // caso 2 — uma concluída e uma iniciada (o em curso NÃO é carimbo)
+  const meio = iniciarEstacao(viajou(['alfa']), 'beta', GRADE);
+  assert.deepEqual(numerosDaJornada(meio, GRADE), {
+    carimbos: 1, emCurso: 1, linhasAbertas: 1
+  }, 'discrimina: quem conta em curso como concluída daria 2/7');
+
+  // caso 3 — o Terminal na grade REAL: 35 estações, e nenhuma linha aberta
+  const { readFileSync } = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  const grade = JSON.parse(
+    readFileSync(fileURLToPath(new URL('../data/catalog.json', import.meta.url)), 'utf8')
+  ).courses;
+  const todos = grade.map((c) => c.id);
+  const terminal = {
+    completed: todos,
+    emCurso: [],
+    conclusoes: Object.fromEntries(todos.map((id) => [id, '2026-10-30']))
+  };
+  assert.equal(grade.length, TOTAL_ESTACOES);
+  assert.deepEqual(numerosDaJornada(terminal, grade), {
+    carimbos: 35, emCurso: 0, linhasAbertas: 0
+  }, 'no Terminal não sobra linha aberta: tudo já foi feito');
+
+  // e na chegada, na grade real, medido: 5 linhas têm estação disponível
+  assert.equal(numerosDaJornada(progressoVazio(), grade).linhasAbertas, 5);
 });

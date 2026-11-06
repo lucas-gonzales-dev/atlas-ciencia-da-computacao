@@ -32,7 +32,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { TEXTOS, placa, comValores, estados, legenda, proibido } from '../core/textos.js';
+import { TEXTOS, placa, comValores, estados, legenda, proibido, dataDeCalendario } from '../core/textos.js';
 
 const RAIZ = fileURLToPath(new URL('..', import.meta.url)); // app/
 const REPO = fileURLToPath(new URL('../..', import.meta.url)); // raiz do repositório
@@ -178,7 +178,7 @@ test('cor: nenhuma cor escrita à mão fora do tokens.css', async () => {
       achados.push(`${c}:${linha} → ${m[1]}`);
     }
   }
-  assert.deepEqual(achados, [], 'cor fora dos tokens: use var(--p-*) do tokens.css (design/README.md §2)');
+  assert.deepEqual(achados, [], 'cor fora dos tokens: use os tokens do design system, não um apelido --p-* (design/README.md §2)');
 });
 
 // A regra de cima só enxerga cor em forma de PROPRIEDADE CSS (`color: #fff`).
@@ -361,12 +361,13 @@ for (const tema of ['claro', 'escuro']) {
   });
 }
 
-// DÍVIDA CONHECIDA (29/10/2026): o index.html ainda pinta com os tokens --p-*,
-// a paleta de protótipo que o design system substituiu. A trava está escrita e
-// certa — 31 usos no index.html é o que falta migrar. Fica como `todo` para não
-// esconder a dívida atrás de um verde falso: quando a migração acontecer, tira-se
-// o todo e ela passa a reprovar quem voltar para a paleta antiga.
-test('a paleta antiga (--p-*) não pinta mais nenhuma tela', { todo: 'migrar os 31 usos de --p-* no index.html para os tokens do DS' }, async () => {
+// DÍVIDA CONHECIDA (29/10/2026) QUE MORREU (31/10/2026, S3b): a grade pintava com
+// os tokens --p-*, a paleta de protótipo que o design system substituiu. O
+// `<style>` do index.html saiu para web/grade.css na S3a-1 — o arquivo mudou de
+// nome, a dívida não. A S3b migrou os 31 usos e apagou o bloco PROVISÓRIO do
+// tokens.css. A trava fica escrita para sempre: ela é o que impede a paleta
+// velha de voltar por um patch de tela.
+test('a paleta antiga (--p-*) não pinta mais nenhuma tela', async () => {
   // Os tokens --p-* existem no tokens.css marcados como PROVISÓRIO: são a paleta
   // de protótipo que o design system substituiu. Enquanto alguma regra da tela
   // os usar, o DS não está aplicado de verdade.
@@ -379,6 +380,12 @@ test('a paleta antiga (--p-*) não pinta mais nenhuma tela', { todo: 'migrar os 
     }
   }
   assert.deepEqual(achados, [], 'tela ainda pinta com a paleta provisória: migre para o token do DS');
+
+  // S3b: o tokens.css não declara mais nenhum --p-*. Um apelido que ninguém usa
+  // não é herança, é convite para a paleta rejeitada voltar numa regra nova.
+  const tokens = await ler('web/tokens.css');
+  const declarados = [...tokens.matchAll(/(--p-[a-z0-9-]+)\s*:/g)].map((m) => m[1]);
+  assert.deepEqual(declarados, [], 'tokens.css ainda declara --p-*: a paleta provisória morreu na S3b');
 });
 
 // ---------------------------------------------------------------------------
@@ -412,9 +419,22 @@ test('textos: nada vazio, nada "undefined", nada com slug de código', async () 
 test('textos: as funções com valor usam o valor que recebem', async () => {
   const exemplos = {
     linha: [3],
+    // S4b: "Linha 2 · estação 3 de 5" — linha, posição e total entram na frase.
+    posicaoNaLinha: [2, 3, 5],
+    // S4b: o apoio do cartão. O argumento é a LISTA de nomes (o cartão pode ter
+    // um ou vários pré-requisitos), e String() de um vetor já é o texto da frase.
+    apoioFalta: [['Cálculo I']],
     trancadaFalta: ['Cálculo I'],
     trancadaFaltam: ['Cálculo I e Cálculo II'],
     baldeacao: ['Algoritmos II', 4],
+    destrancou: ['Algoritmos II'],
+    // 2d-2: o carimbo da folha concluída. MUTOU no ajuste do Claude (30/10/2026):
+    // o exemplo era '2026-10-29' cru, e a função passou a renderizar a data
+    // (dd/mm/aaaa). Cobrar que a SAÍDA contenha o valor de entrada não pode mais
+    // ser feito com a string ISO; aqui o valor que a pessoa lê é '29/10/2026'.
+    // Quem garante que a data de verdade entrou na frase é o teste do carimbo no
+    // metro.test.js, e quem garante que não há fuso no meio é dataDeCalendario.
+    concluidaEm: [dataDeCalendario('2026-10-29')],
     buscaVazia: ['quântica'],
     viagem: [12, 35],
     progressoLinha: [2, 3, 5],
@@ -423,6 +443,12 @@ test('textos: as funções com valor usam o valor que recebem', async () => {
     erroOQueFazer: [],
     ramalEmObras: ['Inteligência Artificial'],
     linkBibliografia: ['Estruturas de Dados'],
+    // S5: a lista "ao concluir, você abre" e o fato CONEXÕES. Os dois recebem
+    // valor por parâmetro, e esta guarda exige que o valor apareça na frase.
+    abreItem: ['Estruturas de Dados', 2],
+    fatosConexoes: [1, 2],
+    // S14b1: o selo da página da aula, "Linha 1 · Circuitos Digitais".
+    linhaComEstacao: [1, 'Circuitos Digitais'],
   };
   for (const [nome, fn] of Object.entries(comValores)) {
     assert.equal(typeof fn, 'function', `comValores.${nome} não é função`);
@@ -440,10 +466,31 @@ test('textos: as funções com valor usam o valor que recebem', async () => {
   }
 });
 
-test('textos: os oito estados obrigatórios existem, e o erro tem as três partes', async () => {
+test('textos: data de calendário vira dd/mm/aaaa sem fuso no meio', async () => {
+  // O ajuste do Claude na 2d-2: "CONCLUÍDA EM 2026-10-30" é ISO, e ninguém lê
+  // ISO na tela. A tentação é `new Date(iso).toLocaleDateString('pt-BR')` — que
+  // trata a data como UTC meia-noite e, num fuso negativo, devolve o dia
+  // ANTERIOR: a pessoa veria a estação concluída ontem. Os casos abaixo só
+  // pegam isso se houver um `new Date` no caminho, porque a saída esperada é
+  // sempre o MESMO dia que entrou.
+  assert.equal(dataDeCalendario('2026-10-30'), '30/10/2026');
+  assert.equal(dataDeCalendario('2026-01-05'), '05/01/2026', 'dia e mês de dois dígitos, sem encolher');
+  assert.equal(dataDeCalendario('1999-12-31'), '31/12/1999');
+  // O que não é calendário a função não adivinha: devolve como recebeu, em vez
+  // de montar uma data inventada ou "Invalid Date" na tela.
+  assert.equal(dataDeCalendario('30/10/2026'), '30/10/2026');
+  assert.equal(dataDeCalendario(''), '');
+  assert.equal(dataDeCalendario(undefined), '');
+  // E a frase do carimbo, que é o que a pessoa lê.
+  assert.equal(comValores.concluidaEm('2026-10-30'), 'Concluída em 30/10/2026');
+});
+
+test('textos: os sete estados obrigatórios existem, e o erro tem as três partes', async () => {
+  // S20b-2: `primeiraVisita` saiu desta lista junto com a chave morta em
+  // core/textos.js — o quadro «Bem-vindo ao embarque» morreu na S20a, e a
+  // régua não pode exigir o texto de uma tela que não existe.
   const obrigatorios = [
     'carregando',
-    'primeiraVisita',
     'buscaSemResultado',
     'offline',
     'fimDaLinha',
@@ -491,6 +538,32 @@ function secaoDe(texto, titulo) {
   return texto.slice(inicio, fim < 0 ? texto.length : fim);
 }
 
+/**
+ * Os títulos de cada test() de um arquivo, como eles soariam na tabela §8:
+ * aspas simples, duplas ou template, com escapes soltos e espaço dobrado
+ * reduzido a um. Um título montado por template (`contraste no tema ${tema}: …`)
+ * sai daqui com o `${…}` literal e por isso não pode ser citado — a trava o
+ * reprovaria como inexistente, e é assim mesmo: quem cita, copia.
+ */
+function titulosDeTeste(texto) {
+  const out = [];
+  const re = /\btest\(\s*(['"`])((?:\\.|(?!\1)[^\\])*)\1/g;
+  let m;
+  while ((m = re.exec(texto))) {
+    out.push(m[2].replace(/\\(.)/g, '$1').replace(/\s+/g, ' ').trim());
+  }
+  return out;
+}
+
+/** Palavras em comum, em valor negativo: menor = mais parecido (só para o fail sugerir). */
+function distanciaPalavras(a, b) {
+  const pa = a.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+  const pb = new Set(b.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean));
+  let com = 0;
+  for (const w of pa) if (pb.has(w)) com++;
+  return -(com / Math.max(1, pa.length));
+}
+
 /** As linhas de dados de uma tabela markdown: [célula1, célula2, …]. */
 function linhasDaTabela(secao) {
   return secao
@@ -498,6 +571,136 @@ function linhasDaTabela(secao) {
     .filter((l) => /^\|\s*\d+\s*\|/.test(l)) // só linha que COMEÇA com número
     .map((l) => l.split('|').slice(1, -1).map((c) => c.trim()));
 }
+
+// ---------------------------------------------------------------------------
+// 6. TOKENS DA v2 E A BASE QUE TODA PÁGINA HERDA (design/v2/S2-base.md)
+// ---------------------------------------------------------------------------
+// Os cinco casos abaixo existem porque cinco defeitos foram VISTOS na tela
+// publicada (o juiz, 30/10/2026): calhas brancas no escuro, fonte do sistema no
+// corpo, foco de 2 px, pulso que não para, e um `infinite` que fere a WCAG
+// 2.2.2. Cada teste nomeia o defeito que ele impede de voltar.
+
+test('movimento: nenhuma animação infinita no CSS do app', async () => {
+  // Repete para sempre = não para = não dá para ler. A WCAG 2.2.2 exige que o
+  // movimento automático tenha fim; o anel "você está aqui" pulsa --pulso-repeticoes
+  // (2) e fica parado e visível.
+  const achados = [];
+  for (const c of (await daApp()).map(norm).filter((x) => x.startsWith('web/') && x.endsWith('.css'))) {
+    const texto = await ler(c);
+    for (const m of texto.matchAll(/animation[^;{}]*infinite/g)) {
+      achados.push(`${c}:${texto.slice(0, m.index).split('\n').length} → ${m[0]}`);
+    }
+  }
+  assert.deepEqual(achados, [], 'animação infinita na tela: use var(--pulso-repeticoes) e pare (WCAG 2.2.2)');
+});
+
+test('tema: o html e o body pintam --fundo', async () => {
+  // Defeito 1 da v2: o fundo estava só no contêiner .metro. Fora dele — o
+  // padding do body, a rolagem elástica, a faixa sob a placa — aparecia o
+  // branco do navegador no tema escuro. Quem pintou a calha de papel achou
+  // que tinha pintado a tela.
+  const base = await ler('web/base.css');
+  for (const alvo of ['html', 'body']) {
+    const ini = base.indexOf(`\n${alvo} {`);
+    assert.ok(ini >= 0, `web/base.css não declara "${alvo} {" no começo da linha`);
+    const bloco = base.slice(ini, base.indexOf('}', ini));
+    assert.match(bloco, /background:\s*var\(--fundo\)/, `${alvo} não pinta --fundo: calha branca no escuro`);
+  }
+  // S3b: o metro.html virou redirecionamento, e a página do app é o index.html
+  // (o casco). A exigência é a mesma, só mudou de arquivo: a base precisa vir
+  // LOGO DEPOIS do tokens.css, senão ela não vê os tokens.
+  const html = await ler('index.html');
+  const lig = [...html.matchAll(/<link\b[^>]*>/g)].map((m) => m[0]);
+  const iBase = lig.findIndex((l) => /href="\.\/web\/base\.css"/.test(l) && /stylesheet/.test(l));
+  assert.ok(iBase >= 0, 'index.html não carrega web/base.css');
+  const iTokens = lig.findIndex((l) => /href="\.\/web\/tokens\.css"/.test(l));
+  assert.ok(iTokens >= 0, 'index.html perdeu o tokens.css');
+  assert.equal(iBase, iTokens + 1, 'base.css deve vir LOGO DEPOIS do tokens.css: antes, a base não vê os tokens');
+});
+
+test('tipo: o corpo usa a Overpass', async () => {
+  // Defeito 4: --fonte-corpo ainda era a pilha do sistema (system-ui), que o
+  // design system proíbe como fonte principal. A Overpass estava declarada,
+  // no cache, e não era usada por nada do corpo.
+  const tokens = await ler('web/tokens.css');
+  const corpo = /--fonte-corpo:\s*([^;]+);/.exec(tokens);
+  assert.ok(corpo, '--fonte-corpo sumiu do tokens.css');
+  assert.ok(corpo[1].trim().startsWith('var(--fonte-placa)'),
+    `corpo em "${corpo[1].trim()}": a família do texto é a da placa (design/README.md §3)`);
+});
+
+test('foco: 3 px de anel e 3 px de afastamento, no base.css', async () => {
+  // Defeito 5: o anel de foco tinha 2 px e colava no botão. A v2 usa 3 e 3.
+  const tokens = await ler('web/tokens.css');
+  assert.match(tokens, /--anel-foco:\s*3px/, '--anel-foco ainda não é 3px');
+  assert.match(tokens, /--afastamento-foco:\s*3px/, 'falta o token --afastamento-foco');
+  const base = await ler('web/base.css');
+  const ini = base.indexOf(':focus-visible');
+  assert.ok(ini >= 0, 'web/base.css não tem a regra :focus-visible');
+  const bloco = base.slice(ini, base.indexOf('}', ini));
+  assert.match(bloco, /outline:\s*var\(--anel-foco\)/, 'o anel não vem do token');
+  assert.match(bloco, /outline-offset:\s*var\(--afastamento-foco\)/, 'o afastamento não vem do token');
+});
+
+test('tokens: os de movimento da v2 existem e zeram com movimento reduzido', async () => {
+  // A cascata (uma lista entrando item a item) e a entrada da tela precisam de
+  // duração PRÓPRIA: se forem escritos à mão, o prefers-reduced-motion não os
+  // alcança e a regra 11 da v2 quebra.
+  const tokens = await ler('web/tokens.css');
+  const ini = tokens.indexOf(':root {');
+  const raiz = tokens.slice(ini, tokens.indexOf('@media', ini));
+  const zerado = /--movimento-selecao:\s*(\S+)/;
+  for (const nome of ['--movimento-selecao', '--movimento-abrir', '--atraso-cascata', '--deslocamento-entrada']) {
+    assert.ok(new RegExp(`${nome}:\\s*[^;]+;`).test(raiz), `${nome} não existe em :root`);
+  }
+  const redu = /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{([\s\S]*)/m.exec(tokens);
+  assert.ok(redu, 'tokens.css sem o bloco prefers-reduced-motion');
+  for (const [nome, zero] of [['--movimento-selecao', '0ms'], ['--movimento-abrir', '0ms'],
+    ['--atraso-cascata', '0ms'], ['--deslocamento-entrada', '0px']]) {
+    const m = new RegExp(`${nome}:\\s*([^;]+);`).exec(redu[1]);
+    assert.ok(m, `${nome} não zera com movimento reduzido`);
+    assert.equal(m[1].trim(), zero, `${nome} com movimento reduzido deve ser ${zero}`);
+  }
+});
+
+test('css: nenhuma folha de estilo começa linha com // — comentário em CSS é /* */', async () => {
+  // Defeito VISTO NA TELA em 31/10/2026, com a suíte toda verde: o web/casco.css
+  // foi escrito com // no lugar de comentário. CSS não tem comentário de linha,
+  // e o navegador não ignora nada: ele junta cada // ao seletor da linha
+  // seguinte e descarta a regra inteira. .pular, .topo, .abas e main deixaram de
+  // valer — a barra de abas, que no celular deveria estar presa no pé, ficou
+  // static no topo da tela. Uma trava que lê o texto como texto não vê isso;
+  // esta vê, porque pergunta a única coisa que separa comentário de sintaxe: se
+  // a linha começa com as duas barras.
+  const achados = [];
+  for (const c of (await daApp()).map(norm).filter((x) => x.endsWith('.css'))) {
+    const texto = await ler(c);
+    let antes = '';
+    texto.split(/\r?\n/).forEach((linha, i) => {
+      if (/^\s*\/\//.test(linha)) {
+        // Dentro de url(...) ou de uma aspa aberta, // é conteúdo legítimo
+        // (uma url quebrada em mais de uma linha). Fora deles, é comentário.
+        const iUrl = antes.lastIndexOf('url(');
+        const dentroDeUrl = iUrl >= 0 && !antes.slice(iUrl).includes(')');
+        const dentroDeString = ((antes.match(/["']/g) ?? []).length) % 2 === 1;
+        if (!dentroDeUrl && !dentroDeString) {
+          achados.push(`${c}:${i + 1} → ${linha.trim().slice(0, 60)}`);
+        }
+      }
+      antes += linha + '\n';
+    });
+  }
+  assert.deepEqual(
+    achados,
+    [],
+    `linha começando com // em CSS: o navegador junta as barras ao seletor da `
+      + `linha seguinte e joga a regra fora. Use /* */.\n${achados.join('\n')}`,
+  );
+});
+
+// ---------------------------------------------------------------------------
+// 7. HEURÍSTICAS (design/README.md §8)
+// ---------------------------------------------------------------------------
 
 test('heurísticas: as 10 na tabela, numeradas, cada uma com onde se confere', async () => {
   const doc = await readFile(join(REPO, 'design/README.md'), 'utf8');
@@ -509,13 +712,36 @@ test('heurísticas: as 10 na tabela, numeradas, cada uma com onde se confere', a
     'a tabela das heurísticas não tem as 10 linhas numeradas de 1 a 10',
   );
 
+  // Título de test() lido do arquivo citado, uma vez por arquivo.
+  const titulosPorArquivo = new Map();
+  const titulosDe = async (arquivo) => {
+    if (!titulosPorArquivo.has(arquivo)) {
+      let bruto;
+      try {
+        bruto = await readFile(join(RAIZ, 'tests', arquivo), 'utf8');
+      } catch {
+        assert.fail(
+          `a tabela §8 cita tests/${arquivo}, que não existe no disco — a coluna `
+            + 'está apontando para uma prova que ninguém roda',
+        );
+      }
+      titulosPorArquivo.set(arquivo, titulosDeTeste(bruto));
+    }
+    return titulosPorArquivo.get(arquivo);
+  };
+
   for (const c of linhas) {
-    const [n, nome, regra, onde] = c;
+    const [n, nome, regra, vale, onde] = c;
     assert.ok(/\S/.test(nome ?? ''), `heurística ${n}: sem nome`);
     assert.ok(
       (regra ?? '').length >= 40,
       `heurística ${n} (${nome}): a regra concreta está vazia — o DS tem de ser `
         + 'preciso o bastante para ser seguido sem olhar a tela',
+    );
+    assert.ok(
+      /\S/.test(vale ?? ''),
+      `heurística ${n} (${nome}): a coluna "Onde vale" está vazia — sem dizer em `
+        + 'quais telas da v2 a regra se vê, ela pode ser verdade em nenhuma',
     );
     assert.ok(
       /\.test\.js|captura/.test(onde ?? ''),
@@ -524,11 +750,38 @@ test('heurísticas: as 10 na tabela, numeradas, cada uma com onde se confere', a
         + 'que falta a captura de tela',
     );
     // Citar teste que não existe é o mesmo buraco com outra roupa: a coluna
-    // fica preenchida e a prova, ausente.
-    for (const m of (onde ?? '').matchAll(/tests\/([\w.-]+\.test\.js)/g)) {
-      await readFile(join(RAIZ, 'tests', m[1]), 'utf8').catch(() =>
-        assert.fail(`heurística ${n} cita tests/${m[1]}, que não existe no disco`),
+    // fica preenchida e a prova, ausente. Desde a S10 a citação é do TESTE, não
+    // só do arquivo — então cada «título» tem de ser um test() daquele arquivo,
+    // e cada arquivo citado tem de trazer pelo menos um título.
+    const citas = [...(onde ?? '').matchAll(/`tests\/([\w.\-]+\.test\.js)`([^`]*)/g)];
+    assert.ok(
+      citas.length > 0 || /captura/.test(onde ?? ''),
+      `heurística ${n} (${nome}): a coluna não cita nenhum \`tests/…\` com crase. `
+        + 'O formato é `tests/<arquivo>.test.js` («título exato do test()»).',
+    );
+    for (const [citacao, arquivo, cauda] of citas) {
+      const titulos = await titulosDe(arquivo);
+      const citados = [...cauda.matchAll(/«([^»]+)»/g)].map((x) => x[1].trim());
+      assert.ok(
+        citados.length > 0,
+        `heurística ${n} (${nome}): «${citacao.slice(0, 60)}…» cita tests/${arquivo} `
+          + 'sem nenhum «título» de test() — arquivo citado sem teste citado não é '
+          + 'prova, é rodapé',
       );
+      for (const t of citados) {
+        if (titulos.includes(t)) continue;
+        const vizinhos = titulos
+          .map((x) => ({ x, d: distanciaPalavras(t, x) }))
+          .sort((a, b) => a.d - b.d)
+          .slice(0, 3)
+          .map((o) => `       «${o.x}»`);
+        assert.fail(
+          `heurística ${n} (${nome}): «${t}» NÃO é um test() de tests/${arquivo}. `
+            + 'Citação que aponta para teste que não existe é a coluna mentindo. '
+            + 'Os títulos mais parecidos daquele arquivo são:\n'
+            + (vizinhos.join('\n') || '       (nenhum — o arquivo não tem test())'),
+        );
+      }
     }
   }
 });

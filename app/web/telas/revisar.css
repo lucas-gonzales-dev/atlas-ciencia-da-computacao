@@ -1,0 +1,321 @@
+/*
+  Projeto Atlas — a tela REVISAR: a fila de cartões (S15b, 04/11/2026).
+
+  POR QUE EXISTE: é aqui que o cartão escrito ao fechar uma aula (S14b2) volta.
+  A S8 desenhava uma revisão por estação; o desenho novo (design/v3/00-desenho.md,
+  J3) trocou a unidade pelo cartão. Nenhum valor é à mão: cor, espaço, tipo e
+  tempo saem dos tokens, e a suíte lê este arquivo inteiro procurando hex,
+  propriedade de cor crua e duração sem token (design/README §2, §5, §7).
+
+  O QUE SAIU JUNTO COM A TELA DA S8: o bloco `.revisar-anotacao*` (a anotação por
+  estação), `.revisar-aviso*` (o desfazer com temporizador) e `.revisar-como*` +
+  `.revisar-cartoes`/`.revisar-cartao*` (a caixa "Como funciona" com os três
+  passos). Nenhuma classe do estado antigo sobrevive: a tela nova desenha os
+  quatro estados com as classes abaixo, e um CSS órfão de tela apagada é a
+  próxima pessoa ler `.revisar-estacao` e achar que existe estação aqui.
+
+  A COR DA LINHA NÃO EXISTE AQUI, E ISSO É DECISÃO. `--cor` é o token da linha
+  (metro.css: `.l1 { --cor: var(--linha-1) }`), e a fila mistura cartões de
+  várias linhas: pintar o botão com a cor do cartão da vez faria a tela trocar de
+  cor a cada resposta, e `.botao.botao-primario` com `--cor` VAZIO sai com texto
+  `--superficie` sobre o fundo da página (1,1:1, medido no Chrome na S14b2 —
+  aula.css:17 conta o mesmo defeito). Então `.revisar` declara `--cor:
+  var(--tinta)`: o primário é tinta sobre superfície, o contraste mais alto que
+  os tokens têm, e a única cor que não promete uma linha que a tela não é.
+*/
+
+.revisar {
+  --cor: var(--tinta);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-8);
+  /* A margem da PÁGINA, a mesma de toda tela. Crítica no navegador real
+     (S11-0, 03/11/2026): aqui estava --largura-lateral, que é a COLUNA DIREITA
+     do computador, 360px. No celular de 375px sobravam 15px de conteúdo para
+     720px de padding: a tela do Revisar media 0 px de conteúdo e a suíte toda
+     verde não via nada, porque node não resolve CSS. */
+  padding: var(--espaco-6) var(--espaco-4) calc(var(--espaco-6) + var(--margem-segura-baixo));
+  max-width: var(--largura-painel);
+  width: 100%;
+  font-family: var(--fonte-corpo);
+  color: var(--tinta);
+}
+
+.revisar-corpo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-6);
+}
+
+/* Um estado por vez na tela. O `<section>` não tem borda nem caixa: a distinção
+   entre os quatro é o CONTEÚDO, e uma caixa em cada um daria à fila o peso
+   visual de um formulário. */
+.revisar-estado {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-3);
+}
+
+/* A Abertura e o Fim são placas de tela: o maior tipo da casa, como o nome da
+   estação era na S8. O cartão NÃO usa este tipo na frente — lá o maior texto é
+   a pergunta (abaixo), e dois títulos grandes na mesma tela deixam de ser título. */
+.revisar-titulo {
+  margin: 0;
+  font-family: var(--fonte-placa);
+  font-size: var(--tipo-titulo);
+  font-weight: var(--peso-placa);
+  line-height: var(--entrelinha-titulo);
+  color: var(--tinta);
+}
+
+.revisar-sub,
+.revisar-corte,
+.revisar-nota,
+.revisar-lembrada,
+.revisar-metodo {
+  margin: 0;
+  font-size: var(--tipo-corpo);
+  line-height: var(--entrelinha-corpo);
+  color: var(--fosca);
+}
+
+/* O corte da fila ("Você vai ver os 20 mais antigos") é a frase que explica por
+   que o número do alto e o tempo prometido não batem. Fica junto do título e
+   com a mesma tinta do corpo: é informação, não aviso — nada de borda vermelha
+   para uma espera que não é falha. */
+.revisar-corte {
+  color: var(--tinta);
+}
+
+/* As aulas que passaram a "lembradas" nesta sessão: uma linha cada, lida como
+   lista de conquistas sem ser lista de mérito. */
+.revisar-lembrada {
+  color: var(--tinta);
+}
+
+/* A linha discreta que substituiu a caixa "Como funciona" (item 3 do pedido). */
+.revisar-metodo,
+.revisar-nota {
+  font-size: var(--tipo-nota);
+  line-height: var(--entrelinha-nota);
+}
+
+/* ── o cartão ───────────────────────────────────────────────────────────── */
+/* Origem e posição na mesma linha, em cima da pergunta: "de onde vem" e "onde
+   estou" são o cabeçalho, e a pergunta é o corpo. Em 360px a linha quebra. */
+.revisar-cabeca {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--espaco-2);
+}
+
+.revisar-origem {
+  margin: 0;
+  font-family: var(--fonte-placa);
+  font-size: var(--tipo-legenda);
+  font-weight: var(--peso-placa);
+  letter-spacing: var(--espacamento-placa);
+  text-transform: uppercase;
+  color: var(--fosca);
+}
+
+/* "1 de 6" é POSIÇÃO, não placar (design/README §9). A fonte mono deixa claro
+   que é um contador de lugar; se ele crescesse ou mudasse de cor a cada
+   resposta, viraria pontuação. */
+.revisar-posicao {
+  margin: 0;
+  font-family: var(--fonte-mono);
+  font-size: var(--tipo-nota);
+  color: var(--fosca);
+}
+
+/* A frente do cartão é o maior texto da tela: é a única coisa que a pessoa tem
+   de ler antes de decidir. --tipo-estacao é o maior da escala e é o tipo da
+   pergunta, não do título da aba. */
+.revisar-frente {
+  margin: 0;
+  font-family: var(--fonte-placa);
+  font-size: var(--tipo-estacao);
+  font-weight: var(--peso-placa);
+  line-height: var(--entrelinha-apertada);
+  color: var(--tinta);
+}
+
+.revisar-convite {
+  margin: 0;
+  font-size: var(--tipo-corpo);
+  line-height: var(--entrelinha-corpo);
+  color: var(--fosca);
+}
+
+/* O verso é citação da própria pessoa (mesma decisão da anotação na S8): o
+   Atlas não escreveu aquilo, só devolve. Por isso a barra à esquerda e nenhum
+   destaque de fundo. */
+.revisar-verso {
+  margin: var(--espaco-2) 0 0;
+  padding-left: var(--espaco-4);
+  border-left: var(--espessura-borda-painel) solid var(--borda);
+  font-family: var(--fonte-corpo);
+  font-size: var(--tipo-corpo);
+  line-height: var(--entrelinha-corpo);
+  color: var(--tinta);
+}
+
+/* S16c, item B — O ANEL nos alvos de foco programático. Os três são h1 e
+   blockquote: a S15b-fix põe o foco neles para o teclado não atravessar a tela
+   inteira a cada cartão, e o anel RETANGULAR da base.css desenhava então uma
+   moldura em volta de um texto que ninguém clica — o leitor via um campo onde não
+   há campo. O anel sai nestes três, e só neles: um h1 e um blockquote nunca são
+   controle, então a regra não alcança botão nem link, e o foco dos controles
+   continua o da base.css.
+
+   O `outline: none` não fica sozinho, e isso não é capricho — é a régua da casa
+   (auditoria-teclado-leitor.test.js, teclado 2), que proíbe matar o outline sem
+   pôr outra marca na MESMA regra: quem enxerga e tecla precisa continuar sabendo
+   onde está. A marca escolhida é uma barra, no lado de fora do texto, na cor da
+   linha: diz "a leitura começa aqui" sem fechar uma caixa em volta dele. */
+.revisar-titulo:focus-visible,
+.revisar-frente:focus-visible,
+.revisar-verso:focus-visible {
+  outline: none;
+  /* O substituto é o MECANISMO da casa para traço de foco — `0 0 0` com desfoque
+     zero é anel, não sombra, e é assim que base.css já desenha o seu e que a
+     JORNADA 4 pulsa a próxima estação. A régua de sombra (regra 9) exige isso: sem
+     o `0 0 0`, um box-shadow com deslocamento seria elevação onde não há camada. */
+  box-shadow: 0 0 0 var(--espaco-1) var(--cor, var(--tinta));
+}
+
+/* ── a confiança opcional ───────────────────────────────────────────────── */
+/* S15b-fix, item 3: três linhas de largura inteira com borda de painel (6px)
+   pesavam MAIS que a pergunta que a pessoa acabou de ler — a régua visual do
+   desenho (design/v3) é «a pergunta é o maior texto da tela», e três barras de
+   6px empilhadas violam isso sem uma palavra de código errada. Agora: a pergunta
+   na linha inteira, as três escolhas SIDE BY SIDE numa grade de três colunas
+   iguais, e a borda de 1px da casa. `minmax(0, 1fr)` e não `1fr`: com 1fr o
+   mínimo automático de um item de grade é o conteúdo, e «Não tenho certeza» em
+   360px estouraria a coluna (o mesmo motivo de aula.css:117 e das grades da S13e). */
+.revisar-confianca {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--espaco-2);
+}
+
+.revisar-confianca-pergunta {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: var(--tipo-nota);
+  line-height: var(--entrelinha-nota);
+  color: var(--fosca);
+}
+
+/* Três escolhas do MESMO peso: mesmo tipo, mesma borda, mesmo recheio, e a
+   escolhida se marca só pelo anel. Se uma delas tivesse cor de "acertei", a
+   pessoa estaria sendo elogiada por chutar alto. */
+.revisar-confianca-opcao {
+  min-height: var(--alvo-toque);
+  padding: var(--espaco-2);
+  font: inherit;
+  font-size: var(--tipo-nota);
+  font-weight: var(--peso-forte);
+  color: var(--fosca);
+  background: none;
+  /* A borda é a da casa (1px em --borda), não a de painel: em três colunas,
+     6px de cada lado de cada uma das três engoliria a coluna em 360px. */
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-placa);
+  cursor: pointer;
+  transition: border-color var(--movimento-toque) var(--curva-atlas),
+    color var(--movimento-toque) var(--curva-atlas);
+}
+
+/* A escolhida se marca por TINTA + RECHEIO, não só pelo anel: numa fileira de
+   três do mesmo peso, borda 1px mais escura é quase invisível, e a pessoa
+   precisa ver o que já disse sem apertar de novo para conferir. */
+.revisar-confianca-opcao[aria-pressed='true'] {
+  border-color: var(--tinta);
+  color: var(--tinta);
+  background: var(--superficie);
+}
+
+/* ── as ações do cartão ─────────────────────────────────────────────────── */
+/* Errei e Lembrei do MESMO peso e de nenhuma cor de certo ou errado: as duas
+   fileiras de botões da tela (confiança e resposta) usam a MESMA classe, e foi
+   assim que a S8 tinha três botões e a régua 4 do teclado precisava conferir
+   cada um. */
+/* Duas colunas IGUAIS por grade, não por flex: com `flex-wrap` cada botão tinha
+   a largura do próprio texto, e «Errei» e «Lembrei» saíam de tamanhos diferentes
+   na mesma fileira — dois botões do mesmo peso com pesos visuais diferentes.
+   `minmax(0, 1fr)` pelo mesmo motivo da confiança. */
+.revisar-respostas {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--espaco-3);
+  margin-top: var(--espaco-3);
+}
+
+.revisar-resposta {
+  min-height: var(--alvo-toque);
+  padding: var(--espaco-2) var(--espaco-4);
+  font: inherit;
+  font-size: var(--tipo-corpo);
+  font-weight: var(--peso-forte);
+  color: var(--tinta);
+  background: none;
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-placa);
+  cursor: pointer;
+  transition: border-color var(--movimento-toque) var(--curva-atlas);
+}
+
+.revisar-resposta:hover {
+  border-color: var(--tinta);
+}
+
+/* O ANEL É O DA CASA e não se declara aqui (S15b-fix, item 4). Havia um segundo
+   anel de foco próprio, herdado da S8, na cor do AVISO DE ERRO: `web/base.css` já
+   põe `outline: var(--anel-foco)` em tudo que recebe foco, e um segundo anel em
+   outra cor na mesma tela diria que o vermelho do app significa «atenção» — ele
+   significa falha, e pintar com ele o foco de um acerto era outra cor sem motivo.
+   A regra foi APAGADA, não comentada: a trava lê o arquivo inteiro, e nem o nome
+   do seletor de foco nem a cor de erro podem aparecer aqui para serem negados. */
+
+/* ── o primário, um só por estado ───────────────────────────────────────── */
+/* A FORMA é do design system: as classes `.botao .botao-primario` vêm junto no
+   className que o JS põe, e o recheio em `--cor` (declarada acima como tinta) é
+   do folha.css, carregado antes deste arquivo. Restam só as classes `revisar-*`
+   para a régua que CONTA primários no DOM montado — contar por `.botao-primario`
+   seria contar os botões do restante do app que a folha tem aberta por cima. */
+.revisar-primario {
+  align-self: flex-start;
+  margin-top: var(--espaco-4);
+  text-align: center;
+}
+
+/* A ALTURA do link primário (70px medidos no Chrome, contra 46px do botão
+   "Começar") era o `min-height: var(--alvo-toque)` do folha.css tomado como
+   CONTENT BOX: o border-box é padrão do navegador para <button>, e um <a> não o
+   herda — 44 + 12 + 12 de padding + 2 de borda = 70. Uma linha devolve ao <a> a
+   mesma conta do <button>: os 44 passam a INCLUIR o recheio. É o mesmo
+   box-sizing que aula.css:28 e cartao.css:48 declaram pelos mesmos motivos. */
+a.revisar-primario {
+  box-sizing: border-box;
+}
+
+@media (min-width: 1024px) {
+  /* No computador a fila fica na coluna de leitura, à esquerda do painel: 720px
+     de pergunta a uma distância de braço, e o texto corrido até a borda de 1920
+     cansa (a mesma razão do --largura-leitura da página da aula). */
+  .revisar {
+    max-width: var(--largura-leitura);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .revisar-resposta,
+  .revisar-confianca-opcao {
+    transition: none;
+  }
+}

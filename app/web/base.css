@@ -1,0 +1,125 @@
+/* Projeto Atlas — a BASE que toda página da v2 herda (design/v2/S2-base.md).
+ *
+ * Por que existe um arquivo separado: até aqui, cada página repetia o fundo, a
+ * tinta e a família do texto no seu próprio CSS. O defeito 1 da crítica da v2
+ * é exatamente isso aplicado pela metade — o fundo estava no contêiner `.metro`
+ * e não no `html` nem no `body`, então no tema escuro as calhas da página
+ * (a rolagem elástica, a faixa sob a placa, o espaço além do conteúdo)
+ * apareciam BRANCAS. A tela parecia escura e o navegador não.
+ *
+ * A regra da casa continua: nada de cor, duração, raio ou tamanho à mão aqui.
+ * Tudo vem de web/tokens.css, por isso este arquivo é carregado LOGO DEPOIS
+ * dele — antes, as variáveis ainda não existem e o fundo volta a ser branco.
+ *
+ * Só `html`, `body`, o anel de foco e a utilidade de leitor. Quem precisar de
+ * mais do que isso na página própria, escreve na página própria. */
+
+html {
+  background: var(--fundo);
+  color: var(--tinta);
+  font-family: var(--fonte-corpo);
+  /* O esquema do navegador (barra de rolagem, formulário, tema do meta) segue
+   * o tema: sem isto, o Android desenha uma barra de rolagem clara sobre o
+   * carvão e a calha branca volta pela janela. */
+  color-scheme: light dark;
+  /* S10 régua 6 (03/11/2026): a garantia de "a janela inteira é pintada" mora no
+   * HTML, não no body. O body era o dono dela (min-height: 100dvh), e isso
+   * anulava em silêncio o conserto das abas: o casco dá ao body uma altura =
+   * tela MENOS a faixa da barra, mas min-height é um PISO, e piso acima do
+   * height estica a caixa de volta a 100dvh — o main passava por baixo da barra
+   * e "Viagem" continuava coberto com a suíte toda verde. Dois arquivos donos da
+   * mesma caixa é a doença; a caixa da janela é do casco, e a base só garante a
+   * cor do que existe além dela. */
+  min-height: 100dvh;
+}
+
+body {
+  margin: 0;
+  background: var(--fundo);
+}
+
+/* Foco visível para quem navega sem mouse. O anel é grosso (3 px) e tem ar
+ * (3 px de afastamento): colado no elemento, sobre a cor da linha, ele não se
+ * via. Só :focus-visible — o toque não herda anel, o teclado sim. */
+:focus-visible {
+  outline: var(--anel-foco) solid var(--tinta);
+  outline-offset: var(--afastamento-foco);
+}
+
+/* Fora da tela, dentro do leitor de tela. Um texto que só explica o estado de
+ * um controle não precisa ocupar uma linha da placa. */
+.so-leitor {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* O BLOCO DA AGENDA (S19b, 06/11/2026) — o convite de marcar a próxima sessão,
+ * que aparece no FIM de duas sessões diferentes: a aula estudada (web/telas/
+ * aula.js) e o fim da revisão (web/telas/revisar-fila.js). Mora na base, e não
+ * numa das duas folhas, pelo mesmo motivo do anel de foco: o desenho é o MESMO
+ * nas duas telas, e escrevê-lo em duas folhas faria a segunda divergir da
+ * primeira na primeira mudança — a doença de que este arquivo trata desde o
+ * defeito 1 da crítica da v2.
+ *
+ * Link discreto, nunca botão: o primário de cada tela é um só, e ele não é um
+ * convite a voltar. O alvo de toque vale para os três controles tocáveis (o
+ * link, o botão e os dois campos — um `input type=date` de 20 px é a coisa mais
+ * difícil de acertar numa tela, e é o que a régua de tamanhos da casa mede). */
+.agenda {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--espaco-2);
+  margin-top: var(--espaco-3);
+  font-size: var(--tipo-corpo);
+}
+
+.agenda-abrir {
+  color: var(--tinta);
+  text-decoration: underline;
+  min-height: var(--alvo-toque);
+  display: inline-flex;
+  align-items: center;
+}
+
+.agenda-aberto {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.agenda-campo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-1);
+}
+
+.agenda-rotulo {
+  font-size: var(--tipo-placa);
+  color: var(--fosca);
+}
+
+.agenda-entrada {
+  min-height: var(--alvo-toque);
+  font-size: var(--tipo-corpo);
+  font-family: var(--fonte-corpo);
+  color: var(--tinta);
+  background: var(--superficie);
+  border: var(--anel-trancada) solid var(--borda);
+  border-radius: var(--raio-placa);
+  padding: var(--espaco-1) var(--espaco-2);
+  box-sizing: border-box;
+}
+
+.agenda-baixar {
+  min-height: var(--alvo-toque);
+}
+
+.agenda-aviso {
+  margin: 0;
+  color: var(--fosca);
+  font-size: var(--tipo-corpo);
+}

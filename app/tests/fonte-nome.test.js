@@ -81,6 +81,11 @@ test('a grafia errada não sobrevive em nenhum arquivo que vai para a tela', () 
     'app/core/catalog.js',
     'app/web/main.js',
     'app/web/boot.js',
+    // S3a-2a: o index.html virou casco, e a tela passou a morar em arquivos
+    // novos. Todo texto que chega ao aluno entra nesta varredura.
+    'app/web/casco.js',
+    'app/web/telas/jornada.js',
+    'app/web/telas/explorar.js',
     'app/index.html',
     'app/manifest.webmanifest',
     'app/data/catalog.json',

@@ -162,3 +162,48 @@ test('README e CREDITS não citam a grafia crua como se fosse texto da fonte', (
     assert.deepEqual(vivas, [], `${relativo} ainda cita o texto sem acento: ${vivas.join(' | ')}`);
   }
 });
+
+// ------------------------------------------------- a casa das strings de tela
+// Os dois casos acima varrem o DADO (catalog.json) e a TELA montada. Nenhum lê
+// core/textos.js, que é onde mora a maioria da prosa que o aluno vê — e foi
+// justamente lá que, na S7, nasceram duas frases de UI sem acento. O achado só
+// apareceu no navegador, no detector de acento do testar_pagina: a suíte dava
+// 0 falhas enquanto a tela mostrava "Ramais dao aprofundamento em uma area".
+// Regra da casa, então: a régua segue o texto até a fonte dele.
+test('core/textos.js: nenhum texto de tela chega ao aluno sem o acento que o português exige', () => {
+  const fontes = readFileSync(`${raizDoApp}core/textos.js`, 'utf8').split(/\r?\n/);
+
+  // Só frases: literal com espaço em branco. Descarta id de chave, caminho,
+  // cor e nome de fonte — um detector que lê URL como frase acha defeito onde
+  // não há (aconteceu em 28/10 com "ciencia" e "computacao" dentro do endereço
+  // do repositório da fonte, que não mudam por natureza).
+  const INTERPOLACAO = /\$\{[^}]*\}/g;
+  const frases = [];
+  for (const linha of fontes) {
+    if (/^\s*(\/\/|\*|\/\*)/.test(linha)) continue; // prosa de código não é tela
+    const semVariaveis = linha.replace(INTERPOLACAO, ' ');
+    const re = /'([^'\n]*)'|"([^"\n]*)"|`([^`\n]*)`/g;
+    let m;
+    while ((m = re.exec(semVariaveis)) !== null) {
+      const s = (m[1] ?? m[2] ?? m[3] ?? '').trim();
+      if (/\s/.test(s)) frases.push(s);
+    }
+  }
+
+  // Só palavras que NÃO EXISTEM sem acento em português. Ficam de fora "ha",
+  // "esta" e "era", que são palavras legítimas cruas — mesma lista do caso do
+  // catálogo, ampliada com as duas formas que a S7 achou.
+  //
+  // "aula" SAIU da lista (S13b, 04/11/2026). Ela entrou um dia ao lado de
+  // "aulas", mas "aula" se escreve assim mesmo, sem acento nenhum: era a única
+  // palavra da lista que não é grafia crua de nada. O efeito prático apareceu
+  // na frase nova da folha — "Abre no YouTube. A aula fica marcada como
+  // aberta." — que a régua acusava de texto sem acento, quando a régua é que
+  // estava errando. Deixar um falso positivo na casa é pior que a regra frouxa:
+  // na próxima vez que a régua reclamar, ninguém sabe se é defeito ou ruído. As
+  // frases de verdade continuavam presas pelas outras 29 palavras.
+  const CRUS = /\b(nao|disponivel|disponiveis|conteudo|construcao|indice|pagina|voce|proximo|proxima|numero|estacao|estacoes|acao|area|areas|dao|decisao|possivel|historia|relicao|opcao|ultimo|ultima|publico|medico|extrato|serie)\b/;
+
+  const culpados = frases.filter((f) => CRUS.test(f));
+  assert.deepEqual(culpados, [], `frase sem acento no texto de tela de core/textos.js: ${culpados.join(' | ')}`);
+});

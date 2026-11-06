@@ -15,16 +15,58 @@
 //   3. NENHUMA COR AQUI. A cor da linha é uma CLASSE (.l1 … .l7) que o CSS
 //      resolve com os tokens. JS que escolhe hex é JS que fura o design system.
 
-import { placa, comValores, estados } from '../core/textos.js';
+// S20b-4 (item 2): `mapa` entra pela palavra `estagioNaFolha`, a mesma que a
+// folha usa desde a S20b-1a. Nome curta não: ela é lida como MAPA_TEXTO porque
+// `mapa` neste arquivo já é o DIV do diagrama (linha 646), e uma palavra com
+// dois significados na mesma função é o defeito que a regra 9 existe para pegar.
+import { placa, comValores, estados, jornada as J, mapa as MAPA_TEXTO, ORIGEM, TIPO_DE_ORIGEM } from '../core/textos.js';
+// S20b-4: `contarEstagios` é a conta do núcleo para quem ROTULA (core/eixos.js),
+// e é ela que responde o «Em curso» dos três números — a tela não refaz um
+// `filter` sobre estágios, que seria a segunda regra da mesma palavra.
+import { eixosDaRede, contarEstagios } from '../core/eixos.js';
+import { tresNumeros, conexao, totalDeLinhas } from './telas/jornada-blocos.js';
+// S5 parte 2: a FOLHA saiu deste arquivo (ela é web/folha.js) e passou a ter
+// rota própria (#/estacao/<slug>). O ciclo de imports é deliberado: o metro.js
+// chama `desenharFolha` ao pintar e o folha.js lê `naFonte`/`origemDoRecurso`
+// daqui — os dois só usam a referência dentro de função, nunca na avaliação do
+// módulo, e por isso o ciclo importa sem estourar. Reimplementar a origem na
+// folha era a segunda palavra para a mesma coisa que a crítica da v1 contou.
+import { desenharFolha } from './folha.js';
+// S13c (04/11/2026) — o FIO das aulas na folha. O defeito que estas duas linhas
+// pagam: `desenharFolha` sabia receber `aulas`/`estudo` desde a S13b, a folha
+// desenhava o painel com o primário e a régua, e NINGUÉM no app passava os dois.
+// Quem abria #/estacao/circuitos-digitais via a folha de sempre — "Começar a
+// estudar", botão Concluir, nenhuma linha de progresso. Os 584 testes verdes
+// mediam a peça, entregue pelo teste ao desenho, e não o desenho dentro do app.
+// Este é o segundo encontro com a mesma armadilha (defeito 1 da S11-0: aberta no
+// DOM, fechada na tela). A correção mora aqui, no metrô, que é o dono da tela.
+import { carregarAulas } from './aulas-dados.js';
+import { estudoDoStorage, ligarAberturaDeAula } from './aulas-pedacos.js';
+// S16c: os CARTÕES entram no desenho do mapa e da folha. O defeito que esta
+// importação paga é o terceiro encontro com a mesma armadilha (S11-0 defeito 1,
+// S13c): a peça sabe receber o dado, o teste entrega o dado à peça, e ninguém no
+// app o passa. Ler o storage aqui, no dono da tela, pela MESMA porta da aba
+// Revisar (revisar.js:99) — um segundo leitor de `atlas.cartoes.v1` seria duas
+// verdades sobre a mesma fila.
+import { CARTOES_KEY, lerCartoes } from '../core/cartoes.js';
+// S20a: o topo da Jornada (J1 primeira visita / J5 a volta) é um módulo próprio,
+// pelo mesmo motivo da S4a dividir o metro.js: a regra de desenhá-lo não é a
+// regra do diagrama. A leitura do indice.json mora aqui dentro, nunca no core/.
+import { alvoDoTopo, carregarIndice, desenharTopo } from './telas/jornada-topo.js';
+import { hrefDe, lerRota } from '../core/rotas.js';
 import {
   ESTADOS,
+  numerosDaJornada,
   lerProgresso,
+  dataLocal,
   estadoDaEstacao,
   resumoDaViagem,
   concluirEstacao,
   iniciarEstacao,
   desfazerConclusao,
-  marcosNovos
+  marcosNovos,
+  abreComBaldeacao,
+  momentoDaChegada
 } from '../core/viagem.js';
 
 // ─────────────────────────── progresso em curso / datas ───────────────────────────
@@ -56,18 +98,23 @@ export function carregarViagem(storage, completed) {
   const lido = lerProgresso(detalhe ? tenta(detalhe) : null);
   // completed é a autoridade: uma estação marcada como concluída no detalhe mas
   // não na fonte compartilhada não existe (e vice-versa).
-  return { completed: ids, emCurso: lido.emCurso, conclusoes: lido.conclusoes };
+  // S18b-2: `dominadas` é o carimbo do desafio da estação, e é o único registro de
+  // que ele foi passado. Os dois retornos deste bloco remontam o progresso campo a
+  // campo, e o que não entra na lista não dá erro — simplesmente não volta. Por
+  // isso a linha abaixo é obrigatória, e a trava do round-trip (gravar, reler, os
+  // números continuarem lá) está em app/tests/desafio.test.js.
+  return { completed: ids, emCurso: lido.emCurso, conclusoes: lido.conclusoes, dominadas: lido.dominadas };
 }
 
 function tenta(texto) {
   try { return JSON.parse(texto); } catch { return null; }
 }
 
-/** Guarda em curso + datas. Devolve false quando o aparelho não deixou gravar. */
+/** Guarda em curso + datas + o carimbo das dominadas. Devolve false quando o aparelho não deixou gravar. */
 export function salvarViagem(storage, progresso) {
   const p = lerProgresso(progresso);
   try {
-    storage.setItem(CHAVE_VIAGEM, JSON.stringify({ emCurso: p.emCurso, conclusoes: p.conclusoes }));
+    storage.setItem(CHAVE_VIAGEM, JSON.stringify({ emCurso: p.emCurso, conclusoes: p.conclusoes, dominadas: p.dominadas }));
     return true;
   } catch {
     return false;
@@ -85,24 +132,181 @@ export const ESTADO_LEGIVEL = Object.freeze({
 });
 
 /**
- * O nome inteiro que o leitor de tela lê: "Matemática Discreta, Linha 2, disponível".
- * Não é enfeite de acessibilidade — é o que conserta o botão que só dizia
- * "abrir" e o campo que só dizia "Anotação".
+ * A palavra da lista, perguntada à MESMA régua da folha (S20b-4, item 2).
+ *
+ * POR QUE EXISTE: com 3 aulas estudadas de 93, a lista dizia «disponível» e a
+ * folha, dois centímetros abaixo, dizia «Em percurso» — duas respostas para a
+ * mesma pergunta na mesma tela, que é o que a regra 9 proíbe. `folha-estado` lê
+ * `mapa.estagioNaFolha` (core/textos.js) desde a S20b-1a; aqui entra a mesma
+ * função, com o estágio que `eixosDaEstacao` mediu, e nenhuma palavra nova.
+ *
+ * QUEM NÃO TEM EIXO NA MÃO CONTINUA COMO ESTÁ: `semEixo` é o Map vazio de quem
+ * não tem índice (a primeira pintura, o cartão do link, o teste da placa), e
+ * também o caso da estação que o índice não cobre. A régua é de DOIS EIXOS — o
+ * que ela mede são aulas abertas e estudadas — e dizer «não medimos» com a
+ * palavra da MALHA (disponível/trancada, que é o pré-requisito) é menos errado
+ * do que inventar um estágio sem total. A forma (`e.estado`) continua do
+ * catálogo em qualquer caso: é a cor do nó e o que a folha decide abrir.
+ *
+ * @param {Map|object|null} eixos o Map de `eixosDaRede` (aceita objeto também,
+ *   pela mesma razão de `contarEstagios`)
+ * @param {{id: string}} e o estado da estação lido da malha
+ * @returns {string} a palavra que vai na etiqueta
  */
-export function rotuloEstacao(estacao, linha) {
+export function estadoDaLista(eixos, e) {
+  // A TRANCADA manda na malha, como já manda na folha (web/folha.js:461): sem
+  // liberação não há estágio a medir, e um estágio medido numa estação fechada
+  // seria a tela oferecendo o que o pré-requisito nega.
+  if (e?.estado === ESTADOS.TRANCADA) return ESTADO_LEGIVEL[ESTADOS.TRANCADA];
+  const medida = typeof eixos?.get === 'function' ? eixos.get(e?.id) : eixos?.[e?.id];
+  if (!medida || !medida.estagio) return ESTADO_LEGIVEL[e?.estado] || ESTADO_LEGIVEL[ESTADOS.TRANCADA];
+  // `e.estado` entra como segundo argumento pela mesma razão que na folha: o
+  // 'fora' sem toque, MAS com a estação marcada como começada na malha, é
+  // «Em curso» (declaração da pessoa), não «disponível».
+  const palavra = MAPA_TEXTO.estagioNaFolha(medida.estagio, e.estado);
+  // O estágio que a folha NÃO traduz (um estágio do núcleo sem par em textos.js é
+  // «nome de estágio inventado», e a trava do mapa já cai lá) devolve a palavra
+  // da malha. É o mesmo «toda estação tem etiqueta» da S20b-1a, visto daqui.
+  return palavra || (ESTADO_LEGIVEL[e.estado] || ESTADO_LEGIVEL[ESTADOS.TRANCADA]);
+}
+
+export function rotuloEstacao(estacao, linha, palavra) {
   const nome = estacao && typeof estacao.titulo === 'string' ? estacao.titulo : '';
   // FATIA 2c-3: sem linha não se INVENTA linha. `Number(null)` é 0 e 0 é finito,
   // então o rótulo saía "X, Linha 0, trancada" — e Linha 0 não existe em lugar
   // nenhum do catálogo. Quando o número não vem, a parte da linha sai da frase.
   const n = Number(linha);
   const l = Number.isFinite(n) && n > 0 ? n : null;
-  const estado = ESTADO_LEGIVEL[estacao?.estado] || ESTADO_LEGIVEL[ESTADOS.TRANCADA];
+  // S20b-4 (item 2): a mesma palavra do cartão também no `aria-label`. O rótulo
+  // falado e a etiqueta vista têm de ser a MESMA resposta — um leitor de tela
+  // ouvindo «disponível» enquanto a folha diz «Em percurso» seria o defeito
+  // escrito duas vezes, uma para cada sentido. Sem `palavra` (os chamados de
+  // teste, o cartão sem medida) vale a palavra da malha, como sempre valeu.
+  const estado = palavra || ESTADO_LEGIVEL[estacao?.estado] || ESTADO_LEGIVEL[ESTADOS.TRANCADA];
   return l === null ? `${nome}, ${estado}` : `${nome}, ${comValores.linha(l)}, ${estado}`;
 }
 
 /** A ação ÚNICA da placa: "Continuar" quando já está em curso, senão começar. */
 export function acaoDaPlaca(estado) {
-  return estado === ESTADOS.EM_CURSO ? placa.continuar : placa.comecarEstudar;
+  // S20a-3, item 0 (04/11/2026): «Começar a estudar» ao lado de um topo que
+  // acabou de dizer «Começar pela primeira aula» — ou «Continuar: Aula 13» — é
+  // a mesma contradição do defeito 4 por outra porta: duas frases, uma
+  // decisão. A placa tem o SEU lugar na tela desde a S20a, e o verbo dela é o
+  // que ela faz: VER a estação, ir ler a folha dela. «Começar a estudar»
+  // continua existindo, e continua sendo o verbo de abrir o recurso — agora na
+  // folha (folha.js:143), que é a tela de quem já escolheu. UM primário por
+  // tela é a regra da casa; dois verbos de começar na mesma tela era o defeito.
+  return estado === ESTADOS.EM_CURSO ? placa.continuar : placa.verAEstacao;
+}
+
+/**
+ * DE ONDE VEIO O RECURSO (fatia 2d-1, JORNADA §2.3: "a pessoa desiste se o
+ * recurso abrir sem dizer de onde veio").
+ *
+ * Nada é inventado: a frase sai do `resourceType` e do domínio de `resourceUrl`
+ * DO CATÁLOGO. O que a fonte não diz, a tela não diz — por isso a função devolve
+ * `null` (e o desenho não mostra nada) quando nem tipo nem site são conhecidos.
+ *
+ * Esta tabela é o dicionário host → nome pelo qual a pessoa chama o lugar. Não é
+ * texto de tela: é a tradução de um nome próprio que já está no endereço, e por
+ * isso mora ao lado da regra que lê o endereço. As FRASES (com a preposição, o
+ * artigo, o "no") estão em core/textos.js, onde todo texto deste arquivo mora.
+ */
+export const ORIGEM_DE_SITE = new Map(Object.entries(Object.freeze({
+  'youtube.com': 'YouTube',
+  'khanacademy.org': 'Khan Academy',
+  'coursera.org': 'Coursera',
+  'edx.org': 'edX',
+  'udemy.com': 'Udemy',
+  'escolavirtual.gov.br': 'Escola Virtual',
+  'cursoemvideo.com': 'Curso em Vídeo',
+  'univesp.br': 'UNIVESP',
+  'github.com': 'GitHub',
+  '4linux.com.br': '4Linux',
+  'solyd.com.br': 'Solyd',
+  'eucapacito.com.br': 'Eu Capacito',
+  'elastic.co': 'Elastic',
+  'microfocus.com': 'Micro Focus',
+  'nova8.com.br': 'Nova',
+  'acaditi.com.br': 'Acaditi',
+  'hackaflag.com.br': 'HackaFlag',
+  'convisoappsec.com': 'Conviso'
+})));
+
+/** O domínio cru do endereço, sem o `www` que nenhuma pessoa fala. */
+export function hostDoRecurso(url) {
+  if (typeof url !== 'string' || !url.trim()) return null;
+  let host = null;
+  try {
+    host = new URL(url).hostname;
+  } catch {
+    return null; // endereço quebrado: a tela não adivinha de onde veio
+  }
+  const semWww = host.replace(/^www\./i, '');
+  return semWww || null;
+}
+
+/** O nome pelo qual a pessoa conhece aquele domínio. Desconhecido = null. */
+export function dominioLegivel(host) {
+  if (typeof host !== 'string' || !host) return null;
+  const alvo = host.toLowerCase().replace(/^www\./, '');
+  for (const [chave, nome] of ORIGEM_DE_SITE) {
+    if (alvo === chave || alvo.endsWith(`.${chave}`)) return nome;
+  }
+  return null;
+}
+
+/**
+ * A frase de origem, montada pelo texto do núcleo a partir do que o catálogo diz.
+ * `null` é resposta legítima: sem tipo conhecido e sem site conhecido, a tela
+ * cala — é o que a regra "nada inventado" exige.
+ */
+export function origemDoRecurso(curso) {
+  if (!curso) return null;
+  const nomeDoTipo = TIPO_DE_ORIGEM[curso.resourceType];
+  const fazer = nomeDoTipo ? ORIGEM[nomeDoTipo] : null;
+  const site = dominioLegivel(hostDoRecurso(curso.resourceUrl));
+  if (fazer) return fazer(site);
+  return site ? ORIGEM.somenteSite(site) : null;
+}
+
+/**
+ * O AVISO DA CHEGADA (fatia 2d-1, JORNADA §2.5: quem conclui "quer saber o que o
+ * gesto dela destrancou"). É montagem de texto puro: nomes, números e o par de
+ * baldeação vêm do núcleo (`abreComBaldeacao`), e as frases vêm de textos.js.
+ * A tela não decide nada aqui — o que decide está em core/viagem.js, e o teste
+ * de mutação não deixa o desenho chamar outra coisa.
+ */
+export function textoDaChegada({ titulo, concluidas, total, linha = null, abre = [], baldeacao = null }) {
+  const partes = [`${placa.concluida} ${titulo}`];
+  const lista = (Array.isArray(abre) ? abre : []).filter((c) => c && c.titulo);
+  const n = Number(linha);
+  const propria = Number.isFinite(n) && n > 0 ? n : null;
+  // FATIA 2d-2, item 0 (JORNADA §2.5): abrir estação da MESMA linha é destrancar;
+  // abrir estação de OUTRA linha é BALDEAÇÃO, e a tela nomeia a linha de destino.
+  // Sem `linha` (a estação concluída não tem linha conhecida) a tela não afirma
+  // nenhuma travessia: tudo sai como destrancamento, como na 2d-1.
+  const aqui = [];
+  const la = new Map();
+  for (const c of lista) {
+    const destino = Number(c.linha);
+    const temNumero = Number.isFinite(destino) && destino > 0;
+    if (propria === null || !temNumero || destino === propria) { aqui.push(c.titulo); continue; }
+    if (!la.has(destino)) la.set(destino, []);
+    la.get(destino).push(c.titulo);
+  }
+  if (aqui.length > 0) partes.push(comValores.destrancou(aqui.join(', ')));
+  for (const [numero, nomes] of [...la.entries()].sort((a, b) => a[0] - b[0])) {
+    partes.push(comValores.baldeacao(nomes.join(', '), numero));
+  }
+  // O PAR de baldeação que se FORMOU (§3.2, já concluído dos dois lados) é a
+  // baldeação feita. Se a estação já saiu nomeada acima, não sai duas vezes.
+  const para = baldeacao?.para;
+  if (para?.titulo && !lista.some((c) => c.id === para.id)) {
+    partes.push(comValores.baldeacao(para.titulo, para.linha));
+  }
+  partes.push(comValores.viagem(concluidas, total));
+  return partes.join(' · ');
 }
 
 /**
@@ -178,6 +382,44 @@ export function linhasDoCatalogo(catalogo) {
 
 // ───────────────────────────────── DOM mínimo ─────────────────────────────────
 
+/**
+ * S4b (Movimento): quem desenha entrega o ÍNDICE da cascata, nunca uma
+ * duração. Quem espaça é o CSS, com
+ * `animation-delay: calc(var(--atraso-cascata) * var(--cascata-i))`, e com
+ * movimento reduzido o token zera sozinho — por isso não há um segundo caminho
+ * de "sem animação" escrito à mão aqui. O índice para no 5: depois do sexto
+ * item a lista chega junta, senão a pessoa espera a tela acabar de aparecer.
+ */
+function cascata(no, i) {
+  if (!no || typeof no.setAttribute !== 'function') return no;
+  no.className = `${no.className} cascata`.trim();
+  no.setAttribute('style', `--cascata-i: ${Math.min(5, Math.max(0, i))}`);
+  return no;
+}
+
+/**
+ * S4b: a linha de apoio do cartão, a palavra pequena debaixo do estado.
+ * Trancada diz o que FALTA, pelo nome; concluída carimba a data que o núcleo
+ * guarda, no formato do Brasil. Os outros dois estados não têm apoio: a forma
+ * do círculo e o rótulo já disseram tudo, e linha de baixo sem informação é
+ * ruído. Nada aqui consulta pré-requisito — `e.faltam` vem do núcleo.
+ */
+export function apoioDoCartao(e, datas) {
+  if (!e) return '';
+  if (e.estado === ESTADOS.TRANCADA) {
+    const nomes = (Array.isArray(e.faltam) ? e.faltam : [])
+      .map((f) => (typeof f === 'string' ? f : f?.titulo))
+      .filter(Boolean);
+    if (!nomes.length) return '';
+    return comValores.apoioFalta(nomes);
+  }
+  if (e.estado === ESTADOS.CONCLUIDA) {
+    const data = datas?.[e.id];
+    return data ? comValores.concluidaEm(data) : '';
+  }
+  return '';
+}
+
 function el(doc, tag, className, attrs) {
   const no = doc.createElement(tag);
   if (className) no.className = className;
@@ -203,10 +445,16 @@ function remover(no) {
   no.parent = null;
 }
 
-/** Selo da linha: o número dentro do círculo, na cor da linha. */
-export function selo(doc, linha, attrs) {
+/** Selo da linha: o número dentro do círculo, na cor da linha.
+ *
+ * `tag` existe por causa da S2 da v2 (31/10/2026, defeito 2): o seletor das 7
+ * linhas era `<span type="button">` — um `span` aceita qualquer atributo,
+ * inclusive os de botão, e isso engana quem lê o HTML e não engana o navegador
+ * nenhum. O alvo aqui é clicável de verdade, então é `<button>`; o selo da
+ * placa, que é só desenho ao lado do nome, continua `span`. */
+export function selo(doc, linha, attrs, tag = 'span') {
   const n = Number(linha);
-  return el(doc, 'span', `selo l${n}`, {
+  return el(doc, tag, `selo l${n}`, {
     text: Number.isFinite(n) ? String(n) : '—',
     ...attrs
   });
@@ -223,6 +471,11 @@ export function desenharEsqueleto(doc, root) {
   limpar(doc, root);
   root.setAttribute('aria-busy', 'true');
   const box = el(doc, 'div', 'esqueleto');
+  // S4b "Carregando": uma placa cinza PARADA no lugar da placa. Sem sombra —
+  // sombra é a placa de verdade, e um esqueleto que projeta ensina a pessoa a
+  // olhar para o sítio errado quando o conteúdo chega. Sem animação também: o
+  // bloco do fim do arquivo já desliga tudo, e pulso em esqueleto é spinner.
+  box.append(el(doc, 'div', 'esqueleto-placa'));
   box.append(el(doc, 'div', 'esqueleto-titulo'));
   for (let i = 0; i < 5; i += 1) {
     const linha = el(doc, 'div', 'esqueleto-linha');
@@ -252,7 +505,8 @@ function limpar(doc, root) {
  * @param {Document} doc
  * @param {HTMLElement} root
  * @param {{catalogo:Array, completed:string[], progresso:object, linha:number,
- *          aberta:string|null, despertas?:string[]}} estado
+ *          folha:string|null, despertas?:string[], notas?:object,
+ *          aulas?:object|null, estudo?:object|null}} estado
  * @returns {object} os nós que o teste e o bind procuram
  */
 export function desenharMetro(doc, root, estado) {
@@ -266,7 +520,43 @@ export function desenharMetro(doc, root, estado) {
   const despertas = new Set(Array.isArray(estado.despertas) ? estado.despertas : []);
 
   limpar(doc, root);
-  root.className = `metro l${linha}`;
+  // S4b, UM primário por TELA (a 2d-2 já dava um por folha): quando uma folha
+  // está aberta, é ela que tem o botão cheio — o recurso — e a ação da placa
+  // cede o recheio pelo estado da raiz. O CSS decide a forma; aqui só se declara
+  // "existe folha aberta NESTA linha", que é o que a pessoa está vendo.
+  // S5 parte 2: a folha não mora mais NESTE diagrama — ela é rota
+  // (#/estacao/<slug>) e o casco entrega o slug pedido. «Existe folha aberta»
+  // deixou de ser uma pergunta sobre a linha desenhada e passou a ser sobre a
+  // tela inteira, que é o que a pessoa vê: com o painel à direita no
+  // computador, a folha pode ser de outra linha sem sumir do mapa.
+  const slugDaFolha = typeof estado.folha === 'string' && estado.folha ? estado.folha : null;
+  // S20a-2 (defeito 1 do olho, 04/11): o recheio se declara na RAIZ, e a
+  // travar por classe `botao-primario` não bastava — a `.placa-acao` sai cheia
+  // do metro.css sem ter essa classe, então a régua lia um e o olho lia dois.
+  // Quem tem o recheio é um de três: a folha (com-folha), o topo
+  // (com-topo-primario) ou, se o catálogo ainda não chegou e o topo não tem
+  // estação para apontar, a própria placa. O `alvo` sobe para antes da classe
+  // porque é ele que diz se o topo tem caminho.
+  const estudoTela = estado.estudo || { aulas: {}, ultima: null };
+  // O ALVO É CALCULADO AQUI, com o `resumo` desta pintura, e não entregue por
+  // `estado.alvo` (S20a-3): desde que a chave passou a ter três casos, a
+  // resposta depende da VIAGEM, e a viagem muda dentro da mesma sessão — a
+  // pessoa toca em «Marcar» e o topo tem de trocar de discurso sem recarregar.
+  // Um alvo guardado no boot é uma foto do «antes»: o defeito 4 voltando pela
+  // janela do repaint. A fonte continua uma: `resumoDaViagem` logo acima.
+  // `estado.alvo` é o que o `pintar` calculou com o progresso desta pintura.
+  // Recalcular aqui seria ter duas respostas na mesma tela por um deslize de
+  // argumento — e é exatamente o par que o `auditoria-estados` não tem como ver
+  // separado, porque o href e o texto viriam de objetos diferentes. O cálculo
+  // direto fica para quem chama `desenharMetro` sem passar estado (os testes da
+  // placa e do desenho puro).
+  // S18a: o `estado.indice` entra porque a régua da estação percorrida precisa
+  // do total de aulas dela, e o índice é a única fonte que o topo tem sem buscar
+  // o JSON de cada estação. Sem ele o alvo é calculado como antes: nenhuma
+  // estação é dada por percorrida com total desconhecido.
+  const alvo = estado.alvo || alvoDoTopo(catalogo, estudoTela, resumo, progresso, estado.indice);
+  const topoTemPrimario = Boolean(alvo.curso) && !slugDaFolha;
+  root.className = `metro l${linha}${slugDaFolha ? ' com-folha' : ''}${topoTemPrimario ? ' com-topo-primario' : ''}`;
 
   const nos = { linha, resumo, placas: null, seletor: null, diagrama: null, aviso: null, embarque: null };
 
@@ -283,18 +573,51 @@ export function desenharMetro(doc, root, estado) {
   // ── 0. a marca ──────────────────────────────────────────────────────────
   // Item 4 da crítica (2b-2): antes de qualquer placa, quem é este lugar.
   // "Atlas" + a linha do curso, nos dois degraus da escala tipográfica.
-  const marca = el(doc, 'header', 'marca');
-  marca.append(el(doc, 'p', 'marca-nome', { text: placa.titulo }));
+  // S2, item 7: DIV, não HEADER — o cabeçalho do app é o <header class="topo"> do
+  // HTML, e um segundo header é a tela se apresentando duas vezes. E o nome "Atlas"
+  // sai: ele já está no logo do topo; fica só a linha do curso, que rotula a tela.
+  const marca = el(doc, 'div', 'marca');
   marca.append(el(doc, 'p', 'marca-linha', { text: placa.marcaLinha }));
   root.append(marca);
   nos.marca = marca;
+
+  // ── 0b. a ABERTURA (S4a, JORNADA 1.1) ───────────────────────────────────
+  // É a PEÇA 1 das três da Jornada, e vem ANTES da placa porque é ela que
+  // responde "o que é isto". As três peças moram em web/telas/jornada-blocos.js:
+  // este arquivo tem 932 linhas, e a regra 15 manda dividir pela responsabilidade
+  // em vez de engordar. Aqui só se chama.
+  // S20a: o TOPO no lugar da abertura (J1/J5). O quadro "Bem-vindo ao embarque"
+  // saiu — o topo novo faz o papel dele, e o `abertura` de S4a continua existindo
+  // em jornada-blocos.js para quem ainda o chama.
+  // `estudoTela` e `alvo` já foram lidos acima, onde a raiz declara quem tem o
+  // recheio — um segundo alvoDoTopo por desenho seria duas respostas na tela.
+  root.append(cascata(desenharTopo({
+    alvo, catalogo, progresso, resumo,
+    estudo: estudoTela, indice: estado.indice,
+    // A lista da estação do ALVO, nos dois modos: J1 quer «Aula 1 · 17 min» e
+    // J5 quer a duração da aula retomada. `ui.aulas` é outra coisa (a lista da
+    // estação da folha aberta) e misturar as duas daria duração de outra aula.
+    aulas: estado.aulasAlvo,
+    // S16c: os cartões e a data chegam ao topo pelo mesmo caminho do estudo.
+    // Sem eles o mapa não tem cor (a lembrança mora no histórico do cartão) e a
+    // linha da fila do dia não existe.
+    cartoes: estado.cartoes || null, hoje: estado.hoje,
+    embarqueAberto: Boolean(estado.embarqueAberto),
+    // UM PRIMÁRIO POR TELA (S4b, estendido ao topo): com a folha aberta é o
+    // recurso dela que manda, e o botão do topo nasce sem a classe.
+    folhaAberta: Boolean(estado.folha)
+  }, doc), 0));
 
   // ── 1. a placa ──────────────────────────────────────────────────────────
   const proxima = resumo.proximaEstacao
     ? estadoDaEstacao(resumo.proximaEstacao.id, progresso, catalogo)
     : null;
   const cartao = el(doc, 'section', 'placa');
-  cartao.append(el(doc, 'p', 'placa-rotulo', { text: placa.proximaEstacao }));
+  cartao.append(el(doc, 'p', 'placa-rotulo', {
+    // S4b: quem já está dentro de uma estação não está olhando para a próxima
+    // — está continuando. É o mesmo par estado/verbo do `acaoDaPlaca` de baixo.
+    text: proxima?.estado === ESTADOS.EM_CURSO ? placa.continueOndeParou : placa.proximaEstacao
+  }));
 
   if (proxima) {
     const cabeca = el(doc, 'div', 'placa-cabeca');
@@ -302,11 +625,28 @@ export function desenharMetro(doc, root, estado) {
     cabeca.append(el(doc, 'p', 'placa-linha', { text: comValores.linha(proxima.linha) }));
     cartao.append(cabeca);
     cartao.append(el(doc, 'p', 'placa-nome', { text: proxima.titulo }));
+    // S4b: "Linha 2 · estação 3 de 5". A posição sai da ordem da fonte dentro
+    // da linha dela (estacoesDaLinha, o mesmo caminho que desenha o diagrama),
+    // nunca de um índice de array que a tela inventou.
+    const naLinha = estacoesDaLinha(catalogo, proxima.linha);
+    const emQue = naLinha.findIndex((c) => c && c.id === proxima.id);
+    if (emQue >= 0) {
+      cartao.append(el(doc, 'p', 'placa-posicao', {
+        text: comValores.posicaoNaLinha(proxima.linha, emQue + 1, naLinha.length)
+      }));
+    }
     cartao.append(el(doc, 'p', 'placa-contador', {
       text: comValores.viagem(resumo.concluidas, resumo.estacoes)
     }));
 
     const curso = catalogo.find((c) => c && c.id === proxima.id);
+    // S20a-3, item 0: O QUE MUDOU AQUI É O VERBO, e só o verbo — o destino
+    // desta ação (o recurso da estação, com a linha de origem embaixo, desde a
+    // 2d-1) e o tipo do nó (link fora, botão em curso) são os de sempre, e o
+    // pedido diz que a placa «continua secundária». Trocar também o destino
+    // seria eu redesenhando uma tela que o Claude acabou de desenhar por
+    // decisão própria: anotei a pergunta no fechamento em vez de respondê-la
+    // no código.
     const acao = el(doc, proxima.estado === ESTADOS.EM_CURSO ? 'button' : 'a', 'placa-acao', {
       'data-acao-placa': proxima.id,
       text: acaoDaPlaca(proxima.estado)
@@ -318,6 +658,16 @@ export function desenharMetro(doc, root, estado) {
     }
     cartao.append(acao);
     nos.placaAcao = acao;
+    // FATIA 2d-1 (JORNADA §2.3): o botão abre um site lá fora, e abrir no escuro
+    // S4b: a nota abaixo da ação. Abrir é grátis — o que escreve na viagem é a
+    // conclusão, e ela continua sendo decisão da pessoa.
+    cartao.append(el(doc, 'p', 'placa-nota', { text: placa.notaAbrir }));
+    // é motivo de desistência. A linha embaixo da ação diz de onde o recurso
+    // veio, com a MESMA palavra da folha — uma origem por tela, não duas.
+    const origemPlaca = origemDoRecurso(proxima.estado === ESTADOS.EM_CURSO ? null : curso);
+    if (origemPlaca) {
+      cartao.append(el(doc, 'p', 'placa-origem', { text: origemPlaca }));
+    }
   } else {
     // Terminal, ou catálogo sem estação: a placa diz o estado em vez de mentir.
     cartao.append(el(doc, 'p', 'placa-nome', {
@@ -330,43 +680,96 @@ export function desenharMetro(doc, root, estado) {
       text: comValores.viagem(resumo.concluidas, resumo.estacoes)
     }));
   }
-  root.append(cartao);
+  // S4b: a placa, os números e a próxima conexão formam a COLUNA DA DIREITA no
+  // computador. Elas já eram três irmãos seguidos no DOM — embrulhá-las não
+  // muda a ordem de leitura no celular, que é a da S4a, e é o que permite o
+  // `position: sticky` na lateral inteira em vez de três sticky que brigam.
+  const lateral = el(doc, 'div', 'lateral');
+  lateral.append(cascata(cartao, 1));
+  root.append(lateral);
+  nos.lateral = lateral;
   nos.placas = cartao;
+
+  // S4b: a COLUNA DO MAPA — embarque, seletor das 7 linhas, diagrama e aviso.
+  // No celular ela vem depois da lateral, na ordem da S4a (o DOM é a ordem de
+  // leitura); no computador as áreas nomeadas do grid é que a põem embaixo da
+  // abertura, à esquerda da lateral, sem mexer no DOM um centímetro.
+  const mapa = el(doc, 'div', 'mapa');
+  root.append(mapa);
+  nos.mapa = mapa;
+
+  // S20b-4 (itens 2 e 4) — A MEDIDA UMA VEZ POR PINTURA. A etiqueta da lista
+  // (item 2) e o «Em curso» dos três números (item 4) passaram a ler o MESMO
+  // Map: `eixosDaRede` (core/eixos.js) devolve um objeto por estação com total
+  // conhecido no índice, e `contarEstagios` é a conta do núcleo para quem
+  // ROTULA — a tela não refaz um `filter` sobre estágios, que seria a segunda
+  // regra da mesma palavra (regra 9). Sem índice não há total, o Map vem VAZIO
+  // e vale a regra do mapa desde a S16c: vazio é «não medimos», não «meio
+  // desenhado» — a lista continua dizendo o que a malha diz, e o «Em curso»
+  // continua o número antigo, em vez de um 0 inventado.
+  const eixos = eixosDaRede(catalogo, {
+    estudo: estudoTela, cartoes: estado.cartoes || null, indice: estado.indice,
+    progresso, hoje: dataLocal(estado.hoje)
+  });
+
+  // ── 1b. os TRÊS NÚMEROS e a PRÓXIMA CONEXÃO (S4a) ──────────────────────
+  // Depois da placa, na ordem da fatia. No Terminal os dois não aparecem: vale o
+  // `terminal` de textos.js, que a placa já desenha, e "35/35" ao lado de "próxima
+  // conexão" de nada seria a tela insistindo num número que já não quer dizer
+  // nada. Os números vêm do núcleo (numerosDaJornada), nunca contados aqui.
+  if (!resumo.terminal) {
+    const n = numerosDaJornada(progresso, catalogo);
+    // S20b-4 (item 4) — «Em curso 0, com aula aberta» é falso para quem está
+    // estudando: `n.emCurso` lê `progresso.emCurso`, o campo antigo do progresso
+    // v3, que nada escreve desde que a aula passou a ser o gesto (core/estudo.js
+    // `abrirAula`/`estudarAula` não tocam nele). A régua é a MESMA do mapa:
+    // embarcada (tem aula aberta ou pulada, nada estudado) + em-percurso (tem
+    // aula estudada) contam como «em curso» — não concluída, não fora da rota.
+    // Sem índice o Map vem vazio, `contarEstagios` não tem o que somar, e aí
+    // fica o número antigo: «não sei» mostra a conta velha, não mostra zero.
+    const medido = estado.indice ? contarEstagios(catalogo, eixos).estagios : null;
+    const emCurso = medido
+      ? (medido.embarcada || 0) + (medido['em-percurso'] || 0)
+      : n.emCurso;
+    lateral.append(cascata(tresNumeros(doc, {
+      carimbos: n.carimbos,
+      total: resumo.estacoes,
+      emCurso,
+      abertas: n.linhasAbertas,
+      linhas: totalDeLinhas(catalogo)
+    }), 2));
+    const conn = conexao(doc, { progresso, catalogo, resumo });
+    if (conn) lateral.append(cascata(conn, 3));
+  }
 
   // ── 5b. embarque (fatia 2c-2) ────────────────────────────────────────────
   // Aparece sozinho na primeira visita (0 concluídas) e fica enquanto a lista
   // estiver ABERTA: é o modo de marcação em lote, não um banner perpétuo.
   // Fechar a lista — ou marcar, que fecha — devolve a tela a quem já viajou.
-  if (catalogo.length > 0 && (estado.embarqueAberto || resumo.concluidas === 0)) {
+  // S20a: o QUADRO saiu, a LISTA de marcar ficou. O botão discreto do topo
+  // («Já estudei algumas disciplinas») usa o MESMO gancho `data-embarque` que o
+  // bindMetro já escuta, e o verbo continua `acoes.marcar` — nunca um segundo
+  // caminho de conclusão na tela.
+  if (catalogo.length > 0 && estado.embarqueAberto) {
     const emb = el(doc, 'section', 'embarque');
-    emb.append(el(doc, 'h2', 'embarque-titulo', { text: estados.primeiraVisita.titulo }));
-    emb.append(el(doc, 'p', 'embarque-texto', { text: estados.primeiraVisita.descricao }));
-    emb.append(el(doc, 'p', 'embarque-acao', { text: estados.primeiraVisita.acao }));
-    const abrir = el(doc, 'button', 'botao', {
-      type: 'button', 'data-embarque': 'abrir', text: estados.primeiraVisita.botao,
-      'aria-expanded': estado.embarqueAberto ? 'true' : 'false'
-    });
-    emb.append(abrir);
-
-    if (estado.embarqueAberto) {
-      // "Marcar de uma vez o que já estudei": uma estação por linha, e o verbo
-      // de concluir é o do núcleo (datas, marcos, tudo) — aqui só o
-      // botão. Nunca um segundo jeito de concluir na tela.
-      const lista = el(doc, 'ul', 'lista-marcar');
-      for (const c of estacoesMarcaveis(catalogo, progresso)) {
-        const nome = typeof c.title === 'string' ? c.title : c.id;
-        const item = el(doc, 'li');
-        item.append(el(doc, 'span', 'marcar-nome', { text: nome }));
-        item.append(el(doc, 'button', 'botao', {
-          type: 'button', 'data-marcar': c.id,
-          'aria-label': `${placa.marcar} — ${nome}`,
-          text: placa.marcar
-        }));
-        lista.append(item);
-      }
-      emb.append(lista);
+    emb.append(el(doc, 'h2', 'embarque-titulo', { text: J.topo.marcar }));
+    // "Marcar de uma vez o que já estudei": uma estação por linha, e o verbo
+    // de concluir é o do núcleo (datas, marcos, tudo) — aqui só o botão. Nunca
+    // um segundo jeito de concluir na tela.
+    const lista = el(doc, 'ul', 'lista-marcar');
+    for (const c of estacoesMarcaveis(catalogo, progresso)) {
+      const nome = typeof c.title === 'string' ? c.title : c.id;
+      const item = el(doc, 'li');
+      item.append(el(doc, 'span', 'marcar-nome', { text: nome }));
+      item.append(el(doc, 'button', 'botao', {
+        type: 'button', 'data-marcar': c.id,
+        'aria-label': `${placa.marcar} — ${nome}`,
+        text: placa.marcar
+      }));
+      lista.append(item);
     }
-    root.append(emb);
+    emb.append(lista);
+    mapa.append(emb);
     nos.embarque = emb;
   }
 
@@ -375,26 +778,41 @@ export function desenharMetro(doc, root, estado) {
   nav.setAttribute('aria-label', 'Linhas');
   for (const n of linhas) {
     const atual = n === linha;
+    // S2 da v2 (31/10/2026), defeito 2: isto era um <span type="button">. Um
+    // span aceita o atributo e o navegador ignora: o Tab passava por cima das
+    // 7 linhas, Enter e Espaço não faziam nada e o leitor de tela não anunciava
+    // nada. É <button> de verdade agora — e o click continua chegando pela
+    // mesma delegação de antes, porque um botão gera click sozinho.
+    //
+    // aria-current saiu: ele diz "este link é a página atual" num caminho de
+    // navegação. Aqui a pessoa ESCOLHE qual linha ver, e o atributo de um botão
+    // que se liga é aria-pressed — com "false" nas outras 6, para o leitor de
+    // tela dizer que são alternáveis e qual está ligada.
     const botao = selo(doc, n, {
       type: 'button',
       'data-linha': String(n),
       'aria-label': comValores.linha(n),
-      'aria-current': atual ? 'true' : null,
+      'aria-pressed': atual ? 'true' : 'false',
       title: comValores.linha(n)
-    });
+    }, 'button');
     nav.append(botao);
   }
-  root.append(nav);
+  mapa.append(nav);
   nos.seletor = nav;
 
   // ── 2. a linha na vertical, como o diagrama da porta do trem ────────────
   const diagrama = el(doc, 'ol', 'diagrama');
   const paradas = estacoesDaLinha(catalogo, linha);
+  // 2d-2: o carimbo da folha lê a data que O NÚCLEO guarda em `conclusoes`.
+  const datas = lerProgresso(progresso).conclusoes;
   let percorrido = false; // o trecho ANTES desta estação já foi percorrido?
   for (const c of paradas) {
     const e = estadoDaEstacao(c.id, progresso, catalogo) || {
       id: c.id, titulo: c.id, linha, estado: ESTADOS.TRANCADA, faltam: [], ciclo: false
     };
+    // A palavra desta estação, perguntada à medida uma vez (item 2). Cai no
+    // cartão e no `aria-label` — a mesma resposta nos dois sentidos.
+    const palavraDaLista = estadoDaLista(eixos, e);
     const parada = el(doc, 'li', `parada l${linha}`);
 
     const chegouAgora = chegadaId === e.id;
@@ -417,24 +835,29 @@ export function desenharMetro(doc, root, estado) {
     coluna.append(el(doc, 'span', `trilho trilho-inferior${feito ? ' percorrido' : ''}`));
     parada.append(coluna);
 
-    const idDetalhe = `estacao-${e.id}`;
-    const aberta = estado.aberta === e.id;
-    const botao = el(doc, 'button', `estacao ${e.estado}`, {
-      type: 'button',
+    // S5 parte 2: o cartão é LINK, não botão. Abrir uma estação é IR A uma
+    // rota (#/estacao/<slug>), e um link já faz isso sozinho — com histórico
+    // para o "voltar" do navegador, com "abrir em outra aba" e com a palavra
+    // certa no leitor de tela. O `aria-expanded`/`aria-controls` de antes
+    // descrevia um painel dentro da lista; a folha agora é `role="dialog"`
+    // fora dela, e o botão do trilho não promete expandir nada.
+    const botao = el(doc, 'a', `estacao ${e.estado}`, {
+      href: hrefDe({ tela: 'estacao', slug: c.slug || c.id }),
       'data-id': e.id,
-      'aria-expanded': aberta ? 'true' : 'false',
-      'aria-controls': idDetalhe,
-      'aria-label': rotuloEstacao(e, linha)
+      'aria-label': rotuloEstacao(e, linha, palavraDaLista)
     });
     botao.append(el(doc, 'span', 'estacao-nome', { text: e.titulo }));
-    botao.append(el(doc, 'span', 'estacao-estado', { text: ESTADO_LEGIVEL[e.estado] }));
+    botao.append(el(doc, 'span', 'estacao-estado', { text: palavraDaLista }));
+    // S4b: a linha de apoio do cartão. Trancada diz o que falta pelo nome;
+    // concluída carimba a data do núcleo. Sem apoio nos outros estados, porque
+    // ali a frase não acrescentaria nada que a pessoa ainda não veja.
+    const apoio = apoioDoCartao(e, datas);
+    if (apoio) botao.append(el(doc, 'span', 'estacao-apoio', { text: apoio }));
     parada.append(botao);
-
-    parada.append(folha(doc, c, e, idDetalhe, aberta, linha));
     diagrama.append(parada);
     percorrido = feito;
   }
-  root.append(diagrama);
+  mapa.append(diagrama);
   nos.diagrama = diagrama;
 
   // ── 4. o aviso da chegada, com o desfazer ───────────────────────────────
@@ -445,96 +868,135 @@ export function desenharMetro(doc, root, estado) {
   // aviso (texto + desfazer) e a linha com exatamente dois `data-id` depois do
   // desfazer — um aviso que se empilha a cada pintura faria quatro.
   if (chegadaId) {
+    // FATIA 2d-1 (JORNADA §2.5): \"Concluída.\" sozinha é o gesto sem o
+    // resultado. O aviso diz QUAL estação, O QUE ela abriu pelo nome (inclusive a
+    // baldeação, quando o par se formou agora) e o contador. O que abriu vem do
+    // núcleo (abreComBaldeacao, no gesto) e as frases de textos.js — aqui só se
+    // monta. Sem informação nenhuma no estado, textoDaChegada devolve a frase
+    // curta de sempre, e o aviso não inventa destravamento.
+    const chegou = estadoDaEstacao(chegadaId, progresso, catalogo);
     aviso = el(doc, 'div', 'aviso-chegada', { role: 'status' });
     desfazer = el(doc, 'button', 'desfazer', {
       type: 'button', 'data-desfazer': chegadaId, text: placa.desfazer
     });
-    aviso.append(el(doc, 'span', 'aviso-texto', { text: placa.concluida }));
+    aviso.append(el(doc, 'span', 'aviso-texto', {
+      text: textoDaChegada({
+        titulo: chegou?.titulo || '',
+        concluidas: resumo.concluidas,
+        total: resumo.estacoes,
+        linha: chegou?.linha,
+        abre: estado.chegada.abre,
+        baldeacao: estado.chegada.baldeacao
+      })
+    }));
     aviso.append(desfazer);
-    root.append(aviso);
+    // S4b: o aviso é da coluna do mapa, porque ele fala do trecho que acabou de
+    // encher — a chegada aparece ao lado do lugar que mudou, não em cima da
+    // placa que já disse outra coisa.
+    mapa.append(aviso);
     nos.aviso = aviso;
   }
   nos.chegada = { aviso, desfazer, formas: formasDeChegada, tracos: tracosDeChegada };
 
+  // ── 4. a FOLHA (S5 parte 2): o painel da rota, irmão do mapa ────────────
+  // Ela é desenhada AQUI porque é a tela da Jornada que a mostra, e o desenho
+  // inteiro vem de web/folha.js — este arquivo não sabe o que há numa folha,
+  // só onde ela entra. Sem rota de estação, nada de painel: a jornada é o mapa.
+  if (slugDaFolha) {
+    const desenhada = desenharFolha(doc, {
+      catalogo, progresso, slug: slugDaFolha, notas: estado.notas || {},
+      // S6: o miolo da folha troca pelo momento enquanto ele está de pé.
+      momento: estado.momento || null,
+      // S13c: os dois campos que a folha já declarava e o app nunca entregava.
+      // `aulas` é o que o metrô buscou (null enquanto não chega, ou quando o
+      // arquivo faltou: aí a folha é exatamente a de hoje, sem erro na tela);
+      // `estudo` é lido do aparelho A CADA pintura, porque a pessoa abre aula no
+      // YouTube e volta sem recarregar nada.
+      aulas: estado.aulas || null,
+      estudo: estado.estudo || null,
+      // S16c: as duas linhas dos eixos na folha. `indice` é o mesmo objeto que o
+      // topo já recebeu — a tabela por estação vive nele — e `cartoes` é o
+      // arquivo lido desta pintura.
+      indice: estado.indice || null, cartoes: estado.cartoes || null, hoje: estado.hoje
+    });
+    root.append(desenhada.root);
+    nos.folha = desenhada.root;
+    nos.estacaoId = desenhada.estacaoId;
+  }
+
   return nos;
 }
 
+// ──────────────────── foco da folha (S10, item 3, régua 4) ────────────────────
+
+// O que a folha ainda não é, e esta fatia escreve: o painel abre e fecha, mas o
+// teclado escapa dele e o foco se perde quando ele se fecha. Os dois defeitos
+// são do mesmo tamanho dos que este arquivo já conta nos comentários — a 2c
+// perdeu o `focus()` que a 2b tinha escrito, e a régua 4 da auditoria (03/11)
+// achou a prenda inteira, faltando nas duas pontas. O navegador não faz nenhum
+// dos dois sozinho: a folha é um `<div role="dialog">` irmão do mapa, não um
+// `<dialog>` nativo, e a rota remonta a tela inteira quando ela fecha.
+//
+// A memória do gatilho é VARIÁVEL DE MÓDULO, não campo de `ui`, por causa disso:
+// fechar é navegar para `#/` (regra da S5 parte 2) e a navegação mata a
+// instância que abriu. Um registro dentro de `ui` morreria com ela, e o foco não
+// teria para onde voltar. Vive aqui, e só o FECHAR a arma — abrir a folha por
+// deep-link não rouba o foco de ninguém.
+const FOCAVEL_POR_TAG = new Set(['a', 'button', 'input', 'select', 'textarea', 'summary']);
+let gatilhoDaFolha = null;
+let devolverAposFechar = false;
+
+/** Os focáveis do painel, na ordem do documento. O véu fica fora: não recebe foco. */
+export function focaveisDaFolha(painel) {
+  const saida = [];
+  const ande = (no) => {
+    for (const f of no.children || []) {
+      const alcancaTab = FOCAVEL_POR_TAG.has(f.tag) && (f.tag !== 'a' || f.getAttribute('href') !== null);
+      if (alcancaTab && f.disabled !== true) saida.push(f);
+      ande(f);
+    }
+  };
+  ande(painel);
+  return saida;
+}
+
 /**
- * A folha da estação: o recurso, a bibliografia como LINK COM NOME (nunca o
- * caminho cru como texto), a anotação com o nome da disciplina no rótulo, e o
- * concluir. Na trancada, o que falta — pelo nome.
+ * Tab nas bordas do painel: no meio, deixa o navegador andar sozinho (um só
+ * dono do Tab, a regra de sempre); na primeira e na última posição, prende.
+ * Devolve true quando interceptou. O `blur()` antes do `focus()` existe para o
+ * mesmo motivo do `blur` no casco: num dublê sem ele, quem ainda se diz focado
+ * é o nó antigo, e a devolução da régua 4 leria o foco errado.
  */
-function folha(doc, curso, e, id, aberta, linha) {
-  const box = el(doc, 'div', `detalhe l${linha}`, { id });
-  if (!aberta) box.setAttribute('hidden', '');
+export function prendaDeFoco(evento, { doc, painel, ativo }) {
+  const lista = focaveisDaFolha(painel);
+  if (lista.length < 2) return false;
+  const pos = lista.indexOf(ativo);
+  if (pos < 0) return false;
+  const naBorda = evento.shiftKey ? pos === 0 : pos === lista.length - 1;
+  if (!naBorda) return false;
+  const destino = evento.shiftKey
+    ? lista[(pos - 1 + lista.length) % lista.length]
+    : lista[(pos + 1) % lista.length];
+  evento.preventDefault?.();
+  if (doc && doc.activeElement === ativo) ativo.blur?.();
+  destino.focus?.();
+  return true;
+}
 
-  // 2c-2: "faltam X, Y" é a FOLHA, não a etiqueta. Com a folha fechada, nada é
-  // mostrado — e as 35 trancadas pintariam 35 folhas de falta antes de qualquer
-  // toque. O texto continua sendo o do núcleo, pelo nome, TODOS os pré-requisitos.
-  if (aberta && e.estado === ESTADOS.TRANCADA) {
-    box.append(el(doc, 'p', 'detalhe-falta', { text: textoDoQueFalta(e) }));
-  }
+/** O cartão que abriu a folha, na tela já remontada. `null` se ele não está mais ali. */
+export function cartaoDoGatilho(root, memoria) {
+  if (!memoria) return null;
+  // Array.from porque no navegador querySelectorAll devolve NodeList, que não
+  // tem .find; o mini-DOM devolve array. Os dois mundos, a mesma pergunta.
+  const cartoes = [...root.querySelectorAll('a')];
+  return cartoes.find((a) => a.getAttribute('data-id') === memoria.id) || null;
+}
 
-  if (curso?.resourceUrl) {
-    box.append(el(doc, 'a', 'recurso', {
-      href: curso.resourceUrl, rel: 'noopener', target: '_blank',
-      // UM verbo só na tela (item 5 da crítica): o mesmo texto da placa.
-      'data-recurso': curso.id, text: placa.comecarEstudar
-    }));
-  }
-
-  if (curso?.bibliography) {
-    const biblio = el(doc, 'div', 'biblio');
-    // O TEXTO é o nome (linkBibliografia); o HREF é o caminho real da fonte.
-    // Caminho como texto na tela está na lista do proibido — como endereço, não.
-    const link = el(doc, 'a', 'biblio-link', {
-      href: naFonte(curso.bibliography), rel: 'noopener', target: '_blank',
-      'data-bibliografia': curso.id,
-      // Item 6: o NOME é fixo — "Bibliografia na fonte". O caminho vira
-      // endereço, nunca texto na tela (a lista do proibido continua de pé).
-      text: placa.bibliografiaNaFonte
-    });
-    biblio.append(link);
-    biblio.append(el(doc, 'p', 'biblio-nota', { text: placa.bibliografiaNota }));
-    box.append(biblio);
-  }
-
-  // FATIA 2c-3 (item 5 da crítica): o campo mora SÓ na folha ABERTA. Com uma
-  // anotação desenhada em cada uma das 35 folhas, a tela tinha 35 rótulos
-  // "Anotação" na fila do leitor de tela — duas em vez de uma já era o defeito
-  // medido. Folha fechada é hidden, e campo escondido ainda é campo no DOM.
-  //
-  // O rótulo leva o NOME DA DISCIPLINA: é isso que acaba com o
-  // "Anotação, Anotação, Anotação" que o pedido 15 achou.
-  if (aberta) {
-    const rotulo = el(doc, 'label', 'anotacao-rotulo', { for: `nota-${e.id}` });
-    rotulo.append(el(doc, 'span', null, { text: `Anotação — ${e.titulo}` }));
-    const area = el(doc, 'textarea', 'anotacao', {
-      id: `nota-${e.id}`,
-      'data-nota': e.id,
-      'aria-label': `Anotação de ${e.titulo}`,
-      rows: '3'
-    });
-    // O que a pessoa escreveu VOLTA no campo: `curso.nota` vem de comNotas, que
-    // é quem liga ui.notas ao catálogo. Sem isso, todo redesenho apagava a
-    // anotação na cara de quem estava digitando.
-    area.value = typeof curso?.nota === 'string' ? curso.nota : '';
-    rotulo.append(area);
-    box.append(rotulo);
-  }
-
-  // FATIA 2c-1 (item 7 da crítica): o botão volta PORQUE AGORA ELE FAZ ALGO.
-  // Em 2b-2 ele foi tirado por ser promessa falsa — mexer nele não desenhava
-  // chegada nenhuma. Com o círculo enchendo, o trecho marcando e o aviso com
-  // desfazer no ar, "Concluir estação" é o verbo do núcleo na folha, e só aparece
-  // na estação aberta, disponível ou em curso: trancada e concluída não têm o
-  // que concluir.
-  if (aberta && (e.estado === ESTADOS.DISPONIVEL || e.estado === ESTADOS.EM_CURSO)) {
-    box.append(el(doc, 'button', 'botao botao-concluir', {
-      type: 'button', 'data-concluir': curso.id, text: placa.concluir
-    }));
-  }
-  return box;
+/** Fecha a folha de verdade: arma a devolução e navega. Chamado pelo Esc, pelo véu e pelo Fechar. */
+function fecharFolha(ui, irPara) {
+  if (!ui.folha) return;
+  devolverAposFechar = true;
+  irPara('#/');
 }
 
 // ─────────────────────────────── comportamento ───────────────────────────────
@@ -549,6 +1011,23 @@ export function bindMetro(doc, root, handlers) {
   root.addEventListener('click', (evento) => {
     const alvo = evento.target;
     if (!alvo || typeof alvo.closest !== 'function') return;
+
+    // S10 régua 4: abrir a folha continua sendo o `href` do cartão, e nada aqui
+    // muda isso — só se MEMORA quem abriu, para o foco voltar ao mesmo cartão
+    // quando a folha fechar. Um segundo caminho para o mesmo gesto é a regra que
+    // já tirou o `aria-pressed` do seletor e o `abrirEstacao` do bind.
+    // `data-id` sem href NÃO é o cartão: é o círculo do diagrama, que não leva a
+    // parte alguma, e memorizá-lo faria o fechar devolver o foco a um nó que
+    // sempre esteve atrás da folha.
+    // `closest('a')` e não `closest('a[href]')`: o seletor de atributo com valor
+    // vazio não é o que o mini-DOM dos testes resolve, e um seletor que o dublê
+    // não casa é um registro que morre em silêncio no node e funciona no navegador
+    // — o pior tipo de verde. A pergunta (é um LINK com href?) é feita na linha seguinte,
+    // dos dois lados, com a mesma resposta.
+    const cartao = alvo.closest('a');
+    if (cartao && cartao.getAttribute('href') !== null && cartao.getAttribute('data-id') !== null) {
+      gatilhoDaFolha = { id: cartao.getAttribute('data-id') };
+    }
 
     const desfazer = alvo.closest('[data-desfazer]');
     if (desfazer) { h.desfazer?.(desfazer.getAttribute('data-desfazer')); return; }
@@ -566,11 +1045,40 @@ export function bindMetro(doc, root, handlers) {
     const acaoPlaca = alvo.closest('[data-acao-placa]');
     if (acaoPlaca) { h.iniciar?.(acaoPlaca.getAttribute('data-acao-placa')); return; }
 
+    // S20a: o mapa do topo é um `[role="img"]` — um DESENHO, não uma grade de
+    // botões. O `core/mapa-rede.js` põe `data-linha` em cada `<line>` e em cada
+    // selo para pintar a cor da linha, e desde que a Jornada passou a chamar
+    // `mapaDaRede` esse atributo virou um alvo de delegação acidental: tocar no
+    // trilho trocaria de linha. A regra da casa é uma imagem não ter ação — o
+    // `aria-label` dela já diz tudo que ela comunica.
+    if (alvo.closest('[role="img"]')) return;
+
     const seloLinha = alvo.closest('[data-linha]');
     if (seloLinha) { h.abrirLinha?.(Number(seloLinha.getAttribute('data-linha'))); return; }
 
-    const estacao = alvo.closest('[data-id]');
-    if (estacao) { h.abrirEstacao?.(estacao.getAttribute('data-id')); return; }
+    // S5 parte 2: o `[data-id]` de antes chamava `abrirEstacao`, que mudava um
+    // estado interno e redesenhava. Agora abrir é IR A uma rota, e o `<a
+    // href="#/estacao/…">` do cartão já faz isso sozinho — um segundo caminho
+    // para o mesmo gesto seria duas telas possíveis para o mesmo endereço.
+    // Fica o FECHAR do véu, que não é link (div sem href): ele navega para '#/'.
+    const fechar = alvo.closest('[data-fechar]');
+    if (fechar) { evento.preventDefault?.(); h.fechar?.(); return; }
+  });
+
+  // S5 parte 2: ESC fecha a folha. O ouvinte é no root, a mesma delegação do
+  // clique — a folha é redesenhada a cada pintura e um listener nela nasceria
+  // morto no segundo redesenho. `fechar` é no-op sem rota (abaixo), então Esc
+  // na tela do mapa não manda ninguém para lugar nenhum.
+  root.addEventListener('keydown', (evento) => {
+    if (evento.key === 'Escape') { h.fechar?.(); return; }
+    // S10 régua 4: o Tab circula DENTRO da folha aberta. Só quando ela existe,
+    // e só nas duas bordas — no meio o navegador anda sozinho, porque
+    // reimplementar a ordem do Tab é pedir para ela divergir do DOM. O listener
+    // é no root pela mesma razão do Esc: a folha é remontada a cada pintura.
+    if (evento.key !== 'Tab') return;
+    const painel = root.querySelector('.folha');
+    if (!painel) return;
+    prendaDeFoco(evento, { doc, painel, ativo: doc.activeElement });
   });
 
   root.addEventListener('input', (evento) => {
@@ -599,13 +1107,56 @@ export async function subirMetro(deps = {}) {
   const storage = deps.storage || (typeof localStorage !== 'undefined' ? localStorage : null);
   const root = deps.root || doc.getElementById('metro');
   const relogio = deps.setTimeout || setTimeout;
+  // S5 parte 2: a FOLHA É ROTA, não estado interno da tela. Quem lê o endereço
+  // é o casco (web/casco.js), que já observa o `hashchange` e remonta a tela
+  // com o slug no contexto — por isso o metro.js NÃO liga um segundo listener:
+  // dois donos do `hashchange` é a mesma regra que tirou o `aria-pressed` do
+  // seletor (dois caminhos para o mesmo gesto). O `window` entra por deps só
+  // para o FECHAR do véu navegar: um `<div>` não tem href, e fingir clique com
+  // history.pushState criaria entrada fantasma no histórico.
+  const win = deps.window || (typeof window !== 'undefined' ? window : null);
+  // S13c: a rede das aulas entra por deps pelo MESMO caminho do storage e da
+  // janela — o teste precisa entregar o JSON real do disco sem abrir rede, e o
+  // navegador tem o fetch dele. A arrow é ligada por causa do `Illegal
+  // invocation` (aulas-dados.js, nota do header): `fetch` solto perde o `this`.
+  const buscar = deps.buscarAulas || ((url) => fetch(url));
+
+  /**
+   * Os cartões do aparelho, lidos pela mesma porta da aba Revisar.
+   * `hoje` entra por deps (a régua de data não pode depender do relógio); sem
+   * ele é o dia local do aparelho, como em todo o resto do app.
+   */
+  const hojeDoApp = deps.hoje;
+  const cartoesDoStorage = () => {
+    if (!storage || typeof storage.getItem !== 'function') return lerCartoes(null);
+    let bruto = null;
+    try { bruto = storage.getItem(CARTOES_KEY); } catch { bruto = null; }
+    return lerCartoes(bruto);
+  };
 
   const ui = {
     // O catálogo é GUARDADO já com as anotações dentro: é a única forma de o
     // redesenho achar o texto que a pessoa escreveu (fatia 2c-3).
     catalogo: comNotas([], loadNotas() || {}),
-    notas: loadNotas() || {}, linha: null, aberta: null,
-    embarqueAberto: false, chegada: null, despertas: [], carregando: true
+    notas: loadNotas() || {}, linha: null,
+    embarqueAberto: false, chegada: null, momento: null, despertas: [], carregando: true,
+    // S5 parte 2: `aberta` saiu junto com a folha, que agora é ROTA. O que a
+    // pessoa está vendo vem do endereço e entra por `deps.folha` (o casco lê o
+    // hash e entrega o slug). Guardar um `aberta` próprio seria ter duas fontes
+    // para a mesma rota — e o "voltar" do navegador mostraria outra coisa.
+    folha: typeof deps.folha === 'string' && deps.folha ? deps.folha : null,
+    // S13c: a lista de aulas DA ESTACÃO À VISTA. `null` é honesto em dois
+    // momentos — ainda não chegou, e chegou e falhou — e nos dois a folha desenhada
+    // é exatamente a de hoje (folha.js:400 só monta o painel com lista).
+    aulas: null,
+    // S20a: o que o topo lê do aparelho e do disco. `alvo` é calculado UMA vez
+    // com o catálogo na mão — o mesmo objeto vai para o desenharTopo e para a
+    // busca das aulas, senão a tela mostraria uma aula e linkaria para outra.
+    indice: null, aulasAlvo: null, alvo: null,
+    // A estação cujo JSON de aulas está em `aulasAlvo`. É `null`, e não a
+    // estação, enquanto nada chegou — e `null` não é «a mesma do alvo»: a
+    // primeira pintura com alvo precisa disparar a leitura.
+    alvoSlug: null
   };
   // O esqueleto é a PRIMEIRA PINTURA — ele é chamado logo abaixo, onde `pintar`
   // passa a existir, e antes de qualquer `await`.
@@ -619,12 +1170,212 @@ export async function subirMetro(deps = {}) {
   // invisível; no mini-DOM do teste o `for…of` percorria a lista que crescia
   // dentro dele e o clique que redesenha nunca terminava. Delegação por
   // `closest` no root sobrevive ao redesenho dos filhos.
+  // S10 régua 4: a folha é um diálogo, e um diálogo que abre sem levar o foco
+  // deixa a pessoa teclando no mapa que ficou atrás dele. Por isso o entrar é
+  // aqui, e só na TRANSAÇÃO (sem folha → com folha): pintar por pintar — o
+  // concluir, o marcar, o anotar — não pode arrastar o foco de quem está
+  // escrevendo. O sair é o espelho: `devolverAposFechar` foi armado pelo fechar
+  // da instância anterior (variável de módulo, porque esta instância morreu no
+  // meio do caminho) e só faz sentido na pintura que não tem mais painel.
+  let folhaVisivel = false;
+  // S11-0 (defeito 1, navegador real 03/11/2026): o CSS da folha existe desde a
+  // S5 parte 1 (web/folha.css:48-57) e diz "o metro.js poe e tira" a classe
+  // .aberta. Nenhum JS jamais pos. O estado parado do painel e translateY(100%),
+  // ou seja, FORA da tela: tocar numa estacao escurecia o fundo (o veu existe) e
+  // nao aparecia nada. S10 mediu o foco, o Tab e o Esc do painel -- todos
+  // funcionam num elemento que esta a 100 px abaixo da janela, e o git
+  // log -G"add\\(.aberta" esta vazio. A folha estava aberta no DOM e fechada na
+  // tela de quem olhava.
+  let slugAberto = null;
+
+  // ── S13c: o FIO das aulas na folha ───────────────────────────────────────
+  // O cache é por slug e vive FORA do `ui` por um motivo e outro dentro dele:
+  // a LISTA da estação à vista é estado de tela (muda com a rota), mas o
+  // resultado da busca é dado do disco — trocar de estação e voltar não é
+  // motivo para buscar o mesmo JSON duas vezes, e o `ui` morre com a instância.
+  // O ouvinte de abertura também é fora: o painel é REMONTADO a cada pintura,
+  // então ligar dentro sem desligar empilharia um `<click>` por redesenho — o
+  // defeito do `bindMetro` dentro do `pintar` (2c-1), na mesma linha de código.
+  const aulasCache = new Map();
+  // S20a-fix (04/11/2026): pedidos EM ANDAMENTO, por slug. O topo (carregarTopo)
+  // e a folha (aulasDaFolha) pedem o MESMO JSON no mesmo abrir de aplicativo, e
+  // a aula alvo do topo é quase sempre a estação que a pessoa abre. Sem isto,
+  // cada um buscava — e o `pedidos.length === 1` do fio da S13c era justo contra
+  // esse segundo pedido.
+  const aulasVoando = new Map();
+  let desligarAbertura = null;
+
+  /** Uma busca por slug, compartilhada entre topo e folha; o resultado fica no cache. */
+  const aulasDe = (slug) => {
+    const guardado = aulasCache.get(slug);
+    if (guardado) return Promise.resolve(guardado);
+    if (aulasVoando.has(slug)) return aulasVoando.get(slug);
+    const voo = carregarAulas(slug, buscar).then((lido) => {
+      aulasVoando.delete(slug);
+      aulasCache.set(slug, lido);
+      return lido;
+    });
+    aulasVoando.set(slug, voo);
+    return voo;
+  };
+
+  /**
+   * A folha pinta COM as aulas que já estão no cache, e pede as que faltam.
+   *
+   * O defeito que esta função corrige (S20a-fix, 04/11/2026, visto nos 4 casos
+   * de `aulas-fio.test.js` que a suíte do clone limpo pegou e o meu bloco de 8
+   * arquivos não): o pedido vivia DENTRO do `pintar`, depois do `desenharMetro`,
+   * e no caso de cache — o normal, desde que o topo começou a buscar a estação
+   * alvo no boot — escrevia `ui.aulas` tarde demais e ainda pulava o repintar
+   * (`if (guardado) return`). A folha saía sem `.aulas-primario` nem régua e o
+   * verde não avisava, porque o único arquivo que mede o fio estava fora do bloco.
+   */
+  /**
+   * As aulas da estação que o TOPO aponta, servidas do cache quando ele existe.
+   *
+   * Por que isto não pode ser uma busca do boot (S20a-3): o alvo do topo agora
+   * depende da VIAGEM, e a viagem muda sem recarregar nada — um `alvo` calculado
+   * uma vez no boot, com as aulas dele guardadas juntas, daria à tela a lista da
+   * estação errada depois de «Marcar». O `slug` é a chave, e é a mesma chave do
+   * cache da folha (`aulasDe`), então a estação que o topo aponta e a estação que
+   * a pessoa abre são UMA busca.
+   */
+  const listaDe = (lido) =>
+    (lido?.ok && Array.isArray(lido.dados?.aulas) ? lido.dados.aulas : null);
+
+  const garantirAulasDoAlvo = (slug) => {
+    if (!slug || aulasCache.has(slug)) return;
+    aulasDe(slug).then((lido) => {
+      // O alvo mudou durante a busca: pintar aqui seria trocar a linha de apoio
+      // do topo pela duração de OUTRA estação.
+      if (!lido.ok || ui.alvo?.curso?.slug !== slug) return;
+      ui.aulasAlvo = listaDe(lido);
+      pintar();
+    });
+  };
+
+  const aulasDaFolha = (slug) => {
+    const guardado = slug ? aulasCache.get(slug) : null;
+    // `ok:false` vira `null` e a folha é a de hoje: o arquivo que falta não é
+    // erro de tela na folha — a frase de erro pertence à PÁGINA de aulas
+    // (aulas.js), onde a pessoa foi procurá-la de propósito.
+    const aulas = guardado?.ok ? guardado.dados : null;
+    if (slug && !guardado) {
+      aulasDe(slug).then((lido) => {
+        // A pessoa já foi outra estação durante a busca: pintar aqui seria trocar
+        // a folha de A por B sem rota nenhuma.
+        if (!lido.ok || ui.folha !== slug) return;
+        ui.aulas = lido.dados;
+        pintar();
+      });
+    }
+    return aulas;
+  };
+
   const pintar = () => {
     if (ui.carregando) { desenharEsqueleto(doc, root); return; }
-    desenharMetro(doc, root, {
-      catalogo: ui.catalogo, progresso, linha: ui.linha, aberta: ui.aberta,
-      chegada: ui.chegada, despertas: ui.despertas, embarqueAberto: ui.embarqueAberto
+    // S20a-fix: a folha é servida ANTES do desenho. Estar dentro do desenho
+    // (como `pedirAulas` estava, logo abaixo) fazia a pintura usar o `ui.aulas`
+    // da vez anterior e, com cache cheio, nunca repintar.
+    ui.aulas = aulasDaFolha(ui.folha);
+    // S20a-3 — O ALVO DO TOPO É VIVO, E A LISTA DELE ACOMPANHA. Calculado aqui,
+    // com o progresso desta pintura, porque a chave passou a ter três casos e o
+    // terceiro depende da VIAGEM: quem toca em «Marcar» muda a resposta sem
+    // recarregar o aparelho. Se a estação do alvo trocou desde a última pintura,
+    // a lista guardada é de OUTRA estação — trocar o discurso e deixar a duração
+    // velha na linha de apoio é a metade silenciosa do defeito 4. A busca vai
+    // pelo mesmo `aulasDe` da folha, então o cache não conhece duas estações por
+    // onde o topo aponta: uma lista na cabeça, dois pedidos no disco seria o
+    // defeito que a S20a-fix acabou de fechar.
+    // S18a: o `ui.indice` entra como quinto argumento. Sem ele a régua da
+    // estação percorrida não tem o total de aulas de nenhuma estação, nenhuma
+    // estação é dada por percorrida, e a regra da fatia existe só no teste — o
+    // mesmo shape do defeito da S16c (a peça certa, o argumento que não vem).
+    // No boot ele é `null` de propósito: «não sei o total» desenha a volta de
+    // sempre, e a repintura de `carregarTopo` refaz a pergunta com a tabela na mão.
+    ui.alvo = alvoDoTopo(ui.catalogo, estudoDoStorage(storage),
+      resumoDaViagem(progresso, ui.catalogo), progresso, ui.indice);
+    const slugAlvo = ui.alvo.curso?.slug || null;
+    if (slugAlvo !== ui.alvoSlug) {
+      ui.alvoSlug = slugAlvo;
+      ui.aulasAlvo = listaDe(aulasCache.get(slugAlvo));
+      garantirAulasDoAlvo(slugAlvo);
+    }
+    const nos = desenharMetro(doc, root, {
+      catalogo: ui.catalogo, progresso, linha: ui.linha, folha: ui.folha,
+      notas: ui.notas,
+      chegada: ui.chegada, despertas: ui.despertas, embarqueAberto: ui.embarqueAberto,
+      // S6: o momento da chegada entra na folha pelo mesmo caminho do que a
+      // chegada entra no mapa. Sem isto a folha conclui e não mostra nada.
+      momento: ui.momento,
+      // S13c (defeito 2, Chrome real 04/11/2026): os dois campos que a folha
+      // declarava desde a S13b e que o app nunca entregou. O `estudo` é lido do
+      // aparelho A CADA pintura, não guardado no `ui`: a pessoa abre a aula no
+      // YouTube, volta sem recarregar, e a régua tem de dizer o que o storage diz.
+      aulas: ui.aulas,
+      estudo: estudoDoStorage(storage),
+      // S20a: o índice e as aulas do alvo entram pelo mesmo caminho do resto do
+      // estado de tela — `null` é honesto (ainda não chegaram) e o topo tem a
+      // frase sem número e a linha de apoio sem duração para esse caso.
+      indice: ui.indice, aulasAlvo: ui.aulasAlvo, alvo: ui.alvo,
+      // S16c: os cartões e a data. Lidos A CADA pintura, pelo mesmo motivo do
+      // `estudo`: a pessoa responde um cartão na aba, volta à Jornada sem
+      // recarregar, e o mapa tem de contar o que o storage diz agora.
+      cartoes: cartoesDoStorage(), hoje: hojeDoApp
     });
+
+    // `folhaVisivel` é por INSTÂNCIA, `devolverAposFechar` é do MÓDULO: entre o
+    // Esc e esta pintura houve uma troca de rota, e a instância que ouviu o Esc
+    // não existe mais. Por isso o sair não pergunta «havia folha antes?» — o que
+    // o autoriza a mover o foco é o fechar ter armado, nada mais.
+    const painel = nos.folha || null;
+    // S13c: o DESLIGAR vem antes de qualquer coisa porque este nó é novo a cada
+    // pintura, e o da pintura anterior já não está na árvore — sem desligar, a
+    // página de aulas cobra exatamente isso lá; aqui é o mesmo contrato, e ele
+    // mora no root (uma vez por instância, ao lado do bindMetro), não no painel.
+    if (painel) {
+      // S11-0 (defeito 1): o QUADRO SEGUINTE existe para a transição correr. O
+      // navegador pinta o painel uma vez em translateY(100%) e só depois recebe
+      // a classe que o levanta; pôr a classe no mesmo tick do append é deixar o
+      // navegador ver um único estado e a folha chegar no lugar sem subir nada.
+      // Movimento reduzido (o token --movimento-abrir zera no CSS, e aqui se
+      // pula o quadro): na hora, porque sem transição esperar um frame é só
+      // atraso. Sem `requestAnimationFrame` no contexto (o node, onde `win` é o
+      // dublê do teste, ou um ambiente que não o expõe), a classe entra na hora
+      // também: o desenho não depende de quadro nenhum para existir.
+      const slugPainel = painel.getAttribute('data-slug') || '';
+      const entrouAgora = !folhaVisivel || slugPainel !== slugAberto;
+      const parado = win?.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches === true;
+      if (!entrouAgora || parado || typeof win?.requestAnimationFrame !== 'function') {
+        painel.classList.add('aberta');
+      } else {
+        win.requestAnimationFrame(() => painel.classList.add('aberta'));
+      }
+      slugAberto = slugPainel;
+      if (!folhaVisivel) {
+        // ENTROU na folha: o primeiro focável do painel é o Fechar, e o foco vai
+        // para ele — o título do diálogo já é lido pelo `aria-labelledby`.
+        const primeiro = focaveisDaFolha(painel)[0];
+        primeiro?.focus?.();
+      }
+      // S20a-fix: o pedido de aulas da folha saiu do corpo do `pintar` — ele
+      // acontecia depois do `desenharMetro` e, com o cache já cheio pelo topo,
+      // devolvia sem repintar: a folha nascia sem painel de aulas. Agora a
+      // pintura já leva o que o cache tem e só voa o que falta (aulasDaFolha).
+      // Continua fora do boot: abrir a Jornada sem estação não tem o que buscar.
+      // Folha nova por cima de folha velha (pré-requisito, voltar do navegador):
+      // o fechar anterior já foi respondido por esta pintura.
+      devolverAposFechar = false;
+    } else if (devolverAposFechar) {
+      // SAIU da folha por fechar: devolve ao cartão que a abriu, se ele ainda
+      // está no mapa (o importar, o desfazer e a rota errada removem o gatilho,
+      // e aí o foco fica onde o navegador o deixou — melhor que jogá-lo no body).
+      devolverAposFechar = false;
+      const cartao = cartaoDoGatilho(root, gatilhoDaFolha);
+      if (cartao) cartao.focus?.();
+      gatilhoDaFolha = null;
+    }
+    folhaVisivel = Boolean(painel);
   };
 
   const persistir = (novo) => {
@@ -642,8 +1393,12 @@ export async function subirMetro(deps = {}) {
   // esqueleto nascer já junto com a placa, sem nunca ter mostrado a espera.
   pintar();
 
-  const avisarChegada = (id) => {
-    ui.chegada = { id };
+  const avisarChegada = (id, abriu, momento) => {
+    // 2d-1: além do id, a chegada carrega O QUE O GESTO ABRIU — calculado pelo
+    // núcleo no momento do concluir, porque a pintura não pode recomparar antes
+    // e depois (depois de pintar, o "antes" já se perdeu).
+    ui.chegada = { id, abre: abriu?.destravadas || [], baldeacao: abriu?.baldeacao || null };
+    ui.momento = momento || null;
     if (janela) clearTimeout(janela);
     // A chegada é o momento em que o esforço vira visível (JORNADA §2.4/§4.6):
     // sem pintar aqui, o círculo enchia no estado e a tela não mostrava nada.
@@ -651,12 +1406,28 @@ export async function subirMetro(deps = {}) {
     // --janela-desfazer é 6000 ms no CSS; o relógio aqui tem de ser o mesmo
     // número, e por isso ele vem do token lido do documento — não de um 6000
     // escrito à mão que um dia diverge do que a animação mostra.
-    janela = relogio(() => { ui.chegada = null; ui.despertas = []; pintar(); }, JANELA_DESFAZER_MS);
+    janela = relogio(() => { ui.chegada = null; ui.momento = null; ui.despertas = []; pintar(); }, JANELA_DESFAZER_MS);
   };
 
+  // NAVEGAR, não mutar: o `hashchange` do casco (web/casco.js) é quem remonta
+  // a tela. Um `pushState` aqui criaria uma entrada de história que nenhum
+  // endereço do app sabe ler. Sem `win.location` (node), nada acontece — é o
+  // mesmo silêncio protetor do modo privado do `carregarViagem`.
+  const irPara = (hash) => { if (win && win.location) win.location.hash = hash; };
+
   const acoes = {
-    abrirLinha(n) { ui.linha = n; ui.aberta = null; ui.chegada = null; pintar(); },
-    abrirEstacao(id) { ui.aberta = ui.aberta === id ? null : id; pintar(); },
+    abrirLinha(n) { ui.linha = n; ui.chegada = null; ui.momento = null; pintar(); },
+    // S5 parte 2: `abrirEstacao` saiu — o cartão é `<a href="#/estacao/…">` e o
+    // navegador faz o gesto sozinho. Duas rotas para a mesma tela é a regra que
+    // já tirou o `aria-pressed` do seletor. FECHAR, em vez de apagar um estado,
+    // navega para `#/`: o mesmo href do botão da folha, e o "voltar" devolve a
+    // pessoa à estação de onde ela veio.
+    // Sem rota de estação, Esc não tem o que fechar: navegar para '#/' na tela
+    // do mapa jogaria a pessoa para o começo e criaria entrada no histórico.
+    // S10 régua 4: o fechar agora ARMA a devolução de foco antes de navegar. É
+    // variável de módulo porque a navegação mata esta instância — o `ui` morre
+    // com ela, e quem devolve o foco é a PRÓXIMA pintura, a do mapa.
+    fechar() { fecharFolha(ui, irPara); },
     embarque() { ui.embarqueAberto = !ui.embarqueAberto; pintar(); },
     anotar(id, texto) {
       // aplicarNota é a função do NÚCLEO de anotação, a mesma da tela principal:
@@ -683,7 +1454,11 @@ export async function subirMetro(deps = {}) {
       const marcos = marcosNovos(antes, depois, ui.catalogo);
       const chegou = marcos.find((m) => m.tipo === 'estacao' && m.id === id);
       ui.despertas = [id];
-      if (chegou) avisarChegada(id); else pintar();
+      // O que o gesto abriu, perguntado ao núcleo ANTES de pintar: a tela não
+      // reimplementa pré-requisito (regra 1 do arquivo), e a pintura sozinha não
+      // tem como saber o "antes".
+      if (chegou) avisarChegada(id, abreComBaldeacao(antes, depois, ui.catalogo), momentoDaChegada(antes, depois, ui.catalogo, id));
+      else pintar();
     },
     // MARCAR é concluir pela porta do embarque: a lista fecha junto, porque o
     // embarque é o momento de quem ainda não tem nada concluído (JORNADA §2.2).
@@ -691,7 +1466,7 @@ export async function subirMetro(deps = {}) {
     marcar(id) { ui.embarqueAberto = false; acoes.concluir(id); },
     desfazer(id) {
       persistir(desfazerConclusao(progresso, id));
-      ui.chegada = null; ui.despertas = [];
+      ui.chegada = null; ui.momento = null; ui.despertas = [];
       if (janela) { clearTimeout(janela); janela = null; }
       pintar();
     }
@@ -702,6 +1477,47 @@ export async function subirMetro(deps = {}) {
     ui.catalogo = comNotas(carregado?.courses || [], ui.notas);
     const resumo = resumoDaViagem(progresso, ui.catalogo);
     ui.linha = resumo.proximaEstacao?.linha ?? linhasDoCatalogo(ui.catalogo)[0] ?? 1;
+
+    // S20a: o alvo do topo é calculado com o catálogo na mão, e as aulas dele
+    // vêm pelo MESMO `buscar` e o MESMO cache da folha — trocar de estação e
+    // voltar não é motivo para buscar o mesmo JSON duas vezes. O índice (a
+    // contagem de aulas da rede) entra junto: a linha de medida do topo lê os
+    // dois números, não escreve nenhum.
+    // S20a-3: o terceiro argumento É O RESUMO. Sem ele, `alvoDoTopo` não sabe
+    // que a viagem andou e devolve a J1 para quem marcou dez estações — o
+    // defeito 4 reentrando por aqui. O `pintar` recalcula a cada repintura; isto
+    // aqui é só a primeira resposta do boot, que não pode ser mais velha que a
+    // tela que ela vai desenhar.
+    // S18a: aqui o `ui.indice` é `null` (a tabela chega no `carregarTopo`
+    // abaixo), então a primeira resposta do boot é a de sempre. Quando a tabela
+    // chega, o `pintar()` refaz a pergunta com o índice na mão e, se a estação
+    // do alvo mudou, busca a lista nova — um repintar e um arquivo a mais no
+    // caso raro de quem terminou uma estação inteira sem carimbar. Preferível,
+    // e mais barato, que o topo prometer a Aula 1 de uma estação percorrida.
+    ui.alvo = alvoDoTopo(ui.catalogo, estudoDoStorage(storage), resumo, progresso, ui.indice);
+    pintar();
+    const carregarTopo = async () => {
+      // `aulasDe` e não `carregarAulas`: o alvo do topo é quase sempre a estação
+      // que a pessoa abre, e os dois pedidos acontecem no mesmo abrir — sem a
+      // promessa em andamento compartilhada, o mesmo JSON era buscado duas vezes.
+      const [ind, aulas] = await Promise.all([
+        carregarIndice(buscar),
+        ui.alvo.curso ? aulasDe(ui.alvo.curso.slug) : Promise.resolve({ ok: false, erro: 'sem-alvo' })
+      ]);
+      if (ind.ok) ui.indice = ind.dados;
+      if (aulas.ok && Array.isArray(aulas.dados?.aulas)) {
+        ui.aulasAlvo = aulas.dados.aulas;
+        // A folha pode ter aberto enquanto o topo buscava: ela é a mesma estação,
+        // então recebe as aulas agora em vez de esperar o próximo repintar.
+        if (ui.folha && ui.folha === ui.alvo.curso?.slug) ui.aulas = aulas.dados;
+      }
+      pintar();
+    };
+    // SEM `await` (S20a-fix): este carregamento é repintar, não subir. Esperá-lo
+    // prendia o `subirMetro` atrás da rede — o bind de clique, o `desmontar` e a
+    // promessa do casco ficavam para depois do arquivo chegar, e uma rede presa
+    // (o caso que `aulas-fio.test.js` mede) nunca devolvia a instância.
+    carregarTopo().catch(() => {});
   } catch (erro) {
     ui.carregando = false;
     root.textContent = '';
@@ -716,8 +1532,24 @@ export async function subirMetro(deps = {}) {
 
   ui.carregando = false;
   bindMetro(doc, root, acoes);
+  // S13c: o gesto da aula entra NO ROOT, junto do bindMetro, e não no painel.
+  // Dois motivos, os dois desta casa: (a) o painel é REMONTADO a cada pintura,
+  // então ligar nele exigiria desligar e religar dentro do `pintar` — a dívida
+  // que a 2c-1 já pagou com o bindMetro empilhado; (b) a auditoria de teclado
+  // (régua 1) varre a árvore atrás de quem tem ouvinte de clique próprio e não é
+  // focável, e o `.folha` é exatamente isso: um contêiner. No root a escuta é
+  // delegação, o mesmo contrato do concluir e do anotar. O `data-estacao` vem do
+  // painel mais perto (folha.js:347 o põe), então a gravação sabe em qual
+  // estação tocar.
+  desligarAbertura = ligarAberturaDeAula({ win, storage, painel: root, aoMudar: () => pintar() });
   pintar();
-  return { ok: true, pintar, acoes, ui, progresso: () => progresso };
+  // S13c: o casco chama `desmontar` na troca de tela (web/casco.js:118) e esta
+  // instância é devolvida por web/telas/jornada.js sem mexer. Sem isto, sair da
+  // Jornada deixava um ouvinte de clique/`visibilitychange` vivo no window,
+  // repintando uma árvore que já não está na página — o B9 da página de aulas
+  // cobra essa saída lá; aqui é a mesma dívida, do outro lado da tela.
+  const desmontar = () => { desligarAbertura?.(); desligarAbertura = null; };
+  return { ok: true, pintar, acoes, ui, desmontar, progresso: () => progresso };
 }
 
 /**
@@ -730,9 +1562,20 @@ export const JANELA_DESFAZER_MS = 6000;
 // O boot roda SÓ no navegador. `document.getElementById` é a pergunta: o teste
 // instala um document mínimo sem ele, e por isso importar este módulo no node
 // não sobe tela nenhuma (a mesma regra que boot.test.js cobra do boot.js).
-export const inicio =
+// O boot roda SÓ na página que tem a raiz dele. Em 31/10 (S3a-2a) a pergunta
+// deixou de ser "existe document?": o metro.js passou a ser importado também
+// pelo casco do index.html, onde a raiz é outra e #metro não existe — ali o
+// auto-boot chamava getElementById('metro'), recebia null e derrubava a
+// primeira pintura no console, além de buscar o catálogo uma segunda vez por
+// trás do casco. Quem abre o metrô dentro do casco chama subirMetro de
+// propósito (web/telas/jornada.js); o auto-boot fica só para o metro.html.
+const raizDoMetro =
   typeof document !== 'undefined' && typeof document.getElementById === 'function'
-    ? subirMetro().catch((erro) => {
+    ? document.getElementById('metro')
+    : null;
+
+export const inicio = raizDoMetro
+  ? subirMetro({ root: raizDoMetro }).catch((erro) => {
         // eslint-disable-next-line no-console
         console.error('[atlas] a tela de metrô não subiu:', erro);
         return { ok: false, erro };

@@ -3,202 +3,117 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0b1020">
-<meta name="description" content="Trilha de Ciência da Computação da Universidade Brasileira Livre, com pré-requisitos e progresso.">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#fbf7f0">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#17181a">
+<meta name="description" content="A sua próxima estação na trilha de Ciência da Computação da Universidade Brasileira Livre.">
 <title>Projeto Atlas — Ciência da Computação</title>
+<!-- VITRINE (S11a, 03/11/2026): o cartão que o LinkedIn e o WhatsApp mostram
+     quando alguém cola o endereço. Sem estas tags o link sai cru — texto sem
+     imagem — e o post morre na primeira impressão. São METAS do documento, não
+     links relativos: quem compartilha não tem como resolver caminho relativo
+     contra a URL do post, então og:url e og:image levam o endereço absoluto,
+     e a imagem é servida de /marca/cartao.png (a raiz do site é a pasta app/).
+     O desenho vem de app/cartao.html, fotografado por scripts/cartao.mjs; a
+     trava é app/tests/vitrine.test.js, que confere tag por tag, o tamanho
+     lido do cabeçalho IHDR do PNG e se o arquivo apontado existe no disco. -->
+<meta property="og:title" content="Ciência da Computação em linhas de metrô">
+<meta property="og:description" content="As 35 disciplinas da grade aberta da Universidade Brasileira Livre, viradas mapa: o que você já fez destrava o que vem em seguida. Sem conta, sem servidor, funciona offline.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://atlas-ciencia-da-computacao.pages.dev/">
+<meta property="og:image" content="https://atlas-ciencia-da-computacao.pages.dev/marca/cartao.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="O mapa da rede do Atlas: as sete linhas de metrô com as 35 disciplinas, nove estações preenchidas em três linhas e as baldeações que elas abrem.">
+<meta property="og:locale" content="pt_BR">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" href="icons/icone.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="icons/icone.svg">
-<!-- DESIGN SYSTEM (29/10/2026): tokens.css e a UNICA fonte de cor, tipo,
-     espaco, raio, duracao e ponto de quebra do app; fontes.css declara a
-     Overpass (SIL OFL 1.1, woff2 local em app/fonts/). Os dois vem ANTES do
-     style inline para que ele possa usar var(--*). Nao ha build: o que esta no
-     disco e o que o navegador usa. -->
-<link rel="stylesheet" href="./web/tokens.css">
-<link rel="stylesheet" href="./web/fontes.css">
-<style>
-  /* Mobile-first de verdade: o padrao E o celular. Tela grande so ganha
-     largura e colunas, nunca outra estrutura. */
-  /* MIGRACAO (29/10/2026): nenhuma cor escrita a mao aqui. Estes nomes viraram
-     APELIDOS para os tokens PROVISORIOS do tokens.css (--p-*), que guardam a
-     aparencia de hoje — o azul-marinho que o Lucas rejeitou. A tela nao muda
-     de proposito: este pedido entrega o design system, e a tela redesenhada vem
-     nos proximos. Quando uma regra migrar para --fundo/--tinta/--linha-N, o
-     apelido e o --p-* dela morrem juntos. Veja "Migracao" em design/README.md. */
-  :root {
-    --fundo: var(--p-fundo); --cartao: var(--p-cartao); --borda: var(--p-borda);
-    --texto: var(--p-texto); --fosco: var(--p-fosco);
-    --aberto: var(--p-aberto); --feito: var(--p-feito);
-    --trancado: var(--p-trancado); --alerta: var(--p-alerta);
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0; background: var(--fundo); color: var(--texto);
-    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    -webkit-text-size-adjust: 100%;
-  }
-  .app { max-width: 720px; margin: 0 auto; padding: 16px 14px 48px; }
-  h1 { font-size: 1.5rem; margin: 4px 0 2px; letter-spacing: -.02em; }
-  .sub, .fonte { margin: 2px 0; color: var(--fosco); font-size: .84rem; }
-  .fonte { font-size: .76rem; opacity: .85; word-break: break-word; }
-  .alerta {
-    margin: 12px 0; padding: 10px 12px; border-radius: 10px; font-size: .86rem;
-    background: var(--p-alerta-fundo); border: 1px solid var(--p-alerta-borda); color: var(--alerta);
-  }
-  .carregando { color: var(--fosco); }
-  .trilha { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: 10px; }
-  .item {
-    display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center;
-    background: var(--cartao); border: 1px solid var(--borda); border-left: 4px solid var(--trancado);
-    border-radius: 12px; padding: 12px 14px;
-  }
-  .item .titulo { grid-column: 1; font-weight: 600; }
-  .item .status { grid-column: 2; grid-row: 1; font-size: .74rem; color: var(--fosco); text-align: right; }
-  /* CELULA PROPRIA (28/10/2026): cada filho de coluna cheia tem a sua linha —
-     recurso=2, biblio=3, marca=4. Antes .marca e .biblio declaravam a MESMA
-     celula (grid-row: 3) e o botao Concluir/Desfazer caia por cima da nota da
-     bibliografia. No desktop ninguém via: o media query abaixo move o botao
-     para grid-row 1, entao a sobreposicao so existia no celular. Regra: se um
-     filho novo entra na grade do .item, ele ganha uma linha propria — dois
-     filhos na mesma linha so com grid-column diferente. */
-  .item .marca { grid-column: 1 / -1; grid-row: 4; justify-self: start; }
-  .item .recurso { grid-column: 1 / -1; grid-row: 2; justify-self: start; }
-  a.recurso {
-    margin-top: 8px; min-height: 40px; padding: 8px 14px; border-radius: 9px;
-    border: 1px solid var(--borda); background: var(--p-recurso-fundo); color: var(--feito);
-    font-size: .86rem; font-weight: 600; text-decoration: none;
-    display: inline-flex; align-items: center;
-  }
-  a.recurso:active { transform: translateY(1px); }
+<link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="icon" href="icons/favicon-16.png" sizes="16x16" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<!-- DESIGN SYSTEM (S1/S2, 31/10/2026): tokens.css é a única fonte de valor;
+     fontes.css declara a Overpass; base.css é o chão que toda página herda
+     (fundo, anel de foco de 3 px, .so-leitor). Depois vêm as telas: metro.css
+     desenha a Jornada, telas/explorar.css desenha a Explorar — as duas escopadas nas
+     suas classes, nenhum valor à mão aqui. O casco.css (cara das abas) entra na
+     S3a-2b. Não há build: o que está no disco é o que o navegador usa.
 
-  /* BIBLIOGRAFIA (item 3): caminho da fonte, nao conteudo do Atlas. Entra na
-     mesma grade do item, abaixo do recurso, e a nota de nao-verificado fica em
-     texto menor — e aviso, nao rodape decorativo. */
-  .item .biblio { grid-column: 1 / -1; grid-row: 3; display: flex; flex-direction: column; gap: 2px; margin-top: 6px; }
-  a.biblio-link {
-    color: var(--p-link-biblio); font-size: 0.82rem; text-decoration: none;
-    border-bottom: 1px dashed var(--p-link-biblio-borda); align-self: flex-start;
-    word-break: break-all;
-  }
-  a.biblio-link:hover, a.biblio-link:focus-visible { color: var(--p-link-biblio-forte); border-bottom-style: solid; }
-  .biblio-nota { color: var(--p-nota); font-size: 0.72rem; line-height: 1.35; }
-  /* NOTA UNICA (28/10/2026): o aviso saiu dos 35 cartoes e virou um <p> antes
-     da lista. Sem margin ele colava no destaque de "proxima materia"; 60ch e a
-     medida em que a linha ainda se le de um folego no celular e no desktop. */
-  p.biblio-nota { margin: 14px 0 0; max-width: 60ch; }
-  /* Alvo de toque minimo de 44px no celular: o padding acima ja garante. */
-  .item.disponivel { border-left-color: var(--aberto); }
-  .item.disponivel .status { color: var(--aberto); }
-  .item.concluida { border-left-color: var(--feito); opacity: .82; }
-  .item.concluida .status { color: var(--feito); }
-  .item.concluida .titulo { text-decoration: line-through; text-decoration-color: var(--p-riscado); }
-  .item.trancada, .item.ciclo { opacity: .62; }
-  .item.ciclo .status { color: var(--alerta); }
-  button.marca {
-    margin-top: 8px; min-height: 40px; padding: 8px 16px; border-radius: 9px;
-    border: 1px solid var(--borda); background: var(--p-botao-fundo); color: var(--texto);
-    font: inherit; font-size: .88rem; font-weight: 600; cursor: pointer;
-  }
-  button.marca:active { transform: translateY(1px); }
-  button.marca:disabled { cursor: not-allowed; opacity: .45; }
-  .item.disponivel button.marca { background: var(--p-aberto-fundo); border-color: var(--p-aberto-borda); color: var(--aberto); }
-  .item.concluida button.marca { background: var(--p-feito-fundo); border-color: var(--p-feito-borda); color: var(--feito); }
-  /* ELETIVAS ARQUIVADAS (24/10/2026): mesma linguagem visual da grade, mas com
-     borda esquerda cinza e opacidade menor — o olho tem de entender em meio
-     segundo que isto NAO e o caminho obrigatorio. Sem cor de "disponivel",
-     porque disponivel aqui so existe para a grade. */
-  section.eletivas { margin-top: 34px; }
-  section.eletivas h2 { font-size: 1.15rem; margin: 0 0 4px; letter-spacing: -.01em; }
-  .aviso-eletivas {
-    margin: 0 0 10px; padding: 10px 12px; border-radius: 10px; font-size: .84rem;
-    background: var(--p-aviso-fundo); border: 1px solid var(--borda); color: var(--fosco);
-  }
-  .eletivas-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
-  .item.eletiva {
-    grid-template-columns: 1fr; opacity: .78;
-    border-left-color: var(--trancado);
-  }
-  .item.eletiva .titulo { grid-column: 1; font-weight: 600; }
-  .item.eletiva .prereq-texto { grid-column: 1; color: var(--fosco); font-size: .8rem; }
-  .item.eletiva .topicos { grid-column: 1; color: var(--fosco); font-size: .8rem; margin-top: 4px; }
-  .item.eletiva .recurso { grid-column: 1; }
-  /* ESPECIALIZACOES (24/10/2026): sao conteudo de aprofundamento, nao a grade.
-     Ficam entre a trilha e as eletivas, com recursos em lista aninhada — no
-     celular cada linha de recurso precisa de area de toque inteira (min-height),
-     porque link pequeno em lista longa e link que o dedo erra. */
-  section.especializacoes { margin-top: 34px; }
-  section.especializacoes h2 { font-size: 1.15rem; margin: 0 0 4px; letter-spacing: -.01em; }
-  .esp-lista { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 12px; }
-  .item.esp { grid-template-columns: 1fr; align-items: start; }
-  .item.esp .titulo { grid-column: 1; font-weight: 600; }
-  .item.esp .status { grid-column: 1; color: var(--fosco); font-size: .78rem; }
-  .item.esp.aguardando { border-left-color: var(--p-obras-borda); background: var(--p-obras-fundo); }
-  .aviso-esp {
-    grid-column: 1; margin: 6px 0 0; padding: 9px 11px; border-radius: 9px;
-    font-size: .82rem; line-height: 1.45; color: var(--p-obras-texto);
-    background: var(--p-obras-caixa); border: 1px solid var(--p-obras-caixa-borda);
-  }
-  .esp-recursos { list-style: none; grid-column: 1; margin: 8px 0 0; padding: 0; display: grid; gap: 2px; }
-  .esp-recursos li { padding: 7px 0; border-bottom: 1px solid var(--borda); font-size: .9rem; line-height: 1.4; }
-  .esp-recursos li:last-child { border-bottom: 0; }
-  .esp-recursos a { min-height: 44px; display: inline-flex; align-items: center; }
-  .esp-meta { color: var(--fosco); font-size: .8rem; }
-  .esp-nota { color: var(--p-esp-nota); font-size: .78rem; }
-  /* PROGRESSO PORTATIL (27/10/2026): exportar/importar. Os dois botoes cabem
-     lado a lado em tela larga e empilham no celular — flex-wrap, sem media
-     query propria. Alvo de toque minimo de 44px vem do button.marca. */
-  section.progresso-io { margin-top: 34px; }
-  section.progresso-io h2 { font-size: 1.15rem; margin: 0 0 4px; letter-spacing: -.01em; }
-  .io-acoes { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
-  .io-acoes .marca { flex: 1 1 auto; }
-  .importar-arquivo { display: none; }
-  .io-recado { margin: 10px 0 0; color: var(--fosco); font-size: .84rem; min-height: 1.2em; }
-  /* BUSCA (27/10/2026): campo fora do #app, mesma paleta, alvo de toque de
-     44px. .busca-vazia e o "nada encontrado" que render() desenha — mesma
-     linguagem do .alerta: aviso, nao enfeite. */
-  .busca-slot { max-width: 720px; margin: 0 auto; padding: 14px 14px 0; }
-  .busca-slot[hidden] { display: none; }
-  input.busca {
-    width: 100%; min-height: 44px; padding: 10px 14px; border-radius: 12px;
-    border: 1px solid var(--borda); background: var(--cartao); color: var(--texto);
-    font: inherit; font-size: 1rem;
-  }
-  input.busca::placeholder { color: var(--fosco); }
-  input.busca:focus-visible { outline: 2px solid var(--feito); outline-offset: 1px; }
-  p.busca-vazia {
-    margin: 14px 0 0; padding: 10px 12px; border-radius: 10px; font-size: .88rem;
-    background: var(--p-alerta-fundo); border: 1px solid var(--p-alerta-borda); color: var(--alerta);
-  }
-  /* PONTO DE QUEBRA (29/10/2026): era 620px, numero escrito a mao que nao era
-     nenhum dos 4 do DS. O tablet comeca em 600px (--bp-tablet), entao entre 600
-     e 619px o respiro largo chega 20px antes. Nenhuma estrutura muda aqui — e a
-     trava do DS que exige: @media so usa numero que existe nos tokens. */
-  @media (min-width: 600px) {
-    .app { padding: 28px 20px 64px; }
-    h1 { font-size: 1.9rem; }
-    .item { grid-template-columns: 1fr auto auto; }
-    .item .status { grid-row: 1; }
-    .item .marca { grid-column: 3; grid-row: 1; justify-self: end; margin-top: 0; }
-    .item .recurso { grid-column: 1 / -1; grid-row: 2; justify-self: start; margin-top: 0; }
-  }
-</style>
+     S3b (31/10/2026): a base vem LOGO DEPOIS do tokens.css — antes dele as
+     variáveis ainda não existem e o fundo volta a ser branco no escuro. E as
+     duas metas theme-color acima são papel e carvão por media: a barra do
+     navegador acompanha o tema da tela, que agora é o do design system. -->
+<link rel="stylesheet" href="./web/tokens.css">
+<link rel="stylesheet" href="./web/base.css">
+<link rel="stylesheet" href="./web/fontes.css">
+<link rel="stylesheet" href="./web/casco.css">
+<link rel="stylesheet" href="./web/folha.css">
+<link rel="stylesheet" href="./web/metro.css">
+<!-- S4a (31/10/2026): a Jornada tem CSS próprio (as três peças da abertura),
+     depois do metro.css porque reusa o rótulo de placa que ele declara. -->
+<link rel="stylesheet" href="./web/telas/jornada.css">
+<link rel="stylesheet" href="./web/telas/explorar.css">
+<link rel="stylesheet" href="./web/telas/revisar.css">
+<!-- S11-0 (critica no navegador, 03/11/2026): o Perfil existia no disco
+     (web/telas/perfil.css, ja no precache) e o index.html nunca o linkou. Sem
+     link o navegador nao baixa nada: a tela montava e chegava sem estilo
+     nenhum, e a suinte nao via porque node le o CSS que o casco importa, nao o
+     HTML que o navegador segue. A trava agora e critica-no-navegador: todo
+     web/telas/*.css esta linkado AQUI e listado no precache. -->
+<link rel="stylesheet" href="./web/telas/perfil.css">
+<!-- S13b: a página das aulas de uma estação (web/telas/aulas.css, no precache). -->
+<link rel="stylesheet" href="./web/telas/aulas.css">
+<!-- S14b1: a página de uma aula (web/telas/aula.css, no precache). -->
+<link rel="stylesheet" href="./web/telas/aula.css">
 </head>
 <body>
-<!-- BUSCA (27/10/2026): slot FORA do #app — render() limpa o root a cada
-     redesenho, e um input la dentro perderia o foco a cada tecla. Fica
-     escondido ate o catalogo carregar (sem dados, busca nao faz sentido). -->
-<div id="busca-slot" class="busca-slot" hidden></div>
-<main id="app" class="app" aria-live="polite">
-  <p class="carregando">Carregando a trilha…</p>
+<!-- CASCO (S3a-2a, 31/10/2026): esta página é a SHELL, não uma tela. O que há
+     aqui é fixo: o pular (primeiro focável, para o Tab não percorrer as abas
+     antes do conteúdo), o topo com a marca, as abas, o main onde o casco monta
+     a tela da rota, e o anúncio — a ÚNICA região aria-live do app, uma frase
+     curta por troca de aba. Código inline nunca entrou em teste nenhum (foi
+     assim que o `avisar` escapou em 27/10); a lógica inteira é web/casco.js. -->
+<a class="pular" href="#conteudo">Pular para o conteúdo</a>
+<header class="topo">
+  <a class="topo-marca" href="#/" aria-label="Atlas, início">
+    <img class="marca-simbolo" src="marca/simbolo.png" alt="" width="42" height="24">
+    <span class="marca-palavra" aria-hidden="true"></span>
+  </a>
+  <nav class="abas" aria-label="Principal">
+    <a href="#/" data-tela="jornada"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 12h16"/><circle cx="5" cy="12" r="2.5" fill="currentColor"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/><circle cx="19" cy="12" r="2.5" fill="currentColor"/></svg><span>Jornada</span></a>
+    <a href="#/explorar" data-tela="explorar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="M16 16l4 4"/></svg><span>Explorar</span></a>
+    <a href="#/revisar" data-tela="revisar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg><span>Revisar</span></a>
+    <a href="#/perfil" data-tela="perfil"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 10h8M8 14h5"/></svg><span>Perfil</span></a>
+  </nav>
+</header>
+<!-- GUARDA ESCRITA DO CASCO (01/11/2026). Estas frases vivem DENTRO do main de
+     propósito: o casco manda esvaziar o main antes de pintar, então em http o
+     aviso dura o tempo do módulo carregar e desaparece sozinho — e o lugar de
+     onde ele some é exatamente o lugar onde a tela aparece. Se o módulo não
+     rodar, nada esvazia o main e o aluno lê o que fazer. É o único recurso
+     possível contra file://: o navegador recusa módulo ES por CORS (origem
+     "null"), então NÃO EXISTE JavaScript para se avisar — sem texto estático, o
+     que ele vê é marca, duas abas e branco, e a conclusão é que o Atlas quebrou.
+     (Foi assim em 01/11/2026: a tela branca do Lucas, com o disco, o servidor e
+     a suíte provados verdes.) Zero classe nova e zero valor: o base.css já dá
+     fundo e tinta, e não há motivo para o design system carregar o peso de um
+     estado que só existe quando o JS não existe. Nada de tag de estilo ou de
+     código aqui dentro: pages.test.js conta os elementos da página inteira e um
+     comentário que escreva o nome deles cria um segundo na contagem. -->
+<!-- SELO DE REDE (S10b, régua 1): o único estado da tabela que não pertence a
+     uma tela. O catálogo, o CSS e os módulos estão no precache, então offline é
+     o Atlas INTEIRO funcionando — um banner em cada tela anunciaria um problema
+     que não existe. Quem avisa é o invólucro, uma vez, e web/rede.js é quem
+     escreve aqui: `hidden` nasce escondido para quem abre conectado não ler
+     «offline» por um instante, e aria-live polite porque é estado, não pedido.
+     Mora antes do main de propósito: esvaziado o main, a faixa não some. -->
+<p id="estado-rede" class="selo-rede" aria-live="polite" hidden></p>
+<main id="conteudo" tabindex="-1">
+<p>O Atlas está carregando.</p>
+<p>Se esta frase continuar na tela, o navegador não executou ./web/casco.js. Isso acontece quando o index.html é aberto com duplo clique, pelo protocolo file:// — que bloqueia módulo. Sirva por http: na pasta do projeto rode <b>node app/serve.js</b> e abra <b>http://localhost:41730/</b>.</p>
+<p>Abriu por http e a tela continua vazia? É cache antigo deste app: recarregue com Ctrl+Shift+R, ou abra F12 → Application → Service Workers e desregistre.</p>
 </main>
-
-<!-- BOOT (27/10/2026): a logica de abrir a pagina mora em web/boot.js, um
-     MODULO — com teste no node (tests/boot.test.js). Aqui so fica a tag.
-     Motivo, e nao arrumacao: o que estava inline NAO entrava em teste nenhum
-     (o node importa modulos, nao HTML), e foi assim que um ReferenceError no
-     fio `avisar` do importador de progresso chegou ao navegador sem que a
-     suite visse. tests/boot.test.js tambem falha se codigo voltar para dentro
-     desta pagina. -->
-<script type="module" src="./web/boot.js"></script>
+<p id="anuncio" class="so-leitor" aria-live="polite"></p>
+<!-- O módulo é o único código desta página: nem estilo, nem handler escrito
+     aqui dentro (pages.test.js cobra). A guarda escrita mora no main acima. -->
+<script type="module" src="./web/casco.js"></script>
 </body>
 </html>

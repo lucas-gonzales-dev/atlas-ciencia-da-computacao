@@ -1,0 +1,169 @@
+/* Projeto Atlas — o cartão de divulgação (S11c, 03/11/2026).
+
+   O MOLDE É A JANELA, não um número: scripts/cartao.mjs abre esta página com
+   --window-size=1200,630, então o viewport JÁ é o cartão. Nenhum `width:
+   1200px` escrito aqui — a régua 6 reprova largura fixa maior que o celular
+   nascida fora de @media desktop, e com razão mesmo para uma página que ninguém
+   navega: um dia ela é aberta numa janela menor e passa a rolar para o lado. O
+   que fixa o cartão é a janela que o fotografa.
+
+   OS NÚMEROS DO CARTAZ morrem nas variáveis locais da moldura, declaradas uma
+   vez, com o motivo de cada um: 54 px de título não existem na escala do app
+   (--tipo-estacao, o MAIOR degrau, é 32 px) e um degrau inventado por causa de
+   uma imagem entraria na escala de todo o sistema. Cor, fonte, raio e peso de
+   texto continuam 100% tokens — a lista do proibido (design/README §9) não faz
+   exceção para página nenhuma, e o cartão é justamente a coisa que mais gente
+   vai ver dele.
+
+   O QUE MUDOU DA S11a: sai a foto da Jornada (`desenharMetro`), entra a REDE
+   inteira desenhada por core/mapa-rede.js. A tela de verdade volta a ser a
+   coisa a abrir — um cartão feito de desenho dela, e não dela mesma. */
+
+body.cartao {
+  height: 100vh;
+  margin: 0;
+  overflow: hidden;
+  background: var(--fundo);
+  color: var(--tinta);
+  font-family: var(--fonte-corpo);
+}
+
+.cartao-moldura {
+  /* As medidas do cartaz, todas aqui, nenhuma repetida embaixo: */
+  --cartao-margem: 64px;          /* o respiro que faz o cartaz ler-se sem apertar os olhos */
+  --cartao-coluna: 520px;         /* a coluna do texto; o que sobra é do mapa */
+  --cartao-altura-marca: 40px;    /* 40, e não os 24 do topo do app: nada aqui é clicável */
+  --cartao-titulo: 54px;
+  --cartao-titulo-peso: 800;      /* entre o --peso-forte (700) e o --peso-placa (900) */
+  --cartao-titulo-entrelinha: 1.06;
+  --cartao-altura-titulo: 40px;   /* o vão entre a marca e o título */
+  --cartao-apoio-margem: 22px;
+  --cartao-endereco: 18px;
+  --cartao-largura-mapa: 528px;   /* o viewBox do mapa; a coluna direita é mais larga que isto */
+  --cartao-altura-mapa: 502px;
+
+  display: grid;
+  grid-template-columns: var(--cartao-coluna) minmax(0, 1fr);
+  gap: 0 var(--espaco-6);
+  box-sizing: border-box;
+  height: 100%;
+  padding: var(--cartao-margem);
+  background: var(--fundo);
+  color: var(--tinta);
+}
+
+/* ── a coluna da esquerda: marca, título, apoio, endereço ─────────────────── */
+.cartao-texto {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* A trava da marca do casco: símbolo com fundo de papel + palavra como máscara
+   de --tinta (a cor troca sozinha no escuro, web/metro.css). As duas classes
+   são as MESMAS do topo do app. O que muda é o fio: .topo-marca é um link, e
+   o cartão não tem link nenhum — então nenhuma borda de baixo aqui. */
+.cartao-marca {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--espaco-2);
+  margin: 0;
+}
+
+.cartao-marca .marca-simbolo {
+  height: var(--cartao-altura-marca);
+  width: auto;
+  padding: var(--espaco-1);
+  border-radius: var(--raio-placa);
+  background: var(--marca-simbolo-fundo);
+}
+
+.cartao-marca .marca-palavra {
+  display: block;
+  height: var(--cartao-altura-marca);
+  aspect-ratio: 449 / 192;
+  background: var(--tinta);
+  -webkit-mask: url("../marca/palavra.png") center / contain no-repeat;
+  mask: url("../marca/palavra.png") center / contain no-repeat;
+}
+
+.cartao-titulo {
+  margin: var(--cartao-altura-titulo) 0 0;
+  font-family: var(--fonte-placa);
+  font-size: var(--cartao-titulo);
+  font-weight: var(--cartao-titulo-peso);
+  line-height: var(--cartao-titulo-entrelinha);
+  letter-spacing: 0;
+  text-transform: none; /* placa é caixa alta no app; aqui é uma frase em três linhas, e em caixa alta ela não caberia */
+}
+
+.cartao-apoio {
+  margin: var(--cartao-apoio-margem) 0 0;
+  font-size: var(--tipo-titulo); /* 22 px é um degrau que já existe na escala */
+  line-height: var(--entrelinha-titulo);
+  color: var(--fosca);
+}
+
+/* margin-top: auto empurra o endereço para o pé da coluna: o texto termina onde
+   termina e o endereço fecha o bloco na altura da margem de baixo, sem número
+   de posição escrito. */
+.cartao-endereco {
+  margin: auto 0 0;
+  font-family: var(--fonte-mono);
+  font-size: var(--cartao-endereco);
+  color: var(--fosca);
+  overflow-wrap: anywhere;
+}
+
+/* ── a coluna da direita: a rede inteira ──────────────────────────────────── */
+.cartao-rede {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.cartao-rede svg.mapa-rede {
+  flex: none;
+  width: var(--cartao-largura-mapa);
+  height: var(--cartao-altura-mapa);
+}
+
+/* ABAIXO DO BREAKPOINT QUE OS TOKENS DECLARAM (--bp-computador: 1024px) o
+   cartaz vira coluna única: o molde de verdade é a janela de 1200×630 da
+   captura, mas esta página É navegável por engano — a S11a descobriu isso com
+   `testar_pagina`, que a abriu a 375 px e a achou rolando para o lado (608 px).
+   Não apago layout com display:none nem invento um segundo desenho: troco os
+   NÚMEROS DO CARTAZ, que são variáveis, pelos tokens da casa. O texto encolhe
+   para o maior degrau que existe (--tipo-estacao, 32 px) e o mapa passa a
+   medir a coluna, não 528 px. */
+@media (max-width: 1024px) {
+  .cartao-moldura {
+    --cartao-margem: var(--espaco-4);
+    --cartao-coluna: auto;
+    --cartao-altura-marca: var(--marca-altura);
+    --cartao-titulo: var(--tipo-estacao);
+    --cartao-altura-titulo: var(--espaco-4);
+    --cartao-apoio-margem: var(--espaco-3);
+    --cartao-endereco: var(--tipo-nota);
+
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--espaco-4);
+  }
+
+  .cartao-rede { justify-content: flex-start; }
+  .cartao-rede svg.mapa-rede { width: 100%; height: auto; }
+  .cartao-apoio { font-size: var(--tipo-corpo); line-height: var(--entrelinha-corpo); }
+  .cartao-endereco { margin-top: var(--espaco-4); }
+}
+
+/* FOTOGRAFIA, NÃO FILME: o --screenshot do Chrome fotografa UM quadro, e um
+   quadro no meio de uma entrada em cascata mostra metade do mapa. `none` não é
+   duração escrita à mão: é a ausência dela, e por isso não briga com a trava
+   de tempo. */
+.cartao *,
+.cartao *::before,
+.cartao *::after {
+  animation: none;
+  transition: none;
+}

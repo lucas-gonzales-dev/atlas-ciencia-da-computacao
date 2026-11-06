@@ -26,6 +26,10 @@
 //      a estação (JORNADA.md §3.2).
 
 import { detectCycles, unlockedCourses, nextUp } from './progress.js';
+// S5: `TIPO_DE_ORIGEM` é o dicionário resourceType → palavra (textos.js é puro,
+// sem import de node e sem DOM, por isso o núcleo pode lê-lo sem quebrar a regra
+// de cima). A folha mostra a palavra; o que a fonte não diz, a folha não diz.
+import { TIPO_DE_ORIGEM, recomeco } from './textos.js';
 
 /** Os quatro estados de uma estação (JORNADA.md §3.1). */
 export const ESTADOS = Object.freeze({
@@ -53,7 +57,8 @@ export const ESTACOES_POR_LINHA = 5;
 
 /**
  * Aceita as três formas que um progresso pode ter na prática e devolve a forma
- * v3: `{completed, emCurso, conclusoes}`.
+ * v3: `{completed, emCurso, conclusoes, dominadas}`. A S18b-2 acrescentou o campo
+ * `dominadas` — o carimbo de quem passou no desafio da estação (desenho J4).
  *
  *   - array cru de ids: é o que o localStorage guarda hoje, e o que um arquivo
  *     de versão 1 ou 2 contém. Quem abriu o DevTools e salvou à mão não pode
@@ -67,10 +72,14 @@ export const ESTACOES_POR_LINHA = 5;
  * aqui também seria ter duas malhas de validação que um dia divergem.
  *
  * @param {unknown} bruto
- * @returns {{completed: string[], emCurso: string[], conclusoes: Record<string,string>}}
+ * @returns {{completed: string[], emCurso: string[], conclusoes: Record<string,string>,
+ *   dominadas: Record<string, object>}}
  */
 export function lerProgresso(bruto) {
-  const vazio = { completed: [], emCurso: [], conclusoes: {} };
+  // `dominadas` entra no `vazio` porque o formato é um só: um progresso sem o
+  // campo é o mesmo que um progresso com o campo vazio, e as duas formas têm de
+  // sair da mesma chave para quem compara ou grava.
+  const vazio = { completed: [], emCurso: [], conclusoes: {}, dominadas: {} };
 
   const idsUnicos = (lista) => {
     if (!Array.isArray(lista)) return [];
@@ -95,13 +104,79 @@ export function lerProgresso(bruto) {
   return {
     completed: idsUnicos(bruto.completed),
     emCurso: idsUnicos(bruto.emCurso),
-    conclusoes
+    conclusoes,
+    dominadas: dominadasSaneadas(bruto.dominadas)
   };
+}
+
+/**
+ * S18b-2 — o registro das estações DOMINADAS, campo novo do progresso.
+ *
+ * POR QUE ESTA FUNÇÃO EXISTE E POR QUE ELA É OBRIGATÓRIA: o progresso é remontado
+ * campo a campo, aqui dentro e outra vez em `web/metro.js` (`carregarViagem` /
+ * `salvarViagem`). Um campo que não entre na lista não dá erro — ele simplesmente
+ * não volta. O carimbo da dominada é a única coisa que prova que o desafio foi
+ * passado, e perdê-lo em silêncio é apagar uma conquista sem avisar, o pior
+ * defeito possível num app que promete que nada se perde. A trava do round-trip
+ * está em tests/desafio.test.js.
+ *
+ * O que se guarda por estação (desenho J4): `em`, `acertos`, `total`,
+ * `lembrados`, `aulas`, `cartoes`. Nada aqui recalcula os números — o carimbo é o
+ * que foi medido no dia, e a frase dele (`core/textos.js`, `desafio.dominada`) é
+ * lida desses números, não de uma conta nova. Uma estação dominada que perder o
+ * `acertos` ganharia um carimbo com número inventado.
+ *
+ * A malha é por entrada, como em `conferirCartao`: um registro ruim derruba o
+ * registro, nunca o objeto inteiro.
+ */
+function dominadasSaneadas(bruto) {
+  const dominadas = {};
+  if (!bruto || typeof bruto !== 'object' || Array.isArray(bruto)) return dominadas;
+  const inteiro = (v) => {
+    const n = Number(v);
+    return Number.isFinite(n) && n >= 0 ? Math.round(n) : 0;
+  };
+  for (const [id, r] of Object.entries(bruto)) {
+    if (typeof id !== 'string' || !id.trim()) continue;
+    if (!r || typeof r !== 'object' || Array.isArray(r)) continue;
+    // A data é o que faz o carimbo ser um dia e não uma abstração; sem ela o
+    // registro não existe, e as listas de ids (aulas, cartoes) só chegam se
+    // forem listas — guardá-las pela metade é uma medida pela metade.
+    if (typeof r.em !== 'string' || !ehData(r.em)) continue;
+    // `lembrados` é a lista de ids dos cartões que a pessoa conferiu — é o que faz
+    // a frase dizer «lembrou 12 de 14» e não «12 de nada». `aulas` e `cartoes` são
+    // CONTAGENS, não listas: «as 93 aulas desta estação» e «23 cartões» vêm do
+    // resumo de quem aplica o resultado (core/desafio.js, `aplicarResultado`), e
+    // uma estação de 93 aulas guardadas como lista de ids incharia o storage por
+    // um número que a tela só imprime.
+    const lembrados = Array.isArray(r.lembrados) ? idsUnicosDaLista(r.lembrados) : [];
+    const acertos = inteiro(r.acertos);
+    const total = inteiro(r.total);
+    // Sem acertos, sem total e sem ids lembrados não há o que carimbar: um
+    // registro assim é dado corrompido, e deixá-lo passar daria uma estação
+    // «dominada» com uma frase sobre números que ninguém mediu.
+    if (acertos <= 0 && total <= 0 && !lembrados.length) continue;
+    dominadas[id] = {
+      em: r.em,
+      acertos,
+      total,
+      lembrados,
+      aulas: inteiro(r.aulas),
+      cartoes: inteiro(r.cartoes)
+    };
+  }
+  return dominadas;
+}
+
+function idsUnicosDaLista(lista) {
+  const vistos = new Set();
+  for (const x of lista) if (typeof x === 'string' && x.trim() && !vistos.has(x)) vistos.add(x);
+  return [...vistos];
 }
 
 /** Progresso v3 vazio: o estado de quem acabou de chegar. */
 export function progressoVazio() {
-  return { completed: [], emCurso: [], conclusoes: {} };
+  return { completed: [], emCurso: [], conclusoes: {}, dominadas: {} };
 }
 
 /** `AAAA-MM-DD` válido? Sem isto, "2026-13-45" viraria dia de viagem. */
@@ -130,6 +205,43 @@ export function dataLocal(hoje) {
   const d = hoje instanceof Date && !Number.isNaN(hoje.getTime()) ? hoje : new Date();
   const deslocada = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
   return deslocada.toISOString().slice(0, 10);
+}
+
+/**
+ * S19a (desenho J5, item 2) — a FRASE DE RECOMECO, ou `null`.
+ *
+ * A pergunta que ela responde é «hoje é uma borda de calendário?», e a resposta
+ * só é dada a quem JÁ ESTUDOU: para a primeira visita o recomeço não existe
+ * (não há o que retomar), e uma frase de «volta» a quem nunca voltou seria o
+ * app inventando uma história sobre a pessoa. Daí os dois parâmetros: a data e a
+ * medida de que houve estudo, esta respondida por quem chama (a tela mede o
+ * aparelho; o `houveEstudo` aqui é o booleano, nunca um novo `every`).
+ *
+ * Dia 1 do mês VENCE a segunda-feira: os dois podem cair no mesmo dia
+ * (2027-02-01 é segunda E dia 1) e a frase mais rara é a do mês — dizer as duas
+ * seria uma linha de texto sobre a mesma borda, e o desenho pede uma frase.
+ *
+ * O DIA DA SEMANA é calculado sem fuso, da mesma escola de `diaDepois`
+ * (core/cartoes.js, regra 13): `new Date(ano, mes - 1, dia)` com os campos
+ * lidos da string, e `getDay()` no calendário LOCAL. Um `new Date('2026-11-02')`
+ * cortaria em UTC — para São Paulo (UTC-3) isso são 21h do dia 1º, e a
+ * segunda-feira viraria domingo em qualquer tela do hemisfério sul. A data de
+ * entrada passa por `dataLocal`, então aceita `Date` ou `aaaa-mm-dd` com o mesmo
+ * resultado, e um formato ilegível devolve `null`: sem data não há borda.
+ *
+ * @param {Date|string|undefined|null} hoje
+ * @param {boolean} houveEstudo
+ * @returns {string|null} a frase de core/textos.js, nunca escrita aqui
+ */
+export function fraseDeRecomeco(hoje, houveEstudo) {
+  if (!houveEstudo) return null;
+  const bruto = dataLocal(hoje);
+  const partes = String(bruto).slice(0, 10).split('-').map(Number);
+  if (partes.length !== 3 || !partes.every(Number.isFinite)) return null;
+  const [ano, mes, dia] = partes;
+  if (dia === 1) return recomeco.mes;
+  if (new Date(ano, mes - 1, dia).getDay() === 1) return recomeco.semana;
+  return null;
 }
 
 /**
@@ -258,6 +370,57 @@ export function baldeacoes(progresso, catalogo) {
   return feitas;
 }
 
+/**
+ * O QUE O GESTO DE AGORA ABRIU (FATIA 2d-1, JORNADA §2.5).
+ *
+ * \"Depois de concluir, a pessoa quer saber o que o gesto dela destrancou.\" Isso
+ * é regra de estado — quais estações passaram a estar disponíveis, e se um par
+ * de baldeação se formou — e por isso mora AQUI, não na tela. A placa, o bilhete
+ * e o aviso da chegada leem a mesma porta; reimplementar pré-requisito no
+ * metro.js é ter duas regras que discordam em silêncio.
+ *
+ * A definição de \"abriu\" é comparativa, como em marcosNovos: vale em `depois`
+ * e não valia em `antes`. Desfazer, concluído de novo, qualquer gesto que não
+ * mude o conjunto devolve lista vazia.
+ *
+ * @param {unknown} antes progresso antes do gesto
+ * @param {unknown} depois progresso depois do gesto
+ * @param {Array} catalogo
+ * @returns {{destravadas: Array<{id:string,titulo:string,linha:number|null}>,
+ *            baldeacao: {de:object,para:object}|null}}
+ */
+export function abreComBaldeacao(antes, depois, catalogo) {
+  const { lista, byId } = malha(catalogo);
+  const a = lerProgresso(antes);
+  const b = lerProgresso(depois);
+  const feitasAntes = new Set(a.completed.filter((id) => byId.has(id)));
+  const feitasDepois = new Set(b.completed.filter((id) => byId.has(id)));
+
+  const informacao = (id) => {
+    const c = byId.get(id);
+    return {
+      id,
+      titulo: c && typeof c.title === 'string' ? c.title : id,
+      linha: c && Number.isFinite(Number(c.stage)) ? Number(c.stage) : null
+    };
+  };
+
+  // Destrancaram AGORA: estão livres depois do gesto e não estavam livres antes.
+  const livresAntes = new Set(unlockedCourses(lista, [...feitasAntes]));
+  const destravadas = unlockedCourses(lista, [...feitasDepois])
+    .filter((id) => !feitasAntes.has(id) && !livresAntes.has(id))
+    .map(informacao);
+
+  // Baldeação que SE FORMOU agora: o par existe em `depois` e não existia em
+  // `antes` (pelo menos um dos dois ainda não estava concluído).
+  const par = baldeacoes(b, lista).find((p) => !feitasAntes.has(p.de) || !feitasAntes.has(p.para)) || null;
+
+  return {
+    destravadas,
+    baldeacao: par ? { de: informacao(par.de), para: informacao(par.para) } : null
+  };
+}
+
 // ────────────────────────────── resumo da viagem ──────────────────────────────
 
 /**
@@ -367,7 +530,11 @@ export function concluirEstacao(progresso, id, hoje, catalogo) {
   // Só grava a data se ainda não há uma: um segundo toque (ou um re-toque dias
   // depois) não muda o dia em que a viagem aconteceu.
   const conclusoes = ehData(p.conclusoes[id]) ? { ...p.conclusoes } : { ...p.conclusoes, [id]: data };
-  return { completed, emCurso, conclusoes };
+  // S18b-2: `dominadas` passa adiante. Estas transições remontam o progresso
+  // campo a campo, e uma delas sem o campo apaga o carimbo do desafio toda vez
+  // que a pessoa conclui ou desfaz uma estação — rebaixar por tabela é justamente
+  // o que o desenho não permite (o tempo e o clique nunca rebaixam).
+  return { completed, emCurso, conclusoes, dominadas: p.dominadas };
 }
 
 /**
@@ -402,7 +569,14 @@ export function desfazerConclusao(progresso, id) {
   return {
     completed: p.completed.filter((x) => x !== id),
     emCurso: [...p.emCurso],
-    conclusoes
+    conclusoes,
+    // S18b-2: desfazer a CONCLUSÃO não desfaz o DESAFIO. São medidas separadas
+    // (princípio 1 do desenho): o carimbo do desafio vem de cartões lembrados dois
+    // dias depois, e não há botão na tela de conclusão que diga "e apaga isso
+    // também". Um `...p` aqui salvaria o campo por acidente; ele é explícito porque
+    // o próximo que remontar esta saída sem a linha rebaixa uma dominada em
+    // silêncio — que é exatamente o que o desenho não deixa fazer.
+    dominadas: { ...p.dominadas }
   };
 }
 
@@ -502,4 +676,178 @@ export function linhasAbertas(progresso, catalogo) {
     if (c && Number.isFinite(Number(c.stage))) linhas.add(Number(c.stage));
   }
   return [...linhas].sort((a, b) => a - b);
+}
+
+/**
+ * OS TRÊS NÚMEROS DA JORNADA (S4a, 31/10/2026).
+ *
+ * A tela mostra "3/35", "01" e "5/7". Cada um deles é uma contagem de estado, e
+ * contagem de estado é regra — mora aqui, no mesmo lugar do resumo, para a placa
+ * e os números não dividirem de formas diferentes. XP, sequência e pontos não
+ * existem (regra 9): os três números saem do que a pessoa fez, não de um placar.
+ *
+ * @param {unknown} progresso array de ids OU objeto v3
+ * @param {Array} catalogo
+ * @returns {{carimbos:number, emCurso:number, linhasAbertas:number}}
+ */
+export function numerosDaJornada(progresso, catalogo) {
+  const { lista, byId } = malha(catalogo);
+  const p = lerProgresso(progresso);
+  const concluidas = new Set(p.completed.filter((id) => byId.has(id)));
+  const emCurso = new Set(p.emCurso.filter((id) => byId.has(id) && !concluidas.has(id)));
+  return {
+    carimbos: concluidas.size,
+    emCurso: emCurso.size,
+    // O tamanho do que linhasAbertas devolve — a mesma porta do mapa, para o
+    // número da tela e a linha acesa não discordarem.
+    linhasAbertas: linhasAbertas(p, lista).length
+  };
+}
+
+/**
+ * OS FATOS DE UMA ESTAÇÃO (S5) — o que a folha lê, numa chamada só.
+ *
+ * A folha não calcula nada: linha, posição na linha, total da linha, a origem
+ * do recurso (tipo + domínio, lidos do catálogo com `TIPO_DE_ORIGEM` — o que a
+ * fonte não diz, a folha não diz), o que ela pede e o que ela abre vêm daqui.
+ * Baldeação é uma linha que aparece nos dados (`linha` de quem abre), nunca um
+ * palpite da tela.
+ *
+ * Pura: catálogo e progresso entram, nada de `document`, `window` ou storage.
+ * Id que não existe no catálogo devolve `null`, como `estadoDaEstacao`.
+ *
+ * @param {Array} catalogo
+ * @param {string} id
+ * @param {unknown} progresso array de ids OU objeto v3
+ * @returns {object|null}
+ */
+export function fatosDaEstacao(catalogo, id, progresso) {
+  const e = estadoDaEstacao(id, progresso, catalogo);
+  if (!e) return null;
+  const { lista, byId, ciclo } = malha(catalogo);
+  const course = byId.get(id);
+  if (!course) return null;
+
+  // posição e total DENTRO da linha, na ordem da fonte (regra S4b: a posição
+  // vem do catálogo, nunca de um índice de array que o catálogo embaralha).
+  // `ciclo` vem do malha(), a mesma autoridade do mapa — não reimplemento aqui.
+  const naLinha = lista.filter((c) => Number(c?.stage) === e.linha && !ciclo.has(c?.id));
+  const posicao = naLinha.findIndex((c) => c.id === id) + 1;
+
+  const abre = lista
+    .filter((c) => Array.isArray(c?.prerequisites) && c.prerequisites.includes(id))
+    .map((c) => ({
+      id: c.id,
+      slug: c.slug,
+      titulo: typeof c.title === 'string' ? c.title : c.id,
+      linha: Number.isFinite(Number(c.stage)) ? Number(c.stage) : null
+    }));
+
+  const faltam = e.faltam.map((f) => ({
+    id: f.id,
+    slug: (byId.get(f.id) || {}).slug,
+    titulo: f.titulo,
+    linha: f.linha
+  }));
+
+  return {
+    ...e,
+    slug: course.slug,
+    posicao: posicao > 0 ? posicao : null,
+    total: naLinha.length,
+    recurso: recursoDaEstacao(course),
+    pede: faltam,
+    abre
+  };
+}
+
+/**
+ * O MOMENTO DA CHEGADA (S6) — o que a folha mostra nos 6 segundos depois de
+ * um concluir: o nome, o dia, o que o gesto abriu, a linha que fechou, os
+ * marcos novos e a próxima estação.
+ *
+ * Pura e comparativa, como `marcosNovos`: ela recebe o `antes` e o `depois`,
+ * porque depois de pintar o "antes" se perde. Devolve `null` quando o id não
+ * concluiu AGORA (já estava, não existe no catálogo, ou o chamado não é um
+ * concluir) — a tela não tem como inventar uma chegada que não aconteceu, e um
+ * segundo toque no botão não pode criar um segundo momento.
+ *
+ * Nada aqui formata data, escreve frase ou escolhe cor: `data` é a que o núcleo
+ * guarda em `conclusoes` e quem lê dd/mm/aaaa é core/textos.js.
+ *
+ * @param {unknown} antes   progresso antes do gesto
+ * @param {unknown} depois  progresso depois do gesto
+ * @param {Array} catalogo
+ * @param {string} id
+ * @returns {object|null} {id,titulo,data,abertas:[{id,slug,titulo,linha,baldeacao}],fechouLinha,marcos,proxima}
+ */
+export function momentoDaChegada(antes, depois, catalogo, id) {
+  const { lista, byId, porLinha } = malha(catalogo);
+  if (typeof id !== 'string' || !byId.has(id)) return null;
+
+  const pa = lerProgresso(antes);
+  const pb = lerProgresso(depois);
+  if (!pb.completed.includes(id) || pa.completed.includes(id)) return null;
+
+  const course = byId.get(id);
+  const linha = Number.isFinite(Number(course.stage)) ? Number(course.stage) : null;
+
+  // O que passou a estar disponível com este gesto — a diferença entre as duas
+  // portas, calculada com a MESMA função do mapa (unlockedCourses), nunca uma
+  // regra própria daqui.
+  const jaAbertas = new Set(unlockedCourses(lista, pa.completed));
+  const abertas = unlockedCourses(lista, pb.completed)
+    .filter((abertoId) => !jaAbertas.has(abertoId))
+    .map((abertoId) => {
+      const c = byId.get(abertoId);
+      const linhaDestino = Number.isFinite(Number(c?.stage)) ? Number(c.stage) : null;
+      return {
+        id: abertoId,
+        slug: c?.slug,
+        titulo: typeof c?.title === 'string' ? c.title : abertoId,
+        linha: linhaDestino,
+        // Baldeação é travessia: linha de destino diferente da estação concluída.
+        baldeacao: linhaDestino !== null && linha !== null && linhaDestino !== linha
+      };
+    });
+
+  // Fechou a linha AGORA: todas as estações dela em `depois`, sem estar todas em
+  // `antes`. É a mesma conta do resumo (fechada), só que comparativa.
+  const naLinha = porLinha.get(linha) || [];
+  const todas = naLinha.length > 0 && naLinha.every((c) => pb.completed.includes(c.id));
+  const todasAntes = naLinha.length > 0 && naLinha.every((c) => pa.completed.includes(c.id));
+  const fechouLinha = todas && !todasAntes ? linha : null;
+
+  const resumo = resumoDaViagem(pb, lista);
+
+  return {
+    id,
+    titulo: typeof course.title === 'string' ? course.title : id,
+    data: ehData(pb.conclusoes[id]) ? pb.conclusoes[id] : null,
+    abertas,
+    fechouLinha,
+    marcos: marcosNovos(antes, depois, catalogo),
+    proxima: resumo.proximaEstacao
+      ? { ...resumo.proximaEstacao, slug: (byId.get(resumo.proximaEstacao.id) || {}).slug }
+      : null
+  };
+}
+
+/**
+ * `resourceType` + domínio do `resourceUrl`, lidos do catálogo. Sem recurso,
+ * `{ tipo: null, dominio: null }`: a folha cala em vez de inventar origem.
+ */
+function recursoDaEstacao(course) {
+  const palavra = typeof course.resourceType === 'string' ? (TIPO_DE_ORIGEM[course.resourceType] || null) : null;
+  return { tipo: palavra, dominio: hostLegivelDoRecurso(course.resourceUrl) };
+}
+
+function hostLegivelDoRecurso(url) {
+  if (typeof url !== 'string' || !url.trim()) return null;
+  try {
+    const h = new URL(url).hostname;
+    return h.replace(/^www\./, '') || null;
+  } catch {
+    return null;
+  }
 }

@@ -1,0 +1,351 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   A JORNADA — as três peças da S4a (abertura, os três números, próxima conexão).
+
+   POR QUE OUTRO ARQUIVO: o metro.css fechou a 400 linhas (a regra 15 do 00-regras
+   não deixa engordar), e estas três peças têm responsabilidade própria — é a
+   primeira tela do app, não o diagrama. O link dele vem DEPOIS do metro.css no
+   index.html, porque a abertura e os números reusam a classe de rótulo de placa
+   que o metro.css declara.
+
+   NADA AQUI ESCOLHE COR, TEMPO OU LARGURA: só tokens (--espaco-*, --tipo-*,
+   --cor) e o que o metro.css já define.
+
+   S4b (31/10/2026) — o LAYOUT chegou, e chegou AQUI, não no metro.css: a casa
+   fechou em 399 linhas antes da fatia (a regra de dividir pela responsabilidade
+   não deixa engordar), e estas peças são da TELA, não do diagrama. O metro.css
+   ficou com a geometria do trilho e com o cartão que é área de toque; o que dá
+   forma à tela — a sombra, as duas colunas, a cascata, o apoio do cartão, a
+   placa do carregando — mora no fim deste arquivo.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.abertura {
+  display: grid;
+  gap: var(--espaco-2);
+  margin: var(--espaco-6) 0 var(--espaco-4);
+}
+
+/* ════════════════ S20a — O TOPO DA JORNADA (J1 primeira visita, J5 a volta) ════════════════
+   O lugar do quadro "Bem-vindo ao embarque": mapa, título, medida, UM primário e
+   o link discreto de marcar. Herda a cor da linha (lN no ancestral, a mesma
+   família da página da aula) e não escolhe cor, tempo nem largura: só tokens. */
+/* S20b-4 (item 1) — o COLISÃO DE CLASSE que segurava o mapa em 645 px numa
+   coluna de 1.481. A Jornada chama a peça de `.topo`, e o cabeçalho fixo do
+   casco (web/casco.css:70) chama o seu de `.topo` também: o `display: grid`
+   daqui manda na forma, mas o `justify-content: space-between` de lá sobrevive
+   ao cascade, e num grid de UMA coluna isso distribui a sobra como vão em volta
+   da trilha em vez de esticá-la. As duas linhas abaixo desfazem a herança sem
+   tocar no cabeçalho: a coluna passa a ser declarada (`minmax(0, 1fr)`, o `0`
+   é o mesmo piso do `.topo-mapa`) e o eixo volta ao `normal` do grid. */
+.topo {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  justify-content: normal;
+  gap: var(--espaco-2);
+  margin: var(--espaco-6) 0 var(--espaco-4);
+}
+
+/* O mapa na largura da coluna. O SVG vem de core/mapa-rede.js com viewBox
+   próprio: aqui ele só é fluido, nunca um tamanho escrito à mão.
+
+   S20b-3, item 2 — o vão de ~870 px à direita do mapa em 1920. A escolha foi o
+   mapa CRESCER até a coluna, e não o topo virar duas colunas: a ordem da J1
+   (mapa, título, medida, ação) é a ordem do DOM e a do leitor de tela, e dobrar
+   o topo em duas colunas forkaria essa ordem só acima de 1440 — o celular teria
+   de redesenhar um fluxo que o desktop inventou. Crescendo, a geometria é a que
+   MAPA_TOPO já assinou (8:3) e a conta da dobra, que já é `coluna × propor`,
+   continua valendo nas duas larguras.
+
+   O que estas três linhas garantem, dito sem mecanismo: o QUADRO declara a
+   largura da coluna (`width: 100%`), e não a do desenho — `min-width: 0` tira
+   dele o piso automático que um filho de tamanho intrínseco (o svg nasce com
+   `width="640"` no atributo) impõe a um item de grid. A ALTURA nunca é número
+   aqui: `height: auto` sobre o viewBox prende o desenho à faixa. LIMITE
+   HONESTO: node não tem navegador, e `testar_pagina` devolve o texto e o console,
+   não uma régua — os píxeles de 1920 fecham no Chrome. A trava em
+   tests/auditoria-tamanhos.test.js confere as três declarações, e a conta da
+   dobra confere o primário acima de 800 px em 1280 e em 1920. */
+/* S20b-4 (item 1) — o teto do desenho, e a coluna é que continua crescendo com
+   a janela. `--bp-computador` (1024 px) é o breakpoint que a casa já declara,
+   então o número não nasce aqui: 1.481 de coluna e 1.024 de mapa deixa a
+   diferença como respiro, e não como o vão de antes. Com `justify-content:
+   normal` acima, o item de largura travada fica alinhado no começo da trilha. */
+.topo-mapa {
+  width: 100%;
+  min-width: 0;
+  max-width: var(--bp-computador);
+}
+
+.topo-mapa svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  min-width: 0;
+}
+
+.topo-titulo {
+  margin: 0;
+  font-family: var(--fonte-placa);
+  font-size: var(--tipo-estacao);
+  font-weight: var(--peso-placa);
+  line-height: var(--entrelinha-apertada);
+  letter-spacing: -0.01em;
+  color: var(--tinta);
+  overflow-wrap: anywhere;
+}
+
+.topo-medida {
+  margin: 0;
+  font-family: var(--fonte-corpo);
+  font-size: var(--tipo-corpo);
+  line-height: var(--entrelinha-nota);
+  color: var(--fosca);
+}
+
+.topo-acao { display: grid; gap: var(--espaco-2); justify-items: start; }
+
+.topo-apoio {
+  margin: 0;
+  font-size: var(--tipo-nota);
+  line-height: var(--entrelinha-nota);
+  color: var(--fosca);
+  overflow-wrap: anywhere;
+}
+
+/* S19a (desenho J5, item 2): a frase de recomeço. Corpo, tinta — não fosca:
+ * fosca é o tom do apoio (a duração, o rótulo miúdo), e o recomeço é uma frase
+ * dita à pessoa, não uma anotação ao lado do botão. `.topo-acao` já é um grid
+ * com `gap: var(--espaco-2)`, então a margem só respira o fim do parágrafo e
+ * nenhuma medida de largura é escrita aqui (lista do proibido, régua 12).
+ * É um <p>, não um link: quem voltou tem um primário, e um segundo caminho
+ * clicável na mesma caixa é o defeito do dois-primários em roupa de texto. */
+.topo-recomeco {
+  margin: 0 0 var(--espaco-2);
+  font-size: var(--tipo-corpo);
+  line-height: var(--entrelinha-corpo);
+  color: var(--tinta);
+  overflow-wrap: anywhere;
+}
+
+/* O "Já estudei algumas disciplinas": o mesmo texto do topo, um degrau abaixo.
+   LINK DISCRETO de verdade — sem recheio, sem borda, na cor da linha quando a
+   houver. Não compete com o primário, que é um só por tela. */
+.topo-marcar {
+  background: none;
+  border: 0;
+  padding: 0;
+  justify-self: start;
+  font-family: var(--fonte-corpo);
+  font-size: var(--tipo-nota);
+  color: var(--fosca);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  min-height: var(--alvo-toque);
+}
+
+.topo-marcar:hover { color: var(--cor, var(--tinta)); }
+
+/* S16c — a LEGENDA do mapa de dois eixos, e a linha da fila do dia.
+   As duas são discreta por desenho: a legenda decifra o desenho sem disputar com
+   ele, e a fila é um LINK — o único primário da Jornada continua sendo o caminho
+   de estudo (S4b). O formato é o mesmo do .topo-marcar acima, e por um motivo:
+   três links discretos com três tamanhos diferentes na mesma tela é a tela
+   dizendo qual deles manda. */
+.topo-legenda,
+.topo-revisoes {
+  font-family: var(--fonte-corpo);
+  font-size: var(--tipo-nota);
+  color: var(--fosca);
+  margin: 0;
+}
+
+/* O espaçamento é o `gap` da grade do .topo, e nada mais: uma margem própria
+   aqui seria a legenda brigando com o ritmo que a tela já tem. */
+
+.topo-revisoes {
+  justify-self: start;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  min-height: var(--alvo-toque);
+}
+
+.topo-revisoes:hover { color: var(--cor, var(--tinta)); }
+
+/* UM PRIMÁRIO POR TELA (S4b, estendido ao topo pela S20a): com a folha aberta o
+   recurso dela é o primário visível, e o botão do topo cede a forma para o
+   contorno da mesma família — o MESMO mecanismo do .placa-acao acima, não um
+   segundo jeito de esvaziar um botão. */
+.metro.com-folha .topo .botao.botao-primario {
+  background: none;
+  color: var(--cor, var(--tinta));
+  border: 1px solid var(--cor, var(--tinta));
+}
+
+@media (min-width: 1024px) {
+  .metro > .topo { grid-area: abertura; }
+}
+
+/* O maior texto da tela. --tipo-estacao é o MAIOR da escala, e é aqui que ele
+   mora depois da estação na placa: um título por tela, e um só competindo. */
+.abertura-titulo {
+  margin: 0;
+  font-family: var(--fonte-placa);
+  font-size: var(--tipo-estacao);
+  font-weight: var(--peso-placa);
+  line-height: var(--entrelinha-apertada);
+  letter-spacing: -0.01em;
+  color: var(--tinta);
+  overflow-wrap: anywhere;
+}
+
+/* A palavra "conexão." na cor da linha da próxima estação. A cor vem da classe
+   l<n> que o metro.css declara em .l1 … .l7, aplicada no ANCESTRAL da placa —
+   aqui ela só a lê, e por isso não há valor nenhum escrito à mão. */
+.pela-linha { color: var(--cor, var(--tinta)); }
+
+.abertura-texto {
+  margin: 0;
+  font-family: var(--fonte-corpo);
+  font-size: var(--tipo-corpo);
+  line-height: var(--entrelinha-nota);
+  color: var(--fosca);
+}
+
+.numeros {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--espaco-3);
+  margin: var(--espaco-4) 0;
+  padding: var(--espaco-4);
+  background: var(--superficie);
+  border: var(--anel-trancada) solid var(--borda);
+  border-radius: var(--raio-placa);
+}
+
+.numero-item { display: grid; gap: var(--espaco-1); }
+
+/* Mono: três números lado a lado têm de alinhar, e número que alinha é número
+   que se compara. Não é placar — é contagem do que a pessoa fez. */
+.numero-valor {
+  margin: 0;
+  font-family: var(--fonte-mono);
+  font-size: var(--tipo-titulo);
+  font-weight: var(--peso-forte);
+  line-height: var(--entrelinha-apertada);
+  color: var(--tinta);
+}
+
+.numero-nota {
+  margin: 0;
+  font-family: var(--fonte-corpo);
+  font-size: var(--tipo-nota);
+  line-height: var(--entrelinha-nota);
+  color: var(--fosca);
+}
+
+.conexao {
+  margin: 0 0 var(--espaco-6);
+  padding: var(--espaco-3) var(--espaco-4);
+  border-left: var(--trilho) solid var(--cor, var(--borda));
+  display: grid;
+  gap: var(--espaco-1);
+}
+
+.conexao-texto {
+  margin: 0;
+  font-family: var(--fonte-corpo);
+  font-size: var(--tipo-corpo);
+  line-height: var(--entrelinha-nota);
+  color: var(--tinta);
+}
+
+/* ════════════════════ S4b — O LAYOUT DO LOVABLE ════════════════════ */
+
+/* A ÚNICA SOMBRA DO APP. --sombra-placa é 4px 4px 0 --tinta: deslocada, sem
+   desfoque, como serigrafia — não é elevação de Material, é a placa esmaltada
+   saindo do papel. O teste «jornada: só a placa tem sombra» varre metro.css e
+   jornada.css procurando box-shadow com offset dentro de REGRAS e cobra uma,
+   exatamente esta. (O anel de foco e o "você está aqui" usam `0 0 0 Npx`:
+   contorno concêntrico, sem deslocamento — anel, não sombra, e por isso o
+   varredor os deixa passar de propósito, não por descuido.) */
+.placa {
+  box-shadow: var(--sombra-placa);
+}
+
+/* UM PRIMÁRIO POR TELA. A 2d-2 dava um por FOLHA (o recurso, com o "Concluir
+   estação" em contorno); aqui a regra sobe: quando a pessoa abre uma estação, o
+   recheio passa a ser o recurso dela e a ação da placa cede, virando contorno da
+   mesma família. Quem declara a folha aberta é o metro.js, na raiz (`com-folha`). */
+/* S20a-2 (defeito 1 do olho): o mesmo mecanismo ganha um segundo estado. Com o
+   topo desenhado, é ELE que tem o caminho — e a placa, que não traz a classe do
+   vocabulário da casa, continuava recheada por esta folha: a régua contava um
+   primário e o olho contava dois. Quem declara o estado é o metro.js na raiz. */
+.metro.com-folha .placa-acao,
+.metro.com-topo-primario .placa-acao {
+  background: none;
+  color: var(--cor, var(--tinta));
+  border: 1px solid var(--cor, var(--tinta));
+}
+
+/* O apoio do cartão, a linha pequena debaixo do estado: "Falta Algoritmos I" /
+   "Concluída em 29/10/2026". É o degrau mais baixo da escala e a MESMA palavra
+   do carimbo da folha — o cartão diz sem abrir, a folha diz por inteiro. */
+.estacao-apoio {
+  font-size: var(--tipo-nota);
+  line-height: var(--entrelinha-nota);
+  color: var(--fosca);
+  align-self: flex-start;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+/* A placa do carregando: mesma caixa da placa de verdade (raio, borda,
+   preenchimento, piso de toque) para a tela não saltar quando o catálogo chega.
+   Cinza PARADO, como o resto do esqueleto — sem animation (pulso em esqueleto é
+   spinner) e sem box-shadow (um esqueleto que projeta ensina a pessoa a olhar
+   para o sítio errado quando o conteúdo chega). */
+.esqueleto-placa {
+  min-height: var(--alvo-toque);
+  border-radius: var(--raio-placa);
+  border: var(--anel-trancada) solid var(--borda);
+  background: var(--borda);
+}
+
+/* A CASCATA. Abertura, placa, números e próxima conexão entram escalonadas, com
+   o índice que o JS entrega (--cascata-i, 0 a 5). Quem espaça é o CSS, e com
+   movimento reduzido --atraso-cascata zera sozinho no bloco do tokens.css — por
+   isso não há aqui um segundo "sem animação" escrito à mão (regra 11 da v2).
+   Depois do 6º item a lista chega junta: esperar a tela acabar de aparecer é
+   pior do que vê-la chegar de uma vez. */
+.cascata {
+  animation: entrar var(--movimento-abrir) var(--curva-atlas) both;
+  animation-delay: calc(var(--atraso-cascata) * var(--cascata-i, 0));
+}
+
+/* DUAS COLUNAS NO COMPUTADOR. À esquerda a abertura e o mapa; à direita a
+   lateral com a placa, os números e a próxima conexão, sticky logo abaixo do
+   topo (que também é sticky — daí --altura-topo, que é conta, não número).
+   Áreas nomeadas porque o DOM é a ordem de leitura no celular (a ordem da S4a)
+   e aqui só se redesenha o mapa do grid, sem mover um nó. */
+@media (min-width: 1024px) {
+  .metro {
+    display: grid;
+    grid-template-columns: 1fr var(--largura-lateral);
+    grid-template-areas:
+      "marca marca"
+      "abertura lateral"
+      "mapa lateral";
+    column-gap: var(--espaco-8);
+    align-items: start;
+  }
+
+  .metro > .marca { grid-area: marca; }
+  .metro > .abertura { grid-area: abertura; }
+  .metro > .mapa { grid-area: mapa; }
+  .metro > .lateral {
+    grid-area: lateral;
+    position: sticky;
+    top: var(--altura-topo);
+    display: grid;
+    gap: var(--espaco-4);
+  }
+}

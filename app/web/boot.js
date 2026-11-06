@@ -1,82 +1,25 @@
-// Projeto Atlas — boot da pagina (27/10/2026).
+// Projeto Atlas — boot da página (27/10/2026), versão mínima (S7-1c, 01/11/2026).
 //
-// O QUE E ESTE ARQUIVO: tudo o que a pagina faz ao abrir, FORA do index.html.
-// Antes vivia num <script type="module"> inline, e codigo inline nao entra em
-// teste nenhum — o node importa modulos, nao HTML. Foi assim que o bug do hook
-// `avisar` chegou ao navegador: o bindProgressIO de web/main.js pede `avisar`,
-// a pagina tinha `aviso`, e escrever `avisar` ali era shorthand de uma variavel
-// inexistente. ReferenceError no primeiro clique do importador — invisivel para
-// qualquer teste que importasse main.js, visivel so no celular do aluno.
+// O QUE E ESTE ARQUIVO HOJE: só registrarSW. A grade antiga morreu com a S7 —
+// `montarGrade`, o estado de tela, o toggle e os binds que viviam aqui saíram,
+// porque nada no app os chama: a Explorar se desenha em web/telas/explorar.js,
+// o progresso mora na folha/metrô, e a exportação portátil tem casa prometida
+// na S9 (perfil). main.js continua vivo pelo contrato do metro.js
+// (aplicarNota, saveNotas, loadNotas...). O git guarda o arquivo inteiro;
+// apagar código morto sem teste novo é o contrário do que esta casa faz — e
+// os três testes que cobriam a montagem morreram juntos, com o motivo escrito
+// no boot.test.js.
 //
-// REGRA: nenhuma regra de negocio aqui. Disponivel/trancada/ciclo vem de
-// core/progress.js; validacao de arquivo vem de core/progress-io.js; filtro vem
-// de core/search.js. Este arquivo so liga estado -> tela e captura eventos.
-// Se aparecer um `if` de pre-requisito aqui, esta errado.
+// ANTES DISSO, o arquivo já tinha pago duas lições, e elas continuam valendo:
+// (1) código inline no index.html não entra em teste nenhum — foi assim que o
+// bug do hook `avisar` chegou ao navegador (bindProgressIO pede `avisar`, a
+// página tinha `aviso`; ReferenceError invisível para quem não abre o browser);
+// (2) o boot NÃO sobe sozinho ao ser importado (S3a-2a): quem decide quando a
+// tela nasce é o casco. pages.test.js cobra as duas coisas.
 //
-// TESTABILIDADE: duas funcoes exportadas, e `inicio` e a promise do boot que
-// roda sozinho quando a pagina abre. app/tests/boot.test.js instala um
-// document/window/localStorage de mentira e prova que (a) sobe sem
-// ReferenceError, (b) o fio `avisar` existe de verdade, (c) o escopo do service
-// worker e relativo. node nao e navegador: layout e PWA instalada continuam
-// sendo assunto do testar_pagina.
-import {
-  loadCatalog,
-  loadCompleted,
-  saveCompleted,
-  render,
-  bind,
-  bindProgressIO,
-  montarBusca,
-  // Anotacoes por disciplina (28/10/2026): o estado ganha um campo, e a tela
-  // ganha um listener. Nenhuma regra nova aqui — limite, corte e validacao estao
-  // em core/notes.js.
-  loadNotas,
-  saveNotas,
-  aplicarNota,
-  bindNotas
-} from './main.js';
-
-const root = document.getElementById('app');
-
-let state = {
-  courses: [],
-  completed: loadCompleted(),
-  // Carregado no boot, e nao na primeira escrita: a anotacao que ja estava no
-  // aparelho tem de voltar no campo assim que a tela abre.
-  anotacoes: loadNotas(),
-  origem: 'carregando…',
-  busca: ''
-};
-
-function paint() {
-  render(root, state);
-}
-
-/**
- * Recado na tela. Um lugar so: aviso de salvamento, de importacao e de
- * atualizacao do service worker passam por aqui. Troca o anterior em vez de
- * empilhar — tres alertas liguais sobrepostos nao se leem.
- */
-function aviso(texto) {
-  root.querySelector('p.aviso-save')?.remove();
-  const p = document.createElement('p');
-  p.className = 'alerta aviso-save';
-  p.textContent = texto;
-  root.prepend(p);
-}
-
-// Unico lugar que muda `completed`. Regra de negocio fica em core/progress.js.
-function toggle(id) {
-  const tem = state.completed.includes(id);
-  state.completed = tem
-    ? state.completed.filter((x) => x !== id)
-    : [...state.completed, id];
-
-  if (!saveCompleted(state.completed)) {
-    aviso('Não consegui salvar neste navegador: o progresso vale só enquanto esta aba estiver aberta.');
-  }
-  paint();
-}
+// TESTABILIDADE: node não é navegador. Aqui o win entra por argumento, e o
+// boot.test.js instala um navigator de mentira que prova o escopo relativo e o
+// aviso de versão só na segunda visita.
 
 /**
  * Registra o service worker DEPOIS da primeira pintura: registrar antes
@@ -123,6 +66,14 @@ export async function registrarSW(win, avisar) {
     const escopo = new URL('./', win.document.baseURI).pathname;
     const reg = await nav.serviceWorker.register('sw.js', { scope: escopo });
     if (jaControlava) {
+      // FORÇA a checagem do sw.js nesta abertura (01/11/2026). O navegador só
+      // compara os bytes do service worker quando a URL dele é buscada de novo,
+      // e isso não tem hora: quem abre o Atlas todo dia pode passar dias com o
+      // cache-first do sw.js servindo o snapshot de uma versão que já morreu no
+      // disco. update() pergunta agora. O catch é obrigatório: update() é
+      // recusado sem service worker em http, e derrubar o boot por isso é o
+      // oposto do motivo pelo qual ele existe.
+      reg.update?.().catch(() => {});
       reg.addEventListener?.('updatefound', () => {
         const novo = reg.installing;
         novo?.addEventListener('statechange', () => {
@@ -140,76 +91,3 @@ export async function registrarSW(win, avisar) {
     return { registrado: false, motivo: e.message };
   }
 }
-
-/**
- * Sobe a pagina. Exportada (e nao so executada) porque o teste precisa do
- * resultado: `{ok, state}` diz se carregou, com que dados e com que progresso.
- */
-async function subir() {
-  const {
-    courses, origem, electives, origemEletivas, specializations, origemEspecializacoes
-  } = await loadCatalog();
-  state = { ...state, courses, origem, electives, origemEletivas, specializations, origemEspecializacoes };
-
-  // BUSCA (27/10/2026): montarBusca cria o campo no slot externo e liga o
-  // evento 'input' ao estado -> redesenho. A regra de filtrar (sem acento, sem
-  // caixa, nas tres listas) mora em core/search.js, com teste no node; aqui nao
-  // ha regra nenhuma. Sem debounce de proposito: 35 linhas redesenham mais
-  // rapido do que se digita, e debounce so atrasaria o eco sem ganhar nada.
-  // O slot vive FORA do root (ver index.html): dentro, render() o apagaria e o
-  // campo perderia o foco a cada tecla.
-  const buscaSlot = document.getElementById('busca-slot');
-  montarBusca(buscaSlot, {
-    onChange: (q) => { state = { ...state, busca: q }; paint(); }
-  });
-  if (buscaSlot) buscaSlot.hidden = false;
-
-  paint();
-  bind(root, state, toggle);
-
-  // ANOTACOES (28/10/2026). Delegacao na raiz, pelo mesmo motivo de bind():
-  // render() reconstrói o DOM a cada pintura. Redesenhar depois de salvar e o
-  // que mantem estado, storage e tela dizendo a mesma coisa.
-  bindNotas(root, {
-    salvar: (id, texto) => {
-      state = aplicarNota(state, id, texto);
-      if (!saveNotas(state.anotacoes)) {
-        aviso('Não consegui salvar a anotação neste navegador: ela vale só enquanto esta aba estiver aberta.');
-      }
-      paint();
-    }
-  });
-
-  // EXPORTAR/IMPORTAR PROGRESSO (27/10/2026). A validacao mora em
-  // core/progress-io.js (com teste); aqui so ha estado e recado na tela.
-  // `estado` e uma FUNCAO de proposito: `state` e substituido a cada paint, e um
-  // valor capturado aqui envelheceria na primeira interacao — o importador
-  // validaria contra um catalogo vazio e recusaria arquivo bom.
-  // `avisar: aviso` e explicito, NAO shorthand: foi o shorthand `avisar` (nome
-  // de uma variavel que nunca existiu) que matou o recado do importador em 27/10.
-  bindProgressIO(root, {
-    estado: () => state,
-    aplicar: (ids, anotacoes) => {
-      state = { ...state, completed: ids, anotacoes: anotacoes ?? state.anotacoes };
-      if (!saveCompleted(ids)) {
-        aviso('Importei, mas não consegui salvar neste navegador: o progresso vale só enquanto esta aba estiver aberta.');
-      }
-      // As anotacoes tambem vao para o storage: o arquivo importado e o novo
-      // estado do aluno, e estado que nao e salvo some no primeiro reload.
-      if (!saveNotas(state.anotacoes)) {
-        aviso('Importei, mas não consegui salvar as anotações neste navegador.');
-      }
-      paint();
-    },
-    avisar: aviso
-  });
-
-  const sw = await registrarSW(globalThis.window ?? globalThis, aviso);
-  return { ok: true, state, root, sw };
-}
-
-// O boot roda sozinho: a pagina carrega este modulo e espera que ele faca tudo.
-// Erro aqui vira {ok:false, motivo} em vez de rejeitar a promise — uma rejeicao
-// nao tratada no navegador e um console vermelho que o aluno nunca le; o teste,
-// por outro lado, precisa do motivo escrito para dizer o que falhou.
-export const inicio = subir().catch((e) => ({ ok: false, motivo: `${e.name}: ${e.message}` }));

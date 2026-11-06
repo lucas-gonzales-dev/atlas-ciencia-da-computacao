@@ -195,9 +195,12 @@ test('loadNotas/saveNotas usam o storage do aparelho, e sem storage comecam vazi
 
 // ---------- formato v2: exportar leva, importar aceita v1 ----------
 
-test('a versao do formato subiu para 2 (anotacoes entraram no envelope)', () => {
-  assert.equal(VERSAO_FORMATO, 2);
-  assert.equal(buildExport(CURSOS, [], AGORA).versao, 2);
+// S20b-1b: a v2 foi das anotações; a v3 é de o backup levar a viagem inteira
+// (estudo, cartões, rascunhos, dominadas). O número sobe porque o envelope mudou
+// de forma — quem tenta ler um v3 com um Atlas v2 tem de ser avisado, não adivinhar.
+test('a versao do formato subiu para 3 (o backup leva o estudo e os cartoes)', () => {
+  assert.equal(VERSAO_FORMATO, 3);
+  assert.equal(buildExport(CURSOS, [], AGORA).versao, 3);
 });
 
 test('exportar leva as anotacoes na ordem do catalogo e diz o que ficou de fora', () => {
@@ -234,9 +237,9 @@ test('array cru do localStorage importa: trazAnotacoes false', () => {
 });
 
 test('versao do futuro continua recusada, dizendo ate onde este Atlas vai', () => {
-  const r = parseImport(JSON.stringify({ formato: FORMATO, versao: 3, completed: ['logica'] }), CURSOS);
+  const r = parseImport(JSON.stringify({ formato: FORMATO, versao: 4, completed: ['logica'] }), CURSOS);
   assert.equal(r.ok, false);
-  assert.match(r.erro, /2/);
+  assert.match(r.erro, /3/);
 });
 
 test('campo anotacoes quebrado no arquivo NAO destrói o progresso, e a tela fica sabendo', () => {

@@ -1,0 +1,143 @@
+/* Projeto Atlas — a CARA do casco (S3a-2b, 31/10/2026).
+
+   O casco.js (S3a-2a) montou as abas, o topo e o pular sem estilo nenhum: a
+   barra de navegação ficava onde o fluxo a empurrasse. Este arquivo é a única
+   casa dessas regras. Nada de valor à mão: toda cor, espaço, tempo, peso e
+   largura vem de web/tokens.css, e a trava tests/design-system.test.js lê este
+   arquivo e quebra se não for assim.
+
+   Mobile-first: a base é a barra FIXA NO PÉ (é o alcance do polegar no celular
+   e no tablet); a media query dos --bp-* devolve as abas ao topo, no fluxo,
+   para quem tem mouse. Não há max-width abaixo do breakpoint: a trava de
+   largura só aceita os números declarados como token em --bp-*.
+   (Cuidado ao comentar este arquivo: a trava varre o texto cru, e a palavra
+   de regra de mídia escrita em comentário faz o regex engolir tudo até a
+   próxima chave de abertura — números com px soltos em prosa viram acusação
+   de breakpoint fora do token.)
+
+   A aba ativa se marca por BORDA de 3 px, não por sombra: sombra está proibida
+   fora de --sombra-placa (regra 9 do 00-regras). Com prefers-reduced-motion os
+   tokens --movimento-* zeram a duração e --deslocamento-entrada vira 0: a
+   .tela-entra chega no estado final sem animação, e não há nada a escrever aqui.
+
+   E não se comenta com as duas barras de início de linha: CSS não tem
+   comentário de linha, e o navegador não ignora nada — ele junta as barras ao
+   seletor da linha seguinte e descarta a regra inteira. Foi assim que esta
+   folha saiu da tela com a suíte verde (31/10/2026); a trava agora reprova. */
+
+/* O "Pular para o conteúdo": existe para o Tab, não para o olho. Mora acima da
+   tela até receber foco; focado, desce para o topo e vira o primeiro alvo. */
+.pular { position: absolute; left: var(--espaco-4); top: calc(-1 * var(--alvo-toque) * 2); }
+.pular:focus { top: var(--espaco-2); background: var(--superficie); color: var(--tinta);
+               padding: var(--espaco-3) var(--espaco-4); border-radius: var(--raio-placa); z-index: 3; }
+
+/* S10 RÉGUA 6 (03/11/2026) — QUEM ROLA, E ONDE A FAIXA MORA.
+ *
+ * O defeito: no celular e no tablet a barra de abas é `position: fixed` no pé e o
+ * documento é que rolava. "Viagem", "Em curso" e "Linhas abertas" passavam por
+ * CIMA dela com a suíte toda verde, e `main { padding-bottom }` não salvava nada:
+ * reserva no FIM do documento é empurrada junto com o fim — o último item sobe com
+ * a rolagem até a borda inferior da página, que É a barra.
+ *
+ * O primeiro conserto tentado (trancar a janela e dar `overflow-y: auto` ao main
+ * com o forro dentro dele) TAMBÉM estava errado, e o testar_pagina mostrou: sem
+ * caixa limitada, o main tem altura de conteúdo, não rola nada, e a barra segue
+ * pintada sobre o meio da tela. Reserva é diferente de limite.
+ *
+ * O que fecha a régua: o body vira COLUNA de altura = tela MENOS a faixa da barra.
+ * A faixa mora no BODY porque é a borda que nenhuma folha de tela toca: a primeira
+ * tentativa descontou a faixa num margin-bottom do main e o metro.css a comiu viva
+ * — `.metro { margin: 0 auto }` tem o dobro da especificidade de `main` e é
+ * carregado depois do casco. E a barra, sendo `position: fixed`, está FORA do
+ * fluxo: não há espaço sobrando para aquele auto centrar, o que é exatamente por
+ * que ela cobre o que passa abaixo. Conclusão registrada para as próximas fatias:
+ * quem define o TAMANHO da janela de tela é o casco, e o que as telas ajustam é a
+ * POSIÇÃO do conteúdo dentro dela. Assim a caixa do main termina no topo da barra,
+ * o clip do rolador cai ali, e nada é pintado atrás das abas — nem no meio da
+ * rolagem, que é onde o padding-bottom do documento mentia. */
+html,
+body { height: 100dvh; overflow: hidden; }
+body { display: flex; flex-direction: column; height: calc(100dvh - (var(--altura-barra) + var(--margem-segura-baixo))); }
+
+/* O topo e o selo não encolhem: quem recebe o espaço que sobra é o main. */
+/* S19c-1: o aviso de sem-armazenamento entra nessa lista porque é IRMÃO do main
+   na coluna, e não filho dele: dentro do main ele seria esvaziado na primeira
+   troca de aba. Irmão e `flex: 0 0 auto` é o que faz ele ficar sempre visível sem
+   truque de sticky — quem rola é o main, e a faixa está fora da caixa que rola. */
+.topo,
+.selo-rede,
+.aviso-sem-armazenamento { flex: 0 0 auto; }
+
+/* O topo com a marca: fica colado no alto enquanto a tela rola. Dentro do main
+   ele deixaria de colar — o topo é IRMÃO do main, então continua preso à janela,
+   que não rola: é o cabeçalho fixo que a base já desenhava, agora por construção
+   e não por acidente. */
+.topo { position: sticky; top: 0; z-index: 2; display: flex; align-items: center;
+        justify-content: space-between; background: var(--fundo); border-bottom: 1px solid var(--borda); }
+
+/* As abas: no pé no celular e no tablet, uma coluna por aba, com a margem
+   segura do iPhone (home indicator) respeitada. */
+.abas { position: fixed; left: 0; right: 0; bottom: 0; z-index: 2; display: grid;
+        grid-auto-flow: column; grid-auto-columns: 1fr; background: var(--fundo);
+        border-top: 1px solid var(--borda); height: calc(var(--altura-barra) + var(--margem-segura-baixo)); }
+
+/* A CAIXA do main: `min-height: 0` é o que permite encolher abaixo do conteúdo
+   (sem ele, flex mantém a altura do conteúdo e a caixa estoura a tela — nada
+   rola). O main só toma o espaço que sobra da coluna; quem desconta a faixa da
+   barra é o body, uma linha acima, e por isso o `margin: 0 auto` das telas pode
+   continuar centrando o conteúdo sem engolir a reserva. O padding é o respiro. */
+main { flex: 1 1 0; min-height: 0; overflow-y: auto; padding-bottom: var(--espaco-4); }
+
+.abas a { display: flex; flex-direction: column; align-items: center; justify-content: center;
+          gap: var(--espaco-1); height: var(--altura-barra); padding: 0 var(--espaco-3);
+          color: var(--fosca); text-decoration: none; font-size: var(--tipo-nota);
+          font-weight: var(--peso-forte); border-top: 3px solid transparent;
+          transition: color var(--movimento-selecao) var(--curva-atlas); }
+.abas a svg { width: 22px; height: 22px; }
+
+/* A aba escolhida: nome mais pesado, tinta cheia e a borda de 3 px em cima —
+   sem sombra, sem box-shadow. É a única marca de estado; quem não vê cor ainda
+   tem o aria-current, que o casco.js põe no <a>. */
+.abas a[aria-current="page"] { color: var(--tinta); font-weight: var(--peso-placa);
+                               border-top-color: var(--tinta); }
+
+/* Computador (a largura do --bp-4): a barra sobe para o topo e entra no fluxo. */
+@media (min-width: 1024px) {
+  /* Régua 6 no computador: quem tem mouse espera a janela rolando, e o painel
+     sticky da lateral da Jornada SÓ anda se for o documento que rola. Devolvemos
+     o scroll à janela, a barra sobe para o topo e entra no fluxo, e o forro do
+     main deixa de ler --altura-barra — não há mais nada fixo no pé para forrar. */
+  /* O body volta a ser bloco de altura de janela e o main devolve o que tomou:
+     sem isto, a coluna e o desconto da faixa continuariam ativos num computador
+     onde não há barra no pé — a tela terminaria 56 px antes do fim da janela. */
+  html, body { height: auto; overflow: visible; }
+  body { display: block; }
+  .abas { position: static; height: auto; display: flex; gap: var(--espaco-2); border-top: 0; }
+  .abas a { flex-direction: row; height: auto; min-height: var(--alvo-toque); font-size: var(--tipo-corpo); }
+  main { flex: none; min-height: 0; overflow: visible; padding-bottom: var(--espaco-6); }
+}
+
+/* O SELO DE REDE (S10b, régua 1): a única faixa do casco que não é aba nem
+   anúncio. Fica sob o topo porque o topo é sticky — rolar a tela não perde o
+   aviso. `hidden` é um atributo de presença, e sem esta regra o display deste
+   parágrafo (bloco) venceria o display:none do navegador. */
+/* S19c-1: O AVISO DE SEM ARMAZENAMENTO divide o recheio do selo de rede de
+   propósito — duas faixas do casco com a mesma cara são duas notícias do mesmo
+   tipo, e escrever a mesma linha duas vezes é o que a regra 9 veta. O que muda é
+   só o `position`: o selo precisa de sticky porque some e volta com a rede e a
+   pessoa rola; o aviso é a condição do aparelho inteiro e, sendo filho da coluna
+   do body ACIMA do main, já está fora da caixa que rola — não precisa de
+   truque nenhum, e o main encolhe sozinho porque é o único `flex: 1 1 0`. */
+.selo-rede,
+.aviso-sem-armazenamento { margin: 0;
+             padding: var(--espaco-2) var(--espaco-4); background: var(--alerta-fundo);
+             color: var(--tinta); font-size: var(--tipo-nota); font-weight: var(--peso-forte);
+             border-bottom: 1px solid var(--borda); }
+.selo-rede { position: sticky; top: var(--altura-topo); z-index: 1; }
+.selo-rede[hidden] { display: none; }
+
+/* A tela que entra sobe e aparece — --deslocamento-entrada é o único dono
+   desse número, e com movimento reduzido ele é 0 e a duração é 0s. */
+.tela-entra { animation: entrar var(--movimento-abrir) var(--curva-atlas) both; }
+@keyframes entrar { from { opacity: 0; transform: translateY(var(--deslocamento-entrada)); }
+                    to { opacity: 1; transform: none; } }

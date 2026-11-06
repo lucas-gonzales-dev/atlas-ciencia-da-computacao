@@ -1,0 +1,188 @@
+// Projeto Atlas — o ACABAMENTO que só o navegador mostrou (S11, 03/11/2026).
+// Dois defeitos de leitura que a suíte inteira via verde: o ponto do meio sem
+// largura e as etiquetas da folha por cima dos valores. As causas foram medidas
+// no navegador; aqui fica a trava do que o node consegue ler, o CSS.
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
+
+const raiz = join(fileURLToPath(new URL('.', import.meta.url)), '..');
+const ler = (caminho) => readFileSync(join(raiz, caminho), 'utf8');
+const semComentario = (css) => css.replace(/\/\*[\s\S]*?\*\//g, '');
+
+/** A regra de um seletor exato, sem os comentários, ou null. */
+function regra(css, seletor) {
+  const limpo = semComentario(css);
+  const escapado = seletor.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const m = new RegExp(`(?:^|})\\s*${escapado}\\s*\\{([^}]*)\\}`, 'm').exec(limpo);
+  return m ? m[1] : null;
+}
+
+test('acabamento: o ponto do meio não é desenhado pela Overpass, que o tem com largura zero', () => {
+  const css = semComentario(ler('web/fontes.css'));
+  const faces = [...css.matchAll(/@font-face\s*\{([^}]*)\}/g)].map((m) => m[1]);
+  const overpass = faces.find((f) => /font-family:\s*"Overpass"\s*;/.test(f));
+  assert.ok(overpass, 'web/fontes.css sem o @font-face da Overpass');
+  const faixa = /unicode-range:\s*([^;]+);/.exec(overpass)?.[1] ?? '';
+  const cobre = (cp) => faixa.split(',').map((s) => s.trim().replace(/^U\+/i, '')).some((r) => {
+    const [a, b = a] = r.split('-').map((h) => parseInt(h, 16));
+    return cp >= a && cp <= b;
+  });
+  assert.equal(cobre(0xB7), false,
+    'a faixa da Overpass cobre o U+00B7: neste woff2 o "·" tem avanço zero e "Linha 1 · estação" sai "Linha 1 ·estação"');
+  assert.equal(cobre(0x41) && cobre(0xE7) && cobre(0xE3), true, 'o corte não pode levar junto as letras do português');
+});
+
+/* ── S13c ACABAMENTO (04/11/2026, julgado no Chrome em 375 e 1280 px) ────────
+ * Os quatro defeitos abaixo foram vistos na tela, e a causa de cada um é uma
+ * linha de CSS. O node não pinta nada, mas lê o arquivo: o que trava aqui é a
+ * REGRA que cura, não o pixel. Prova de que a trava morde, feita ao escrevê-la:
+ * volta-se `.botao.botao-primario` para `.botao-primario` e o teste 1 cai;
+ * volta-se `aria-current` para "true" e o B6 da tela cai; apaga-se o
+ * `box-sizing` do `.aulas` e o teste 2 cai.
+ */
+
+test('acabamento S13c: o primário e o secundário de aula têm duas classes, e o link não é sublinhado', () => {
+  const css = ler('web/folha.css');
+  // `.botao.botao-primario` e não `.botao-primario`: com uma classe só, o
+  // `.botao` do metro.css (carregado depois) empata e vence. A trava é pelo
+  // seletor EXATO, porque é a segunda classe que faz o peso.
+  for (const seletor of ['.botao.botao-primario', '.botao.botao-secundario']) {
+    const corpo = regra(css, seletor);
+    assert.ok(corpo, `web/folha.css sem a regra ${seletor}: o metro.css gagne pela ordem e o botão sai caixa clara`);
+  }
+  assert.match(regra(css, '.botao.botao-primario'), /background:\s*var\(--cor\)/,
+    'o primário é recheado na cor da linha, como era o "Começar a estudar"');
+  assert.match(regra(css, '.botao.botao-secundario'), /background:\s*var\(--superficie\)/,
+    'e o secundário é contorno');
+
+  // O primário de aula é um <a>, e um <a> traz sublinhado e display inline do
+  // documento: sem isto ele parece texto no meio de uma fileira de botões.
+  const a = regra(css, 'a.botao');
+  assert.ok(a, 'web/folha.css sem a regra a.botao: o link de aula sai sublinhado e sem alinhamento');
+  assert.match(a, /text-decoration:\s*none/, 'ainda há sublinhado no botão-link');
+  assert.match(a, /display:\s*inline-flex/, 'inline não alinha o texto dentro do botão');
+  assert.match(a, /align-items:\s*center/);
+});
+
+test('acabamento S13c: a página de aulas é uma caixa de borda fechada e uma coluna só', () => {
+  const css = ler('web/telas/aulas.css');
+  // 375 px: `width: 100%` com padding sem border-box é uma caixa de 407 px, e a
+  // página inteira (div, cabeçalho, h1, painel, lista) passa da borda com a
+  // duração cortada.
+  const aulas = regra(css, '.aulas');
+  assert.ok(aulas, 'web/telas/aulas.css sem a regra .aulas');
+  assert.match(aulas, /box-sizing:\s*border-box/,
+    'o .aulas voltou a somar o padding à largura: em 375 px a página passa da borda');
+
+  // 1280 px: com `repeat(2, …)` na lista cada coluna ficava com ~340 px, o
+  // título encolhia a zero e "Não iniciada" era desenhado POR CIMA dele.
+  // O desenho pedido é uma coluna de no máximo --largura-leitura.
+  const limpo = semComentario(css);
+  assert.doesNotMatch(limpo, /repeat\(2/,
+    'voltou a lista de duas colunas: o título encolhe a zero e o estado se desenha sobre ele');
+  assert.match(limpo, /grid-template-columns:\s*auto auto minmax\(0, 1fr\) auto/,
+    'a linha é marca, número, título (a que encolhe) e duração');
+  assert.match(limpo, /-webkit-line-clamp:\s*2/, 'o título longo quebra em duas linhas e corta');
+});
+
+test('acabamento S13c: o anel de "você está aqui" é da marca, e o token de 720 px existe', () => {
+  const css = ler('web/telas/aulas.css');
+  // A marca é o estado desenhado; o nome vai em .so-leitor. Se alguém devolver
+  // o estado como coluna visível, a trava da linha (acima) e esta pegam.
+  const anel = regra(css, '.aula-link[aria-current="step"] .aula-marca');
+  assert.ok(anel, 'web/telas/aulas.css sem o anel em .aula-link[aria-current="step"] .aula-marca');
+  assert.match(anel, /box-shadow:\s*0 0 0/, 'o anel é box-shadow sem deslocamento, como o selo da linha atual no metro.css');
+  assert.doesNotMatch(semComentario(ler('web/telas/aulas.css')), /\.aula-link\[aria-current[^\]]*\]\s*\{[^}]*border-left/,
+    'voltou a barra preta de 6 px à esquerda: era ela que empurrava o título sob o estado');
+
+  // A largura de leitura mora no token (regra 11), não na tela.
+  const tokens = ler('web/tokens.css');
+  assert.match(tokens, /--largura-leitura:\s*720px/, 'falta o token --largura-leitura no tokens.css');
+  assert.match(css, /max-width:\s*var\(--largura-leitura\)/, 'a página não lê o token: o número voltaria à mão');
+});
+
+/* ── S13e (04/11/2026): o selo da página e o peso do separador ─────────────
+ * Duas coisas que o Chrome mostrou depois do fio: o primário da página sem
+ * cor nenhuma (1,1:1 — a causa é o escopo da `--cor`, e a trava dela é no DOM,
+ * em aulas-tela.test.js B11a/b) e 93 linhas de 6 px, que pesavam mais que os
+ * títulos. Esta trava é só do que o node alcança: a REGRA que cura. A prova de
+ * que ela morde é tirar `border-bottom: 1px` do `.aula-item` e ver o caso cair.
+ */
+test('acabamento S13e: o separador entre as aulas é 1 px de --borda, e o selo da página tem fundo na cor da linha', () => {
+  const css = ler('web/telas/aulas.css');
+
+  const item = regra(css, '.aula-item');
+  assert.ok(item, 'web/telas/aulas.css sem a regra .aula-item');
+  assert.match(item, /border-bottom:\s*1px solid var\(--borda\)/,
+    'o separador da lista voltou a ser --espessura-borda-painel: 93 linhas de 6 px pesam mais que o título de cada aula');
+  assert.doesNotMatch(item, /--espessura-borda-painel/,
+    '.aula-item usa a espessura do PAINEL (6 px), que é a borda esquerda de uma estação na folha, não uma régua de lista');
+
+  // O círculo da linha na página. Ele reusa a classe `selo` do metro.css, mas
+  // `.folha .selo` é escopado na folha — sem esta regra o selo da página cairia
+  // no `var(--trancada)` do metro.css e sairia cinza em toda linha.
+  const selo = regra(css, '.aulas .selo');
+  assert.ok(selo, 'web/telas/aulas.css sem a regra .aulas .selo (o círculo do selo da folha, na página)');
+  assert.match(selo, /background:\s*var\(--cor\)/,
+    'o fundo do selo é a cor da LINHA, sem valor de reserva: um fallback pintaria a linha certa na cor errada');
+  assert.match(selo, /color:\s*var\(--superficie\)/,
+    'S10 régua 5: o número sobre a cor cheia é --superficie, nunca --tinta (1,5:1 no escuro)');
+});
+
+test('acabamento: os três fatos da folha são uma grade só, com a etiqueta do tamanho da maior', () => {
+  const css = ler('web/folha.css');
+  const fatos = regra(css, '.folha-fatos');
+  const fato = regra(css, '.folha-fato');
+  assert.ok(fatos && fato, 'web/folha.css sem .folha-fatos ou .folha-fato');
+  assert.match(fatos, /grid-template-columns:\s*max-content\b/,
+    'a coluna da etiqueta tem de caber a maior etiqueta ("BIBLIOGRAFIA"): com minmax(0, …) ela vaza por cima do valor');
+  assert.match(fato, /display:\s*contents/, 'cada fato com a própria grade desalinha os valores entre as linhas');
+  assert.doesNotMatch(semComentario(css), /minmax\(0,\s*var\(--espaco-8\)\)/, 'a coluna de 32 px da etiqueta voltou');
+});
+
+/* ── S14b1 item 0 (04/11/2026): o ciclo de imports que a suíte não via ──────
+ * `web/telas/aulas.js` importava `web/folha.js` por causa de UMA função de nove
+ * linhas (`seloLinha`), e folha.js importa `web/metro.js`, que importa folha.js
+ * de volta: toda página de lista pagava o metrô inteiro, e nada em 650 testes
+ * via o ciclo, porque nenhum teste lia o grafo de imports. O conserto foi mover
+ * `seloLinha` para `web/aulas-pedacos.js` — o arquivo que já existe para as peças
+ * que duas telas montam (regra 9). Esta trava é o que impede a volta do atalho:
+ * ela não lê o CSS, lê o texto das telas. É o mesmo estilo de guarda que
+ * `tests/rotas.test.js` faz com `lerRota`: quando o defeito é de estrutura, a
+ * régua é o fonte.
+ */
+const TELAS_SEM_FOLHA = [
+  ['web/telas/aulas.js', 'a página da LISTA de aulas'],
+  ['web/telas/aula.js', 'a PÁGINA DA AULA (S14b1)']
+];
+
+test('S14b1: nenhuma tela de aula importa folha.js nem metro.js (o ciclo de imports)', () => {
+  for (const [caminho, nome] of TELAS_SEM_FOLHA) {
+    const fonte = ler(caminho);
+    // Só o que o arquivo IMPORTA: a palavra `metro.js` pode aparecer num
+    // comentário explicando de onde o --cor vem, e isso não é dependência.
+    const importados = [...fonte.matchAll(/(?:^|\n)\s*(?:import|export)[\s\S]*?from\s+['"]([^'"]+)['"]/g)].map((m) => m[1]);
+    const sujos = importados.filter((i) => /folha\.js$/.test(i) || /(^|\/)metro\.js$/.test(i));
+    assert.deepEqual(sujos, [],
+      `${nome} importa ${sujos.join(', ')}: folha.js puxa metro.js e metro.js puxa folha.js de volta — o ciclo da S13e. A peça compartilhada mora em web/aulas-pedacos.js`);
+  }
+});
+
+test('S14b1: o selo da linha tem UM dono, e as três telas o importam do mesmo lugar', () => {
+  // O motivo de a trava acima não poder ser só "não importa folha.js": se cada
+  // tela reimplementasse o círculo para fugir do ciclo, o defeito voltaria pela
+  // regra 9 (duas telas, dois desenhos do mesmo selo) e nenhuma destas duas
+  // travas veria. O `seloLinha` tem de existir UMA vez e ser importado.
+  const tres = ['web/aulas-pedacos.js', 'web/folha.js', ...TELAS_SEM_FOLHA.map(([c]) => c)];
+  const definitiones = tres.filter((c) => /export function seloLinha/.test(ler(c)));
+  assert.deepEqual(definitiones, ['web/aulas-pedacos.js'],
+    'seloLinha mora em web/aulas-pedacos.js e só lá: folha, lista e página da aula importam a mesma função');
+
+  for (const [caminho, nome] of TELAS_SEM_FOLHA.concat([['web/folha.js', 'a folha']])) {
+    assert.match(ler(caminho), /seloLinha[^;]*\}?\s*from\s*['"]\.\.?\/(?:web\/)?aulas-pedacos\.js['"]|from\s*['"]\.\.?\/aulas-pedacos\.js['"][\s\S]{0,400}seloLinha/,
+      `${nome} não importa seloLinha de web/aulas-pedacos.js`);
+  }
+});

@@ -30,20 +30,48 @@
 }
 .metro * { box-sizing: border-box; }
 
-/* ── 0. A MARCA "Atlas" ───────────────────────────────────────────────────
- * Item 4 da crítica (2b-2): o nome da coisa e o do curso, ANTES da placa. É
- * cabeçalho de tela, não competing com a próxima estação: o nome no degrau de
- * corpo da escala e a linha do curso no degrau de nota — nada aqui é maior
- * que o nome da estação, que continua sendo o maior tamanho da escala. */
+/* ── 0'. O TOPO DA MARCA (S1, 30/10/2026) ─────────────────────────────────
+ * O logo definitivo vive no HTML, fora do <main>: é cabeçalho do app, fica no
+ * lugar enquanto o metro.js desenha a placa. Os seletores são qualificados por
+ * (2b-2, item 4). S2 da v2 (31/10/2026): o link passou a ser `.topo-marca`, e
+ * não mais `.marca`. Defeito 6 da crítica: os dois tinham a MESMA classe, e o
+ * link herdava do cabeçalho desenhado pelo JS a borda de baixo e a margem —
+ * era essa a linha curta sob o logo. Classe própria, sem qualificação, resolve
+ * a colisão na origem em vez de sobrescrever metade dela. A palavra é máscara:
+ * a cor vem de --tinta e troca sozinha no escuro; o símbolo ganha fundo de
+ * papel pelo token, só no escuro. */
+.topo {
+  display: flex; align-items: center; padding: var(--espaco-3) var(--espaco-4);
+  padding-top: calc(var(--espaco-3) + var(--margem-segura-topo));
+}
+.topo-marca {
+  display: inline-flex; align-items: center; gap: var(--espaco-2);
+  min-height: var(--alvo-toque); text-decoration: none;
+}
+.marca-simbolo {
+  height: var(--marca-altura); width: auto; padding: var(--espaco-1);
+  border-radius: var(--raio-placa); background: var(--marca-simbolo-fundo);
+}
+.marca-palavra {
+  display: block; height: var(--marca-altura); aspect-ratio: 449 / 192;
+  background: var(--tinta);
+  -webkit-mask: url("../marca/palavra.png") center / contain no-repeat;
+  mask: url("../marca/palavra.png") center / contain no-repeat;
+}
+
+/* ── 0. O RÓTULO DO CURSO ─────────────────────────────────────────────────
+ * Item 4 da crítica (2b-2): o nome da coisa e o do curso, ANTES da placa.
+ * S2 da v2 (31/10/2026), defeito 7: o nome "Atlas" aparecia DUAS VEZES — no
+ * logo do topo e aqui embaixo. Duas faixas de cabeçalho seguidas é a tela se
+ * apresentando duas vezes, e a placa perdia o degrau mais alto da hierarquia
+ * para um segundo título. O nome sai do <main> (fica só no logo, que é o
+ * cabeçalho do app) e sobra a linha do curso, que passa a ser o rótulo da
+ * tela. A regra .marca-nome morre junto: deixar CSS de elemento que não é
+ * mais desenhado é esconder o elemento para o próximo desenvolvedor. */
 .marca {
   display: grid; gap: var(--espaco-1);
   padding-bottom: var(--espaco-3); margin-bottom: var(--espaco-4);
   border-bottom: var(--anel-trancada) solid var(--borda);
-}
-.marca-nome {
-  margin: 0; font-family: var(--fonte-placa); font-size: var(--tipo-titulo);
-  font-weight: var(--peso-placa); line-height: var(--entrelinha-apertada);
-  letter-spacing: var(--espacamento-placa); color: var(--tinta);
 }
 .marca-linha {
   margin: 0; font-family: var(--fonte-placa); font-size: var(--tipo-nota);
@@ -60,7 +88,12 @@
   border-radius: var(--raio-placa); padding: var(--espaco-4);
   display: grid; gap: var(--espaco-2);
 }
-.placa-rotulo {
+/* S4b: o rótulo serigrafado é UM estilo, mas duas classes. `placa-rotulo` é o
+   da placa; `bloco-rotulo` é o das peças da jornada (abertura, números,
+   conexão). Separar os nomes é o que deixa o teste da placa achar O rótulo da
+   placa na tela inteira, em vez do primeiro rótulo que aparecer. */
+.placa-rotulo,
+.bloco-rotulo {
   margin: 0; font-family: var(--fonte-placa); font-size: var(--tipo-placa);
   font-weight: var(--peso-placa); letter-spacing: var(--espacamento-placa);
   text-transform: uppercase; color: var(--fosca);
@@ -93,10 +126,11 @@
   transition: transform var(--movimento-toque) var(--curva-mecanica);
 }
 .placa-acao:active { transform: translateY(1px); }
-.placa-acao:focus-visible, .estacao:focus-visible, .selo:focus-visible,
-.anotacao:focus-visible, .botao:focus-visible {
-  outline: var(--anel-foco) solid var(--tinta); outline-offset: var(--espaco-1);
-}
+/* O anel de foco mora em web/base.css agora (S2 da v2, defeito 5: eram 2 px
+ * colados no elemento). Este bloco existia só para reescrever a mesma regra
+ * com outro afastamento — dois lugares para o mesmo anel é como ele virou 2 px
+ * numa tela e 4 px em outra. Sai; quem define foco é a base, e a página não
+ * discute com ela. */
 .placa-vazia { margin: 0; color: var(--fosca); font-size: var(--tipo-corpo); }
 
 /* ── selo da linha: o número dentro do círculo, na cor da linha ─────────── */
@@ -113,15 +147,39 @@
 
 /* ── 3. seletor das 7 linhas: faixa que rola de lado ────────────────────── */
 .linhas {
-  margin-top: var(--espaco-4); display: flex; gap: var(--espaco-2);
-  overflow-x: auto; padding-bottom: var(--espaco-2);
+  /* O ar de recorte é padding nos quatro lados, nunca só embaixo: um container
+   * de rolagem corta no próprio padding-edge, e o anel da linha atual mora FORA
+   * da caixa do selo (box-shadow) como o anel de teclado da base (outline com
+   * afastamento). Com recorte justo na caixa, o selo 1 — o primeiro da fileira,
+   * encostado na borda — perdia o pedaço esquerdo do anel. A margem negativa
+   * devolve a sobra para os lados, então o 1 continua alinhado com a placa. */
+  margin-top: var(--espaco-2); margin-inline: calc(-1 * var(--espaco-2));
+  display: flex; gap: var(--espaco-2);
+  overflow-x: auto; padding: var(--espaco-2);
   scrollbar-width: thin; -webkit-overflow-scrolling: touch;
 }
-.linhas .selo { width: var(--espaco-6); height: var(--espaco-6); font-size: var(--tipo-placa); }
-.linhas .selo[aria-current="true"] {
+/* S2 da v2 (31/10/2026), defeito 2: o seletor era sete `<span type="button">`
+ * — pareciam botões, tinham atributo de botão e NÃO ERAM botões: o Tab passava
+ * por cima, o Enter não fazia nada e o leitor de tela não anunciava. Agora são
+ * <button>, e o CSS zera a aparência que o navegador traz (borda, recheio,
+ * fundo, fonte de formulário) sem escrever um valor que não seja token.
+ *
+ * O diâmetro era --espaco-6 (24 px): abaixo do piso de toque de --alvo-toque
+ * (44 px) que a regra 12 exige. O número da linha, que era --tipo-placa, volta
+ * a --tipo-corpo — dentro de um alvo de 44 px, 13 px era pequeno demais.
+ * O que continua sendo a marca da linha atual é o anel de tinta, agora ligado
+ * ao estado real do botão (aria-pressed) e não ao aria-current de navegação. */
+.linhas .selo {
+  appearance: none; -webkit-appearance: none;
+  min-width: var(--alvo-toque); min-height: var(--alvo-toque);
+  border: 0; padding: 0; border-radius: var(--raio-estacao);
+  background: var(--cor, var(--trancada)); color: var(--superficie);
+  font-family: var(--fonte-mono); font-size: var(--tipo-corpo);
+  font-weight: var(--peso-placa); line-height: 1;
+}
+.linhas .selo[aria-pressed="true"] {
   box-shadow: 0 0 0 var(--anel-foco) var(--tinta);
 }
-.linhas .selo[aria-current="true"]::after { content: ""; }
 
 /* ── 2. a linha desenhada na VERTICAL, como o diagrama da porta do trem ───
  * FATIA 2b-1 (pedido 21, 29/10/2026) — UM TRAÇO SÓ, CONTÍNUO. A crítica do
@@ -183,11 +241,19 @@
 /* FATIA 2b-1, item 2: SÓ a próxima é maior. O anel "você está aqui" pulsa
  * devagar (--movimento-pulso, 2 s) e é um halo de box-shadow em --cor, não um
  * scale — escalar a .forma faria o círculo da próxima sair da coluna de 22 px e
- * o traço perder o centro outra vez. */
+ * o traço perder o centro outra vez.
+ *
+ * S2 da v2 (31/10/2026), defeito 3: `infinite`. Um anel que pulsa para sempre
+ * é movimento automático sem fim nem pausa — a WCAG 2.2.2 pede que ele pare.
+ * Pulsa --pulso-repeticoes (2) e para; o 100% da keyframe é o anel parado e
+ * visível, então o estado final é exatamente o de quem nunca viu movimento, e
+ * com prefers-reduced-motion a duração vai a zero e ele nem pulsa. Nada de
+ * informação se perdeu: "você está aqui" é o anel, não o tremor. */
 .forma.proxima {
   width: var(--estacao-proxima); height: var(--estacao-proxima);
   border: var(--anel-disponivel) solid var(--cor);
-  animation: anelAqui var(--movimento-pulso) var(--curva-pulso) infinite;
+  animation: anelAqui var(--movimento-pulso) var(--curva-pulso)
+    var(--pulso-repeticoes) both;
 }
 .forma.desperta { animation: pulso var(--movimento-pulso-anel) var(--curva-mecanica); }
 
@@ -200,12 +266,19 @@
 }
 
 /* a estação é um BOTÃO inteiro: nome + forma, alvo de toque de 44 px */
+/* S4b: cada estação é um CARTÃO ao lado do trilho. O cartão É o <button> que
+ * abre a folha — o toque não mudou de dono, só ganhou borda, raio e piso de
+ * 44 px. O trilho continua na coluna 1; a `--estacao-proxima` (22 px) é a
+ * largura do trilho e o círculo maior mora nela, por isso o cartão fica na
+ * coluna 2 com 1px de borda somado ao gap: o centro do círculo não se move. */
 .estacao {
   grid-column: 2; grid-row: 1; align-self: center;
   min-height: var(--alvo-toque); width: 100%;
   display: flex; flex-direction: column; align-items: flex-start;
   justify-content: center; gap: var(--espaco-1);
-  margin: 0; padding: var(--espaco-2) 0; border: 0; background: none;
+  margin: 0; padding: var(--espaco-2) var(--espaco-3);
+  border: 1px solid var(--borda); border-radius: var(--raio-placa);
+  background: var(--superficie);
   color: inherit; font: inherit; text-align: left; cursor: pointer;
 }
 .estacao-nome { font-weight: var(--peso-forte); font-size: var(--tipo-corpo); }
@@ -237,6 +310,13 @@
 }
 .detalhe[hidden] { display: none; }
 .detalhe-falta { margin: 0; font-size: var(--tipo-corpo); color: var(--alerta); }
+/* FATIA 2d-2, item 3: o carimbo da folha concluída — a data que o núcleo guarda,
+ * na tipografia de placa (é um registro, não um texto corrido). */
+.detalhe-carimbo {
+  margin: 0; font-family: var(--fonte-placa); font-size: var(--tipo-placa);
+  font-weight: var(--peso-forte); letter-spacing: var(--espacamento-placa);
+  text-transform: uppercase; color: var(--cor);
+}
 .recurso {
   justify-self: start; min-height: var(--alvo-toque);
   padding: var(--espaco-3) var(--espaco-4); border-radius: var(--raio-placa);
@@ -274,9 +354,21 @@
 }
 .botao:active { transform: translateY(1px); }
 .botao[disabled] { cursor: not-allowed; opacity: 0.5; }
-.botao-concluir { background: var(--cor); border-color: var(--cor); color: var(--superficie); }
+/* FATIA 2d-2, item 4: UM primário por folha. Até aqui o concluir era recheado
+ * na cor da linha, e o recurso também — dois botões vermelhos cheios, um sobre
+ * o outro, duas decisões para a mesma pessoa. O primário da folha é o RECURSO
+ * (é o verbo do estudo); o concluir vira o secundário da família do design
+ * system: contorno na cor da linha, texto na cor da linha, sem recheio. */
+.botao-concluir { background: var(--superficie); border-color: var(--cor); color: var(--cor); }
 
 /* ── 4. a chegada: aviso com desfazer ───────────────────────────────────── */
+/* S10 régua 6 (03/11/2026): o rolador mudou, e com ele o que `bottom` significa.
+ * Até aqui este sticky media a rolagem da JANELA e a borda inferior do rolador era
+ * a própria borda da tela — sobre a qual a barra de abas é desenhada: o aviso da
+ * última estação nascia ATRÁS das abas, e o "desfazer" mais importante do app era
+ * o único inatingível. Agora o rolador é o main, e a caixa dele JÁ termina no topo
+ * da barra (--altura-barra descontado em casco.css), então 24 px continuam sendo
+ * 24 px ACIMA da barra e não da tela. O número não mudou; o terreno dele sim. */
 .aviso-chegada {
   position: sticky; bottom: var(--espaco-4); z-index: 2;
   margin: var(--espaco-4) 0 0; padding: var(--espaco-3) var(--espaco-4);

@@ -10,10 +10,14 @@
  * nenhum tamanho, duração ou ponto de quebra aparece lá, porque nada disso muda
  * no escuro.
  *
- * PROVISÓRIOS: o bloco no fim guarda as cores da tela de HOJE (o azul-marinho
- * que o Lucas rejeitou). Estão aqui só para a trava de cor valer sem mudar a
- * aparência antes da hora. Cada um morre no pedido que redesenha a tela dele.
- * Veja "Migração" em design/README.md. */
+ * PROVISÓRIOS: NÃO HÁ MAIS. O bloco --p-* do fim do arquivo (a paleta
+ * azul-marinho que o Lucas rejeitou) foi migrado e APAGADO na S3b da v2
+ * (31/10/2026): os 31 usos do web/grade.css passaram a usar --fundo,
+ * --superficie, --tinta, --fosca, --borda, --trancada, --alerta,
+ * --alerta-fundo, --linha-6 e a cor da LINHA do cartão (--cor / --cor-fraca).
+ * tests/design-system.test.js confere duas coisas: nenhuma tela usa var(--p-*)
+ * e este arquivo não declara nenhum --p-*. Um apelio que sobrevivesse seria
+ * convite para a paleta rejeitada voltar num CSS novo. */
 
 :root {
   /* ── COR · fundo e tinta ────────────────────────────────────────────────
@@ -57,12 +61,14 @@
    * Uma família só, de placa de sinalização: Overpass (SIL OFL 1.1), pesos
    * 400/700/900, mais a Mono para números. Os woff2 variáveis estão em
    * app/fonts/, declarados em app/web/fontes.css e no precache do sw.js.
-   * --fonte-corpo ainda é a pilha do sistema: a Overpass está declarada e
-   * pronta, mas a tela só troca no pedido que redesenha (design/README.md,
-   * "Migração"). */
+   * S2 da v2 (31/10/2026): o corpo passou a usar a Overpass. Defeito 4 da
+   * crítica — a fonte do sistema era a principal, que o DS proíbe, e a
+   * Overpass estava declarada, no cache e não usada por nada. A pilha do
+   * sistema sai; --fonte-corpo É --fonte-placa, para haver uma família só e
+   * um lugar só para mexer nela. */
   --fonte-placa: "Overpass", "Overpass Local", sans-serif;
   --fonte-mono: "Overpass Mono", ui-monospace, monospace;
-  --fonte-corpo: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --fonte-corpo: var(--fonte-placa);
 
   /* Escala de 5 tamanhos, e só 5. --tipo-estacao é o MAIOR texto da tela:
    * nada pode passar dele, ou a hierarquia mente. */
@@ -82,6 +88,14 @@
   --peso-forte: 700;
   --peso-placa: 900;
   --espacamento-placa: 0.08em; /* só com --tipo-placa, em caixa alta */
+
+  /* MARCA · o logo definitivo (S1, 30/10/2026)
+   * --marca-fundo é PAPEL FIXO, não --fundo: a cúpula do símbolo é preta e
+   * sumiria no carvão do tema escuro, então o símbolo recebe um fundo de papel
+   * só no escuro. É o único token da marca que troca de tema. */
+  --marca-fundo: #fbf7f0;
+  --marca-simbolo-fundo: transparent;
+  --marca-altura: 24px;
 
   /* ── ESPAÇO · escala de 4 em 4 px ──────────────────────────────────────
    * Não existe 5, 7, 13 nem 18 px. Se o valor não está aqui, está errado. */
@@ -103,8 +117,39 @@
   --raio-selo: 2px;            /* selo e etiqueta */
   --anel-disponivel: 3px;      /* anel grosso com miolo claro */
   --anel-trancada: 1.5px;      /* anel fino, cinza */
-  --anel-foco: 2px;            /* :focus-visible, em cor de tinta */
+  /* S2 da v2: 2 px colava no elemento e, sobre a cor da linha, sumia. 3 px de
+   * anel com 3 px de ar são o que a pessoa vê quando bate o Tab. */
+  --anel-foco: 3px;            /* :focus-visible, em cor de tinta */
+  --afastamento-foco: 3px;     /* o ar entre o anel e o elemento */
   --alvo-toque: 44px;          /* piso de qualquer área tocável */
+  --sombra-placa: 4px 4px 0 var(--tinta); /* a ÚNICA sombra: a placa da próxima estação */
+
+  /* S4b (31/10/2026): as duas medidas que o layout da Jornada precisa e não
+   * tinha. --largura-lateral é a coluna direita do computador (abertura e mapa
+   * à esquerda, placa + números + conexão à direita, sticky). 360px é o que
+   * sobra de mapa legível num 1024px: menos que isso a lateral esmaga o
+   * diagrama, mais que isso o texto da placa começa a quebrar em uma palavra
+   * por linha.
+   * --altura-topo não é um número: é a conta do topo real (padding de 12px
+   * em cima e embaixo + a margem segura do app instalado + a marca de 24px).
+   * O painel sticky precisa dela para NÃO COLAR EMBAIXO do topo, que também é
+   * sticky — 12+12+24 = 48px é o piso, e o env() entra sozinho quando o Atlas
+   * está instalado no celular. Um `top:` copiado à mão em dias vira o bug do
+   * ano, então é token. */
+  --largura-lateral: 360px;
+  --altura-topo: calc(var(--espaco-3) + var(--espaco-3) + var(--margem-segura-topo) + var(--marca-altura));
+
+  /* S10 régua 6 (03/11/2026): a ALTURA da barra de abas, que o layout precisava
+   * e não tinha — e por isso o forro do main e a barra eram duas contas soltas.
+   * A barra no celular e no tablet é ícone (22px, declarado no casco.css com o
+   * svg) + o ar do gap (--espaco-1) + o rótulo (--tipo-nota no --entrelinha-nota,
+   * 16,8px) + a borda-estado de 3px: 45,8px de piso, com o --alvo-toque mandando
+   * no link. 56px é o que sobra de ar, e NÃO é número de decoração: é a medida
+   * que o forro do main lê, então a reserva e a caixa têm de poder ser conferidas
+   * uma pela outra. tests/auditoria-tamanhos.test.js reprova se ficar abaixo do
+   * próprio conteúdo da barra (o rótulo sai cortado) ou acima de 72px (um terço da
+   * tela do celular dado ao nada). */
+  --altura-barra: 56px;
 
   /* ── MOVIMENTO · três vozes ────────────────────────────────────────────
    * Duração diz o que o movimento SIGNIFICA: curto é máquina respondendo,
@@ -115,6 +160,50 @@
   --movimento-pulso-anel: 400ms; /* o pulso curto das que destrancaram */
   --atraso-esqueleto: 150ms;   /* antes disso, nenhum esqueleto aparece */
   --janela-desfazer: 6000ms;   /* quanto tempo o "desfazer" fica disponível */
+
+  /* MOVIMENTO v2 (Lovable, 30/10/2026): selecionar, abrir, cascata.
+   * As três vozes acima já existiam; estas três mandam nas trocas de estado
+   * que não são a chegada. Cada uma tem um lugar: --movimento-selecao é o
+   * instante em que uma aba, uma linha ou um filtro é escolhido;
+   * --movimento-abrir é a folha, o painel, a troca de tela; --atraso-cascata
+   * espaça os itens de uma lista que entra (até o 6º — depois disso a lista
+   * inteira chega junta, senão a pessoa espera a tela acabar de aparecer).
+   * Nenhum deles é escrito à mão na tela: com movimento reduzido os quatro
+   * zeram no bloco do fim do arquivo, e é isso que faz a regra 11 da v2
+   * valer sem ninguém lembrar de cortar duração por duração. */
+  --movimento-selecao: 200ms;  /* aba, linha, filtro */
+  --movimento-abrir: 320ms;    /* folha, painel, troca de tela */
+  --atraso-cascata: 50ms;      /* entre itens de uma lista que entra, até o 6º */
+  --deslocamento-entrada: 8px; /* a tela entra subindo 8 px */
+  --curva-atlas: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* O anel "você está aqui" pulsa DUAS vezes e para (WCAG 2.2.2: nada de
+   * movimento automático infinito). Era `infinite` na v1 — a crítica da v2
+   * contou como o terceiro defeito da tela. Depois de pulsar, o anel fica
+   * parado e visível: o estado final é o anel, não a ausência dele. */
+  --pulso-repeticoes: 2;
+
+  /* S5: a FOLHA. altura do aparadeiro no celular, largura do painel no
+   * computador e a borda que pinta a linha da estação. Nada destes números
+   * vive na folha.css: são tokens, porque a regra 11 do design system só vale
+   * se o tamanho morar num lugar só. */
+  --altura-folha: 90dvh;          /* o teto da folha no celular */
+  --largura-painel: 480px;        /* o painel da estação no computador */
+  /* S13b acabamento (04/11/2026): a página de AULAS é LEITURA corrida, 93 linhas
+   * de uma coluna. O --largura-painel (480) é a folha, que cabe o resumo de uma
+   * estação; numa lista com número + título + duração, 480 corta o título. 720 é
+   * a linha de leitura pedida pelo desenho, e mora aqui porque a regra 11 da casa
+   * não aceita número solto no CSS de uma tela. */
+  --largura-leitura: 720px;
+  /* S17b-fix (item 2): a LARGURA DE UMA CÉLULA da grade do domínio — o piso do
+   * `minmax()` de `repeat(auto-fill, …)`, que é o que diz quantas células cabem.
+   * 160 px é o menor espaço em que um nome de estação entra em duas linhas com o
+   * contorno ao lado. À esquerda do --bp-computador a tela é mais estreita que
+   * 2×160 + o ar, então a grade DESCE a uma coluna sozinha: o vazio compacto não
+   * cria rolagem lateral em lugar nenhum. Literal aqui, e não na folha, porque é
+   * token de layout (o mesmo tratamento do --largura-lateral e do --altura-barra). */
+  --celula-caderneta: 160px;
+  --espessura-borda-painel: 6px;  /* a borda esquerda, na cor da linha */
 
   --curva-mecanica: cubic-bezier(0, 0, 0.2, 1);
   --curva-chegada: cubic-bezier(0.16, 1, 0.3, 1); /* saída suave */
@@ -156,6 +245,8 @@
     --alerta: #e0a94a;         /* 8,41:1 AA */
     --alerta-fundo: #2a2313;
 
+    --marca-simbolo-fundo: var(--marca-fundo);
+
     --linha-1: #ff6b6b;        /* 6,40:1 */
     --linha-2: #ff9a4d;        /* 8,44:1 */
     --linha-3: #e8c547;        /* 10,58:1 */
@@ -184,6 +275,20 @@
     --movimento-chegada: 0ms;
     --movimento-pulso: 0ms;
     --movimento-pulso-anel: 0ms;
+    /* S2 da v2: os quatro novos zeram junto. Se um deles não zerasse, a tela
+     * com movimento reduzido ainda animaria aquela coisa específica, e a
+     * regra 11 viraria promessa escrita e não cumprida. */
+    --movimento-selecao: 0ms;
+    --movimento-abrir: 0ms;
+    --atraso-cascata: 0ms;
+    --deslocamento-entrada: 0px;
+    /* S10 régua 2 (03/11/2026): atraso TAMBÉM é tempo de movimento, e era o
+     * único que ficava de fora da lista. web/metro.js desenha o esqueleto com
+     * `animation: surgir var(--movimento-toque) var(--atraso-esqueleto) both` —
+     * com a duração a zero mas o atraso em 150ms, a peça ainda entra tarde, e
+     * "nenhuma animação roda" virava "roda mais devagar". Zeramos os cinco.
+     */
+    --atraso-esqueleto: 0ms;
   }
 
   *,
@@ -194,44 +299,4 @@
     transition-duration: 0ms !important;
     scroll-behavior: auto !important;
   }
-}
-
-/* ── PROVISÓRIOS · a aparência de HOJE, que ainda não mudou ──────────────
- * A tela atual é a que o Lucas rejeitou: fundo azul-marinho, botões contornados
- * iguais, fonte do sistema. Este pedido entrega o DS sem mudar a tela, então as
- * cores antigas viraram tokens com prefixo --p- para a trava de cor valer.
- *
- * CADA UM MORRE no pedido que redesenha a tela dele: o que for migrado passa a
- * usar --fundo, --tinta, --linha-N, e o --p-* correspondente é APAGADO. Um
- * provisório que sobrevive ao redesenho é dívida. */
-:root {
-  --p-fundo: #0b1020;          /* PROVISÓRIO: azul-marinho rejeitado → --fundo */
-  --p-cartao: #151b30;         /* PROVISÓRIO → --superficie */
-  --p-borda: #26304d;          /* PROVISÓRIO → --borda */
-  --p-texto: #e8ecf7;          /* PROVISÓRIO → --tinta */
-  --p-fosco: #93a0c2;          /* PROVISÓRIO → --fosca */
-  --p-aberto: #38d39f;         /* PROVISÓRIO: estado por cor → forma + --linha-N */
-  --p-feito: #6aa9ff;          /* PROVISÓRIO → cor da linha da estação */
-  --p-trancado: #5a6482;       /* PROVISÓRIO → --trancada */
-  --p-alerta: #ffb454;         /* PROVISÓRIO → --alerta */
-  --p-alerta-fundo: #3a2a12;   /* PROVISÓRIO → --alerta-fundo */
-  --p-alerta-borda: #6b4a1c;   /* PROVISÓRIO → --alerta-fundo + --alerta */
-  --p-recurso-fundo: #101a30;  /* PROVISÓRIO → --superficie */
-  --p-link-biblio: #9fb8d8;    /* PROVISÓRIO → --linha-6 */
-  --p-link-biblio-forte: #d8e4f5; /* PROVISÓRIO → --tinta */
-  --p-link-biblio-borda: rgba(159, 184, 216, 0.5); /* PROVISÓRIO → --linha-6 */
-  --p-nota: #8a8f98;           /* PROVISÓRIO → --fosca */
-  --p-riscado: #4a5a80;        /* PROVISÓRIO → --trancada */
-  --p-botao-fundo: #1d2740;    /* PROVISÓRIO → --superficie */
-  --p-aberto-fundo: #12352a;   /* PROVISÓRIO → cor da linha a 25% */
-  --p-aberto-borda: #1f6b52;   /* PROVISÓRIO → cor da linha */
-  --p-feito-fundo: #16233d;    /* PROVISÓRIO → cor da linha a 25% */
-  --p-feito-borda: #2c4c7d;    /* PROVISÓRIO → cor da linha */
-  --p-aviso-fundo: #1b1f33;    /* PROVISÓRIO → --superficie */
-  --p-obras-borda: #8a6a1f;    /* PROVISÓRIO → --alerta */
-  --p-obras-fundo: #1d1a12;    /* PROVISÓRIO → --alerta-fundo */
-  --p-obras-texto: #e9d9a8;    /* PROVISÓRIO → --alerta */
-  --p-obras-caixa: #2a2313;    /* PROVISÓRIO → --alerta-fundo */
-  --p-obras-caixa-borda: #55461f; /* PROVISÓRIO → --alerta */
-  --p-esp-nota: #c9b98a;       /* PROVISÓRIO → --fosca */
 }

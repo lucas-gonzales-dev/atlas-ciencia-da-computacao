@@ -1,0 +1,472 @@
+/* Projeto Atlas — a página AULAS da estação (S13b parte B, 04/11/2026).
+
+   POR QUE EXISTE: a folha cabe o que se lê de uma vez; uma estação com 93
+   aulas precisa de uma página só para elas. Este arquivo desenha a lista, o
+   painel de progresso e o voltar. Nenhum valor é à mão: cor, tempo e largura
+   vêm dos tokens (design/README §5 e §7), e a suíte lê este arquivo inteiro
+   procurando hex, cor escrita e duração sem token.
+
+   UMA COISA QUE A FOLHA JÁ SABE E ESTA PÁGINA REPETE: a linha de 4 px do
+   progresso não tem cor nem espessura própria — recebe `--pct` do JS como
+   número e transforma em largura. O preenchimento é estado, o desenho é daqui.
+
+   O corpo da lista é uma `ol`: a ordem é a informação (Aula 1, 2, 3), e um
+   leitor de tela que percorre a lista conta os itens. O `aria-current` de
+   "por onde continuar" vem do JS, nunca daqui. */
+
+/* ── a página inteira ───────────────────────────────────────────────────── */
+/* ACABAMENTO (04/11/2026, Chrome em 375 px): a página passava da borda — div,
+ * cabeçalho, h1, painel e lista, e a duração saindo cortada. A causa é esta
+ * regra: `width: 100%` com padding e o border-box do base.css não alcançar quem
+ * não o herdou. Sem box-sizing, 100% + 16px de padding dos dois lados é uma
+ * caixa de 407 px numa tela de 375, e a página inteira rola para o lado.
+ *
+ * UMA COLUNA SÓ, à esquerda da área de conteúdo: duas colunas de lista (o que
+ * estava aqui) transformavam cada linha em coluna estreita, o título encolhia a
+ * zero e o texto do estado era desenhado POR CIMA dele. 93 aulas em uma coluna é
+ * rolagem sem fim, e é assim mesmo que se lê uma ementa. */
+.aulas {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-4);
+  padding: var(--espaco-4) var(--espaco-4) calc(var(--espaco-6) + var(--margem-segura-baixo));
+  max-width: var(--largura-leitura);
+  margin: 0;
+  width: 100%;
+}
+
+/* ── o cabeçalho: voltar em cima, título embaixo ────────────────────────── */
+.aulas-cabecalho {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-1);
+}
+
+/* Voltar é link, não botão: desfazer um passo é correção, e a casa deu um
+   botão cheio por tela (2d-2). O piso de toque vem do token, não do texto. */
+.aulas-voltar {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--alvo-toque);
+  color: var(--tinta);
+  text-decoration: none;
+  align-self: flex-start;
+}
+
+.aulas-voltar:hover {
+  text-decoration: underline;
+}
+
+.aulas-titulo {
+  margin: 0;
+  color: var(--tinta);
+}
+
+/* S13e — o SELO DA LINHA, o mesmo círculo da folha, entre a volta e o h1.
+ *
+ * São os MESMOS `selo` e `folha-rotulo` que web/folha.js emite (a função é
+ * importada de lá, não copiada) e o MESMO texto `Linha N · estação k de 5`.
+ * A faixa é a daqui só pelo layout, que na folha é o `.folha-cabecalho`;
+ * reutilizo a própria classe dele, então nem isso é um segundo desenho.
+ *
+ * E o que a folha tem e a página não tinha: `.folha .selo` é escopado na folha,
+ * e a cor dele é `var(--cor)` — a cor da LINHA, que chega por herança de `.l1`
+ * … `.l7` (web/metro.css:17). Fora do metrô não havia linha nenhuma, e a raiz
+ * desta página recebe a classe agora (web/telas/aulas.js). */
+.aulas .selo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--alvo-toque);
+  height: var(--alvo-toque);
+  border-radius: var(--raio-estacao);
+  background: var(--cor);
+  color: var(--superficie);
+}
+
+/* ── S13e, o DEFEITO DO CONTRASTE que a suíte e o testar_pagina não viam ──
+ * O primário de aula (`web/aulas-pedacos.js`) recebe `background: var(--cor)`
+ * da regra `.botao.botao-primario` do folha.css, e o texto é `--superficie`.
+ * Sem `--cor` no escopo, o fundo é a própria página e o texto some: 1,1:1 nos
+ * dois temas, medido no Chrome em 04/11/2026 — a régua da S10 (folha.css, régua
+ * 5) tinha parado de ver isto porque mede par por regra do CSS, não valor
+ * resolvido no elemento.
+ *
+ * O conserto NÃO é um fallback de cor aqui. Um `var(--cor, --tinta)` pintaria o
+ * botão de tinta e a barra de preto, e a pessoa continuaria sem a cor da linha
+ * que é como ela sabe em que linha está: a causa é o escopo, e é no escopo que
+ * ele se conserta. A cor chega da classe da linha na raiz, e a trava está no DOM
+ * (tests/aulas-tela.test.js, S13e), não neste arquivo. */
+
+/* ── o painel: progresso, a aula por onde continuar, a playlist ─────────── */
+.aulas-painel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-3);
+}
+
+.aulas-progresso {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-2);
+}
+
+.aulas-progresso-texto {
+  margin: 0;
+}
+
+/* O trilho e o preenchimento. A altura é 4 px nos dois lados da linha — o
+   mesmo número da folha, porque é a mesma barra desenhada pelo mesmo pedaço de
+   código (web/aulas-pedacos.js). */
+.aulas-barra {
+  height: 4px;
+  border-radius: var(--raio-selo);
+  background: var(--borda);
+  overflow: hidden;
+}
+
+.aulas-barra-cheio {
+  height: 100%;
+  width: var(--pct, 0%);
+  /* --cor é a cor da LINHA, posta pelo JS na estação; fora da folha ela pode não
+     existir, e o cair-voltar é a tinta — nunca uma cor escrita à mão. */
+  background: var(--cor, var(--tinta));
+}
+
+.aulas-nota {
+  margin: 0;
+}
+
+.aulas-primario {
+  align-self: flex-start;
+}
+
+/* A playlist inteira, para quem prefere ir pelo YouTube. Secundário de peso,
+   e por isso é link simples com o piso de toque. */
+.aulas-playlist {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--alvo-toque);
+  color: var(--tinta);
+  align-self: flex-start;
+}
+
+/* ── S18a: o "JÁ SEI ISSO" ──────────────────────────────────────────────────
+ * A peça é do compartilhado (web/aulas-pedacos.js, `acaoPularAula`) e aparece na
+ * lista E na página da aula, então a regra mora aqui, uma vez — do mesmo jeito
+ * que `.aulas-progresso` e `.aulas-erro`, que a página da aula também reusa
+ * (aula.css, cabeçalho).
+ *
+ * DISCRETO quer dizer: sem recheio E SEM MURO. O recheio é o primário (folha.css),
+ * e esta casa dá um primário por tela; o gesto de declarar "já sei" é recusa, não
+ * convite, e pintá-lo de cor de linha diria o contrário.
+ *
+ * S18a-fix (item 2, o olho em 375 px): a borda de 1 px × 93 linhas eram 93 CAIXAS
+ * numa coluna, e a régua de corte do conferir as contava como caixas com conteúdo
+ * apertado. Uma lista de linhas tem uma coluna de texto, e o gesto discreto dela é
+ * texto: sem borda, sem fundo, sem raio. O sinal de que é tocável passa a ser o
+ * sublinhado, no hover e no `:focus-visible` — o mesmo sinal que a casa já dá em
+ * `.aula-link:hover` e nos links de pausa, e que o teclado vê.
+ *
+ * O contraste é --tinta nos dois temas (o mesmo texto do título da linha, a
+ * régua AA do design-system não admite cor de linha aqui: o pulo não é a cor da
+ * estação, é a palavra da pessoa).
+ *
+ * O piso de 44 px é o --alvo-toque, e ele fica MUDO ao olho: sem borda e sem
+ * fundo, a caixa invisível continua mandando na ALTURA e na LARGURA, porque um
+ * botão de duas palavras numa lista de 93 linhas seria tocável só no texto se
+ * fosse deixado encolher. O `width: auto` abaixo de 600 px é o que impede o
+ * stretch da grade de esticar o texto. */
+.aulas-pular {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--alvo-toque);
+  min-width: var(--alvo-toque);
+  padding: 0 var(--espaco-3);
+  border: 0;
+  background: none;
+  font-family: var(--fonte-corpo);
+  font-size: var(--tipo-corpo);
+  color: var(--tinta);
+  text-decoration: none;
+  cursor: pointer;
+  transition: color var(--movimento-toque) var(--curva-chegada);
+}
+
+.aulas-pular:hover,
+.aulas-pular:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: var(--espaco-1);
+}
+
+/* O desfazer é a mesma peça em outro humor: o texto vem de `desfazerPulo`, e a
+   --fosca continua sendo o que ele é — nem caixa, nem cor de linha. AA nos dois
+   temas: 6,26:1 no claro e 7,60:1 no escuro (tokens.css:30 e :234). */
+.aulas-pular-desfazer {
+  color: var(--fosca);
+}
+
+/* S18a-fix (item 2): na PÁGINA da aula a raiz é uma coluna flex, e o filho sem
+   `align-self` herda a largura da linha inteira — o "Já sei isso" media 343 px
+   debaixo do Assistir numa tela de 375. Texto discreto ocupa a largura do texto. */
+.aula .aulas-pular {
+  align-self: flex-start;
+  width: auto;
+}
+
+/* ── a lista ────────────────────────────────────────────────────────────── */
+.aulas-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-1);
+}
+
+/* O separador entre as aulas: 1 px de --borda (S13e, item 3 do pedido).
+ * Era --espessura-borda-painel (6 px), a espessura do painel de uma estação na
+ * folha. Numa lista de 93 linhas, 6 px de borda por linha pesam mais que o
+ * título de cada aula — o que se quer aqui é uma régua, não um muro. 1 px é o
+ * que o folha.css já usa nos seus separadores (folha.css:164, :306). */
+.aula-item {
+  border-bottom: 1px solid var(--borda);
+  /* S18a: duas colunas — a linha inteira (que é um link) e o botão discreto.
+   * `minmax(0, 1fr)` no link é o que não deixa o botão empurrar o título para
+   * fora da tela: é a mesma lição da etiqueta de 32 px do acabamento. */
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+/* A linha é UMA coisa tocável: marca do estado, número, título, duração. O `grid`
+   dá o alinhamento sem posicionamento absoluto, e o título é a coluna que
+   encolhe (minmax(0, 1fr)) — sem o zero, uma aula com nome longo empurra a
+   duração para fora da tela, que foi o defeito da coluna de 32 px da etiqueta
+   (acabamento.test.js). O nome da aula é o que fica quando tudo aperta.
+
+   ACABAMENTO (04/11/2026): o estado NÃO é coluna. Com "Não iniciada" competindo
+   por largura, no computador ela virava texto desenhado por cima do título. O
+   estado agora é a marca de 16 px, com o nome em .so-leitor. */
+.aula-link {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--espaco-3);
+  padding: var(--espaco-3) var(--espaco-1);
+  min-height: var(--alvo-toque);
+  color: var(--tinta);
+  text-decoration: none;
+}
+
+.aula-link:hover {
+  text-decoration: underline;
+}
+
+/* A marca do estado: círculo de 16 px na cor da linha, vazio ou com ponto no
+   centro. O --cor chega do JS (a cor da LINHA da estação, como na folha); sem
+   ela o cair-voltar é a tinta, nunca uma cor escrita à mão. Os dois tamanhos
+   são --espaco-4 (16 px), o mesmo número que o pedido deu. */
+.aula-marca {
+  box-sizing: border-box;
+  width: var(--espaco-4);
+  height: var(--espaco-4);
+  border-radius: var(--raio-estacao);
+  border: var(--anel-trancada) solid var(--cor, var(--tinta));
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.aula-marca-aberta::after {
+  content: "";
+  position: absolute;
+  inset: var(--espaco-1);
+  border-radius: var(--raio-estacao);
+  background: var(--cor, var(--tinta));
+}
+
+/* S14b2 item 8 (04/11/2026): a aula ESTUDADA é o círculo CHEIO. Os três estados
+   se distinguem pela quantidade de tinta, não por cor nova nem por texto: vazio
+   (não iniciada), ponto no centro (aberta), disco (estudada). A regra fica neste
+   arquivo e não no aula.css porque as DUAS telas montam `aula-marca-<estado>`
+   (telas/aulas.js:109 e telas/aula.js:822) — um desenho por tela seria a regra 9
+   pedindo para ser quebrada, e é assim que a folha e a lista divergiriam em seis
+   meses. */
+.aula-marca-estudada {
+  background: var(--cor, var(--tinta));
+}
+
+/* S18a-fix-4 (05/11/2026): a PULADA tem marca própria — o mesmo anel, tracejado.
+   Sem cor nova: o anel continua na --cor da linha, e o traço é o que diz que a
+   pessoa dispensou a aula em vez de não ter chegado nela. */
+.aula-marca-pulada {
+  border-style: dashed;
+}
+
+/* Parte C: a marca muda de não-iniciada para aberta quando a pessoa volta da aba
+   do YouTube, e de aberta para ESTUDADA quando a aula fecha (S14b2 item 6). A
+   transição é do CSS, com o tempo do token; --movimento-abrir é o tempo da
+   folha, e no prefers-reduced-motion o próprio token vai a zero, então a casa já
+   trata o "na hora" sem uma regra aqui.
+
+   O QUE MUDA, E POR QUE A LISTA TEM DOIS NOMES: o "aberta" é o ponto, desenhado
+   por ::after, e o que aparece aqui é a BORDA; o "estudada" é o disco CHEIO, que
+   é `background`. Transicionar só border-color fazia o círculo encher de uma vez
+   enquanto a borda suavizava — e o item 6 pede explicitamente "enche ... com
+   --movimento-abrir". background-color é um canal que o navegador interpola
+   junto, então um nome a mais na lista custa zero e é o que faz a marca encher. */
+.aula-marca {
+  transition:
+    border-color var(--movimento-abrir) var(--curva-chegada),
+    background-color var(--movimento-abrir) var(--curva-chegada);
+}
+
+.aula-n {
+  color: var(--tinta);
+  font-family: var(--fonte-mono);
+  /* Largura fixa para alinhar: dois caracteres, porque uma estação chega a 93
+     aulas e o 1 da Aula 1 e o 9 da Aula 93 têm de cair no mesmo lugar. Não é
+     número à mão: é o --espaco-4 da casa medindo a coluna do maior número. */
+  min-width: var(--espaco-4);
+  text-align: right;
+}
+
+.aula-titulo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--espaco-2);
+  min-width: 0;
+}
+
+/* Título longo quebra em até duas linhas e corta com reticências, sem estourar a
+   largura (folha e página, item A.2 e B.2). O clamp é da célula do texto, não do
+   contêiner: é o contêiner que segura a etiqueta, e clamp num flex cortaria a
+   etiqueta junto. */
+.aula-titulo-texto {
+  min-width: 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+/* S18a-fix (item 1, o olho em 375 px): o clamp de DUAS linhas era a régua do
+   corte. Numa lista em coluna de 93 linhas, o título de "Sistemas de Numeração
+   ..." saía cortado com reticências três vezes seguidas — três aulas diferentes
+   com o mesmo nome, e a pessoa não tinha como saber quais eram. O corte serve à
+   FOLHA, onde uma linha de cada estação compete com outras 69; na LISTA a linha
+   É o título, e o espaço de baixo não custa nada a quem rola.
+   `display: block` é o que desfaz o clamp: sem -webkit-box, as linhas vêm todas. */
+.aula-link .aula-titulo-texto {
+  display: block;
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
+  overflow: visible;
+}
+
+/* A etiqueta de exercício, no mesmo estilo dos selos de estado do Explorar:
+   mono, --tipo-nota, maiúscula, --raio-selo. Não compete com o título: ela vem
+   depois e quebra junto. */
+.aula-etiqueta {
+  font-family: var(--fonte-mono);
+  font-size: var(--tipo-nota);
+  text-transform: uppercase;
+  letter-spacing: var(--espacamento-placa);
+  padding: 2px var(--espaco-2);
+  border-radius: var(--raio-selo);
+  background: var(--superficie);
+  color: var(--tinta);
+}
+
+.aula-duracao {
+  color: var(--tinta);
+  font-family: var(--fonte-mono);
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* O ponto de retorno é o anel "você está aqui" em volta da MARCA, o mesmo
+   box-shadow do selo da linha atual no metro.css (.linhas .selo[aria-pressed]).
+   Saiu a barra preta de 6 px na esquerda: com duas colunas ela empurrava o
+   título e o texto do estado se desenhava sobre ele. aria-current="step" é o que
+   a tela e o teste escrevem: é passo de uma sequência, não "true" genérico. */
+.aula-link[aria-current="step"] .aula-marca {
+  box-shadow: 0 0 0 var(--anel-foco) var(--tinta);
+}
+
+/* ── o erro honesto: o arquivo das aulas não está neste aparelho ───────── */
+.aulas-erro {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-2);
+  padding: var(--espaco-4);
+  border-radius: var(--raio-placa);
+  background: var(--superficie);
+  border-left: var(--espessura-borda-painel) solid var(--cor, var(--tinta));
+}
+
+.aulas-erro p {
+  margin: 0;
+}
+
+/* ── a tela estreita: a linha vira coluna (S18a-fix, item 1) ─────────────
+ *
+ * Em 375 px a grade de duas colunas deixava ~250 px para o título de três
+ * linhas, e foi assim que o clamp cortou "Sistemas de Numeração…". Abaixo de
+ * 600 px a linha é UMA coluna só: o título ocupa a largura inteira sem corte, e
+ * a duração e o botão descem para a linha de baixo. De 600 px para cima nada
+ * aqui existe, e a grade de duas colunas continua como estava.
+ *
+ * O botão vai à DIREITA (`justify-self: end`) porque é onde o polegar o achava
+ * antes, e o `width: auto` desfaz o stretch da grade — discreto quer dizer a
+ * largura do texto, não a largura da tela. */
+@media (max-width: 599px) {
+  .aula-item {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+  }
+
+  /* O título passa a ser a ÚLTIMA coluna da primeira linha (3 colunas, não 4):
+     com a duração fora da régua, ele fica com a largura toda que sobra do
+     número. O `grid-column: 3` da duração é o que a põe na linha de baixo,
+     embaixo do TÍTULO e não do anel, e o `row-gap` dá o respiro entre as duas. */
+  .aula-link {
+    grid-template-columns: auto auto minmax(0, 1fr);
+    row-gap: var(--espaco-1);
+  }
+
+  /* S18a-fix-4: antes era `1 / -1` e a duração caía embaixo DO ANEL, longe do
+     título que ela descreve. Coluna 3 = a coluna do título; a linha continua a
+     mesma de antes (o grid a empurra para baixo), só que alinhada com ele. */
+  .aula-duracao {
+    grid-column: 3;
+    text-align: left;
+  }
+
+  .aulas-pular {
+    justify-self: end;
+    width: auto;
+  }
+}
+
+/* ── o computador: a lista ganha fôlego, e só ──────────────────────────── */
+@media (min-width: 1024px) {
+  .aulas {
+    padding: var(--espaco-6) var(--espaco-6) calc(var(--espaco-8) + var(--margem-segura-baixo));
+  }
+
+  /* ACABAMENTO (04/11/2026, Chrome em 1280 px): as DUAS colunas da lista foram a
+     causa do texto sobreposto. Cada coluna ficava com ~340 px, a célula do título
+     encolhia até zero e "Não iniciada" era desenhado por cima do título. O desenho
+     pedido é uma coluna só de no máximo --largura-leitura, e é ela que fica: a
+     ordem da lista é a ordem da fonte e o `ol` continua percorrendo em coluna, só
+     que agora há uma coluna. Nenhuma regra de grade aqui — o que não existe não
+     pode voltar por cima. */
+
+}

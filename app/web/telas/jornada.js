@@ -1,0 +1,45 @@
+// Projeto Atlas — a tela JORNADA: o metrô de dentro do casco (S3a-2a).
+//
+// POR QUE EXISTE: a fatia S3a-2a liga as rotas ao casco, e a primeira tela do
+// app é a do metrô (2c/2d). O desenho inteiro já mora em web/metro.js, com 69
+// testes; este arquivo é fino de propósito — ele só traduz o contexto do casco
+// para os `deps` que o `subirMetro` já aceita. Regra da casa: nada de regra de
+// tela aqui; quem decide o que destranca, o que tranca e o que é marco é o
+// core/viagem.js, chamado pelo metro.js.
+//
+// O CATÁLOGO É UMA VEZ: `ctx.catalogo` é a PROMESSA que o casco guardou. Trocar
+// o `loadCatalog` do módulo por uma função que devolve essa promessa é o que
+// impede duas buscas ao mesmo JSON quando a pessoa vai e volta entre abas — e é
+// o motivo de `modulos` ser espalhado num objeto novo em vez de passado direto:
+// mutar o namespace importado não é possível, e fingir que é criaria um dublê
+// com interface inventada (o defeito do `applyNote` de 32469d9, que passou em
+// todos os testes e quebrou no navegador).
+import { subirMetro } from '../metro.js';
+
+/**
+ * Monta a Jornada na raiz escolhida pelo casco.
+ *
+ * @param {Element} raiz o contêiner da tela (já dentro do `#conteudo`)
+ * @param {{catalogo: Promise<object>, modulos: object}} ctx contexto do casco
+ * @returns {Promise<object>} o que o `subirMetro` devolver
+ */
+export async function montar(raiz, ctx) {
+  const modulos = {
+    ...ctx.modulos,
+    // A promessa do casco, não uma chamada nova ao main.js.
+    loadCatalog: () => ctx.catalogo
+  };
+  // S5 parte 2: a folha é ROTA, e quem lê o endereço é o casco. Sem entregar o
+  // slug aqui, #/estacao/<slug> montava a Jornada sem painel nenhum — a rota
+  // existia, o folha.js existia, os testes passavam, e nada aparecia na tela.
+  // S10c: o documento e a janela do casco seguem o mesmo caminho da promessa
+  // do catálogo. Antes disto, o subirMetro caía no `document` global
+  // (metro.js:934) — no navegador, uma coincidência; em teste, um
+  // ReferenceError que deixou o web/casco.js nunca montado num mini-DOM. E sem
+  // a janela, o fechar da folha não navegava: o metro.js:945 aceitou `null`
+  // calado, e o Esc viraria no-op dentro do casco.
+  return subirMetro({
+    root: raiz, modulos, folha: ctx.folha,
+    document: ctx.document, window: ctx.window
+  });
+}
