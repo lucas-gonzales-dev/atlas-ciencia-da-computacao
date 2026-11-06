@@ -553,6 +553,81 @@ test('S20b-1b · o input de importar tem o piso de toque declarado', async () =>
   assert.equal(/background:/.test(input.corpo), false, 'o input ganhou fundo: hierarquia trocada por um pedido de alvo');
 });
 
+/**
+ * S17b-fix (item 1) — O PERFIL INTEIRO NUMA FAIXA DE 360 PX.
+ *
+ * Escrito ANTES do conserto, porque é a trava da prova: rebotar
+ * `max-width: var(--largura-lateral)` tem de derrubar alguma coisa sozinha. O
+ * Claude mediu no Chrome com a atlas-v91: `section` do Perfil com 360 px numa
+ * janela de 1.920, e o resto da tela vazio. A causa é um token EMPRESTADO de
+ * outra tela — --largura-lateral é a coluna direita da Jornada (o painel ao lado
+ * do mapa), não uma largura de leitura.
+ *
+ * O piso da conta é a coluna, e a trava é DECLARADA de propósito: node não tem
+ * navegador, então aqui se prova que a folha manda o Perfil usar a largura do
+ * computador, e que o bilhete de 5 casas tem `minmax(0, …)` — o `1fr` puro tem
+ * piso automático igual ao maior nome de estação, e em 1280 a fileira saía para
+ * fora do próprio cartão. Os px reais fecham no testar_pagina.
+ */
+test('S17b-fix · o Perfil usa a tela, e não a coluna da Jornada', async () => {
+  const tokens = escanear(await ler('web/tokens.css'));
+  const px = (nome) => {
+    const m = new RegExp(`--${nome}:\\s*(\\d+(?:\\.\\d+)?)px`).exec(tokens.map((r) => r.corpo).join(';'));
+    assert.ok(m, `falta o token --${nome}: esta conta lê os números da casa, nenhum à mão`);
+    return Number(m[1]);
+  };
+  const lateral = px('largura-lateral');
+  const computador = px('bp-computador');
+
+  const perfil = escanear(await ler('web/telas/perfil.css'));
+  const larga = perfil.filter((r) => ehMediaDesktop(r.media) && /(^|[,\s>])\.perfil(?![\w-])/.test(r.seletor));
+  assert.ok(larga.length >= 1, 'nenhuma regra de .perfil dentro do @media de 1024: a largura do Perfil voltou a ser a da base');
+  const teto = larga.find((r) => /max-width:/.test(r.corpo));
+  assert.ok(teto, `.perfil no computador sem max-width: o cartão cresce sem teto e a linha de leitura passa de 1.920`);
+  assert.doesNotMatch(teto.corpo, /max-width:\s*var\(--largura-lateral\)/,
+    `o Perfil voltou a --largura-lateral (${lateral} px): a coluna direita da Jornada como largura de página, e o resto da janela fica vazio`);
+  assert.match(teto.corpo, /max-width:\s*var\(--bp-computador\)/,
+    `--bp-computador (${computador} px) é o número da casa em que a janela deixa de ser estreita; o teto do Perfil não é mais um palpite: "${teto.corpo}"`);
+
+  // O bilhete: 5 casas por fileira. `1fr` tem piso automático (o maior nome de
+  // estação), e com o Perfil largo a conta não fecha — a fileira sai do cartão.
+  const fileira = perfil.find((r) => naBase(r) && /(^|[,\s>])\.perfil-bilhete-fileira(?![\w-])/.test(r.seletor));
+  assert.ok(fileira, 'sumiu a regra do bilhete: 7 fileiras de 5 casas');
+  assert.match(fileira.corpo, /grid-template-columns:\s*repeat\(\s*5,\s*minmax\(0,\s*1fr\)\s*\)/,
+    `o bilhete voltou a repeat(5, 1fr): o piso automático de 1fr é o maior nome de estação, e em 1280 a fileira transborda o próprio cartão — "${fileira.corpo}"`);
+
+  // As duas séries lado a lado, de 1024 para cima. Abaixo disso é UMA coluna: a
+  // mesma folha, sem fork de DOM — o wrapper existe nos dois, só muda a grade.
+  const series = perfil.filter((r) => /(^|[,\s>])\.perfil-series(?![\w-])/.test(r.seletor));
+  assert.ok(series.length >= 1, '.perfil-series sem regra: o wrapper que põe as duas séries lado a lado não existe');
+  const dupla = series.find((r) => ehMediaDesktop(r.media) && /grid-template-columns:/.test(r.corpo));
+  assert.ok(dupla, 'as duas séries não viram duas colunas de 1024 para cima (item 1 do pedido)');
+  assert.match(dupla.corpo, /grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(0,\s*1fr\)/,
+    `duas colunas sem minmax(0,…) é o piso automático de 1fr de novo, agora dentro do Perfil largo: "${dupla.corpo}"`);
+  const base = series.find((r) => naBase(r));
+  assert.ok(!base || !/grid-template-columns:.*(1fr\s+1fr)/.test(base.corpo),
+    'as duas séries viraram duas colunas ABAIXO de 1024: o pedido era uma coluna só');
+});
+
+/**
+ * S17b-fix (item 4) — o quarto alvo nu do Perfil. Medido pelo Claude em 375 e
+ * 768: o link da próxima estação mede menos de 24 px. A varredura da S20b-1a não
+ * o pegou porque o template é `el(doc, \`${CLASSE}-proxima-link\`, …, 'a')` e o
+ * \${} é descartado na extração — o modelo só enxerga classe escrita por extenso.
+ * É o mesmo buraco do `<input type=file>` da S20b-1b, e a resposta é a mesma:
+ * trava nominal, caixa, e a letra intacta.
+ */
+test('S17b-fix · o link da próxima estação tem o piso de toque declarado', async () => {
+  const perfil = escanear(await ler('web/telas/perfil.css'));
+  const link = perfil.find((r) => /(^|[,.\s>])\.perfil-proxima-link(?![\w-])/.test(r.seletor));
+  assert.ok(link, '.perfil-proxima-link não tem regra na folha: é o <a> criado em perfil.js:285, e sem caixa a altura dele é a linha de letra');
+  assert.match(link.corpo, /min-height:\s*var\(--alvo-toque\)/,
+    'o link da próxima voltou a medir a própria letra — menos dos 44 px da casa');
+  assert.match(link.corpo, /display:\s*inline-flex/, 'min-height não existe num <a> em linha: sem inline-flex o piso é decorativo');
+  assert.doesNotMatch(link.corpo, /font-size:\s*\d/, 'tamanho de letra à mão na regra do alvo');
+  assert.doesNotMatch(link.corpo, /background:/, 'o alvo ganhou fundo: hierarquia trocada por um pedido de caixa');
+});
+
 test('réguas 6 · trocar de aba leva ao topo de QUEM ESTÁ ROLANDO', async () => {
   const js = await ler('web/casco.js');
   assert.match(js, /win\.scrollTo\?\.\(0, 0\)/, 'o casco perdeu o rolamento ao topo da janela');

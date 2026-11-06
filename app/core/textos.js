@@ -1305,6 +1305,10 @@ export const caderneta = Object.freeze({
     recordes: 'Recordes',
     proxima: 'A próxima coisa',
     abreQuando: (criterio) => `Abre quando: ${criterio}`,
+    // S17b-fix (item 2): o espaço vazio do domínio é contorno e nome, e a régua
+    // sobe para o alto da seção. No leitor de tela o contorno não diz nada — esta
+    // frase é o que separa «ainda não aconteceu» de «sumiu da tela» (régua 1).
+    semCarimbo: (nome) => `${nome}, ainda sem carimbo`,
     fileira: (numero) => `Linha ${numero}`,
     ganho: (data) => `Carimbado em ${data}`,
     comMarca: (nome, data) => `${nome}, ${data}`,

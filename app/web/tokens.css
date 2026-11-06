@@ -195,6 +195,14 @@
    * a linha de leitura pedida pelo desenho, e mora aqui porque a regra 11 da casa
    * não aceita número solto no CSS de uma tela. */
   --largura-leitura: 720px;
+  /* S17b-fix (item 2): a LARGURA DE UMA CÉLULA da grade do domínio — o piso do
+   * `minmax()` de `repeat(auto-fill, …)`, que é o que diz quantas células cabem.
+   * 160 px é o menor espaço em que um nome de estação entra em duas linhas com o
+   * contorno ao lado. À esquerda do --bp-computador a tela é mais estreita que
+   * 2×160 + o ar, então a grade DESCE a uma coluna sozinha: o vazio compacto não
+   * cria rolagem lateral em lugar nenhum. Literal aqui, e não na folha, porque é
+   * token de layout (o mesmo tratamento do --largura-lateral e do --altura-barra). */
+  --celula-caderneta: 160px;
   --espessura-borda-painel: 6px;  /* a borda esquerda, na cor da linha */
 
   --curva-mecanica: cubic-bezier(0, 0, 0.2, 1);

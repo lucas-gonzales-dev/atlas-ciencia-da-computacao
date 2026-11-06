@@ -35,6 +35,45 @@ export function revisoesFeitas(calendario) {
 }
 
 /**
+ * As respostas que os CARTÕES do aparelho guardam (S17b-fix, item 3).
+ *
+ * POR QUE EXISTE: `estado.revisoes` é o calendário do sistema antigo. Desde que a
+ * revisão passou a viver em `core/cartoes.js`, com o `historico` de cada cartão,
+ * o número da tela dizia «0» para quem tinha respondido sete cartões — a régua
+ * apontava para um balde que ninguém mais enche. Este módulo soma as entradas de
+ * `historico`, que é o que de fato aconteceu.
+ *
+ * A CONTA É SOMA, e não «um no lugar do outro»: um aparelho que ainda tem o
+ * calendário velho (uma viagem importada de um backup antigo) tem respostas nos
+ * dois baldes, e nenhuma delas deixa de ter acontecido por causa de um formato.
+ * São baldes separados por construção — `progress-io.js` escreve um e
+ * `serializarCartoes` o outro — e não há como o mesmo gesto cair nos dois.
+ *
+ * Aceita as duas formas do balde (o arquivo `{ cartoes: {...} }` e o mapa puro),
+ * a mesma conta de `core/caderneta.js`: a tela não precisa saber qual das duas
+ * carregou. Zero DOM, zero storage.
+ */
+export function revisoesDosCartoes(cartoes) {
+  const mapa = cartoes && cartoes.cartoes && typeof cartoes.cartoes === 'object'
+    ? cartoes.cartoes
+    : (cartoes && typeof cartoes === 'object' ? cartoes : {});
+  let feitas = 0;
+  for (const c of Object.values(mapa)) {
+    if (!c || typeof c !== 'object' || Array.isArray(c)) continue;
+    if (Array.isArray(c.historico)) feitas += c.historico.length;
+  }
+  return feitas;
+}
+
+/**
+ * O número da placa «Revisões feitas»: calendário antigo + histórico dos cartões.
+ * Uma função só para a tela chamar uma vez, em vez de somar na folha.
+ */
+export function revisoesRealizadas(calendario, cartoes) {
+  return revisoesFeitas(calendario) + revisoesDosCartoes(cartoes);
+}
+
+/**
  * Os quatro marcos, com nome, critério e estado. Sem progresso, devolvem a
  * promessa ("em andamento", conta em zero): o marco em branco é honesto.
  */

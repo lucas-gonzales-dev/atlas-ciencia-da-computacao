@@ -27,6 +27,17 @@ import { abrirAula, estudarAula, serializarEstudo, lerEstudo, ESTUDO_KEY } from 
 import { criarCartao, revisarCartao, serializarCartoes, lerCartoes, CARTOES_KEY } from '../core/cartoes.js';
 import { aplicarResultado } from '../core/desafio.js';
 import { concluirEstacao, progressoVazio } from '../core/viagem.js';
+// S17b-fix (item 3): o calendário do sistema ANTIGO é escrito pelas funções dele,
+// nunca por um objeto à mão — `registrarRevisao` é quem põe a entrada em
+// `historico`, e é ela que `revisoesFeitas` conta.
+import {
+  STORAGE_KEY as REVISOES_KEY,
+  agendarConclusao,
+  registrarRevisao,
+  serializeRevisoes,
+  parseRevisoes,
+} from '../core/revisao.js';
+import { revisoesFeitas } from '../core/dados-pessoa.js';
 import { caderneta } from '../core/caderneta.js';
 import { caderneta as C } from '../core/textos.js';
 import { salvarViagem } from '../web/metro.js';
@@ -179,18 +190,78 @@ test('S17b · a tela pinta os 51 espaços: os 8 do percurso e os 43 do domínio'
   assert.ok(textoDe(terminal[0]).includes(C.dominio.terminal.nome), 'a fileira do terminal perdeu o terminal');
 });
 
-test('S17b · o espaço vazio diz o critério, e não só que está vazio', async () => {
+/* A trava DO ITEM 2, reescrita com o veredito já conhecido (as três frases do
+   domínio são literais do núcleo, e nenhuma das três começa com «Abre quando»).
+   A antiga era «cada espaço vazio traz a régua»; a do S17b-fix é a conta
+   contrária: UMA por critério no alto da seção, e NENHUMA em cada célula.
+   São 35 espaços com o mesmo critério, mais 7 de outro, mais o terminal. Em 7.800
+   px de seção isso é 43 vezes a mesma frase. A régua sobe para
+   `.perfil-dominio-regra` e o vazio fica com o contorno e o nome. O critério não
+   sumiu do leitor de tela: vai no `aria-label` de cada célula, onde é a ÚNICA
+   coisa que se ouve num vazio compacto — sem frase pintada, sem contorno de texto. */
+test('S17b-fix · o domínio repete o critério UMA vez, e o vazio é contorno e nome', async () => {
   const v = viagemReal();
   const ctx = ctxCom({ storage: v.storage, completed: v.progresso.completed, indice: v.indice });
   await abrir(ctx);
 
-  const vazios = vaziosDaTela(ctx._raiz);
+  const dominio = comClasse(ctx._raiz, /^perfil-dominio$/)[0];
+  // A seção do percurso não tem classe própria (o pedido manda NÃO mudá-la), e é
+  // o `aria-label` da lista que a nomeia — a mesma frase pintada no título.
+  const percurso = comClasse(ctx._raiz, /^perfil-carimbos$/).find((n) => n.attrs['aria-label'] === C.tela.seriePercurso);
+  assert.ok(dominio && percurso, 'sumiu uma das duas séries da folha');
+  const noDom = textoDe(dominio);
+
+  // A régua das 35 estações é UMA frase compartilhada — ela vive no alto da
+  // seção, dita uma vez. Os fins de linha e o terminal têm critério PRÓPRIO e
+  // continuam com «Abre quando: …» no lugar de cada um: por isso `criterioLinha`
+  // é contado 7 vezes (uma por fileira) e o da estação, uma só.
+  const vezes = (texto, s) => texto.split(s).length - 1;
+  assert.equal(vezes(noDom, C.dominio.criterioEstacao), 1, `a régua da estação aparece ${vezes(noDom, C.dominio.criterioEstacao)} vezes no domínio; o item 2 pede UMA, no alto da seção`);
+  assert.equal(vezes(noDom, C.dominio.criterioLinha), 7, `o critério do fim de linha aparece ${vezes(noDom, C.dominio.criterioLinha)} vezes, e são 7 fileiras — cada uma com o seu`);
+  assert.equal(vezes(noDom, C.dominio.terminal.criterio), 1, 'o critério do terminal sumiu ou se repetiu');
+  const regras = comClasse(dominio, /^perfil-dominio-regra$/);
+  assert.equal(regras.length, 1, `${regras.length} blocos de régua no domínio; tem de ser um só, no alto`);
+  assert.ok(textoDe(regras[0]).includes(C.dominio.criterioEstacao), 'a régua do alto da seção não é a das estações');
+
+  // O vazio compacto: só contorno e nome. Nem a régua, nem a palavra de estado,
+  // nem data — e com o nome, porque célula sem palavra é ausência. O critério não
+  // sumiu: vai no `aria-label`, que `textoDe` não lê.
+  // O id do núcleo é `dominio:<curso>` (core/caderneta.js, serieDominio): comparar
+  // com o id cru do catálogo daria zero espaços e a trava viraria vazia.
+  const estacoes = new Set(GRADE.map((c) => `dominio:${c.id}`));
+  const nucle = noNucleo(v);
+  const compactos = vaziosDaTela(dominio).filter((n) => n.className.split(/\s+/).includes('perfil-carimbo-compacto'));
+  const esperados = nucle.dominio.filter((c) => !c.data && estacoes.has(c.id) && !c.marca).length;
+  assert.ok(esperados > 20, `a semeadura não deixou estações vazias no domínio (${esperados}): esta trava virou vazia`);
+  assert.equal(compactos.length, esperados, `${compactos.length} espaços compactos contra ${esperados} estações vazias no núcleo`);
   const reAbreQuando = new RegExp(C.tela.abreQuando('').replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-  for (const n of vazios) {
+  for (const n of compactos) {
     const t = textoDe(n);
-    assert.ok(reAbreQuando.test(t), `espaço vazio sem a régua «Abre quando: …»: "${t.slice(0, 90)}"`);
-    assert.ok(t.length > 24, `espaço vazio sem frase nenhuma: "${t}"`);
-    assert.ok(!/\d{4}-\d{2}-\d{2}/.test(t), `espaço vazio com data crua em ISO: "${t}"`);
+    assert.ok(!reAbreQuando.test(t), `espaço compacto repetindo a régua: "${t.slice(0, 70)}"`);
+    assert.ok(!t.includes(C.dominio.vazio), `espaço compacto com a palavra de estado: "${t}"`);
+    assert.ok(!/\d{2}\/\d{2}\/\d{4}/.test(t), `espaço vazio com data de carimbo: "${t}"`);
+    assert.ok(!/\d{4}-\d{2}-\d{2}/.test(t), `espaço compacto com ISO crua: "${t}"`);
+    assert.equal(n.children.length, 2, `espaço compacto com ${n.children.length} filhos; são o selo e o nome, sem o invólucro do cabecalho`);
+    assert.equal(n.attrs.role, 'img', 'o espaço compacto perdeu o papel de imagem');
+    const rotulo = n.attrs['aria-label'] || '';
+    assert.ok(rotulo.includes('Abre quando'), `espaço compacto mudo no leitor de tela: aria-label = ${JSON.stringify(rotulo)}`);
+    assert.ok(t.trim().length > 0, 'espaço compacto sem o nome da estação');
+  }
+
+  // O PERCURSO não mudou, e o pedido é explícito: lá cada critério é diferente,
+  // e os 8 espaços continuam com a régua pintada.
+  const vaziosPercurso = vaziosDaTela(percurso);
+  assert.ok(vaziosPercurso.length > 0, `a semeadura não deixou vazio no percurso (${vaziosPercurso.length}): esta metade da trava virou vazia`);
+  for (const n of vaziosPercurso) {
+    assert.ok(reAbreQuando.test(textoDe(n)), `espaço vazio do percurso perdeu a régua: "${textoDe(n).slice(0, 70)}"`);
+    assert.ok(!n.className.split(/\s+/).includes('perfil-carimbo-compacto'), 'o percurso foi compactado junto — o pedido era só o domínio');
+  }
+
+  // O que GANHOU continua no padrão: a frase medida e o dia.
+  for (const n of ganhosDaTela(dominio)) {
+    const t = textoDe(n);
+    assert.ok(/\d{2}\/\d{2}\/\d{4}/.test(t), `carimbo ganho no domínio perdeu o dia: "${t.slice(0, 70)}"`);
+    assert.ok(!n.className.split(/\s+/).includes('perfil-carimbo-compacto'), 'ganho pintado como célula compacta');
   }
 });
 
@@ -308,6 +379,72 @@ test('S17b · a próxima coisa vem do núcleo, com a palavra dele', async () => 
     assert.ok(!todo.includes(C.tela.proxima), 'a tela inventou uma seção de próxima onde o núcleo não achou estação');
   }
 });
+
+// ─────────── 3b. «Revisões feitas» conta os dois baldes (S17b-fix, item 3) ───────────
+
+/**
+ * O número da placa «Revisões feitas». O defeito medido pelo Claude na atlas-v91:
+ * dizia 0 para quem tinha revisado 7 cartões, porque a tela somava só
+ * `estado.revisoes` — o calendário do sistema antigo, que nenhuma tela enche mais
+ * desde que a revisão passou a viver no `historico` de cada cartão.
+ *
+ * Os dois baldes são escritos por quem os enche no aparelho: o velho por
+ * `agendarConclusao` + `registrarRevisao` (core/revisao.js) e o novo por
+ * `criarCartao` + `revisarCartao` (core/cartoes.js). Nada aqui é um objeto à mão, e
+ * é isso que faz a trava cair se alguém trocar a conta de volta para um balde só.
+ */
+const numeroDe = (raiz, nome) => {
+  const caixa = comClasse(raiz, /^perfil-numero$/).find((n) => textoDe(n).includes(nome));
+  assert.ok(caixa, `a placa «${nome}» não está na tela`);
+  return textoDe(comClasse(caixa, /^perfil-numero-valor$/)[0]).trim();
+};
+
+test('S17b-fix · revisões do calendário antigo E dos cartões somam na placa', async () => {
+  const v = viagemReal();
+  // O calendário velho: uma estação agendada e UMA revisão respondida nele.
+  const calend = registrarRevisao(agendarConclusao({}, L2, '2026-11-01'), L2, 'lembrei', '2026-11-04');
+  const storage = v.storage;
+  storage.setItem(REVISOES_KEY, serializeRevisoes(calend));
+
+  // Os cartões do aparelho: a viagem real já tem 1 resposta, e mais duas entradas
+  // no mesmo cartão, em dias diferentes — três respostas, não três cartões.
+  let cartoes = v.cartoes;
+  cartoes = revisarCartao(cartoes, 'c1', { nota: 'lembrei', confianca: 'acho' }, '2026-11-05T09:00').cartoes;
+  cartoes = revisarCartao(cartoes, 'c1', { nota: 'errei' }, '2026-11-06T09:00').cartoes;
+  storage.setItem(CARTOES_KEY, serializarCartoes(cartoes));
+
+  const ctx = ctxCom({ storage, completed: v.progresso.completed, indice: v.indice });
+  await abrir(ctx);
+
+  const noVelho = revisoesFeitasLido(storage);
+  const noNovo = lerCartoes(storage.getItem(CARTOES_KEY));
+  const respostas = Object.values(noNovo.cartoes).reduce((s, c) => s + c.historico.length, 0);
+  assert.equal(respostas, 3, `a semeadura dos cartões deu ${respostas} respostas; a conta da trava perdeu o dente`);
+  assert.equal(noVelho, 1, 'o calendário antigo não produziu 1 revisão: a metade velha da trava perdeu o dente');
+
+  assert.equal(numeroDe(ctx._raiz, 'Revisões feitas'), String(noVelho + respostas),
+    `a placa não soma os dois baldes (${noVelho} do calendário + ${respostas} dos cartões)`);
+});
+
+test('S17b-fix · sem cartão nenhum a placa diz só o calendário, e sem calendário diz 0', async () => {
+  // O outro lado: a soma não pode inventar nada. Aparelho com o calendário velho e
+  // nenhum cartão → 1. Aparelho com os dois vazios → 0, e não vazio nem «—».
+  const calend = registrarRevisao(agendarConclusao({}, L2, '2026-11-01'), L2, 'lembrei', '2026-11-04');
+  const soCalend = aparelhoCom({});
+  soCalend.setItem(REVISOES_KEY, serializeRevisoes(calend));
+  const velho = ctxCom({ storage: soCalend, completed: [], indice: indiceDe({}) });
+  await abrir(velho);
+  assert.equal(numeroDe(velho._raiz, 'Revisões feitas'), '1', 'um balde vazio deixou de somar o que o outro tem');
+
+  const limpo = ctxCom({ storage: aparelhoCom({}), completed: [], indice: indiceDe({}) });
+  await abrir(limpo);
+  assert.equal(numeroDe(limpo._raiz, 'Revisões feitas'), '0', 'sem dado nenhum a placa deixou de ser 0');
+});
+
+/** `revisoesFeitas` lida como a tela lê: pelo texto cru da chave do aparelho. */
+function revisoesFeitasLido(storage) {
+  return revisoesFeitas(parseRevisoes(storage.getItem(REVISOES_KEY)));
+}
 
 // ───────────────────── 4. o carimbo novo desce uma vez ─────────────────────
 

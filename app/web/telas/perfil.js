@@ -29,7 +29,7 @@
 // string — nunca `new Date(iso)`, que em fuso negativo devolve o dia anterior e
 // o bilhete mentiria (lição da 2d-2). `hoje` vem do ctx quando o aparelho não
 // tem o dia registrado; sem ctx, é o dia local do núcleo, uma vez só.
-import { exportarViagem, importarViagem, revisoesFeitas } from '../../core/dados-pessoa.js';
+import { exportarViagem, importarViagem, revisoesRealizadas } from '../../core/dados-pessoa.js';
 // S17b: a caderneta inteira (as duas séries, os recordes e a próxima) é conta de
 // núcleo. Esta folha só pinta o que core/caderneta.js decidiu.
 import { caderneta as cadernetaNucleo } from '../../core/caderneta.js';
@@ -135,19 +135,45 @@ function seloCarimbo(doc, c, ganho) {
  * Um carimbo da caderneta. `novo` desce uma vez (a folha faz o movimento, o CSS
  * manda na duração); `concluída antes` traz a MARCA e a data antiga em lugar da
  * frase medida — é o caso que o princípio 4 separa de propósito.
+ *
+ * S17b-fix (item 2, a Série do domínio com 7.800 px): `compacto` desenha o espaço
+ * vazio com SÓ o contorno e o nome, e `comCriterio` é o falso que decide se a
+ * régua «Abre quando: …» sai aqui ou uma vez só no alto da seção. No percurso os
+ * dois ficam no padrão (cada critério é diferente, e a régua é a informação); no
+ * domínio os 43 compartilham três critérios, então a régua sobe para o cabeçalho e
+ * o vazio encolhe para a fileira. O espaço CONTINUA presente e visível — o que
+ * deixou de se repetir foi a frase, não o carimbo.
+ *
+ * O vazio compacto não é mudo: ganha `aria-label` dizendo «sem carimbo». O
+ * contorno fino é a única coisa que separa um do outro na tela, e forma sem nome
+ * no leitor de tela é informação que só quem enxerga recebe (régua 1).
  */
-function carimbo(doc, c, hoje, novo) {
+function carimbo(doc, c, hoje, novo, { compacto = false, comCriterio = true } = {}) {
   const ganho = Boolean(c.data);
-  const item = el(doc, `${CLASSE}-carimbo${ganho ? '' : ` ${CLASSE}-vazio`}`);
+  const vazio = !ganho && !c.marca;
+  const magro = compacto && vazio;
+  const item = el(doc, `${CLASSE}-carimbo${ganho ? '' : ` ${CLASSE}-vazio`}${magro ? ` ${CLASSE}-carimbo-compacto` : ''}`);
   item.dataset.estado = ganho ? 'carimbado' : 'vazio';
   if (novo) item.dataset.novo = 'descer';
+  const selo = seloCarimbo(doc, c, ganho);
+  const nome = el(doc, `${CLASSE}-carimbo-nome`, c.nome, 'h3');
+  if (magro) {
+    // A célula compacta é o selo e o nome, SEM o invólucro `.perfil-carimbo-cab`
+    // no meio: ela é o item da grade, e uma caixa a mais dentro de uma célula de
+    // 160 px é o que faz o nome quebrar em três linhas. O `aria-label` é
+    // obrigatório — sem ele a célula seria, no leitor de tela, um nome solto sem
+    // estado nenhum (régua 1: forma que só quem enxerga lê é ausência).
+    item.append(selo, nome);
+    item.setAttribute('role', 'img');
+    item.setAttribute('aria-label', `${C.tela.semCarimbo(c.nome)} — ${C.tela.abreQuando(c.criterio)}`);
+    return item;
+  }
   const cab = el(doc, `${CLASSE}-carimbo-cab`);
-  cab.append(seloCarimbo(doc, c, ganho));
-  cab.append(el(doc, `${CLASSE}-carimbo-nome`, c.nome, 'h3'));
+  cab.append(selo, nome);
   item.append(cab);
   // O critério fica visível nos dois estados: no ganho ele diz o que foi medido,
   // no vazio ele diz o que falta. Escondê-lo do vazio seria o bilhete de volta.
-  item.append(linha(doc, 'carimbo-criterio', C.tela.abreQuando(c.criterio)));
+  if (comCriterio) item.append(linha(doc, 'carimbo-criterio', C.tela.abreQuando(c.criterio)));
   if (ganho) {
     const quando = linha(doc, 'carimbo-data', c.frase);
     quando.setAttribute('aria-label', C.tela.ganho(dia(c.data, hoje)));
@@ -162,6 +188,44 @@ function carimbo(doc, c, hoje, novo) {
     item.append(linha(doc, 'carimbo-vazio', c.frase || C.vazio));
   }
   return item;
+}
+
+/**
+ * Uma fileira do domínio: os carimbos daquela linha, com os vazios compactos
+ * dentro de `.perfil-dominio-grade` (a grade de células) e quem tem frase em
+ * linha própria, acima dela. Agrupar por estado, e não despejar tudo na mesma
+ * grade, é o que mantém o ganho legível: a célula compacta é `display: contents`
+ * na folha, e um carimbo com frase dentro dela seria texto espremido entre duas
+ * células de 160 px.
+ *
+ * A grade é `role="presentation"`: quem conta para o leitor de tela são os
+ * carimbos (cada compacto é `role="img"` com o rótulo), e uma caixa de layout a
+ * mais na árvore só faria o anúncio gaguejar.
+ */
+function fileiraDominio(doc, classe, itens, hoje, vistos, { linha = null, rotulo = null } = {}) {
+  const fileira = el(doc, classe);
+  if (linha !== null) fileira.dataset.linha = linha;
+  fileira.setAttribute('role', 'list');
+  if (rotulo) fileira.setAttribute('aria-label', rotulo);
+  let grade = null;
+  const abraGrade = () => {
+    if (grade) return grade;
+    grade = el(doc, `${CLASSE}-dominio-grade`);
+    grade.setAttribute('role', 'presentation');
+    fileira.append(grade);
+    return grade;
+  };
+  for (const c of itens) {
+    const opt = opcoesDominio(c);
+    const ganho = Boolean(c.data);
+    const item = carimbo(doc, c, hoje, vistos.novos.has(c.id), opt);
+    if (opt.compacto && !ganho) {
+      abraGrade().append(item);
+    } else {
+      fileira.append(item);
+    }
+  }
+  return fileira;
 }
 
 /** Uma seção da caderneta: título, e os espaços na ordem do núcleo. */
@@ -179,13 +243,39 @@ function secao(doc, nome, itens, hoje, vistos) {
 }
 
 /**
+ * Como cada espaço do domínio é desenhado. A régua das ESTAÇÕES (35 nós, todos
+ * iguais no núcleo — `criterio: C.dominio.criterioEstacao`) sobe para o alto da
+ * seção e não se repete embaixo; os fins de linha e o terminal têm critérios
+ * próprios, um por fileira, e continuam com «Abre quando: …» no lugar.
+ *
+ * Decidir pela FRASE DO CRITÉRIO e não pelo `id` é de propósito: o id é uma
+ * string do núcleo (`dominio:linha-3`), e parsear id de núcleo na tela é a tela
+ * reimpondo a forma que o núcleo escolheu. Se um carimbo novo do domínio chegar
+ * com outro critério, ele sai com a régua escrita — o desenhista não conhece a
+ * lista de ids por dentro.
+ */
+function opcoesDominio(c) {
+  const daEstacao = c.criterio === C.dominio.criterioEstacao;
+  return { compacto: daEstacao, comCriterio: !daEstacao };
+}
+
+/**
  * O domínio em fileiras por linha, como o bilhete já faz: uma fileira por linha
  * com as estações dela e o fim da linha no fim, e o terminal depois de todas.
  * A ordem é a do núcleo; aqui só se agrupa.
+ *
+ * S17b-fix (item 2): a régua do domínio são TRÊS frases para 43 espaços — uma por
+ * estação, uma por fim de linha, uma para o terminal. Ela aparece no alto da seção
+ * uma vez, e o vazio de baixo é contorno e nome. Não é sumário nem legenda
+ * escondida: é a mesma frase, dita uma vez em vez de 35. Os carimbos GANHOS
+ * continuam com a frase medida e o dia, porque ali o texto é o fato, não a régua.
  */
 function secaoDominio(doc, dominio, hoje, vistos) {
   const box = el(doc, `${CLASSE}-card ${CLASSE}-caderneta ${CLASSE}-dominio`);
   box.append(titulo(doc, C.tela.serieDominio, 'h2'));
+  const regra = el(doc, `${CLASSE}-dominio-regra`);
+  regra.append(linha(doc, 'carimbo-criterio', C.tela.abreQuando(C.dominio.criterioEstacao)));
+  box.append(regra);
   const porLinha = new Map();
   const semLinha = [];
   for (const c of dominio) {
@@ -199,18 +289,10 @@ function secaoDominio(doc, dominio, hoje, vistos) {
   }
   const fileiras = [...porLinha.keys()].sort((a, b) => a - b);
   for (const n of fileiras) {
-    const fileira = el(doc, `${CLASSE}-fileira`);
-    fileira.dataset.linha = String(n);
-    fileira.setAttribute('role', 'list');
-    fileira.setAttribute('aria-label', C.tela.fileira(n));
-    for (const c of porLinha.get(n)) fileira.append(carimbo(doc, c, hoje, vistos.novos.has(c.id)));
-    box.append(fileira);
+    box.append(fileiraDominio(doc, `${CLASSE}-fileira`, porLinha.get(n), hoje, vistos, { linha: String(n), rotulo: C.tela.fileira(n) }));
   }
   if (semLinha.length) {
-    const extra = el(doc, `${CLASSE}-fileira ${CLASSE}-fileira-terminal`);
-    extra.setAttribute('role', 'list');
-    for (const c of semLinha) extra.append(carimbo(doc, c, hoje, vistos.novos.has(c.id)));
-    box.append(extra);
+    box.append(fileiraDominio(doc, `${CLASSE}-fileira ${CLASSE}-fileira-terminal`, semLinha, hoje, vistos));
   }
   return box;
 }
@@ -499,13 +581,23 @@ export async function montar(raiz, ctx) {
     const numeros = el(doc, `${CLASSE}-numeros`);
     numeros.append(numero(doc, T.numeros.carimbos, `${r.concluidas}/${r.estacoes}`));
     numeros.append(numero(doc, T.numeros.linhas, `${r.linhasFechadas} de ${r.linhas.length}`));
-    numeros.append(numero(doc, T.numeros.revisoes, revisoesFeitas(estado.revisoes)));
+    // S17b-fix (item 3): `estado.revisoes` é o calendário do sistema antigo, e a
+    // revisão hoje mora no `historico` de cada cartão. Contar só o primeiro dizia
+    // «0 revisões» para quem tinha respondido sete cartões.
+    numeros.append(numero(doc, T.numeros.revisoes,
+      revisoesRealizadas(estado.revisoes, lerCartoes(estado.cartoes))));
     raizEl.append(numeros);
 
     // S17b: as duas séries, depois os recordes e a próxima. Os marcos da S9 saíram
     // daqui de propósito: ver o comentário no topo da folha.
-    raizEl.append(secao(doc, C.tela.seriePercurso, serie.percurso, hoje, vistos));
-    raizEl.append(secaoDominio(doc, serie.dominio, hoje, vistos));
+    // S17b-fix (item 1): as duas séries vão dentro de um wrapper, e é ele que
+    // divide a tela em duas colunas de 1024 para cima. Abaixo disso o wrapper é a
+    // coluna de sempre, com o mesmo ar do .perfil — as duas séries continuam uma
+    // embaixo da outra, e nenhum espaço da caderneta some com o wrapper.
+    const series = el(doc, `${CLASSE}-series`);
+    series.append(secao(doc, C.tela.seriePercurso, serie.percurso, hoje, vistos));
+    series.append(secaoDominio(doc, serie.dominio, hoje, vistos));
+    raizEl.append(series);
     const rec = secaoRecordes(doc, serie.recordes);
     if (rec) raizEl.append(rec);
     const prox = secaoProxima(doc, serie.proxima, estado.courses || []);

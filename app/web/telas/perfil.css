@@ -58,9 +58,12 @@
   gap: var(--espaco-2);
 }
 
+/* S17b-fix (item 1): `1fr` é um piso automático — a largura mínima de uma casa é
+   o maior nome de estação, e em 1280 a fileira inteira saía para fora do próprio
+   cartão. `minmax(0, 1fr)` deixa a casa encolher e o texto quebrar no lugar. */
 .perfil-bilhete-fileira {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: var(--espaco-1);
 }
 
@@ -193,7 +196,7 @@
   flex: 0 0 auto;
   /* O contorno SEM COR do espaço vazio reusa o anel fino do selo vazio do
    * bilhete (linha 88): é o token que a casa já destina a «existe, ainda não
-   * aconteceu». Nada de cor aqui — o vazio informa pela forma e pelo critério. */
+   * aconteceu». Nada de cor aqui — o vazio informa pela forma e pelo NOME. */
   border: var(--anel-trancada) solid var(--trancada);
 }
 
@@ -264,7 +267,7 @@
 }
 
 /* O DOMÍNIO AGRUPADO POR LINHA — as 7 fileiras do bilhete, a mesma gramática.
-   Em 375 px cada espaço é uma linha da coluna: nada de rolagem lateral (o
+   Em 375 px o espaço é uma linha da coluna: nada de rolagem lateral (o
    `minmax(0, 1fr)` é o que deixa o texto comprido quebrar em vez de estourar). */
 .perfil-fileira {
   display: grid;
@@ -276,6 +279,64 @@
 
 .perfil-fileira:last-child {
   border-top: none;
+}
+
+/* S17b-fix (item 2) — o domínio compacto, sem os 7.800 px.
+ *
+ * Cada um dos 35 espaços de estação repetia a MESMA régua comprida («Abre quando:
+ * O desafio da estação aprovado: oito em cada dez…»). A frase é uma por critério,
+ * e o critério é compartilhado: ela sobe para `.perfil-dominio-regra`, uma vez no
+ * alto da seção, e o vazio de baixo fica com o contorno e o nome. O espaço não
+ * sumiu — continua presente, visível e nomeado (o `aria-label` é a régua 1:
+ * contorno sem palavra nenhuma no leitor de tela é ausência que só quem enxerga
+ * percebe). Ganho e «concluída antes» seguem no padrão, com frase e dia.
+ *
+ * A grade é `auto-fill`, não `repeat(2, …)`, por causa da coluna de 1024: do
+ * lado da Série do percurso cada fileira tem ~466 px, e ali cabem DUAS células
+ * de 160; em 375 a conta dá UMA com folga e o nome não estoura a tela. O piso do
+ * `minmax` é `--celula-caderneta` (160 px em tokens.css), o menor espaço em que
+ * um nome de estação cabe com o selo ao lado — o mesmo tratamento que a casa dá
+ * à largura de leitura e à do painel: o número mora no token, não na folha.
+ */
+.perfil-dominio-regra {
+  border-top: 1px solid var(--borda);
+  padding-top: var(--espaco-2);
+}
+
+
+
+/* Os VAZIOS de uma fileira: a grade compacta. O piso da célula é
+   `--celula-caderneta` (160 px em tokens.css), e o `auto-fill` faz a conta da
+   largura — em 375 cabem duas células de 160 + o ar; abaixo do piso delas o
+   nome da estação quebraria em três linhas. Quem tem mais de um nome é a
+   «concluída antes», em linha própria, acima. */
+.perfil-dominio-grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--celula-caderneta), 1fr));
+  gap: var(--espaco-2) var(--espaco-4);
+}
+
+/* O espaço vazio COMPACTO: contorno e nome, e nada de frase. A régua do critério
+   subiu para `.perfil-dominio-regra`, uma vez por seção (item 2), e é ela que o
+   leitor de tela ouve em cada célula, pelo `aria-label` da JS.
+ *
+ * É UMA célula da grade, e não `display: contents`: o selo e o nome ficam lado a
+   lado dentro dos 160 px, em vez de virarem dois itens da grade — com `contents`
+   cada vazio ocuparia duas células e a fileira inteira se desmountaria. Perde a
+   borda de cima e o padding do carimbo cheio, porque em grade de 43 células isso
+   é 43 linhas pintadas por nada; o que resta é o contorno do selo, que já é o que
+   separa um do outro. */
+.perfil-carimbo-compacto {
+  display: flex;
+  align-items: baseline;
+  gap: var(--espaco-2);
+  border-top: none;
+  padding-top: 0;
+}
+
+.perfil-carimbo-compacto .perfil-carimbo-nome {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .perfil-recordes,
@@ -303,6 +364,27 @@
   line-height: var(--entrelinha-corpo);
   color: var(--tinta);
   margin: 0;
+}
+
+/* S17b-fix (item 4) — o link da próxima, medido pelo Claude em 375 e 768: menos
+ * de 24 px. É o quarto alvo nu desta folha, e o MODELO é o mesmo dos três da
+ * S20b-1a: a tela cria o `<a>` com uma classe própria e nenhuma regra lhe dá
+ * caixa, então a altura dele é a linha de letra. Caixa, não pintura: min-height
+ * no token + o ar horizontal para o toque não cair na borda do texto. A letra
+ * continua a da folha, nenhum fundo, e ele não virou botão.
+ *
+ * `display: inline-flex` é o que faz o min-height existir num `<a>` em linha —
+ * o mesmo caminho do `.folha-fechar` (folha.css:71). A varredura da S20b-1a não
+ * o pegava: ela lê `el(doc, \`…\`, …, 'a')` e descarta o que vem de \${}, então o
+ * template \`\${CLASSE}-proxima-link\` não deixa classe nenhuma para procurar.
+ * É o buraco conhecido do modelo (o mesmo do input type=file na S20b-1b), e por
+ * isso a trava abaixo é nominal. */
+.perfil-proxima-link {
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  min-height: var(--alvo-toque);
+  padding: var(--espaco-2) var(--espaco-3);
 }
 
 /* O CARIMBO NOVO desce uma vez. A voz é a CHEGADA, não o toque: um feito que
@@ -432,8 +514,35 @@
   }
 }
 
+/* S17b-fix (item 1) — o Perfil usa a tela.
+ *
+ * O defeito: `.perfil { max-width: var(--largura-lateral) }` — 360 px, que é a
+ * coluna DIREITA da Jornada (o painel ao lado do mapa). Numa tela de 1.920 o
+ * Perfil inteiro, com as 7 fileiras do bilhete e os 51 espaços da caderneta,
+ * ficava espremido numa faixa de 360 e o resto da janela ficava vazio. Não era
+ * escolha de leitura: era um token emprestado de outra tela.
+ *
+ * O teto agora é --bp-computador (1024), o número da casa em que a janela deixa
+ * de ser estreita. LIMITE HONESTO: abaixo de ~1.070 px (1024 + as laterais do
+ * .metro) a janela ainda é menor que o teto e o vão continua lá — a 1.280 sobram
+ * ~206 px, a 1.920 sobram ~846. Fechar isso de vez pede um token de largura
+ * próprio do Perfil, e isso é decisão dele, não deste conserto.
+ *
+ * AS DUAS SÉRIES LADO A LADO: são 8 e 43 nós, e um deles em cada linha deixava a
+ * Série do domínio com 7.800 px de altura (o item 2). O wrapper é `1fr 1fr` com
+ * `minmax(0,…)` nos dois: as duas colunas têm a mesma largura por construção, e
+ * o nome comprido da estação quebra dentro da célula em vez de empurrar a grade.
+ * Abaixo de 1024 continua UMA coluna só, a de sempre.
+ */
 @media (min-width: 1024px) {
   .perfil {
-    max-width: var(--largura-lateral);
+    max-width: var(--bp-computador);
+  }
+
+  .perfil-series {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--espaco-6);
+    align-items: start;
   }
 }

@@ -858,7 +858,24 @@
 // Sem subir a VERSAO, quem tem v90 no cache recebe o perfil.js novo chamando
 // cadernetaNucleo com um core/textos.js sem o bloco tela: a tela abre em branco no
 // onibus — o mesmo motivo de v89, agora com a tela existente.
-const VERSAO = 'atlas-v91';
+// atlas-v92: S17b-fix (06/11/2026) — QUATRO consertos do Perfil, medidos no Chrome
+// sobre a v91. (1) O Perfil inteiro cabia numa faixa de 360 px porque
+// `.perfil { max-width: var(--largura-lateral) }` — um token emprestado da coluna
+// DIREITA da Jornada, não uma largura de leitura. De 1024 para cima o teto passa a
+// ser --bp-computador, o bilhete de 5 casas vira repeat(5, minmax(0,1fr)) (o piso
+// automatico de 1fr e o maior nome de estacao, e em 1280 a fileira saia do proprio
+// cartao) e as duas series ficam lado a lado. (2) A Serie do dominio tinha 7.800 px
+// porque os 35 espacos repetiam a MESMA regua: ela sobe para o alto da secao, uma
+// vez, e o vazio fica com o contorno e o nome numa grade compacta — o criterio
+// continua no aria-label de cada celula, porque forma sem nome e ausencia que so
+// quem enxerga percebe. (3) "Revisoes feitas" dizia 0 para quem revisou 7 cartoes:
+// contava so o calendario do sistema antigo. Passa a somar o historico dos cartoes
+// (revisoesRealizadas, em core/dados-pessoa.js). (4) O link da proxima media menos
+// de 24 px em 375 e 768; ganhou min-height no alvo de toque, caixa e nao pintura.
+// Mudam de bytes web/telas/perfil.css, web/telas/perfil.js, web/tokens.css
+// (--celula-caderneta), core/dados-pessoa.js, core/textos.js (caderneta.tela
+// .semCarimbo) e este sw.js.
+const VERSAO = 'atlas-v92';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
@@ -923,7 +940,7 @@ const VERSAO = 'atlas-v91';
 // web/telas/jornada.css (o desfazer da colisão de classe no `.topo`). O arquivo
 // novo (tests/jornada-medida.test.js) e as duas travas tocadas não estão no
 // precache: nada de fora de app/web e app/core vai para o cache de quem usa.
-const PRECACHE_HASH = 'sha256-a2fe113f736df9aa85f39d6ea761aeb9491518c2f69634cfe464231c97655611';
+const PRECACHE_HASH = 'sha256-2dde922f7f2341c10154b22866d6b02ee3280909ca54d0c9dc07a1acebef8ded';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.
