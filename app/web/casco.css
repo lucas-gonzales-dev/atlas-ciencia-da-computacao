@@ -60,8 +60,13 @@ body { height: 100dvh; overflow: hidden; }
 body { display: flex; flex-direction: column; height: calc(100dvh - (var(--altura-barra) + var(--margem-segura-baixo))); }
 
 /* O topo e o selo não encolhem: quem recebe o espaço que sobra é o main. */
+/* S19c-1: o aviso de sem-armazenamento entra nessa lista porque é IRMÃO do main
+   na coluna, e não filho dele: dentro do main ele seria esvaziado na primeira
+   troca de aba. Irmão e `flex: 0 0 auto` é o que faz ele ficar sempre visível sem
+   truque de sticky — quem rola é o main, e a faixa está fora da caixa que rola. */
 .topo,
-.selo-rede { flex: 0 0 auto; }
+.selo-rede,
+.aviso-sem-armazenamento { flex: 0 0 auto; }
 
 /* O topo com a marca: fica colado no alto enquanto a tela rola. Dentro do main
    ele deixaria de colar — o topo é IRMÃO do main, então continua preso à janela,
@@ -116,10 +121,19 @@ main { flex: 1 1 0; min-height: 0; overflow-y: auto; padding-bottom: var(--espac
    anúncio. Fica sob o topo porque o topo é sticky — rolar a tela não perde o
    aviso. `hidden` é um atributo de presença, e sem esta regra o display deste
    parágrafo (bloco) venceria o display:none do navegador. */
-.selo-rede { position: sticky; top: var(--altura-topo); z-index: 1; margin: 0;
+/* S19c-1: O AVISO DE SEM ARMAZENAMENTO divide o recheio do selo de rede de
+   propósito — duas faixas do casco com a mesma cara são duas notícias do mesmo
+   tipo, e escrever a mesma linha duas vezes é o que a regra 9 veta. O que muda é
+   só o `position`: o selo precisa de sticky porque some e volta com a rede e a
+   pessoa rola; o aviso é a condição do aparelho inteiro e, sendo filho da coluna
+   do body ACIMA do main, já está fora da caixa que rola — não precisa de
+   truque nenhum, e o main encolhe sozinho porque é o único `flex: 1 1 0`. */
+.selo-rede,
+.aviso-sem-armazenamento { margin: 0;
              padding: var(--espaco-2) var(--espaco-4); background: var(--alerta-fundo);
              color: var(--tinta); font-size: var(--tipo-nota); font-weight: var(--peso-forte);
              border-bottom: 1px solid var(--borda); }
+.selo-rede { position: sticky; top: var(--altura-topo); z-index: 1; }
 .selo-rede[hidden] { display: none; }
 
 /* A tela que entra sobe e aparece — --deslocamento-entrada é o único dono

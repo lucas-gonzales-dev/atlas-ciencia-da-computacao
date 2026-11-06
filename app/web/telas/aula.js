@@ -34,7 +34,9 @@
 import { duracaoLegivel, marcaDeTempo, pausasDaAula, playlistDoRecurso } from '../../core/aulas.js';
 import { hrefDe } from '../../core/rotas.js';
 import { fatosDaEstacao } from '../../core/viagem.js';
-import { comValores, aulas as A, aula as U, fechamento as F } from '../../core/textos.js';
+// S19c-2: `folha as FOLHA` entra pelo nome inteiro porque `F` já é o fechamento
+// desta tela, e duas letras trocadas de dono seria esconder a origem da frase.
+import { comValores, aulas as A, aula as U, fechamento as F, folha as FOLHA } from '../../core/textos.js';
 import { carregarAulas } from '../aulas-dados.js';
 // S19b (J5, item 3): o bloco que devolve o .ics da próxima sessão. Um módulo só,
 // usado pela aula e pelo fim da revisão — escrever o outro seria o mesmo botão em
@@ -875,6 +877,33 @@ export async function montar(raiz, ctx) {
   // `continuarDe` compararam. `estacao` logo acima é o NOME, para as frases da
   // tela; as duas coisas têm nomes diferentes aqui de propósito.
   const estacaoId = curso ? String(curso.id) : slug;
+
+  // S19c-2 (engenharia do caos, 06/11/2026): ESTAÇÃO QUE NÃO ESTÁ NO MAPA, agora
+  // na página da aula. O defeito é o irmão do que a S14b2/item 0 matou em
+  // `/aula/999`: `#/estacao/x/aula/3` com `x` inexistente desenhava a página de
+  // uma estação que o catálogo nega. A resposta é a MESMA da folha
+  // (web/folha.js:403), da lista (web/telas/aulas.js) e do desafio
+  // (web/telas/desafio.js:213) — três páginas, um endereço errado, uma frase.
+  //
+  // Fica ANTES da cor da linha, do cabeçalho e de `carregarAulas`: sem estação
+  // não há linha, não há posição, não há arquivo a buscar, e o voltar é a única
+  // saída honesta. `catalogo.length` é a condição inteira — catálogo vazio é a
+  // rede que falhou, e ali o aviso de "busquei, não veio" continua sendo o
+  // caminho de hoje (B11/B11e da trava, que usam `courses: []` de propósito).
+  if (!curso && catalogo.length) {
+    raiz.append(no(doc, 'h1', 'aula-nome', { text: FOLHA.naoEstaNoMapa }));
+    raiz.append(no(doc, 'a', 'aulas-voltar folha-caminho-link', {
+      href: hrefDe({ tela: 'jornada' }),
+      rel: 'noopener',
+      text: FOLHA.voltarAoMapa
+    }));
+    return {
+      root: raiz,
+      rotulo: FOLHA.naoEstaNoMapa,
+      desmontar: () => {},
+      _estado: () => ({ catalogo: catalogo.length, curso: null, slug, n })
+    };
+  }
 
   // A cor da linha, pela classe da raiz (ver o cabeçalho deste arquivo).
   const fatos = curso ? fatosDaEstacao(catalogo, curso.id, {}) : null;

@@ -31,7 +31,11 @@
 import { duracaoLegivel } from '../../core/aulas.js';
 import { hrefDe } from '../../core/rotas.js';
 import { estadoDaAula } from '../../core/estudo.js';
-import { comValores, aulas as A } from '../../core/textos.js';
+// S19c-2: `folha as F` entra pela mesma porta de sempre — core/textos.js, o
+// núcleo. A saída de uma estação que não existe é a MESMA frase da folha
+// (web/folha.js:403) e do desafio (web/telas/desafio.js:213): três páginas, um
+// endereço errado, uma resposta. Escrever a frase aqui seria a regra 9.
+import { comValores, aulas as A, folha as F } from '../../core/textos.js';
 import { fatosDaEstacao } from '../../core/viagem.js';
 // S14b1: o selo vem do compartilhado, não da folha. Esta tela é montada pelo
 // CASCO e a folha é montada pelo METRÔ: importar folha.js por causa de uma
@@ -164,6 +168,41 @@ export async function montar(raiz, ctx) {
   // ecoa é o que a pessoa pediu por endereço — não um nome inventado.
   const estacao = typeof curso?.title === 'string' ? curso.title : slug;
   if (curso) raiz.setAttribute('data-estacao', String(curso.id));
+
+  // S19c-2 (engenharia do caos, 06/11/2026): ESTAÇÃO QUE NÃO ESTÁ NO MAPA.
+  //
+  // O defeito: `#/estacao/x/aulas` com `x` inexistente desenhava "Aulas de x", a
+  // playlist vazia e o "Sem aulas ainda" — a página AFIRMANDO uma estação que o
+  // catálogo nega, do mesmo mal que a S14b2/item 0 matou em `/aula/999` ("Aula
+  // 999 de 93"). A folha já se recusa a abrir estação sem catálogo; esta página,
+  // não.
+  //
+  // `catalogo.length` é a condição inteira: catálogo CHEIO sem aquele slug é
+  // endereço errado → "não está no mapa"; catálogo VAZIO é a rede que falhou e o
+  // aviso honesto de "busquei, não veio" continua sendo o caminho de hoje, para
+  // não dizer a quem está sem rede que inventou uma estação.
+  //
+  // A resposta é a da folha (web/folha.js:403) e a do desafio
+  // (web/telas/desafio.js:213): o h1 `F.naoEstaNoMapa` e UM link de volta ao
+  // mapa, sem botão nenhum — não há o que fazer sobre nada. `aulas-titulo` e
+  // `aulas-voltar` são as classes que esta folha já veste; `folha-caminho-link`
+  // é a lição do Chrome de 04/11: numa página de erro, a saída tem de ter cara de
+  // link. Fica ANTES do `fatosDaEstacao` de propósito: cor de linha, posição e
+  // cabeçalho são contas sobre uma estação que não existe.
+  if (!curso && catalogo.length) {
+    raiz.append(no(doc, 'h1', 'aulas-titulo', { text: F.naoEstaNoMapa }));
+    raiz.append(no(doc, 'a', 'aulas-voltar folha-caminho-link', {
+      href: hrefDe({ tela: 'jornada' }),
+      rel: 'noopener',
+      text: F.voltarAoMapa
+    }));
+    return {
+      root: raiz,
+      rotulo: F.naoEstaNoMapa,
+      desmontar: () => {},
+      _estado: () => ({ catalogo: catalogo.length, curso: null, slug })
+    };
+  }
 
   // S13e — A COR DA LINHA CHEGA PELA CLASSE DA LINHA, E ELA MORA NA RAIZ.
   //

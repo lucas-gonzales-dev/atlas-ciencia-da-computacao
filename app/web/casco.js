@@ -22,6 +22,10 @@
 import * as modulos from './main.js';
 import { registrarSW } from './boot.js';
 import { ligarSeloRede } from './rede.js';
+// S19c-1 (06/11/2026): o armazém de memória que entra quando o navegador NEGA o
+// localStorage. A troca tem de acontecer antes de qualquer leitura — o getter
+// estoura, e o casco lê o storage na primeira tela que pinta.
+import { garantirArmazem } from './armazem-seguro.js';
 import { ABAS, lerRota } from '../core/rotas.js';
 import { casco } from '../core/textos.js';
 
@@ -94,10 +98,32 @@ export function telaDaRota(rota) {
 export async function iniciar(deps = {}) {
   const doc = deps.document || document;
   const win = deps.window || window;
+  // S19c-1: a primeira coisa que o casco faz é garantir que ler o armazenamento
+  // não estoure. `win.localStorage` é um GETTER, e com «bloquear dados de sites»
+  // ele LANÇA SecurityError ao ser lido — não ao chamar getItem. Antes desta
+  // linha o casco morria no meio do `iniciar`, o catch do auto-boot escrevia no
+  // console, e o aluno ficava com marca, abas e `<main>` vazio em toda rota.
+  // Ficou acima do `getElementById` de propósito: a ordem é a de quem não pode
+  // falhar antes de existir.
+  const semArmazenamento = garantirArmazem(win);
   const main = doc.getElementById('conteudo');
   const anuncio = doc.getElementById('anuncio');
   const nav = doc.querySelector('nav[aria-label="Principal"]');
   if (!main || !anuncio || !nav) return { ok: false, motivo: 'casco sem #conteudo/#anuncio/nav' };
+
+  // S19c-1: o AVISO de que o aparelho não deixa guardar. Entra ANTES do main
+  // porque é o único estado do casco que sobrevive a todas as telas: esvaziado
+  // o main a cada rota, um aviso dentro dele sumiria na primeira troca de aba —
+  // e é irmão do selo de rede pela mesma razão (S10b, régua 1). `role="status"`
+  // e não aria-live escrito: é a região implícita polite do HTML, e a heurística
+  // 9 da casa (uma frase por região que fala) é atendida por ser um `p`.
+  if (semArmazenamento && main.parentNode) {
+    const aviso = doc.createElement('p');
+    aviso.className = 'aviso-sem-armazenamento';
+    aviso.setAttribute('role', 'status');
+    aviso.textContent = casco.semArmazenamento;
+    main.parentNode.insertBefore(aviso, main);
+  }
 
   let catalogo = null; // a promessa, não o resultado
   // S5: `folha` é o slug que a rota pediu. O casco NÃO conhece a folha (ela é

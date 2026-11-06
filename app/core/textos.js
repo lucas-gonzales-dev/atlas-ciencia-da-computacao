@@ -562,6 +562,16 @@ export const proibido = [
 export const casco = {
   pular: 'Pular para o conteúdo',
   navegacao: 'Principal',
+  /**
+   * S19c-1 (engenharia do caos, 06/11/2026): o aviso de que o navegador negou o
+   * armazenamento. É FRASE DO CASCO porque o estado não pertence a uma tela — a
+   * mesma razão de existir do selo de rede. As três peças de sempre: o que
+   * aconteceu, o que ainda dá para fazer e o que se perde. Dizer só «sem
+   * armazenamento» deixaria a pessoa estudar a sessão inteira e descobrir a
+   * perda no fim, que é a pior hora possível.
+   */
+  semArmazenamento:
+    'Este navegador não deixa guardar dados aqui. Dá para estudar, mas o progresso some ao fechar.',
   anuncio: (rotulo) => `Você está em ${rotulo}.`,
   abas: { jornada: 'Jornada', explorar: 'Explorar', revisar: 'Revisar', perfil: 'Perfil' },
 };

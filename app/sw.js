@@ -1054,7 +1054,23 @@
 // web/telas/revisar-fila.js, web/telas/revisar.js, web/base.css). Sem versão
 // nova, quem já instalou o app nunca receberia o botão da agenda: o navegador
 // compara o service worker por bytes e igual significa não instala.
-const VERSAO = 'atlas-v102';
+//
+// atlas-v103: S19c (06/11/2026) — OS DOIS DEFEITOS que a ENGRENARIA DO CAOS achou no Chrome
+// (348 cenários: disco cheio, dados podres em cada chave, rede caindo, JSON falso). (1) TELA
+// BRANCA COM O ARMAZENAMENTO BLOQUEADO: com «bloquear dados de sites», o GETTER de
+// window.localStorage lança SecurityError ao ser LIDO, o casco morria no iniciar e o aluno
+// ficava com marca + abas + <main> vazio em toda rota. web/armazem-seguro.js instala um
+// armazém de memória no lugar e o casco avisa, antes do main, com a frase de
+// core/textos.js — estudar continua dando, só não fica. (2) ESTAÇÃO INEXISTENTE VIRA
+// PÁGINA: #/estacao/x/aulas desenhava «Aulas de x» sobre uma lista vazia, afirmando uma
+// estação que o catálogo nega; agora as duas telas dizem F.naoEstaNoMapa com um link de volta
+// ao mapa, como a folha e o desafio já faziam — e catálogo VAZIO (rede que falhou) continua
+// no aviso honesto de sempre, porque acusar o endereço pelo problema da rede é outro defeito.
+// Mudam de bytes core/textos.js, web/casco.js, web/casco.css, web/telas/aulas.js,
+// web/telas/aula.js, e o módulo novo web/armazem-seguro.js entra no PRECACHE: importado pelo
+// casco, fora do cache é o branco que ele existe para matar, agora em versão dupla — o import
+// falha e a tela morre.
+const VERSAO = 'atlas-v103';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
@@ -1132,7 +1148,7 @@ const VERSAO = 'atlas-v102';
 // (fraseDeRecomeco), core/textos.js (o bloco recomeco), web/telas/jornada-topo.js (o
 // <p class="topo-recomeco">) e web/telas/jornada.css (a regra dele). tests/
 // jornada-medida.test.js não está no cache, como todo teste.
-const PRECACHE_HASH = 'sha256-25c753badfa0a194ae1eb601a98fd11e62e0df9fc151653f352be165994f0a5e';
+const PRECACHE_HASH = 'sha256-20065c19ac70a434d2392f164714df544cc2a2e8ed2b4632c9563bb870f4c079';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.
@@ -1183,6 +1199,11 @@ const PRECACHE = [
   // ele no cache, quem ja tem v42 recebe o HTML novo e o casco morre no import
   // — branco no onibus, sem erro na rede para avisar.
   'web/rede.js',
+  // S19c-1: o armazém de memória que entra quando o navegador nega o
+  // localStorage. Importado pelo casco no mesmo commit — módulo fora do cache é
+  // o branco que ele existe para matar, agora em versão dupla: o import falha e
+  // a tela morre.
+  'web/armazem-seguro.js',
   // A leitura de data/aulas/<slug>.json (S13a): o único caminho que a tela de
   // aulas usa para chegar aos dados, e o único lugar onde um 404 vira frase em
   // vez de estouro. Sem este arquivo no cache, a lista de aulas não aparece

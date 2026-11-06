@@ -53,6 +53,19 @@ export function criarNo(tag, doc) {
     hasAttribute(k) { return k in no.attrs; },
     removeAttribute(k) { delete no.attrs[k]; },
     append(...ns) { for (const n of ns) { n.parent = no; no.children.push(n); } },
+    // S19c-1: `insertBefore` faltava, e sem ele nenhum nó do casco consegue
+    // entrar ANTES do main — o selo de rede e o aviso de sem-armazenamento são
+    // irmãos do main por construção. O método existe no DOM real, então existe
+    // aqui (mesma lição do blur() e do hasAttribute(): o dublê mentindo menos).
+    insertBefore(novo, referencia) {
+      if (!novo) return novo;
+      if (novo.parent) novo.parent.children = novo.parent.children.filter((n) => n !== novo);
+      const i = referencia ? no.children.indexOf(referencia) : -1;
+      if (i < 0) no.children.push(novo);
+      else no.children.splice(i, 0, novo);
+      novo.parent = no;
+      return novo;
+    },
     addEventListener(tipo, fn) { (no.listeners[tipo] ||= []).push(fn); },
     // S13b (04/11/2026): `removeEventListener` faltava, e sem ele nenhum teste
     // consegue provar o DESLIGAR de uma tela. O casco monta e desmonta telas que
