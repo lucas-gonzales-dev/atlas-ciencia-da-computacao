@@ -1,35 +1,52 @@
-// Projeto Atlas — a tela PERFIL: o bilhete, os marcos e os dados da pessoa (S9).
+// Projeto Atlas — a tela PERFIL: o bilhete, a caderneta e os dados da pessoa (S9, S17b).
 //
 // POR QUE EXISTE: o Perfil é portfólio, não placar. Cada marca aqui é um fato
 // que a pessoa produziu: a data de uma conclusão, uma linha inteira fechada, o
 // arquivo que ela mesma exportou. O protótipo desenhava XP, ritmo de dias e
 // troféu; o Atlas desenha o bilhete e a conta do que falta.
 //
-// REGRA DA CASA: nenhuma regra nesta folha. As 35 casas, quantas linhas
-// fecharam e em que dia cada estação terminou vêm de core/viagem.js
-// (resumoDaViagem); o juízo de cada marco e o envelope de exportar/importar
-// moram em core/dados-pessoa.js. Aqui só há DOM: montar, pintar, ouvir. Se
-// aparecer uma soma de dias ou um `if` de calendário, está no lugar errado.
+// REGRA DA CASA: nenhuma regra nesta folha, com uma exceção desenhada e uma
+// conseqüência. A exceção é «este carimbo é novo desde a última visita»: é a
+// única conta que a tela faz, porque depende de quando a pessoa abriu o Perfil,
+// e nada no núcleo sabe disso. Ela guarda só a LISTA DE IDS GANHOS e não uma
+// segunda caderneta — se guardasse os carimbos, divergiria do núcleo no primeiro
+// cartão novo. A conseqüência é o que ela lê para fazer essa conta: o estudo e
+// os cartões em bruto, passados por `lerEstudo`/`lerCartoes` crus, que é o que
+// web/metro.js (linha 488) e web/telas/aula.js (linha 116) fazem. Repete a
+// leitura, não a regra: o juízo de cada carimbo continua todo em core/caderneta.js.
+// As 35 casas, quantas linhas fecharam e em que dia cada estação terminou vêm de
+// core/viagem.js; o envelope de exportar/importar, de core/dados-pessoa.js.
+// Fora a exceção acima, aqui só há DOM: montar, pintar, ouvir.
+//
+// QUEM SAIU DA TELA (S17b): os marcos da S9 (`marcosDoPerfil`) deixaram de ser
+// desenhados. O bilhete carimbava a conclusão DECLARADA; a caderneta carimba o
+// que foi MEDIDO, e os dois na mesma tela diriam duas coisas diferentes sobre a
+// mesma estação. A função fica no núcleo: `core/dados-pessoa.js` a exporta e
+// `tests/perfil.test.js` (o caso «cada marco tem nome, critério e estado») a
+// confere como conta — aposentado é o desenho, não a conta.
 //
 // NADA DE RELÓGIO PRÓPRIO: toda data sai por dataDeCalendario, formatando a
 // string — nunca `new Date(iso)`, que em fuso negativo devolve o dia anterior e
 // o bilhete mentiria (lição da 2d-2). `hoje` vem do ctx quando o aparelho não
 // tem o dia registrado; sem ctx, é o dia local do núcleo, uma vez só.
-import {
-  exportarViagem,
-  importarViagem,
-  marcosDoPerfil,
-  revisoesFeitas,
-} from '../../core/dados-pessoa.js';
-import { dataDeCalendario, perfil as T } from '../../core/textos.js';
+import { exportarViagem, importarViagem, revisoesFeitas } from '../../core/dados-pessoa.js';
+// S17b: a caderneta inteira (as duas séries, os recordes e a próxima) é conta de
+// núcleo. Esta folha só pinta o que core/caderneta.js decidiu.
+import { caderneta as cadernetaNucleo } from '../../core/caderneta.js';
+import { dataDeCalendario, perfil as T, caderneta as C } from '../../core/textos.js';
 import { hrefDe } from '../../core/rotas.js';
 import { dataLocal, resumoDaViagem } from '../../core/viagem.js';
 import { STORAGE_KEY, parseRevisoes, serializeRevisoes } from '../../core/revisao.js';
 import { carregarViagem, salvarViagem } from '../metro.js';
 // S20b-1b: as chaves dos baldes que o arquivo da versão 3 leva. A tela é quem
 // conhece o storage (o núcleo continua puro); ela só precisa saber ONDE mora.
-import { ESTUDO_KEY, RASCUNHO_PREFIXO } from '../../core/estudo.js';
-import { CARTOES_KEY } from '../../core/cartoes.js';
+import { ESTUDO_KEY, RASCUNHO_PREFIXO, lerEstudo } from '../../core/estudo.js';
+import { CARTOES_KEY, lerCartoes } from '../../core/cartoes.js';
+// A tabela de aulas por estação (data/aulas/indice.json): a régua da «primeira
+// estação percorrida» não existe sem ela. A LEITURA do arquivo mora em
+// jornada-topo.js — importar daqui é a casa não ter uma segunda forma de ler o
+// mesmo JSON (lição da 2c: dois duplicados do mesmo leitor divergem).
+import { carregarIndice } from './jornada-topo.js';
 
 const CLASSE = 'perfil';
 
@@ -92,20 +109,170 @@ function bilhete(doc, catalogo, progresso, feitos, conclusoes, hoje) {
   return { box, r };
 }
 
-/**
- * Um marco: nome, o critério escrito (não desenhado por só cor) e o estado com
- * a data de quando ou a conta de quanto falta.
+/* ───────────────────────────── a caderneta (S17b) ─────────────────────────────
+ *
+ * O que pinta, e nada mais. Cada carimbo já vem do núcleo com nome, critério,
+ * data, frase e — no caso da estação declarada — a marca separada da data
+ * medida (core/caderneta.js). Se esta folha decidir o que é «ganho», a
+ * caderneta passa a ter duas definições de carimbo e a tela vence a régua.
+ *
+ * OS ESPAÇOS VAZIOS SÃO DESENHO, não lacuna a esconder (princípio 4): quem
+ * ainda não tem o carimbo lê o critério que o abre. Por isso o vazio vem com
+ * contorno, nome e «Abre quando: …», e é a mesma fileira de nós do ganho — só
+ * sem tinta.
  */
-function marco(doc, m, hoje) {
-  const item = el(doc, `${CLASSE}-marco`);
-  item.dataset.estado = m.estado;
-  const cab = el(doc, `${CLASSE}-marco-cab`);
-  cab.append(el(doc, `${CLASSE}-marco-nome`, m.nome, 'h3'));
-  cab.append(el(doc, `${CLASSE}-marco-estado`, T.marcos.estados[m.estado], 'p'));
+
+/** O selo do carimbo: o círculo da linha (domínio) ou o quadrado da casa (percurso). */
+function seloCarimbo(doc, c, ganho) {
+  const forma = c.serie === 'dominio' ? `${CLASSE}-carimbo-circulo` : `${CLASSE}-carimbo-casa`;
+  const s = el(doc, `${forma}${ganho ? '' : ` ${CLASSE}-vazio`}`);
+  if (Number.isFinite(Number(c.linha))) s.dataset.linha = String(Number(c.linha));
+  s.setAttribute('aria-hidden', 'true');
+  return s;
+}
+
+/**
+ * Um carimbo da caderneta. `novo` desce uma vez (a folha faz o movimento, o CSS
+ * manda na duração); `concluída antes` traz a MARCA e a data antiga em lugar da
+ * frase medida — é o caso que o princípio 4 separa de propósito.
+ */
+function carimbo(doc, c, hoje, novo) {
+  const ganho = Boolean(c.data);
+  const item = el(doc, `${CLASSE}-carimbo${ganho ? '' : ` ${CLASSE}-vazio`}`);
+  item.dataset.estado = ganho ? 'carimbado' : 'vazio';
+  if (novo) item.dataset.novo = 'descer';
+  const cab = el(doc, `${CLASSE}-carimbo-cab`);
+  cab.append(seloCarimbo(doc, c, ganho));
+  cab.append(el(doc, `${CLASSE}-carimbo-nome`, c.nome, 'h3'));
   item.append(cab);
-  item.append(linha(doc, 'marco-criterio', m.criterio));
-  item.append(linha(doc, 'marco-conta', m.data ? T.marcos.conquistadoEm(dia(m.data, hoje)) : T.marcos.emAndamento(m.conta)));
+  // O critério fica visível nos dois estados: no ganho ele diz o que foi medido,
+  // no vazio ele diz o que falta. Escondê-lo do vazio seria o bilhete de volta.
+  item.append(linha(doc, 'carimbo-criterio', C.tela.abreQuando(c.criterio)));
+  if (ganho) {
+    const quando = linha(doc, 'carimbo-data', c.frase);
+    quando.setAttribute('aria-label', C.tela.ganho(dia(c.data, hoje)));
+    item.append(quando);
+    item.append(linha(doc, 'carimbo-dia', dia(c.data, hoje)));
+  } else if (c.marca) {
+    const marca = el(doc, `${CLASSE}-carimbo-marca`, c.marca, 'p');
+    item.append(marca);
+    if (c.marcaEm) item.append(linha(doc, 'carimbo-dia', dia(c.marcaEm, hoje)));
+    item.setAttribute('aria-label', C.tela.comMarca(c.nome, `${c.marca}, ${dia(c.marcaEm, hoje)}`));
+  } else {
+    item.append(linha(doc, 'carimbo-vazio', c.frase || C.vazio));
+  }
   return item;
+}
+
+/** Uma seção da caderneta: título, e os espaços na ordem do núcleo. */
+function secao(doc, nome, itens, hoje, vistos) {
+  const box = el(doc, `${CLASSE}-card ${CLASSE}-caderneta`);
+  box.append(titulo(doc, nome, 'h2'));
+  const lista = el(doc, `${CLASSE}-carimbos`);
+  lista.setAttribute('role', 'list');
+  // O nome da série no `aria-label` da lista: 8 e 43 nós sem nome seriam, para o
+  // leitor de tela, duas pilhas idênticas de «Abre quando…».
+  lista.setAttribute('aria-label', nome);
+  for (const c of itens) lista.append(carimbo(doc, c, hoje, vistos.novos.has(c.id)));
+  box.append(lista);
+  return box;
+}
+
+/**
+ * O domínio em fileiras por linha, como o bilhete já faz: uma fileira por linha
+ * com as estações dela e o fim da linha no fim, e o terminal depois de todas.
+ * A ordem é a do núcleo; aqui só se agrupa.
+ */
+function secaoDominio(doc, dominio, hoje, vistos) {
+  const box = el(doc, `${CLASSE}-card ${CLASSE}-caderneta ${CLASSE}-dominio`);
+  box.append(titulo(doc, C.tela.serieDominio, 'h2'));
+  const porLinha = new Map();
+  const semLinha = [];
+  for (const c of dominio) {
+    // `linha === null` é o terminal, e `Number(null)` é 0 — finito. Sem checar
+    // a nulidade ANTES da conversão, o terminal ganham uma oitava fileira
+    // «linha 0» no meio das sete, e o pedido era o terminal DEPOIS de todas.
+    const n = c.linha === null || c.linha === undefined ? null : Number(c.linha);
+    if (n === null || !Number.isFinite(n)) { semLinha.push(c); continue; }
+    if (!porLinha.has(n)) porLinha.set(n, []);
+    porLinha.get(n).push(c);
+  }
+  const fileiras = [...porLinha.keys()].sort((a, b) => a - b);
+  for (const n of fileiras) {
+    const fileira = el(doc, `${CLASSE}-fileira`);
+    fileira.dataset.linha = String(n);
+    fileira.setAttribute('role', 'list');
+    fileira.setAttribute('aria-label', C.tela.fileira(n));
+    for (const c of porLinha.get(n)) fileira.append(carimbo(doc, c, hoje, vistos.novos.has(c.id)));
+    box.append(fileira);
+  }
+  if (semLinha.length) {
+    const extra = el(doc, `${CLASSE}-fileira ${CLASSE}-fileira-terminal`);
+    extra.setAttribute('role', 'list');
+    for (const c of semLinha) extra.append(carimbo(doc, c, hoje, vistos.novos.has(c.id)));
+    box.append(extra);
+  }
+  return box;
+}
+
+/** Os recordes: sem dado, o recorde não aparece — um «0» seria um feito que ninguém bateu. */
+function secaoRecordes(doc, recordes) {
+  const comValor = (recordes || []).filter((r) => r.valor !== null && r.valor !== undefined);
+  if (!comValor.length) return null;
+  const box = el(doc, `${CLASSE}-card ${CLASSE}-caderneta ${CLASSE}-recordes`);
+  box.append(titulo(doc, C.tela.recordes, 'h2'));
+  for (const r of comValor) {
+    const item = el(doc, `${CLASSE}-recorde`);
+    item.append(el(doc, `${CLASSE}-recorde-nome`, r.nome, 'h3'));
+    item.append(linha(doc, 'recorde-valor', r.frase));
+    item.append(linha(doc, 'recorde-criterio', C.tela.abreQuando(r.criterio)));
+    box.append(item);
+  }
+  return box;
+}
+
+/** A próxima coisa, no texto do núcleo, com o link para a estação quando ele existe. */
+function secaoProxima(doc, proxima, catalogo) {
+  if (!proxima || !proxima.texto) return null;
+  const box = el(doc, `${CLASSE}-card ${CLASSE}-caderneta ${CLASSE}-proxima`);
+  box.append(titulo(doc, C.tela.proxima, 'h2'));
+  const curso = (catalogo || []).find((c) => c.id === proxima.estacao);
+  if (curso) {
+    const a = el(doc, `${CLASSE}-proxima-link`, proxima.texto, 'a');
+    a.setAttribute('href', hrefDe({ tela: 'estacao', slug: curso.slug ?? curso.id }));
+    box.append(a);
+  } else {
+    box.append(linha(doc, 'proxima-texto', proxima.texto));
+  }
+  return box;
+}
+
+/**
+ * Os carimbos que a pessoa já viu no Perfil. Guarda só a lista de ids ganhos,
+ * porque «novo desde a última visita» é a única coisa que este storage sabe:
+ * ele não é uma segunda caderneta, e se virasse uma, divergiria do núcleo.
+ */
+const VISTOS_KEY = 'atlas.caderneta.vistos.v1';
+
+function lerVistos(storage) {
+  let bruto = null;
+  try { bruto = storage ? storage.getItem(VISTOS_KEY) : null; } catch { bruto = null; }
+  let lista = [];
+  try { lista = JSON.parse(bruto || '[]'); } catch { lista = []; }
+  return new Set(Array.isArray(lista) ? lista : []);
+}
+
+function gravarVistos(storage, ids) {
+  if (!storage) return;
+  try { storage.setItem(VISTOS_KEY, JSON.stringify([...ids])); } catch { /* sem storage: nada desce, nada se perde */ }
+}
+
+/** `novos` = ganhos que ainda não foram vistos; o conjunto gravado passa a ser todos os ganhos. */
+function preparoCaderneta(storage, todas) {
+  const vistos = lerVistos(storage);
+  const ganhos = new Set(todas.filter((c) => c.data).map((c) => c.id));
+  const novos = new Set([...ganhos].filter((id) => !vistos.has(id)));
+  return { vistos, novos, gravar: () => gravarVistos(storage, ganhos) };
 }
 
 /**
@@ -208,6 +375,11 @@ export async function montar(raiz, ctx) {
 
   let montado = true;
   let catalogo = null;
+  // S17b: a tabela de aulas por estação. `primeira estação percorrida` não existe
+  // sem ela, e sem ela a tela mostra o espaço VAZIO — não um carimbo chutado.
+  // `ctx.indice` é a injeção do teste e do casco que já tem a tabela na mão
+  // (web/metro.js guarda `ui.indice`); buscar só quando não há.
+  let indice = ctx.indice || null;
   let estado = { completed: [], emCurso: [], conclusoes: {}, anotacoes: {}, revisoes: {} };
   // O trabalho em voo: ler o arquivo da pessoa é assíncrono, e quem chama
   // `montar` precisa poder esperar POR ELE, não só pela primeira pintura.
@@ -248,6 +420,29 @@ export async function montar(raiz, ctx) {
     };
   }
 
+  /**
+   * Os baldes lidos como O QUE O NÚCLEO ESPERA: o texto cru do storage vira o
+   * mesmo objeto que a aula e a Revisar usam. `lerEstudo`/`lerCartoes` devolvem o
+   * balde vazio para `null`, então isto nunca lança — e a caderneta vê ausência
+   * como ausência, não como erro.
+   */
+  function cadernetaDe(estadoTela) {
+    const progresso = {
+      completed: estadoTela.completed,
+      emCurso: estadoTela.emCurso,
+      conclusoes: estadoTela.conclusoes,
+      dominadas: estadoTela.dominadas,
+    };
+    return cadernetaNucleo({
+      estudo: lerEstudo(estadoTela.estudo),
+      cartoes: lerCartoes(estadoTela.cartoes),
+      progresso,
+      catalogo: (estadoTela.courses || []).length ? estadoTela.courses : [],
+      indice,
+      hoje,
+    });
+  }
+
   /** O recado do gesto, colado no gesto que o produziu. */
   function avisar(on, texto) {
     if (!montado || !on || !on.parentNode) return;
@@ -278,7 +473,11 @@ export async function montar(raiz, ctx) {
       conclusoes: estado.conclusoes,
       dominadas: estado.dominadas,
     };
-    const lista = marcosDoPerfil(cat.courses || [], progresso);
+    // S17b: a caderneta do Perfil. O núcleo devolve SEMPRE as duas séries inteiras
+    // (8 + uma por estação/linha + terminal), ganhas ou vazias — é por isso que
+    // esta folha não tem um «se não houver carimbo» na frente dela.
+    const serie = cadernetaDe(estado);
+    const vistos = preparoCaderneta(storage, [...serie.percurso, ...serie.dominio]);
 
     let r;
     if (feitos.size === 0) {
@@ -303,10 +502,18 @@ export async function montar(raiz, ctx) {
     numeros.append(numero(doc, T.numeros.revisoes, revisoesFeitas(estado.revisoes)));
     raizEl.append(numeros);
 
-    const marcos = el(doc, `${CLASSE}-card ${CLASSE}-marcos`);
-    marcos.append(titulo(doc, T.marcos.titulo));
-    for (const m of lista) marcos.append(marco(doc, m, hoje));
-    raizEl.append(marcos);
+    // S17b: as duas séries, depois os recordes e a próxima. Os marcos da S9 saíram
+    // daqui de propósito: ver o comentário no topo da folha.
+    raizEl.append(secao(doc, C.tela.seriePercurso, serie.percurso, hoje, vistos));
+    raizEl.append(secaoDominio(doc, serie.dominio, hoje, vistos));
+    const rec = secaoRecordes(doc, serie.recordes);
+    if (rec) raizEl.append(rec);
+    const prox = secaoProxima(doc, serie.proxima, estado.courses || []);
+    if (prox) raizEl.append(prox);
+
+    // O carimbo que a pessoa acabou de ganhar desce UMA vez: a partir desta
+    // visita ele está visto, e o conjunto gravado passa a ser todos os ganhos.
+    vistos.gravar();
 
     const d = dados(doc);
     raizEl.append(d.box);
@@ -406,10 +613,41 @@ export async function montar(raiz, ctx) {
   // Pintar por ele faria o Perfil depender de a pessoa já ter visitado a
   // Revisar — e sem isso ele ignoraria o `catch` abaixo, servindo o estado
   // vazio em vez de dizer "sem rede" quando a trilha caiu.
+  /**
+   * A tabela de aulas por estação — injetada por quem já a tem (`ctx.indice`, que o
+   * `web/metro.js` guarda), buscada uma vez no navegador, ou `null`.
+   *
+   * `win.fetch`, e não o `fetch` global: em node os dublês de janela dos testes não
+   * têm `fetch`, então a tela não dispara rede de dentro de um teste unitário e o
+   * carimbo «primeira estação percorrida» fica vazio — que é a resposta honesta para
+   * «não sei quantas aulas a estação tem». No aparelho, o service worker responde os
+   * bytes do precache, então sem rede a tabela chega do mesmo jeito.
+   */
+  async function garantirIndice() {
+    if (indice) return indice;
+    if (typeof win?.fetch !== 'function') return null;
+    const r = await carregarIndice((url) => win.fetch(url));
+    indice = r.ok ? r.dados : null;
+    return indice;
+  }
+
   emVoo = ctx.catalogo
       .then((cat) => {
-        if (montado) desenhar(cat);
-        return cat;
+        if (!montado) return cat;
+        // A ordem IMPORTA: indice na mão (teste, ou o casco que já carregou) ou
+        // aparelho sem fetch pinta no MESMO tick microtarefa de sempre — é o que
+        // os testes antigos que esperam só `montar` exigem. No navegador de
+        // verdade, adiar a primeira pintura até a tabela de aulas chega é mais
+        // correto do que repintar: o carimbo da estação percorrida ou nasce na
+        // primeira pintura ou não nasce.
+        if (indice || typeof win?.fetch !== 'function') {
+          desenhar(cat);
+          return cat;
+        }
+        return garantirIndice().then(() => {
+          if (montado) desenhar(cat);
+          return cat;
+        });
       })
       .catch(() => {
         if (!montado) return null;

@@ -200,17 +200,20 @@ test('perfil: cada marco tem nome, critério e estado, e o fim da linha conta as
   for (const m of comEstado) assert.ok(Object.values(STATUS).includes(m.estado), `estado que não é palavra: ${m.estado}`);
 });
 
-test('perfil: a tela mostra os quatro marcos com o estado e a conta', async () => {
+// S17b: os marcos da S9 saíram da tela — a caderneta os substitui (o desenho,
+// princípio 4, troca o bilhete carimbado pela declaração por carimbo medido, e os
+// dois na mesma folha diriam coisas diferentes sobre a mesma estação). A CONTA do
+// marco continua no núcleo e é conferida acima, no caso de `marcosDoPerfil`: o que
+// aposentado é o desenho, não a função.
+test('perfil: os marcos saíram da tela, e a caderneta ocupa o lugar', async () => {
   const ctx = ctxCom({ completed: CATALOGO.courses.filter((c) => c.stage === 1).map((c) => c.id) });
   await montar(ctx._raiz, ctx);
-  const itens = comClasse(ctx._raiz, /^perfil-marco$/);
-  assert.equal(itens.length, 4, `a tela mostra ${itens.length} marcos, deviam ser 4`);
+  assert.deepEqual(comClasse(ctx._raiz, /^perfil-marco$/), [], 'a tela ainda desenha um marco da S9');
   const todo = textoDe(ctx._raiz);
-  for (const nome of ['Primeira estação', 'Primeira baldeação', 'Fim da linha', 'Terminal']) {
-    assert.ok(todo.includes(nome), `falta o marco «${nome}» na tela`);
+  for (const nome of ['Série do percurso', 'Série do domínio']) {
+    assert.ok(todo.includes(nome), `falta a seção «${nome}» na tela`);
   }
-  assert.match(todo, /1 de 7/, 'o "Fim da linha" na tela não diz quantas linhas fechou');
-  assert.match(todo, /5\/35/, 'o "Terminal" na tela não faz a conta das 35');
+  assert.ok(!/Concluir as 35 estações\./.test(todo), 'o critério do marco terminal voltou à tela');
 });
 
 // ───────────────────────────── 3. os dados ─────────────────────────────
@@ -311,8 +314,10 @@ test('perfil: o bilhete em branco mostra o texto e um primário só', async () =
   assert.match(textoDe(primarios[0]), /Ir para a próxima estação/, `o primário não é a próxima estação: "${textoDe(primarios[0])}"`);
   assert.match(String(primarios[0].attrs.href || ''), /^#\/$/, 'o primário não leva à Jornada');
 
-  // Marcos em andamento e dados disponíveis: a pessoa pode importar hoje.
-  assert.match(todo, /Concluir as 35 estações\./, 'os marcos sumiram da tela em branco');
+  // S17b: a caderneta e os dados continuam na tela em branco. Os 51 espaços vazios
+  // são o desenho de quem ainda não tem nada — escondê-los aqui seria o bilhete.
+  assert.match(todo, /Série do percurso/, 'a caderneta sumiu da tela em branco');
+  assert.match(todo, /Série do domínio/, 'a série do domínio sumiu da tela em branco');
   assert.ok(comClasse(ctx._raiz, /^perfil-dados$/).length === 1, 'os dados sumiram da tela em branco');
 });
 

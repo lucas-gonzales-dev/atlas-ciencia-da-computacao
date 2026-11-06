@@ -134,30 +134,127 @@
   margin: 0;
 }
 
-/* OS MARCOS — critério escrito, estado por palavra. */
-.perfil-marco {
-  border-top: 1px solid var(--borda);
-  padding: var(--espaco-3) 0;
+/* A CADERNETA (S17b) — os 51 espaços, ganhos e vazios, na mesma folha.
+ *
+ * O VAZIO É DESENHO, NÃO LACUNA: ele tem contorno, nome e o critério escrito
+ * («Abre quando: …»). Princípio 4 do desenho: o carimbo nasce de critério medido
+ * e a pessoa lê a régua antes de ter o feito. Esconder os vazios seria voltar ao
+ * bilhete, onde só existia o que já estava carimbado.
+ *
+ * AS DUAS FORMAS são as duas séries, e a forma carrega o significado (não a cor
+ * sozinha — régua 1): o percurso é a CASA (o quadrado do selo do bilhete, o mesmo
+ * raio da placa), o domínio é o CÍRCULO da linha (o mesmo --raio-estacao do mapa).
+ * Quem tem eixo na mão vê um contorno sem tinta; quem tem o carimbo vê a cor da
+ * linha no domínio e a tinta no percurso.
+ *
+ * NENHUMA cor, duração ou medida escrita aqui: só tokens. --alvo-toque não é
+ * preciso: o carimbo não é tocável, e a única coisa clicável da seção é o link da
+ * próxima estação, que já tem o piso lá embaixo.
+ */
+.perfil-caderneta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-3);
+}
+
+.perfil-carimbos {
+  display: grid;
+  gap: var(--espaco-3);
+}
+
+.perfil-carimbo {
   display: flex;
   flex-direction: column;
   gap: var(--espaco-1);
+  border-top: 1px solid var(--borda);
+  padding-top: var(--espaco-3);
 }
 
-.perfil-marco-cab {
+.perfil-carimbo-cab {
   display: flex;
-  justify-content: space-between;
-  gap: var(--espaco-2);
   align-items: baseline;
+  gap: var(--espaco-2);
 }
 
-.perfil-marco-nome {
+.perfil-carimbo-nome {
   font-size: var(--tipo-corpo);
   font-weight: var(--peso-forte);
   color: var(--tinta);
   margin: 0;
 }
 
-.perfil-marco-estado {
+/* O selo do percurso: a CASA. O do domínio: o CÍRCULO da linha. Mesma caixa
+   (--estacao, o diâmetro da estação no mapa), formas diferentes. */
+.perfil-carimbo-casa,
+.perfil-carimbo-circulo {
+  width: var(--estacao);
+  height: var(--estacao);
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  /* O contorno SEM COR do espaço vazio reusa o anel fino do selo vazio do
+   * bilhete (linha 88): é o token que a casa já destina a «existe, ainda não
+   * aconteceu». Nada de cor aqui — o vazio informa pela forma e pelo critério. */
+  border: var(--anel-trancada) solid var(--trancada);
+}
+
+.perfil-carimbo-casa {
+  border-radius: var(--raio-placa);
+}
+
+.perfil-carimbo-circulo {
+  border-radius: var(--raio-estacao);
+}
+
+.perfil-vazio .perfil-carimbo-nome {
+  color: var(--fosca);
+  font-weight: var(--peso-normal);
+}
+
+/* O CARIMBO GANHO leva a cor. No domínio ela é da LINHA — a mesma conta do
+   bilhete aqui em cima, e linha é a única coisa que cor marca (DS §2). No
+   percurso a série não tem linha nenhuma: é tinta. */
+.perfil-carimbo[data-estado="carimbado"] .perfil-carimbo-casa {
+  border-color: var(--tinta);
+  background: var(--tinta);
+}
+
+.perfil-carimbo[data-estado="carimbado"] .perfil-carimbo-circulo[data-linha="1"] { border-color: var(--linha-1); background: var(--linha-1); }
+.perfil-carimbo[data-estado="carimbado"] .perfil-carimbo-circulo[data-linha="2"] { border-color: var(--linha-2); background: var(--linha-2); }
+.perfil-carimbo[data-estado="carimbado"] .perfil-carimbo-circulo[data-linha="3"] { border-color: var(--linha-3); background: var(--linha-3); }
+.perfil-carimbo[data-estado="carimbado"] .perfil-carimbo-circulo[data-linha="4"] { border-color: var(--linha-4); background: var(--linha-4); }
+.perfil-carimbo[data-estado="carimbado"] .perfil-carimbo-circulo[data-linha="5"] { border-color: var(--linha-5); background: var(--linha-5); }
+.perfil-carimbo[data-estado="carimbado"] .perfil-carimbo-circulo[data-linha="6"] { border-color: var(--linha-6); background: var(--linha-6); }
+.perfil-carimbo[data-estado="carimbado"] .perfil-carimbo-circulo[data-linha="7"] { border-color: var(--linha-7); background: var(--linha-7); }
+
+.perfil-carimbo-criterio,
+.perfil-carimbo-vazio,
+.perfil-recorde-criterio {
+  font-size: var(--tipo-nota);
+  line-height: var(--entrelinha-nota);
+  color: var(--fosca);
+  margin: 0;
+}
+
+/* A frase do carimbo (o fato medido) e o dia, mono — mesmo tratamento do dado
+   do bilhete: número e data se lêem em uma passada. */
+.perfil-carimbo-data {
+  font-size: var(--tipo-corpo);
+  line-height: var(--entrelinha-corpo);
+  color: var(--tinta);
+  margin: 0;
+}
+
+.perfil-carimbo-dia,
+.perfil-recorde-valor {
+  font-family: var(--fonte-mono);
+  font-size: var(--tipo-nota);
+  color: var(--fosca);
+  margin: 0;
+}
+
+/* A MARCA da estação «concluída antes»: palavra, não cor, e sem frase. É o caso
+   em que houve conclusão sem medição — o carimbo diz a marca, não um feito. */
+.perfil-carimbo-marca {
   font-family: var(--fonte-placa);
   font-size: var(--tipo-placa);
   letter-spacing: var(--espacamento-placa);
@@ -166,17 +263,70 @@
   margin: 0;
 }
 
-.perfil-marco[data-estado="conquistado"] .perfil-marco-estado {
-  color: var(--tinta);
-  font-weight: var(--peso-placa);
+/* O DOMÍNIO AGRUPADO POR LINHA — as 7 fileiras do bilhete, a mesma gramática.
+   Em 375 px cada espaço é uma linha da coluna: nada de rolagem lateral (o
+   `minmax(0, 1fr)` é o que deixa o texto comprido quebrar em vez de estourar). */
+.perfil-fileira {
+  display: grid;
+  gap: var(--espaco-3);
+  grid-template-columns: minmax(0, 1fr);
+  border-top: 1px solid var(--borda);
+  padding-top: var(--espaco-3);
 }
 
-.perfil-marco-criterio,
-.perfil-marco-conta {
-  font-size: var(--tipo-nota);
-  line-height: var(--entrelinha-nota);
-  color: var(--fosca);
+.perfil-fileira:last-child {
+  border-top: none;
+}
+
+.perfil-recordes,
+.perfil-proxima {
+  gap: var(--espaco-2);
+}
+
+.perfil-recorde {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-1);
+  border-top: 1px solid var(--borda);
+  padding-top: var(--espaco-2);
+}
+
+.perfil-recorde-nome {
+  font-size: var(--tipo-corpo);
+  font-weight: var(--peso-forte);
+  color: var(--tinta);
   margin: 0;
+}
+
+.perfil-proxima-texto {
+  font-size: var(--tipo-corpo);
+  line-height: var(--entrelinha-corpo);
+  color: var(--tinta);
+  margin: 0;
+}
+
+/* O CARIMBO NOVO desce uma vez. A voz é a CHEGADA, não o toque: um feito que
+   entrou na caderneta é o trem chegando, e --movimento-abrir (320 ms) cai na
+   faixa orgânica de 200 a 340 ms do desenho. --deslocamento-entrada (8 px) é o
+   mesmo deslocamento com que a tela inteira entra, e --curva-atlas é a curva da
+   casa. Nada de partícula, nada de brilho, nada de `infinite`.
+
+   Com prefers-reduced-motion o elemento aparece parado: os tokens vão a zero no
+   bloco do fim de tokens.css (regua 11) e `both` continua entregando o estado
+   final, que é o carimbo VISÍVEL — a informação não depende do movimento. */
+.perfil-carimbo[data-novo="descer"] {
+  animation: carimbo-desce var(--movimento-abrir) var(--curva-atlas) both;
+}
+
+@keyframes carimbo-desce {
+  from { opacity: 0; transform: translateY(calc(-1 * var(--deslocamento-entrada))); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .perfil-carimbo[data-novo="descer"] {
+    animation: none;
+  }
 }
 
 /* SEUS DADOS */

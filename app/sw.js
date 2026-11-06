@@ -842,7 +842,23 @@
 // conta da placa — e «que você já dominou» só sai de pré-requisito com carimbo em
 // `dominadas`, nunca de declaração. Mudam de bytes core/caderneta.js (já no precache
 // desde v89), core/textos.js (as frases das três séries) e este sw.js.
-const VERSAO = 'atlas-v90';
+// atlas-v91: S17b (06/11/2026) — A TELA da caderneta no Perfil, com os espaços
+// vazios a vista. O nucleo das duas series ja estava commitado (v89, v90); este e o
+// primeiro carimbo que alguem ve. O Perfil perdes os marcos da S9 (o bilhete
+// carimbado pela conclusao DECLARADA) e ganha "Serie do percurso" (8) e "Serie do
+// dominio" (43, agrupados em 7 fileiras por linha com o fim de linha no fim, mais o
+// terminal depois de todas), os recordes e a proxima coisa. Todo carimbo mostra o
+// CRITERIO ("Abre quando: ...") nos dois estados: no ganho ele diz o que foi medido,
+// no vazio ele diz o que falta — esconder o vazio seria o bilhete de volta. A
+// "concluida antes" aparece com a MARCA e a data antiga, sem frase de medida. O
+// carimbo novo desde a ultima visita ao Perfil desce UMA vez (200-340ms pela voz
+// organica do design system; prefers-reduced-motion aparece sem movimento; nada de
+// particula). Mudam de bytes web/telas/perfil.js, web/telas/perfil.css,
+// core/textos.js (as frases da tela, no bloco caderneta) e este sw.js.
+// Sem subir a VERSAO, quem tem v90 no cache recebe o perfil.js novo chamando
+// cadernetaNucleo com um core/textos.js sem o bloco tela: a tela abre em branco no
+// onibus — o mesmo motivo de v89, agora com a tela existente.
+const VERSAO = 'atlas-v91';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
@@ -907,7 +923,7 @@ const VERSAO = 'atlas-v90';
 // web/telas/jornada.css (o desfazer da colisão de classe no `.topo`). O arquivo
 // novo (tests/jornada-medida.test.js) e as duas travas tocadas não estão no
 // precache: nada de fora de app/web e app/core vai para o cache de quem usa.
-const PRECACHE_HASH = 'sha256-908a6e25166030e154dc7ba428b6a3abcacb97e63f5863532841f88514c3d4fb';
+const PRECACHE_HASH = 'sha256-a2fe113f736df9aa85f39d6ea761aeb9491518c2f69634cfe464231c97655611';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.

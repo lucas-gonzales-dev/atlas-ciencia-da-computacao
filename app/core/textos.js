@@ -1249,6 +1249,7 @@ export const caderneta = Object.freeze({
   rotulo: 'Caderneta',
   serie: 'percurso',
   vazio: 'Ainda não aconteceu.',
+
   embarque: {
     nome: 'Embarque',
     criterio: 'A primeira aula aberta.',
@@ -1289,6 +1290,25 @@ export const caderneta = Object.freeze({
     criterio: 'Nas últimas 20 revisões com confiança, certeza acerta mais que acho, e acho mais que chute.',
     frase: 'Dizer que sabe bate com lembrar.',
   },
+
+  /**
+   * A TELA (S17b) — as palavras que só existem porque há uma folha para pintar. O
+   * vazio não é texto fofinho: é o critério escrito antes de cumprido, para a
+   * pessoa ler a régua e não só a lacuna. Por isso «Abre quando:».
+   *
+   * `fileira` é o rótulo do grupo do domínio. Sem nome de linha inventado
+   * (core/mapa-rede.js diz o mesmo do selo): o número da fonte e nada mais.
+   */
+  tela: Object.freeze({
+    seriePercurso: 'Série do percurso',
+    serieDominio: 'Série do domínio',
+    recordes: 'Recordes',
+    proxima: 'A próxima coisa',
+    abreQuando: (criterio) => `Abre quando: ${criterio}`,
+    fileira: (numero) => `Linha ${numero}`,
+    ganho: (data) => `Carimbado em ${data}`,
+    comMarca: (nome, data) => `${nome}, ${data}`,
+  }),
 
   /**
    * A SÉRIE DO DOMÍNIO (S17a-2) — 43 carimbos: um por estação, um por fim de linha,
