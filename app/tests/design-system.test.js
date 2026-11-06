@@ -485,10 +485,12 @@ test('textos: data de calendário vira dd/mm/aaaa sem fuso no meio', async () =>
   assert.equal(comValores.concluidaEm('2026-10-30'), 'Concluída em 30/10/2026');
 });
 
-test('textos: os oito estados obrigatórios existem, e o erro tem as três partes', async () => {
+test('textos: os sete estados obrigatórios existem, e o erro tem as três partes', async () => {
+  // S20b-2: `primeiraVisita` saiu desta lista junto com a chave morta em
+  // core/textos.js — o quadro «Bem-vindo ao embarque» morreu na S20a, e a
+  // régua não pode exigir o texto de uma tela que não existe.
   const obrigatorios = [
     'carregando',
-    'primeiraVisita',
     'buscaSemResultado',
     'offline',
     'fimDaLinha',

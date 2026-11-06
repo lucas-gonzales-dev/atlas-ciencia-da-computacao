@@ -748,7 +748,26 @@
 // não foi tocado — o que entra é a trava que prova que ele é chamado uma vez só e
 // nunca antes do primeiro cartão. Mudam de bytes e estão no precache:
 // core/progress-io.js, core/dados-pessoa.js, web/telas/perfil.js, web/telas/perfil.css.
-const VERSAO = 'atlas-v85';
+// atlas-v86: S20b-2 (05/11/2026) — OS TEXTOS DECIDIDOS, e o texto morto. (1) A nota da
+// placa dizia o que o toque NÃO faz («Abrir não muda sua viagem»); agora diz o ciclo
+// inteiro: «Estudar uma aula enche a estação. Lembrar dela depois dá a cor.» — e a nota
+// de «Em curso» acompanha: «com aula aberta», no lugar de repetir a permissão. (2) O
+// número nu: `valorEmCurso` saía com padStart e mostrava «00» ao lado de «0/35» — dois
+// zeros, e só um deles é honesto; agora é «0». (3) O selo de rede dizia «offline» e a
+// descrição fechava com «sem conexão», e a frase montada por web/rede.js repetia o
+// problema duas vezes: agora «Sem conexão · Tudo aqui continua funcionando.» diz uma
+// vez só. (4) A medida do topo encolheu o objeto («Estude uma»): «Estude uma aula,
+// lembre dela amanhã e o mapa acende». (5) «A REDE INTEIRA» virou «A rede inteira»: a
+// caixa alta é do CSS (web/telas/explorar.css:11, text-transform), e o leitor de tela
+// soletra a caixa alta ESCRITA. (6) MORREU estados.primeiraVisita: o quadro «Bem-vindo
+// ao embarque» saiu da tela na S20a e nenhum arquivo em web/ ou core/ lia a chave; a
+// lista de obrigatórios de tests/design-system.test.js era a única leitora e passou a
+// sete, com a citação da régua 9 em design/README.md acompanhando o título.
+// jornada.abertura FICOU: web/telas/jornada-blocos.js ainda lê as cinco chaves e
+// tests/metro.test.js confere primeiraVisita nelas — o que ficou órfão na S20a foi o
+// import de `abertura` em metro.js, não o texto, e apagar texto que uma tela ainda
+// desenha não é limpar morto. Muda de bytes e está no precache: core/textos.js.
+const VERSAO = 'atlas-v86';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
@@ -806,7 +825,7 @@ const VERSAO = 'atlas-v85';
 // e web/telas/explorar.css (o piso de toque dos alvos nus). Os testes novos não
 // estão no precache: nada de fora de app/web e app/core vai para o cache de quem
 // usa. O sw.js mediu o mesmo sha256 antes e depois.
-const PRECACHE_HASH = 'sha256-9a375c75acece12f3176a65770457ee6d695cf4fd347ae8989dffa3ede63bdc1';
+const PRECACHE_HASH = 'sha256-7bf0716a41e8d1d4c7161cd159e0513870a5ece3ceaf570ea29d07c0286385e3';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.

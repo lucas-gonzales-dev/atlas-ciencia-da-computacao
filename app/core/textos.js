@@ -80,7 +80,7 @@ export const placa = {
   continueOndeParou: 'Continue de onde parou',
   // S4b: a placa é o lugar de decidir, e decidir custa um clique que ninguém
   // devolve. A nota diz que abrir é grátis: nada aqui escreve na viagem.
-  notaAbrir: 'Abrir não muda sua viagem: você decide quando concluir.',
+  notaAbrir: 'Estudar uma aula enche a estação. Lembrar dela depois dá a cor.',
   viagem: 'Sua viagem',
   comoLerMapa: 'Como ler o mapa',
   sobre: 'Sobre',
@@ -288,7 +288,7 @@ export const TIPO_DE_ORIGEM = Object.freeze({
 });
 
 /**
- * Os oito estados obrigatórios (design/README.md §6). Cada um traz o texto que
+ * Os sete estados obrigatórios (design/README.md §6). Cada um traz o texto que
  * aparece — e o teste confere que nenhum campo está vazio.
  */
 export const estados = {
@@ -301,12 +301,6 @@ export const estados = {
     nota: 'Se demorar mais que um instante, aparece o desenho da linha em cinza.',
   },
 
-  primeiraVisita: {
-    titulo: 'Bem-vindo ao embarque',
-    descricao: 'Comece pela Linha 1: as 5 estações dela abrem o resto da rede.',
-    acao: 'Já estudou alguma? Marque as que você já fez — a rede se ajusta ao que você sabe.',
-    botao: 'Marcar o que já estudei',
-  },
 
   buscaSemResultado: {
     titulo: 'Nada encontrado',
@@ -317,8 +311,8 @@ export const estados = {
   offline: {
     // Selo DISCRETO: o Atlas offline é o Atlas inteiro, o catálogo está no
     // precache. Banner vermelho anunciaria um problema que não existe.
-    titulo: 'offline',
-    descricao: 'Tudo aqui continua funcionando sem conexão.',
+    titulo: 'Sem conexão',
+    descricao: 'Tudo aqui continua funcionando.',
   },
 
   fimDaLinha: {
@@ -601,9 +595,9 @@ export const jornada = {
   topo: Object.freeze({
     titulo: 'Ciência da Computação, aula por aula',
     medida: (disciplinas, fonte, aulas) =>
-      `${disciplinas} disciplinas da ${fonte}, ${aulas.toLocaleString('pt-BR')} aulas. Estude uma, lembre amanhã, e o mapa acende.`,
+      `${disciplinas} disciplinas da ${fonte}, ${aulas.toLocaleString('pt-BR')} aulas. Estude uma aula, lembre dela amanhã e o mapa acende.`,
     medidaSemAulas: (disciplinas, fonte) =>
-      `${disciplinas} disciplinas da ${fonte}. Estude uma, lembre amanhã, e o mapa acende.`,
+      `${disciplinas} disciplinas da ${fonte}. Estude uma aula, lembre dela amanhã e o mapa acende.`,
     // S18a-fix (item 4): a palavra «primeira» é uma AFIRMAÇÃO sobre o número, e
     // não um enfeite. Dizê-la para quem já pulou a Aula 1 é o topo prometendo a
     // aula que a pessoa acabou de dispensar. Com n ≠ 1 a frase vira «Começar:
@@ -644,8 +638,8 @@ export const jornada = {
     valorViagem: (c, t) => `${c}/${t}`,
     notaViagem: 'estações concluídas',
     emCurso: 'Em curso',
-    valorEmCurso: (n) => String(n).padStart(2, '0'),
-    notaEmCurso: 'você decide quando concluir',
+    valorEmCurso: (n) => String(n),
+    notaEmCurso: 'com aula aberta',
     linhasAbertas: 'Linhas abertas',
     valorLinhas: (a, t) => `${a}/${t}`,
     notaLinhas: 'com estação disponível',
@@ -666,7 +660,7 @@ export const jornada = {
  * Nada de emoji, nada de contagem de dias, nenhum número que ela não gerou.
  */
 export const explorar = Object.freeze({
-  rotulo: 'A REDE INTEIRA',
+  rotulo: 'A rede inteira',
   titulo: 'Explore sem perder a direção.',
   descricao: 'Cada estação mostra o que ela pede e o que ela abre. Trancada também se lê.',
   busca: {
