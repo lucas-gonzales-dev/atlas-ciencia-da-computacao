@@ -1085,7 +1085,34 @@
 // declara o seletor .topo exato e nenhum .js em web/ cria elemento com a classe topo
 // exata. So web/telas/jornada-topo.js e web/telas/jornada.css mudam de bytes no
 // PRECACHE; sem versao nova, quem tem v103 instalado continua com a abertura grudada.
-const VERSAO = 'atlas-v104';
+// atlas-v105: S24b (06/11/2026) — O LAYOUT DE COMPUTADOR, medido no Chrome em
+// 1920x945 e 1366x657. Quatro defeitos, todos só visíveis em janela larga, e a
+// suíte verde não via nenhum porque node não resolve CSS. (1) A LATERAL ENTRAVA
+// POR BAIXO DO CABEÇALHO: --altura-topo conta 48 px, que é o cabeçalho do
+// CELULAR (a marca sozinha); em 1024 px ou mais as abas sobem para o topo,
+// entram no fluxo ao lado da marca e a faixa fecha em 72. Entrou
+// --altura-topo-computador: 72px no @media do computador em web/casco.css, e a
+// lateral sticky lê o novo. (2) UMA COLUNA PARA O APP INTEIRO: cada tela tinha
+// um teto emprestado de outra coisa — a Jornada atravessava a janela, o Perfil e
+// a Explorar paravam no --bp-computador (um breakpoint trabalhando como largura
+// de página), a Revisar e as Aulas ficavam na linha de leitura COLADA À ESQUERDA
+// com o vazio todo à direita. Entram --largura-app: 1240px e --largura-leitura:
+// 760px, e as cinco raízes mais o .metro passam a ler um dos dois com
+// margin-inline: auto dentro do @media do computador. (3) O ANEL PRETO no título
+// «Fechar a aula»: ele recebe foco por código (tabindex="-1") para o leitor de
+// tela pousar nele, e o navegador desenhava anel enorme em quem só clicou;
+// [tabindex="-1"]:focus { outline: none } em web/base.css, e o :focus-visible
+// dos controles fica intacto — a exceção na trava de teclado é estreita de
+// propósito e só vale para quem o Tab nunca alcança. (4) A FOLHA DA ESTAÇÃO
+// cobria a linha 7 do mapa e rolava por dentro, ao lado da rolagem da página:
+// ela começa em --altura-topo-computador e a .metro.com-folha cede
+// --largura-painel de padding-right, então o mapa ENCOLHE em vez de ficar por
+// baixo. Dez folhas do precache mudam de bytes (tokens.css, base.css, casco.css,
+// folha.css, jornada.css, explorar.css, aulas.css, perfil.css, revisar.css,
+// aula.css); nenhum módulo novo entra — é CSS puro. Sem subir a VERSAO, quem tem
+// v104 no cache recebe o mesmo layout quebrado de sempre, com o HTML novo por
+// cima.
+const VERSAO = 'atlas-v105';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
@@ -1168,7 +1195,17 @@ const VERSAO = 'atlas-v104';
 // jornada-topo.js (a section sai de `topo` para `capa`) e web/telas/jornada.css (os três
 // seletores renomeados e o `justify-content: normal` fora, que só existia para desfazer a
 // herança do cabeçalho). Nenhum teste entra no cache, como sempre.
-const PRECACHE_HASH = 'sha256-6697c64b19c5c6c12a518e02e11a85bf1ec464da18096635b5bc66532b963934';
+// Recalculado ao fechar a S24b (06/11/2026), com a árvore parada e DEPOIS de subir a
+// VERSAO para atlas-v105: 112 arquivos, nenhum entrou e dez folhas de estilo mudaram de
+// bytes — web/tokens.css (--largura-app e --largura-leitura), web/base.css (o anel de
+// tabindex="-1"), web/casco.css (--altura-topo-computador no @media do computador),
+// web/folha.css (a folha abaixo do cabeçalho e o padding da .metro com a folha aberta),
+// web/telas/jornada.css (o teto do .metro e o top da lateral), e as cinco raízes
+// explorar.css, aulas.css, perfil.css, revisar.css, aula.css. É CSS puro: nenhum módulo
+// novo. Os três testes tocados (auditoria-tamanhos, metro, auditoria-teclado-leitor) não
+// estão no cache, como todo teste. O sw.js mediu o mesmo sha256 antes e depois de eu subir
+// a VERSAO — prova de que ele não está na própria lista.
+const PRECACHE_HASH = 'sha256-2460bb26581afcbd25637b81f4b68d0b8a1df1bea94d69b63e5edc7d848148a4';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.

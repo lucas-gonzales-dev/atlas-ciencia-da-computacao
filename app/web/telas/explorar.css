@@ -122,7 +122,7 @@
  */
 @media (min-width: 1024px) {
   .explorar-raiz {
-    max-width: var(--bp-computador);
+    max-width: var(--largura-app);
     margin-inline: auto;
   }
 }

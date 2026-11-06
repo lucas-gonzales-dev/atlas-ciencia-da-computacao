@@ -411,6 +411,18 @@ a.botao {
   .folha {
     align-items: stretch;
     justify-content: flex-end;
+    /* S24b item 4 — o painel começa ABAIXO do cabeçalho, não sobre ele. O
+       `inset: 0` da base cola o topo do painel no topo da janela e cobria as
+       abas; --altura-topo-computador é a medida do cabeçalho neste breakpoint. */
+    top: var(--altura-topo-computador);
+  }
+
+  /* E o mapa encolhe em vez de ficar por baixo do painel: a raiz da Jornada já
+     sabe que há uma folha aberta (.com-folha), e descontar a largura do painel
+     dela é o que faz a coluna do meio ceder espaço em vez de ser tapada. A
+     rolagem própria do painel fica como está — ele tem conteúdo próprio. */
+  .metro.com-folha {
+    padding-right: var(--largura-painel);
   }
 
   .folha-veu {

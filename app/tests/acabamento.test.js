@@ -88,7 +88,7 @@ test('acabamento S13c: a página de aulas é uma caixa de borda fechada e uma co
   assert.match(limpo, /-webkit-line-clamp:\s*2/, 'o título longo quebra em duas linhas e corta');
 });
 
-test('acabamento S13c: o anel de "você está aqui" é da marca, e o token de 720 px existe', () => {
+test('acabamento S13c: o anel de "você está aqui" é da marca, e o token de leitura existe', () => {
   const css = ler('web/telas/aulas.css');
   // A marca é o estado desenhado; o nome vai em .so-leitor. Se alguém devolver
   // o estado como coluna visível, a trava da linha (acima) e esta pegam.
@@ -100,7 +100,12 @@ test('acabamento S13c: o anel de "você está aqui" é da marca, e o token de 72
 
   // A largura de leitura mora no token (regra 11), não na tela.
   const tokens = ler('web/tokens.css');
-  assert.match(tokens, /--largura-leitura:\s*720px/, 'falta o token --largura-leitura no tokens.css');
+  // S24b item 2 — o teto do app inteiro passou a ser o --largura-app (1240) e a
+  // linha de leitura subiu de 720 para 760: dentro de uma coluna de 1240, 720
+  // centrado deixava mais de 250 px de sobra de um lado só e a página voltava a
+  // parecer deslocada. O número continua morando no token, que é o que esta
+  // trava cobra.
+  assert.match(tokens, /--largura-leitura:\s*760px/, 'falta o token --largura-leitura no tokens.css');
   assert.match(css, /max-width:\s*var\(--largura-leitura\)/, 'a página não lê o token: o número voltaria à mão');
 });
 

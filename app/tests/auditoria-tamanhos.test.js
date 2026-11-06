@@ -614,8 +614,12 @@ test('S17b-fix · o Perfil usa a tela, e não a coluna da Jornada', async () => 
   assert.ok(teto, `.perfil no computador sem max-width: o cartão cresce sem teto e a linha de leitura passa de 1.920`);
   assert.doesNotMatch(teto.corpo, /max-width:\s*var\(--largura-lateral\)/,
     `o Perfil voltou a --largura-lateral (${lateral} px): a coluna direita da Jornada como largura de página, e o resto da janela fica vazio`);
-  assert.match(teto.corpo, /max-width:\s*var\(--bp-computador\)/,
-    `--bp-computador (${computador} px) é o número da casa em que a janela deixa de ser estreita; o teto do Perfil não é mais um palpite: "${teto.corpo}"`);
+  // S24b item 2 — o teto do Perfil é a COLUNA DO APP, não um breakpoint. O
+  // --bp-computador (1024) é o número em que a janela deixa de ser estreita;
+  // usá-lo como largura de página misturava as duas coisas e deixava o Perfil
+  // com um teto que era, por acaso, o ponto de quebra.
+  assert.match(teto.corpo, /max-width:\s*var\(--largura-app\)/,
+    `o teto do Perfil não é --largura-app, a coluna da casa: "${teto.corpo}"`);
 
   // O bilhete: 5 casas por fileira. `1fr` tem piso automático (o maior nome de
   // estação), e com o Perfil largo a conta não fecha — a fileira sai do cartão.
@@ -709,8 +713,9 @@ test('S20b-5 · a raiz do Explorar tem margem lateral declarada', async () => {
   // lei do Perfil (perfil.css:537, S17b-fix item 1) e do topo da Jornada.
   const larga = regraDe(folha, '.explorar-raiz', 'min-width: 1024px');
   assert.ok(larga, 'nenhuma regra de .explorar-raiz dentro do @media de 1024: a lista voltou a atravessar a tela');
-  assert.equal(larga.decls['max-width'], 'var(--bp-computador)',
-    `o teto do Explorar não é --bp-computador: "${larga.decls['max-width']}"`);
+  // S24b item 2 — mesma razão do Perfil: o teto é a coluna do app.
+  assert.equal(larga.decls['max-width'], 'var(--largura-app)',
+    `o teto do Explorar não é --largura-app, a coluna da casa: "${larga.decls['max-width']}"`);
   assert.ok(larga.decls['margin-inline'], 'coluna de 1024 sem centralizar: o teto encosta a lista na margem esquerda');
 
   // A LETRA não mudou com um pedido de margem.
@@ -948,6 +953,62 @@ test('S18c-4 · nenhuma classe de aula.js veste duas tags quando a folha a desen
     'a caixa do escrever mais voltou a vestir fechamento-mais: herda a moldura e o align-self do botão «Outro cartão»');
   assert.match(js, /no\(doc,\s*'button',\s*'fechamento-mais'/,
     'o botão «Outro cartão» perdeu a classe que a folha desenha com a cor da estação');
+});
+
+/**
+ * S24b (06/11/2026, medido no Chrome em 1920x945 e 1366x657) — UMA COLUNA PARA O
+ * APP INTEIRO, e a lateral abaixo do cabeçalho.
+ *
+ * O defeito não é largura demais nem de menos: é a FALTA de acordo. Cada tela
+ * tinha um teto que era um número emprestado de outra — a Jornada atravessava a
+ * janela inteira, o Perfil e a Explorar paravam no --bp-computador (um breakpoint
+ * trabalhando como largura de página), a Revisar e as Aulas ficavam na linha de
+ * leitura COLADA À ESQUERDA com o vazio todo à direita, e o título da aula com
+ * 760 px centralizados era o único que se parecia com uma página. O conserto é o
+ * par de tokens --largura-app e --largura-leitura, e nada além disso.
+ *
+ * O que esta trava cobra, e por quê:
+ *   · as cinco raízes declaram UM DOS DOIS tokens dentro do @media do computador.
+ *     Cobrar o token exato por tela seria a folha dizendo ao olho o que desenhar;
+ *     lista larga é --largura-app, texto corrido é --largura-leitura, e a casa
+ *     decide isso por tela, não a trava. O que não pode é número à mão nem teto
+ *     herdado de um breakpoint;
+ *   · `.metro > .lateral` não usa `--altura-topo` puro. Aquele token é a conta do
+ *     cabeçalho no CELULAR (marca de 24 + o ar, 48 px). No computador as abas
+ *     sobem para o topo, entram no fluxo ao lado da marca e a faixa fecha em 72 —
+ *     medir a lateral por 48 é o que a fazia entrar POR BAIXO do cabeçalho.
+ */
+test('S24b · uma coluna para o app, e a lateral abaixo do cabeçalho do computador', async () => {
+  const RAIZES = [
+    ['web/telas/explorar.css', '.explorar-raiz'],
+    ['web/telas/aulas.css', '.aulas'],
+    ['web/telas/perfil.css', '.perfil'],
+    ['web/telas/revisar.css', '.revisar'],
+    ['web/telas/aula.css', '.aula'],
+  ];
+  for (const [arquivo, seletor] of RAIZES) {
+    const folha = escanear(await ler(arquivo));
+    const larga = folha.find((r) => ehMediaDesktop(r.media) && r.seletor.split(',').includes(seletor));
+    assert.ok(larga, `${seletor} sem regra dentro do @media do computador em ${arquivo}: a tela voltou ao teto da base, que não é uma escolha desta largura`);
+    assert.match(larga.corpo, /max-width:\s*var\(--largura-(?:app|leitura)\)/,
+      `${seletor} no computador sem o token de coluna da casa (--largura-app ou --largura-leitura) em ${arquivo}: "${larga.corpo}"`);
+    assert.match(larga.corpo, /margin-inline:\s*auto/,
+      `${seletor} tem teto sem centro em ${arquivo}: a sobra toda cai de um lado só e a página parece deslocada`);
+  }
+
+  // A raiz da Jornada é a grade de duas colunas, e é ela que precisa do teto: sem
+  // ele o mapa e a placa da lateral ficam a 1.400 px um do outro em 1920.
+  const jornada = escanear(await ler('web/telas/jornada.css'));
+  const metro = jornada.find((r) => ehMediaDesktop(r.media) && r.seletor === '.metro');
+  assert.ok(metro && /max-width:\s*var\(--largura-app\)/.test(metro.corpo),
+    '.metro no computador sem o teto da coluna do app: a Jornada volta a atravessar a janela');
+
+  const lateral = jornada.find((r) => ehMediaDesktop(r.media) && r.seletor === '.metro > .lateral');
+  assert.ok(lateral, 'sumiu a regra da lateral sticky da Jornada');
+  assert.doesNotMatch(lateral.corpo, /top:\s*var\(--altura-topo\)/,
+    `a lateral voltou a ler --altura-topo puro: esse token é o cabeçalho do celular (48 px) e aqui o cabeçalho mede 72 — a lateral entra por baixo dele: "${lateral.corpo}"`);
+  assert.match(lateral.corpo, /--altura-topo-computador/,
+    'a lateral não usa --altura-topo-computador: o sticky da Jornada está colado no alto por um número que ninguém mediu');
 });
 
 test('réguas 6 · trocar de aba leva ao topo de QUEM ESTÁ ROLANDO', async () => {

@@ -321,6 +321,12 @@
 @media (min-width: 1024px) {
   .metro {
     display: grid;
+    /* S24b item 2 — a coluna do app. Antes disto a Jornada atravessava a janela
+       inteira: em 1920 o trilho do mapa e a placa da lateral ficavam a 1.400 px
+       um do outro, e o olho não achava onde a tela terminava. O teto é o mesmo
+       das outras páginas, com a sobra dividida pelos dois lados. */
+    max-width: var(--largura-app);
+    margin-inline: auto;
     grid-template-columns: 1fr var(--largura-lateral);
     grid-template-areas:
       "marca marca"
@@ -336,7 +342,7 @@
   .metro > .lateral {
     grid-area: lateral;
     position: sticky;
-    top: var(--altura-topo);
+    top: calc(var(--altura-topo-computador) + var(--espaco-4));
     display: grid;
     gap: var(--espaco-4);
   }

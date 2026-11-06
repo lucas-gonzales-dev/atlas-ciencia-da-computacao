@@ -701,7 +701,7 @@
  */
 @media (min-width: 1024px) {
   .perfil {
-    max-width: var(--bp-computador);
+    max-width: var(--largura-app);
     /* S20b-7 (item 3) — o teto sem o centro era a metade do conserto. A --largura-lateral
        da S17b-fix escondia o efeito porque 360 px colados à esquerda e 360 centrados
        parecem a mesma coisa numa captura; com o teto em 1024, a janela de 1280 mostra os
