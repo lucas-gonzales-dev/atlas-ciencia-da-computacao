@@ -27,7 +27,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { criarDoc, storageCom, todos, textoDe } from './hdom.js';
 import { iniciar } from '../web/casco.js';
-import { lerRota } from '../core/rotas.js';
+import { hrefDe, lerRota } from '../core/rotas.js';
 import { dataLocal } from '../core/viagem.js';
 import {
   ESTUDO_KEY, serializarEstudo, lerEstudo, abrirAula, estudarAula, pularAula,
@@ -36,9 +36,19 @@ import {
   CARTOES_KEY, criarCartao, lerCartoes, serializarCartoes, diaSeguinte,
 } from '../core/cartoes.js';
 import { CHAVE_VIAGEM } from '../web/metro.js';
-import { aplicarResultado, corrigirDesafio, podeDesafiar, fraseDaDominada } from '../core/desafio.js';
+import {
+  aplicarResultado, corrigirDesafio, podeDesafiar, fraseDaDominada,
+} from '../core/desafio.js';
 import { eixosDaEstacao } from '../core/eixos.js';
 import { desafio as D, folha as F, revisar as R } from '../core/textos.js';
+// `esperar` é o tique do fio: a folha pinta as aulas por promessa, e sem ele a
+// régua mediria o dublê em vez da folha (mesmo padrão de jornada-eixos.test.js).
+import { esperar } from './hdom.js';
+
+// S18c-2: a chave crua do `completed`, a mesma que web/main.js lê e escreve
+// (loadCompleted/saveCompleted). A folha decide `concluida-antes` por ela, e sem
+// semear aqui o caso da concluída antes seria um progresso escrito à mão.
+const CHAVE_COMPLETED = 'atlas.progresso.v1';
 
 const LER = (rel) => readFileSync(new URL(`../${rel}`, import.meta.url), 'utf8');
 const CATALOGO = JSON.parse(LER('data/catalog.json'));
@@ -122,7 +132,7 @@ const botaoPorTexto = (raiz, texto) => {
  * sem que o teste finja um ctx. Depois do iniciar ele volta ao original —
  * clique nenhum busca rede nesta tela.
  */
-async function abrirApp({ entradas = {}, hash = ROTA } = {}) {
+async function abrirApp({ entradas = {}, hash = ROTA, segurarFio = false, aulasNoAparelho = true } = {}) {
   const doc = criarDoc();
   const m = (tag, opts = {}) => {
     const no = doc.createElement(tag);
@@ -164,23 +174,41 @@ async function abrirApp({ entradas = {}, hash = ROTA } = {}) {
   const storageGlobalOriginal = globalThis.localStorage;
   Object.defineProperty(globalThis, 'localStorage', { value: storage, configurable: true, writable: true });
   const fetchOriginal = globalThis.fetch;
-  globalThis.fetch = async (url) => {
+  const buscar = async (url) => {
     const caminho = String(url);
     if (caminho === 'data/catalog.json') return { ok: true, status: 200, json: async () => CATALOGO };
     if (caminho === 'data/aulas/indice.json') return { ok: true, status: 200, json: async () => INDICE };
-    if (caminho === `data/aulas/${CIRCUITOS.slug}.json`) return { ok: true, status: 200, json: async () => AULAS };
+    // `aulasNoAparelho: false` é o caso real da S13b que a folha ainda não
+    // conhecia no desafio: o índice chegou, o JSON da estação não.
+    if (caminho === `data/aulas/${CIRCUITOS.slug}.json`) {
+      return aulasNoAparelho
+        ? { ok: true, status: 200, json: async () => AULAS }
+        : { ok: false, status: 404, json: async () => ({}) };
+    }
     return { ok: false, status: 404, json: async () => ({}) };
   };
+  globalThis.fetch = buscar;
   let inst;
   try {
     inst = await iniciar({ document: doc, window: win });
   } finally {
-    if (fetchOriginal === undefined) delete globalThis.fetch; else globalThis.fetch = fetchOriginal;
+    // S18c-2: `segurarFio` deixa o `fetch` do teste ligado depois do `iniciar`,
+    // porque a FOLHA pinta as aulas por promessa, um tick depois do casco
+    // devolver. Solto cedo, o `fetch` global do node tentaria a URL relativa, a
+    // promessa recusaria e a folha chegaria sem `aulas` — o verde acusaria a
+    // folha por um problema do dublê. `soltar()` devolve o original no fim.
+    if (!segurarFio) {
+      if (fetchOriginal === undefined) delete globalThis.fetch; else globalThis.fetch = fetchOriginal;
+    }
     if (storageGlobalOriginal === undefined) delete globalThis.localStorage;
     else Object.defineProperty(globalThis, 'localStorage', { value: storageGlobalOriginal, configurable: true, writable: true });
   }
   assert.equal(inst?.ok, true, `o casco não subiu: ${inst?.motivo}`);
-  return { doc, win, main, storage, inst, ir: (r) => inst.pintar(lerRota(r)) };
+  return {
+    doc, win, main, storage, inst,
+    ir: (r) => inst.pintar(lerRota(r)),
+    soltar: () => { if (fetchOriginal === undefined) delete globalThis.fetch; else globalThis.fetch = fetchOriginal; },
+  };
 }
 
 /** O storage de quem percorreu a estação e tem doze cartões maduros. */
@@ -252,7 +280,10 @@ describe('S18c-1 — a tela do desafio, pelo caminho do app', () => {
     assert.equal(dominada.cartoes, 12, 'a dominada não contou os cartões da estação');
 
     // O que a pessoa lê: o veredito e a frase do que foi medido.
-    const h1 = porClasse(main, 'revisar-titulo');
+    // S18c-2 (item 3): o fim saiu de `revisar-titulo` para `revisar-frente` — é o
+    // momento da entrega, e o veredito tinha de chegar maior que a frente do
+    // cartão que a pessoa acabou de responder. A trava segue a classe.
+    const h1 = porClasse(main, 'revisar-frente');
     assert.equal(h1.length, 1, 'o fim não tem exatamente um h1');
     assert.equal(h1[0]._texto, D.aprovadoTitulo);
     assert.ok(textoDe(main).includes(fraseDaDominada(dominada)),
@@ -287,9 +318,19 @@ describe('S18c-1 — a tela do desafio, pelo caminho do app', () => {
 
     const viagem = JSON.parse(storage.getItem(CHAVE_VIAGEM));
     assert.ok(!viagem?.dominadas?.[ID], 'um reprovado carimbou a estação');
-    const h1 = porClasse(main, 'revisar-titulo');
+    const h1 = porClasse(main, 'revisar-frente');
     assert.equal(h1[0]._texto, D.reprovadoTitulo);
     assert.ok(textoDe(main).includes(D.reprovado(3)), 'o reprovado não diz quantos voltaram');
+    // S18c-2 (item 3): sem carimbo não há o que ir ver no Perfil — o link da
+    // caderneta é só do aprovado, e o reprovado tem de continuar sem ele.
+    assert.ok(!todos(main, (n) => n.tag === 'a').some((a) => a._texto === D.verCaderneta),
+      'o reprovado ofereceu a caderneta, onde não há dominada nenhuma');
+    // A frase do reprovado é o recado do núcleo, e sai no corpo, não na nota.
+    const nota = porClasse(main, 'revisar-nota');
+    assert.equal(nota.length, 0, 'a frase do fim voltou para a classe miúda');
+    assert.equal(porClasse(main, 'revisar-sub').length, 1, 'o fim não tem a frase no corpo');
+    assert.ok(!porClasse(main, 'revisar-frente').some((n) => n.tag !== 'h1'),
+      'a classe da frente saiu do h1');
   });
 
   test('recarregar no meio mantém o sorteio e a posição', async () => {
@@ -426,5 +467,362 @@ describe('S18c-1 — a tela do desafio, pelo caminho do app', () => {
       assert.equal(esperado.cartoes.cartoes[id].devidoEm, HOJE, 'o núcleo também move — conferir os dois');
     }
     assert.ok(textoDe(main).includes(esperado.recado), 'a tela não mostrou o recado do núcleo');
+  });
+});
+
+// ══════════════ S18c-2 — o desafio na folha, a dominada no mapa, a frase ══════════════
+//
+// A folha é onde a pessoa está, e até aqui ela não dizia nada sobre o desafio: a
+// promessa morava no Perfil. O que se prova abaixo é o ponteiro (o link, só com a
+// régua do núcleo dizendo «pode»), o porquê quando ela diz «não», as duas frases
+// de estado (o convite na concluída-antes, o carimbo na dominada) e o silêncio na
+// `fora` — mais a travessia: o clique que sai da folha e cai na rota do desafio.
+
+/**
+ * A folha desenhada pelo caminho do app: sobe o casco em `#/estacao/<slug>`,
+ * espera o fio das aulas fechar (três ticks, os mesmos de `aulas-fio.test.js` e
+ * `jornada-eixos.test.js`) e devolve a FOLHA inteira, não o `#conteudo` — quem
+ * conta os primários tem de contar o painel, e a barra de navegação do casco tem
+ * outra regra de toque.
+ */
+async function abrirFolha({ entradas = {}, painel = null, aulasNoAparelho = true } = {}) {
+  const app = await abrirApp({
+    entradas,
+    hash: `#/estacao/${CIRCUITOS.slug}${painel ? `/${painel}` : ''}`,
+    segurarFio: true,
+    aulasNoAparelho,
+  });
+  await esperar(); await esperar(); await esperar();
+  const folha = porClasse(app.main, 'folha')[0];
+  assert.ok(folha, 'a folha não foi desenhada — sem painel não há o que conferir');
+  return { ...app, folha };
+}
+
+/** A viagem de quem não tem carimbo nenhum, no formato que web/main.js lê. */
+const SEM_CARIMBO = {
+  [CHAVE_COMPLETED]: '[]',
+  [CHAVE_VIAGEM]: JSON.stringify({ emCurso: [], conclusoes: {}, dominadas: {} }),
+};
+
+/**
+ * DOMINAR a estação pelo caminho do app, e devolver o app AINDA VIVO com o
+ * carimbo lido do storage.
+ *
+ * Nada aqui escreve `progresso.dominadas` à mão: a pessoa entra, responde e a
+ * TELA carimba. É o que faz os dois testes de abaixo (a frase na folha, a cor no
+ * mapa) provarem o circuito inteiro em vez de provarem uma fixture minha.
+ *
+ * O PRIMEIRO cartão é respondido `errei`, de propósito. Ele é o da aula de
+ * exercício — a única `estudada` desta viagem — e é o único que dá trabalho à
+ * régua fraca de `core/eixos.js` (`cor = lembradas / estudadas`): sem o carimbo a
+ * conta fraca sai ZERO, com ele a cor é 1. Se os doze saíssem `lembrei`, a cor 1
+ * poderia vir da régua e o teste não distinguishiria as duas contas — que é o
+ * engano que o item 2 do pedido veio desfazer.
+ */
+async function dominarAEstacao() {
+  const app = await abrirApp({
+    entradas: { ...entradasProntas(), ...SEM_CARIMBO },
+    hash: ROTA,
+    segurarFio: true,
+  });
+  const { main, storage } = app;
+  const s = comecar(main, storage);
+  assert.equal(s.cartoes[0], 'cartao-1',
+    'fixture: o cartão da aula de exercício não abriu o sorteio — o erro planeado cairia em outra aula');
+  responderUm(main, storage, 'errei');
+  for (let i = 1; i < s.cartoes.length; i++) responderUm(main, storage, 'lembrei');
+  await esperar();
+  assert.ok(textoDe(main).includes(D.aprovadoTitulo), 'o desafio não terminou aprovado');
+
+  const viagem = JSON.parse(storage.getItem(CHAVE_VIAGEM));
+  const dominada = viagem?.dominadas?.[ID];
+  assert.ok(dominada, 'a tela aprovou e não escreveu progresso.dominadas');
+  assert.equal(dominada.acertos, s.cartoes.length - 1, 'o carimbo não contou o erro planeado');
+  return { ...app, dominada, sorteado: s, viagem };
+}
+
+/** O bloco do desafio na folha, com o elemento e o texto que a pessoa lê. */
+function blocoDaFolha(folha) {
+  const caixa = porClasse(folha, 'folha-desafio')[0];
+  return {
+    caixa,
+    caixas: porClasse(folha, 'folha-desafio'),
+    link: porClasse(folha, 'folha-desafio-link')[0] || null,
+    texto: porClasse(folha, 'folha-desafio-texto')[0] || null,
+    primarios: porClasse(folha, 'botao-primario'),
+  };
+}
+
+describe('S18c-2 — a folha da estação: o link quando pode, o porquê quando não', () => {
+  test('percorrida com doze cartões maduros: a folha mostra o link, leve, para a rota do desafio', async () => {
+    const { folha, soltar, win, inst, main } = await abrirFolha({
+      entradas: { ...entradasProntas(), ...SEM_CARIMBO },
+    });
+    try {
+      const b = blocoDaFolha(folha);
+      assert.ok(b.caixa, 'a estação está percorrida e pode: a folha não ofereceu o desafio');
+      assert.equal(b.caixas.length, 1, 'nasceram dois blocos de desafio na mesma folha');
+      assert.ok(b.link, `o bloco tem de ser o LINK, e veio texto: ${b.texto?._texto ?? '(vazio)'}`);
+      assert.equal(b.link._texto, D.acaoNaFolha,
+        `o link diz «${b.link._texto}», e a frase da casa é «${D.acaoNaFolha}»`);
+      // A rota, conferida na função da casa, e não no href que eu acho que sai.
+      assert.equal(b.link.getAttribute('href'),
+        hrefDe({ tela: 'estacao', slug: CIRCUITOS.slug, painel: 'desafio' }),
+        `o link aponta para «${b.link.getAttribute('href')}»`);
+      assert.equal(b.texto?._texto ?? null, null, 'oferecendo o desafio, a folha ainda escreveu uma frase');
+      // SECUNDÁRIO (desenho J4): a folha continua tendo UM primário só — o de
+      // retomar a aula. Dois botões cheios no mesmo painel é o defeito da 2d-2.
+      assert.equal(b.primarios.length, 1,
+        `a folha tem ${b.primarios.length} primários: o link do desafio virou botão cheio`);
+      assert.ok(b.primarios.some((n) => n.tag === 'a' || n.tag === 'button'));
+
+      // A TRAVESSIA. O mini-DOM não navega num clique — quem abre `href` é o
+      // navegador, e fingir isso aqui seria testar o dublê. O que se prova é a
+      // pergunta real: o href escrito na folha É a rota do desafio, lida pelo
+      // parser da casa, e o app montado naquele endereço entrega a tela.
+      const rota = lerRota(b.link.getAttribute('href'));
+      assert.equal(rota?.tela, 'estacao', `o href «${b.link.getAttribute('href')}» não é uma estação`);
+      assert.equal(rota.slug, CIRCUITOS.slug, `o href leva a «${rota.slug}», outra estação`);
+      assert.equal(rota.painel, 'desafio', `o href não traz o painel do desafio: ${JSON.stringify(rota)}`);
+      await inst.pintar(rota);
+      await esperar();
+      // A frase do primário é a do núcleo (`desafio.comecar`), lida de textos.js —
+      // não uma string que eu inventei aqui: na primeira versão desta trava eu
+      // procurei `D.entrar`, chave que nunca existiu, e o `undefined` não casa com
+      // botão nenhum, então a travessia reprovaria um app CORRETO para sempre.
+      const portal = todos(main, (n) => n.tag === 'button' && n._texto === D.comecar);
+      assert.equal(portal.length, 1,
+        'o href da folha chega numa rota que não entrega a tela do desafio');
+    } finally {
+      soltar();
+    }
+  });
+
+  test('a régua diz não: a folha mostra O PORQUÊ do núcleo, e nenhum link', async () => {
+    // Nove cartões maduros (um deles da aula de exercício) e três amadurecendo.
+    const mapa = {};
+    let i = 0;
+    const escrever = (aula, criadoEm) => {
+      i += 1;
+      const r = criarCartao(mapa, { estacao: ID, aula: aula.id, n: aula.n,
+        frente: `Frente ${i}`, verso: `Verso ${i}` }, criadoEm, `maduro-${i}`);
+      assert.equal(r.ok, true, `fixture: cartão recusado (${r.erro})`);
+      for (const [k, v] of Object.entries(r.cartoes)) mapa[k] = v;
+    };
+    escrever(EXERCICIO, CRIADO);
+    for (const a of AULAS.aulas.slice(1, 9)) escrever(a, CRIADO);
+    for (const a of AULAS.aulas.slice(9, 12)) escrever(a, `${ANTES(1)}T10:00`);
+    const faltando = {
+      ...entradasProntas({ cartoes: false }),
+      ...SEM_CARIMBO,
+      [CARTOES_KEY]: serializarCartoes({ versao: 1, cartoes: mapa }),
+    };
+    const { folha, soltar } = await abrirFolha({ entradas: faltando });
+    try {
+      const b = blocoDaFolha(folha);
+      const p = podeDesafiar({ estagio: 'percorrida', id: ID }, lerEstudo(faltando[ESTUDO_KEY]),
+        { cartoes: mapa }, AULAS.aulas, HOJE);
+      assert.equal(p.pode, false, 'fixture: a régua deixou passar o que eu queria negar');
+      assert.ok(b.caixa, `a folha não mostrou o porquê (${JSON.stringify(p)}): ele é o caminho de volta`);
+      // O `?? null` não é enfeite: `assert.equal(<nó do mini-DOM>, null)` faz o
+      // impressor de diferença do node varrer a árvore inteira, com os pais
+      // circulares, e o processo morre em "heap out of memory" em vez de mostrar a
+      // frase da trava. Compara-se o TEXTO do link, que é o que a folha escreveu.
+      assert.equal(b.link?._texto ?? null, null,
+        'a régua disse não e a folha ofereceu o desafio mesmo assim');
+      assert.equal(b.texto?._texto, p.porque,
+        `a folha escreveu «${b.texto?._texto}» e o núcleo respondeu «${p.porque}»`);
+      // O caso é o do piso: faltam 1 dos 10, e três estão amadurecendo hoje.
+      assert.equal(b.texto._texto, D.maturando(1), 'não é a frase de amadurecimento que se esperava');
+    } finally {
+      soltar();
+    }
+  });
+
+  test('os cartões são todos novos: a folha pede o cartão do exercício, sem link', async () => {
+    const mapa = {};
+    let i = 0;
+    for (const a of [EXERCICIO, ...AULAS.aulas.slice(1, 5)]) {
+      i += 1;
+      const r = criarCartao(mapa, { estacao: ID, aula: a.id, n: a.n,
+        frente: `Frente ${i}`, verso: `Verso ${i}` }, `${ANTES(1)}T10:00`, `novo-${i}`);
+      assert.equal(r.ok, true, `fixture: cartão recusado (${r.erro})`);
+      for (const [k, v] of Object.entries(r.cartoes)) mapa[k] = v;
+    }
+    const { folha, soltar } = await abrirFolha({
+      entradas: {
+        ...entradasProntas({ cartoes: false }),
+        ...SEM_CARIMBO,
+        [CARTOES_KEY]: serializarCartoes({ versao: 1, cartoes: mapa }),
+      },
+    });
+    try {
+      const b = blocoDaFolha(folha);
+      assert.ok(b.caixa, 'a estação está percorrida e a folha não disse nada');
+      assert.equal(b.link?._texto ?? null, null, 'com cartão de um dia a folha abriu o desafio');
+      assert.equal(b.texto?._texto, D.faltamCartoesDeExercicio([EXERCICIO.n]),
+        'a frase esperada é a do cartão de exercício ainda sem medir');
+    } finally {
+      soltar();
+    }
+  });
+
+  test('sem as aulas no aparelho: o bloco não nasce (a casa não descreve o que não chegou)', async () => {
+    const { folha, soltar } = await abrirFolha({
+      entradas: { ...entradasProntas(), ...SEM_CARIMBO },
+      aulasNoAparelho: false,
+    });
+    try {
+      const b = blocoDaFolha(folha);
+      assert.ok(!b.caixa,
+        'a folha montou o bloco do desafio sobre uma lista de aulas que não chegou');
+    } finally {
+      soltar();
+    }
+  });
+});
+
+describe('S18c-2 — as frases por estágio na folha', () => {
+  test('fora: NADA. A folha não fala de desafio em quem não passou pela estação', async () => {
+    const { folha, soltar } = await abrirFolha({
+      entradas: {
+        ...SEM_CARIMBO,
+        [ESTUDO_KEY]: serializarEstudo({ versao: 1, ultima: null, aulas: {} }),
+        [CARTOES_KEY]: serializarCartoes({ versao: 1, cartoes: {} }),
+      },
+    });
+    try {
+      const b = blocoDaFolha(folha);
+      assert.ok(!b.caixa, 'a estação «fora» ganhou bloco de desafio');
+      // A folha inteira é lida, não só o bloco: a régua é «nenhuma palavra sobre
+      // desafio», e um texto solto fora da caixa contaria igual.
+      assert.ok(!textoDe(folha).toLowerCase().includes('desafio'),
+        `a folha falou em desafio para quem não começou: ${textoDe(folha)}`);
+    } finally {
+      soltar();
+    }
+  });
+
+  test("concluída no carimbo antigo ('concluida-antes'): o convite, sem régua e sem link", async () => {
+    const { folha, soltar } = await abrirFolha({
+      entradas: {
+        ...SEM_CARIMBO,
+        [CHAVE_COMPLETED]: JSON.stringify([ID]),
+        [CHAVE_VIAGEM]: JSON.stringify({
+          emCurso: [], conclusoes: { [ID]: `${ANTES(30)}T10:00` }, dominadas: {},
+        }),
+        [ESTUDO_KEY]: serializarEstudo({ versao: 1, ultima: null, aulas: {} }),
+      },
+    });
+    try {
+      const b = blocoDaFolha(folha);
+      assert.ok(b.caixa, "a 'concluida-antes' ficou muda: a caderneta promete o desafio e a folha não");
+      assert.equal(b.texto?._texto, D.conviteConcluidaAntes,
+        `a folha escreveu «${b.texto?._texto}» em vez do convite`);
+      assert.ok(!/fora/.test(b.texto._texto), 'o convite vazou o nome interno do estágio');
+      assert.ok(!/«/.test(b.texto._texto), 'o convite devolveu um estágio entre aspas');
+      assert.equal(b.link?._texto ?? null, null, 'a folha abriu o desafio sobre um carimbo sem medição nenhuma');
+      // O ramo é OBRIGATÓRIO, não cosmético: passada pela régua, a concluída
+      // antes responderia com o `porque` do núcleo, que fala de aula de exercício
+      // para quem tem um carimbo sem medição nenhuma. A frase da folha não vem de
+      // lá, e é isto que a linha abaixo trava.
+      const p = podeDesafiar({ estagio: 'concluida-antes', id: ID }, lerEstudo(null),
+        lerCartoes(null), AULAS.aulas, HOJE);
+      assert.equal(p.pode, false, 'fixture: o núcleo deixou passar a concluída antes');
+      assert.ok(p.porque && p.porque !== D.conviteConcluidaAntes,
+        `o convite viria do núcleo, e o núcleo responde «${p.porque}»`);
+      assert.notEqual(b.texto._texto, p.porque,
+        'a folha despejou o porquê do núcleo em vez do convite');
+    } finally {
+      soltar();
+    }
+  });
+
+  test('dominada: a folha mostra a frase do carimbo, e nenhum link para perdê-lo', async () => {
+    const app = await dominarAEstacao();
+    // O storage que a TELA escreveu, lido byte a byte e reseedado num app novo:
+    // é a viagem da pessoa depois do carimbo, não uma fixture minha.
+    const entradas = {};
+    for (const chave of [ESTUDO_KEY, CARTOES_KEY, CHAVE_COMPLETED, CHAVE_VIAGEM]) {
+      entradas[chave] = app.storage.getItem(chave);
+    }
+    app.soltar();
+    const { folha, soltar } = await abrirFolha({ entradas });
+    try {
+      const b = blocoDaFolha(folha);
+      assert.ok(b.caixa, 'a dominada ficou muda na folha');
+      assert.equal(b.caixas.length, 1, 'nasceram dois blocos na folha da dominada');
+      assert.equal(b.texto?._texto, fraseDaDominada(app.dominada),
+        `a folha escreveu «${b.texto?._texto}» em vez da frase do que foi medido`);
+      assert.ok(!/fora/.test(b.texto._texto), 'a frase da dominada vazou o nome interno do estágio');
+      assert.equal(b.link?._texto ?? null, null,
+        'a folha ofereceu refazer o desafio sobre um carimbo aprovado — refazer é a única forma de perdê-lo');
+    } finally {
+      app.soltar();
+    }
+  });
+});
+
+describe('S18c-2 — a dominada no mapa e a palavra proibida', () => {
+  test('depois de aprovar, pelo app: o eixo da estação tem cor 1 e estágio dominada', async () => {
+    const app = await dominarAEstacao();
+    const { storage, main, soltar } = app;
+    try {
+      // O eixo, com o que o app tem no storage AGORA — a conta é do núcleo, o
+      // resto é do app. O carimbo está no disco porque a TELA o escreveu.
+      const eixo = eixosDaEstacao(ID, {
+        estudo: lerEstudo(storage.getItem(ESTUDO_KEY)),
+        cartoes: lerCartoes(storage.getItem(CARTOES_KEY)),
+        progresso: {
+          completed: JSON.parse(storage.getItem(CHAVE_COMPLETED) || '[]'),
+          emCurso: [], conclusoes: {}, dominadas: app.viagem.dominadas,
+        },
+        indice: INDICE,
+        hoje: HOJE,
+      });
+      assert.equal(eixo.estagio, 'dominada', `o estágio veio «${eixo.estagio}»`);
+      assert.equal(eixo.cor, 1,
+        `a dominada saiu do mapa com cor ${eixo.cor} (lembradas ${eixo.lembradas} de ${eixo.estudadas})`);
+      // A régua fraca, lida sem o carimbo no mesmo storage: é ela que o `cor: 1`
+      // substitui. Se esta linha der cor 1, o teste deixou de provar o carimbo.
+      const eixoSemCarimbo = eixosDaEstacao(ID, {
+        estudo: lerEstudo(storage.getItem(ESTUDO_KEY)),
+        cartoes: lerCartoes(storage.getItem(CARTOES_KEY)),
+        progresso: { completed: [ID], emCurso: [], conclusoes: {}, dominadas: {} },
+        indice: INDICE, hoje: HOJE,
+      });
+      assert.ok(eixoSemCarimbo.cor < 1,
+        `fixture: a conta fraca já dava cor ${eixoSemCarimbo.cor} — o teste não distinguiria o carimbo`);
+      assert.equal(eixoSemCarimbo.estagio, 'percorrida',
+        `sem o carimbo a estação deveria voltar a 'percorrida', e veio «${eixoSemCarimbo.estagio}»`);
+      // Dominar não congela a memória: as lembradas continuam contadas.
+      assert.ok(Number.isFinite(eixo.lembradas), 'as lembradas deixaram de ser medidas');
+      assert.equal(eixo.lembradas, eixoSemCarimbo.lembradas,
+        'a dominada mudou a CONTA das lembradas, quando deveria mudar só a cor');
+
+      // O HTML do mapa fica para `mapa-eixos.test.js`, que já espera o fio do
+      // topo; o que esta régua mede é o eixo, e é nele que `cor: 1` nasce.
+      assert.ok(app.dominada.em, 'o carimbo não levou a data do dia');
+    } finally {
+      soltar();
+    }
+  });
+
+  test('nenhuma frase do desafio diz «fora», nem na estação em que ninguém tocou', () => {
+    assert.match(D.naoPercorrida('fora'), /ainda não começou/, 'a frase da `fora` não é a nova');
+    for (const estagio of ['fora', 'embarcada', 'em-percurso', '', undefined, null]) {
+      const p = podeDesafiar({ estagio, id: ID }, lerEstudo(null), lerCartoes(null), AULAS.aulas, HOJE);
+      assert.equal(p.pode, false, `o desafio abriu para o estágio «${estagio}»`);
+      assert.ok(p.porque, `sem estágio «${estagio}» o núcleo devolveu pode:false e porque:null`);
+      assert.ok(!/\bfora\b/.test(p.porque), `«${p.porque}» vazou o nome interno do estágio`);
+      assert.ok(!/«fora»/.test(p.porque), `«${p.porque}» devolveu «fora» entre aspas`);
+      for (const frase of [D.conviteConcluidaAntes, fraseDaDominada({ acertos: 10, total: 12 })]) {
+        assert.ok(!/\bfora\b/.test(frase), `«${frase}» contém a palavra «fora»`);
+      }
+    }
+    // A folha, lida pelo texto que ela escreve no caso da `fora`, está no teste
+    // de acima; aqui fica a régua do texto, que é a que pega quem só escreve.
+    assert.ok(!/\bfora\b/.test(F.eixos(3, AULAS.aulas.length, 1)),
+      'a linha de medida da folha usou a palavra proibida');
   });
 });

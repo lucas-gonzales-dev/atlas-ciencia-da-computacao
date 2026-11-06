@@ -20,8 +20,15 @@
 // mediu seria o mapa mentir de novo, só que ao contrário. A passagem do tempo
 // ACRESCE UMA COISA: "esta estação pede 10 min de revisão".
 //
-// O "dominada" (o desafio da estação, J4) NÃO entra aqui. O eixo da cor fica
-// pronto para recebê-lo: é mais uma medida por aula, não um eixo novo.
+// O "dominada" (o desafio da estação, J4) ENTROU aqui, e o pedido estava certo
+// ao dizer que o eixo da cor estava pronto para recebê-lo: ele é mais uma medida,
+// não um eixo novo. Desde a S18b-2 ele é um estágio da escada, e desde a S18c-2
+// (item 2) ele também fecha a cor: a estação dominada tem o anel cheio, seja qual
+// for a conta das lembradas. Motivo: o desafio sorteou os cartões DELA, conferiu
+// oito em cada dez lembrados dois dias ou mais depois, e registrou os ids dos
+// lembrados no carimbo — a cor média «quantas aulas você lembra» numa estação em
+// percurso, e numa já medida por cima dela seria a régua mais fraca mandar na
+// mais forte. `lembradas` continua MEDIDA e devolvida: o que muda é só a cor.
 //
 // Regra da casa: roda no node E no navegador, sem build. Zero DOM, zero
 // localStorage, zero 'node:*', zero rede. Nada muta a entrada — e nem precisa,
@@ -242,7 +249,15 @@ export function eixosDaEstacao(id, { estudo, cartoes, indice, progresso, hoje } 
     total,
     preenchimento,
     lembradas,
-    cor,
+    // S18c-2 (item 2): a dominada tem a cor CHEIA. O carimbo do desafio já é a
+    // medição mais forte que existe — oito em cada dez cartões DA ESTAÇÃO lembrados
+    // dois dias ou mais depois, pela conferência da própria pessoa (core/desafio.js)
+    // — e a média «lembradas / estudadas» abaixo é a régua fraca de quem ainda está
+    // no meio. Deixar a dominada com cor 0,6 porque duas aulas de 93 nunca tiveram
+    // cartão lembrado seria o mapa mostrando a conta mais fraca por cima do fato.
+    // `lembradas` e `pedeRevisao` continuam MEDIDOS e devolvidos: dominar não
+    // congela a memória, e os cartões dela seguem na fila do FSRS.
+    cor: estagio === 'dominada' ? 1 : cor,
     pedeRevisao,
     segundosRestantes: Math.round(segundos * (1 - preenchimento)),
   };

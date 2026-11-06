@@ -974,7 +974,23 @@
 // revisar.css; classe que o CSS não conhece é roupa invisível (o defeito que tirou
 // `explorar` e `revisar` da lista na S8). O arquivo entra no PRECACHE com o import do
 // casco no mesmo commit, senão é branco no ônibus.
-const VERSAO = 'atlas-v97';
+// atlas-v98: S18c-2 (06/11/2026) — O DESAFIO ENTRA NO APP: a tela existia e nada apontava para
+// ela, que é a forma mais silenciosa de uma feature não existir. A folha da estação ganha
+// `blocoDesafio` (web/folha.js, .folha-desafio no desenho discreto do .folha-eixos-revisar), um
+// elemento só por estágio: nada em `fora`, o convite em `concluida-antes`, a frase do carimbo em
+// `dominada` (link algum — refazer é a única forma de perder o carimbo), e nos demais a régua
+// `podeDesafiar` do NÚCLEO, com o `porque` dele quando diz não. SECUNDÁRIO de propósito: a folha
+// continua com um primário só (a lei da 2d-2). No mapa (core/eixos.js), a estação dominada passa a
+// ter a COR CHEIA seja qual for a conta das lembradas — o carimbo aprovado é o fato mais forte que
+// há sobre aquela estação, e ele aparece como um ponto; as lembradas continuam medidas, só deixam
+// de ser o veredito. Na tela, o fim sai em corpo e não em miúdo (`-frente`/`-sub`), porque é o
+// momento da entrega, e o aprovado ganha o link discreto para a caderneta. `naoPercorrida`
+// (core/textos.js) parou de dizer «fora»: nome interno de estágio na tela é o defeito que a
+// auditoria de frases caça. Sem as aulas carregadas o bloco NÃO nasce — a casa não descreve o que
+// não chegou. Mudam de bytes web/folha.js, web/folha.css, core/eixos.js, core/textos.js,
+// web/telas/desafio.js e tests/desafio-tela.test.js; nenhum arquivo novo, o PRECACHE não cresce.
+
+const VERSAO = 'atlas-v98';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
@@ -1047,7 +1063,7 @@ const VERSAO = 'atlas-v97';
 // fora de app/web e app/core vai para o cache de quem usa. O sw.js mediu o mesmo
 // sha256 antes e depois de eu subir a VERSAO, prova de que ele não está na própria
 // lista.
-const PRECACHE_HASH = 'sha256-607cc6ba3fffdfdec7195458187898f5366c9e5904d06ac0723699613b7c873b';
+const PRECACHE_HASH = 'sha256-5a726ae0b9e7e72b634f63382df3630d3806f2b031ce06ed367808b5098090c9';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.

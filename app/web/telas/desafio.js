@@ -268,14 +268,43 @@ export async function montar(raiz, ctx) {
    * que a caderneta vai dizer amanhã. Uma frase contada na tela seria o desafio
    * tendo duas definições do mesmo número, e é ela que a pessoa lê no Perfil.
    */
+  /**
+   * O FIM (S18c-2, item 3). Duas trocas de tipo, nenhuma de palavra:
+   *
+   * · o h1 sai com `${CLASSE}-frente`, a classe da pergunta do cartão. É o
+   *   momento da entrega — a pessoa acabou de fechar dez cartões de uma vez e o
+   *   veredito é a maior coisa da tela; `revisar-titulo` (--tipo-titulo) deixava
+   *   o h1 do fim menor que a frente do cartão que ela acabou de responder, e a
+   *   frase do carimbo, que é o prêmio, saía miúda ao lado. `--tipo-estacao` é o
+   *   maior tipo da casa e é o tamanho do que se entrega (mesma decisão da placa
+   *   da estação na folha). Ela também já está na lista de :focus-visible do
+   *   revisar.css, então o foco do fim chega com o anel da casa sem um pixel de
+   *   CSS novo;
+   * · a frase sai com `${CLASSE}-sub` (o corpo), não `${CLASSE}-nota` (a nota):
+   *   `fraseDaDominada` é o fato medido, e fato medido não se escreve no tipo
+   *   que a casa reserva para a linha de rodapé.
+   *
+   * `focar('frente')` acompanha a classe (abaixo, em `aplicar`) — trocar a classe
+   * e deixar o foco pedindo `-titulo` seria o fim sem foco nenhum.
+   */
   function fim(resultado, aplicacao) {
-    estado([
-      el(doc, `${CLASSE}-titulo`,
+    const children = [
+      el(doc, `${CLASSE}-frente`,
         resultado.aprovado ? T.aprovadoTitulo : T.reprovadoTitulo, 'h1'),
-      el(doc, `${CLASSE}-nota`,
+      el(doc, `${CLASSE}-sub`,
         resultado.aprovado ? fraseDaDominada(aplicacao.dominada) : aplicacao.recado, 'p'),
       link(doc, PRIMARIO, T.voltar(nome), hrefDe({ tela: 'estacao', slug })),
-    ]);
+    ];
+    // S18c-2: o carimbo nasce no Perfil, não aqui. Depois do aprovado a pergunta
+    // é «onde é que isso ficou escrito», e um link discreto responde sem uma tela
+    // nova. Ele vem DEPOIS do voltar: o voltar é o caminho de quem fecha o
+    // desafio, e dois caminhos do mesmo peso no mesmo veredito dariam à tela duas
+    // respostas para a mesma hora. No reprovado ele não existe — não há carimbo
+    // para ir ver.
+    if (resultado.aprovado) {
+      children.push(link(doc, `${CLASSE}-discreto`, T.verCaderneta, hrefDe({ tela: 'perfil' })));
+    }
+    estado(children);
   }
 
   /**
@@ -364,7 +393,9 @@ export async function montar(raiz, ctx) {
     sessao = null;
     corpo.textContent = '';
     fim(resultado, aplicacao);
-    focar('titulo');
+    // S18c-2: o h1 do fim mudou de classe (o tipo da entrega), e o foco acompanha
+    // a classe — pedir `titulo` aqui deixaria o veredito sem foco nenhum.
+    focar('frente');
   }
 
   pintar();

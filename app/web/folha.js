@@ -17,7 +17,7 @@
 // token (web/folha.css não escreve um número); frase à mão — tudo é
 // core/textos.js; um segundo botão primário — disponível tem UM (o curso), em
 // curso tem UM (concluir), trancada e concluída não têm nenhum.
-import { comValores, dataDeCalendario, estados, folha as F, jornada as J, mapa, placa, chegada as C, aulas as AU } from '../core/textos.js';
+import { comValores, dataDeCalendario, estados, folha as F, jornada as J, mapa, placa, chegada as C, aulas as AU, desafio as D } from '../core/textos.js';
 import { hrefDe } from '../core/rotas.js';
 // O estudo vazio se obtem do proprio nucleo, com lerEstudo(null) -- nunca de um
 // objeto de mao propria aqui. Reescrever a forma do estudo na tela e a receita
@@ -31,6 +31,12 @@ import { linhaProgresso, notaAbrirAula, painelDeAulas, primarioAula, seloLinha }
 import { ESTADOS, fatosDaEstacao, dataLocal } from '../core/viagem.js';
 import { eixosDaEstacao } from '../core/eixos.js';
 import { cartoesDevidos, minutosDaFila } from '../core/cartoes.js';
+// S18c-2: o desafio na folha. `podeDesafiar` e `fraseDaDominada` são do núcleo
+// (core/desafio.js, S18b) e a folha NÃO reimplementa a régua: quem decide quem
+// pode e quem conta os números do carimbo continua sendo ele. Importar em vez de
+// copiar é a regra 9 — duas telas com duas definições de «posso fazer o desafio»
+// é exatamente o defeito que a casa nomeia.
+import { fraseDaDominada, podeDesafiar } from '../core/desafio.js';
 // `origemDoRecurso` e `naFonte` já existem no metro.js e já têm testes. A folha
 // IMPORTA, em vez de reimplementar: reimplementar é como nasce a segunda palavra
 // para a mesma origem, e a crítica da v1 contou duas.
@@ -263,6 +269,78 @@ function blocoEixos(doc, estado, comBarra, medida) {
     no: caixa.children.length ? caixa : null,
     lembradas: Number.isFinite(e.lembradas) ? e.lembradas : null
   };
+}
+
+/**
+ * O DESAFIO da estação na folha (S18c-2, item 1) — UM elemento por estágio.
+ *
+ * POR QUE ELE EXISTE: desde a S17a a caderneta promete «o desafio da estação
+ * aprovado» nos 35 carimbos do domínio, e a folha, que é o painel da estação,
+ * nunca disse uma palavra sobre ele. Quem percorria uma estação e procurava o
+ * desafio não achava: a promessa morava no Perfil e o caminho estava escondido.
+ *
+ * A folha não refaz conta nenhuma. O estágio vem de `medida` (a conta já feita
+ * acima, uma vez por folha), a régua de quem pode é `podeDesafiar` do núcleo com
+ * o `porque` dele, e o carimbo é `fraseDaDominada` sobre o registro gravado.
+ *
+ * UM elemento só, sempre: um texto OU um link, nunca os dois. A folha já tem um
+ * primário (o da aula, ou o do curso), e um segundo botão cheio é o defeito que a
+ * 2d-2 matou — por isso o desafio é `.folha-desafio-link`, no desenho discreto do
+ * `.folha-eixos-revisar`, que é exatamente a linha de ação que a casa usa para um
+ * caminho que não é o principal.
+ *
+ * Os quatro ramos:
+ *   · `fora` — nada. Nenhuma aula aberta, nenhum cartão: oferecer o desafio aqui
+ *     seria a folha vendendo um carimbo sobre zero medida, e até a frase sobra.
+ *   · `concluida-antes` — o convite. É o carimbo declarado (embarque antigo ou
+ *     importação) sem medição atrás, e `podeDesafiar` responderia por ele com
+ *     `naoPercorrida`, que diria «em «concluida-antes»». A frase nova diz o que
+ *     fazer, sem régua e sem prazo.
+ *   · `dominada` — a frase do que foi medido. O desafio já passou por aqui: a
+ *     folha mostra o número gravado. Refazer o sorteio é a única forma de perder o
+ *     carimbo (core/desafio.js), então um link de «fazer o desafio» sobre um
+ *     carimbo aprovado seria a folha convidando a pessoa a perder o que ela tem.
+ *   · os demais — a régua do núcleo: pode, o link para a rota do desafio; não
+ *     pode, o `porque` dele, com o que falta dito em número de cartão e de aula.
+ *
+ * Sem as aulas carregadas o bloco NÃO nasce: `podeDesafiar` e o sorteio pedem as
+ * aulas da estação com `exercicio` e `n`, e só o JSON por estação os tem. Chutar
+ * sem elas daria um «pode» ou um «faltam» sobre uma lista vazia — as duas frases
+ * seriam mentira, e a casa não descreve o que não chegou (mesma lei dos eixos sem
+ * índice, acima).
+ */
+function blocoDesafio(doc, { curso, medida, progresso, estudo, cartoes, aulas, hoje }) {
+  if (!aulas?.aulas?.length) return null;
+  const estagio = medida.estagio;
+
+  // `fora`: ausência de toque medido. Silêncio, não frase — não há nada a
+  // liberar nem a explicar numa estação por onde a pessoa ainda não passou.
+  if (estagio === 'fora') return null;
+
+  const caixa = no(doc, 'div', 'folha-desafio');
+
+  if (estagio === 'concluida-antes') {
+    caixa.append(no(doc, 'p', 'folha-desafio-texto', { text: D.conviteConcluidaAntes }));
+    return caixa;
+  }
+
+  if (estagio === 'dominada') {
+    caixa.append(no(doc, 'p', 'folha-desafio-texto', {
+      text: fraseDaDominada(progresso?.dominadas?.[curso.id])
+    }));
+    return caixa;
+  }
+
+  const p = podeDesafiar({ ...medida, id: curso.id }, estudo, cartoes, aulas.aulas, hoje);
+  if (p.pode) {
+    caixa.append(no(doc, 'a', 'folha-desafio-link', {
+      href: hrefDe({ tela: 'estacao', slug: curso.slug, painel: 'desafio' }),
+      text: D.acaoNaFolha
+    }));
+    return caixa;
+  }
+  caixa.append(no(doc, 'p', 'folha-desafio-texto', { text: p.porque }));
+  return caixa;
 }
 
 /**
@@ -512,6 +590,18 @@ export function desenharFolha(doc, estado) {
   // foi calculado no bloco dos eixos, acima, e e o mesmo objeto aqui: a folha
   // conta as aulas uma vez so.
   corpo.append(acaoPorEstado(doc, f, curso, progresso.conclusoes?.[curso.id], comAulas, lembradas));
+
+  // 6b. O DESAFIO (S18c-2): um elemento, por estágio — o convite, o link, a
+  //     frase do que foi medido ou o porquê de ainda não. Vem depois da ação do
+  //     estado porque é secundário: o que a pessoa faz numa estação é a aula, e
+  //     o desafio é o que fecha a estação depois dela. `medida` é a conta feita
+  //     uma vez por folha, acima; o bloco não a refaz.
+  const desafio = blocoDesafio(doc, {
+    curso, medida, progresso,
+    estudo: estado.estudo, cartoes: estado.cartoes,
+    aulas, hoje: dataLocal(estado.hoje)
+  });
+  if (desafio) corpo.append(desafio);
 
   // 7. a anotação. O nome acessível do campo leva a estação — é a lição da
   //    2c-3: desenhado nas 35 estações, o leitor de tela dizia "Anotação"

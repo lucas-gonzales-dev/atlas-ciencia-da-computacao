@@ -1176,7 +1176,17 @@ const unir = (ns) => {
  */
 export const desafio = Object.freeze({
   /** A estação ainda não está percorrida. O estágio é o do eixo, lido da escada. */
-  naoPercorrida: (estagio) => `A estação ainda está em «${estagio}» — o desafio vem quando ela estiver percorrida.`,
+  /**
+   * S18c-2 (item 3): com `estagio === 'fora'` a frase antiga saía «A estação
+   * ainda está em «fora»» — a palavra do estágio devolvida crua para quem não
+   * tem como saber que 'fora' é o nome interno da escada de core/eixos.js, e o
+   * item da lista do proibido chamado «nome de estágio inventado» existe exatamente
+   * para isto. 'fora' é o único estágio cujo nome interno não é uma palavra da
+   * pessoa: os demais ('embarcada', 'em-percurso') ainda se leem como português.
+   */
+  naoPercorrida: (estagio) => (estagio === 'fora'
+    ? 'Você ainda não começou esta estação. O desafio vem quando ela estiver percorrida.'
+    : `A estação ainda está em «${estagio}» — o desafio vem quando ela estiver percorrida.`),
 
   /** Aulas de exercício que ela não estudou. As posições são as da lista. */
   faltamExercicios: (ns) => `Faltam ${ns.length} ${ns.length === 1 ? 'aula' : 'aulas'} de exercício: ${unir(ns)}.`,
@@ -1194,6 +1204,16 @@ export const desafio = Object.freeze({
 
   /** Faltam cartões mesmo: escreva ao fechar as aulas. */
   escrevaMais: (faltam) => `O desafio usa os seus cartões: escreva mais ${faltam} ao fechar as aulas.`,
+
+  /**
+   * O estágio `concluida-antes` (S18c-2, item 1). É a declaração sem medição
+   * nenhuma atrás — o embarque antigo ou um progresso importado —, e o desafio
+   * não se abre ali: `podeDesafiar` responde `naoPercorrida` para ele, que diria
+   * «em «concluida-antes»». Esta frase toma o lugar da régua, porque o que falta
+   * ali não é tempo nem cartão: é a pessoa ter estudado. Ela não cita desafio
+   * aprovado, não dá número e não diz o que a estação vale: diz o que fazer.
+   */
+  conviteConcluidaAntes: 'Para dominar esta estação, estude as aulas e escreva cartões: o desafio usa os seus.',
 
   /**
    * O reprovado (desenho J4, item 3). Duas mudanças em relação ao texto antigo
@@ -1249,6 +1269,23 @@ export const desafio = Object.freeze({
   aprovadoTitulo: 'Estação dominada',
   reprovadoTitulo: 'Ainda não',
   voltar: (nome) => `Voltar para ${nome}`,
+
+  /**
+   * O VERBO do desafio na folha da estação (S18c-2, item 1). Diz o que a
+   * estação é dominada — «Desafio da estação» nomeia o lugar, não promete o
+   * veredito, e é a única palavra que a folha pode dar para uma régua que ainda
+   * não abriu: um «Dominar Circuitos» na folha de quem tem 3 de 93 seria a tela
+   * vendendo o carimbo antes da medição.
+   */
+  acaoNaFolha: 'Desafio da estação',
+
+  /**
+   * O caminho para a caderneta, só no APROVADO (S18c-2, item 3). Depois do
+   * carimbo a pergunta é «onde é que isso aparece?» — e o carimbo vive no Perfil,
+   * não aqui. É discreto e fica atrás do voltar: dois caminhos de peso igual no
+   * mesmo veredito dariam à tela duas respostas para a mesma hora.
+   */
+  verCaderneta: 'Ver na caderneta',
 });
 
 /**
