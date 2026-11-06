@@ -919,7 +919,29 @@
 // Sem subir a VERSAO, quem tem v93 no cache recebe um perfil.js pedindo as classes da
 // casa a um perfil.css velho que não as tem: os botões voltam cinza do sistema, e o
 // input volta a desenhar «Escolher arquivo» na fileira.
-const VERSAO = 'atlas-v94';
+// atlas-v95: S20b-7 (06/11/2026) — TRÊS DEFEITOS da captura de PÁGINA INTEIRA do Perfil,
+// só CSS. A v94 tinha consertado o estilo dos elementos; esta conserta a GEOMETRIA, e os
+// três só aparecem quando a tela é fotografada inteira, não uma janela.
+// (1) Em 375 o terceiro número passava da borda. A causa é `repeat(3, 1fr)`: 1fr não é
+// largura, é piso AUTOMÁTICO, e o mínimo de uma coluna 1fr é o min-content da célula —
+// «6 revisões feitas» em mono --tipo-titulo não cabia nos ~104 px que sobravam. As duas
+// grades (base e celular) viram `minmax(0, 1fr)` e o card ganha `padding: --espaco-2` +
+// `min-width: 0`, o mesmo par que o bilhete usa desde a S17b-fix; trocar só a coluna sem
+// abrir o card deixa o texto maior que a célula empurrar a grade de novo.
+// (2) Na Série do domínio o círculo caía EM CIMA do nome. `.perfil-carimbo-compacto`
+// veste as duas classes e herdava o `flex-direction: column` de `.perfil-carimbo`, que
+// nasceu como o bloco EM PÉ do percurso; o comentário da folha dizia «lado a lado» e a
+// linha que realizava não existia. Ganha `flex-direction: row`.
+// (3) Em 1280 o Perfil encostava na esquerda com sobra toda à direita, enquanto o
+// Explorar fica centrado. A S17b-fix trocou o teto para --bp-computador e a v94 deu
+// recheio à raiz, mas teto sem centro é metade do conserto: `margin-inline: auto` no
+// bloco de 1024, como .explorar-raiz faz desde a S20b-5. As páginas de aula e a Revisar
+// não mudam — a coluna de leitura à esquerda nelas é decisão antiga, não defeito.
+// As travas (tests/auditoria-tamanhos.test.js) perguntam por `corpo`, não por `decls`:
+// o scanner divide cada declaração por ':' e descarta as que dão mais de duas partes,
+// então `minmax(0, 1fr)` não existe no objeto — a mesma lei que reescreveu a régua do
+// Explorar na S20b-5. Mudam de bytes web/telas/perfil.css e este sw.js.
+const VERSAO = 'atlas-v95';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
@@ -992,7 +1014,7 @@ const VERSAO = 'atlas-v94';
 // fora de app/web e app/core vai para o cache de quem usa. O sw.js mediu o mesmo
 // sha256 antes e depois de eu subir a VERSAO, prova de que ele não está na própria
 // lista.
-const PRECACHE_HASH = 'sha256-d9e821f4db615bef66c84678cd443d01b0aacbea8183ffe3dfb8f327f06f16fc';
+const PRECACHE_HASH = 'sha256-1e00b1847461c67d5a37183609f2a779f5ce960107776cc145ce05d8c0e87456';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.

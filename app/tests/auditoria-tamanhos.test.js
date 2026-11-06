@@ -839,6 +839,63 @@ test('S20b-6 · o Perfil nao tem mais elemento sem declaracao propria', async ()
     'o rotulo de importar nao veste o secundario da casa: continua texto nu ao lado do botao de exportar');
 });
 
+/*
+ * S20b-7 (atlas-v95) — TRÊS COISAS QUE A CAPTURA DE PÁGINA INTEIRA MOSTROU.
+ *
+ * As três travas abaixo perguntam por `corpo`, nunca por `decls`, e o motivo é do
+ * scanner (linha ~90): `decls` nasce de dividir cada declaração por ':' e ficar só
+ * com as que dão exatamente duas partes. `repeat(3, minmax(0, 1fr))` tem DOIS dois-
+ * pontos, cai fora do objeto e a trava perguntaria `undefined` para um CSS certo.
+ * (A régua do Explorar, S20b-5, foi reescrita por causa deste mesmo truque.)
+ */
+test('S20b-7 · os três números cabem em 375: nenhuma coluna 1fr crua sobrou', async () => {
+  const perfil = escanear(await ler('web/telas/perfil.css'));
+  const lugares = [[naBase, 'a base'], [(r) => /max-width:\s*599px/.test(r.media), 'o bloco do celular']];
+  for (const [condicao, nome] of lugares) {
+    const numeros = perfil.filter((r) => condicao(r) && /(^|,)\.perfil-numeros(,|$)/.test(r.seletor));
+    assert.ok(numeros.length, `${nome}: .perfil-numeros sem regra`);
+    for (const r of numeros) {
+      const cru = r.corpo.replace(/\s+/g, ' ');
+      const tem1fr = /grid-template-columns:[^;]*1fr/.test(cru);
+      if (tem1fr) {
+        assert.match(cru, /grid-template-columns:[^;]*minmax\(0,/,
+          `${nome}: .perfil-numeros com 1fr sem o zero — a largura mínima de uma coluna 1fr é o conteúdo dela (min-content), e o «6 revisões feitas» em mono --tipo-titulo passa da borda da tela em 375: "${cru}"`);
+      }
+    }
+  }
+  // O par da mesma perna: trocar a coluna sem dar `min-width: 0` ao card deixa o
+  // texto maior que a célula empurrar a grade de novo. É o mesmo par que o bilhete
+  // usa desde a S17b-fix, e um compra a ausência do outro.
+  const celular = perfil.filter((r) => /max-width:\s*599px/.test(r.media) &&
+    /\.perfil-numeros\s+\.perfil-card/.test(r.seletor));
+  assert.ok(celular.length, 'no celular ninguém abre espaço dentro do card dos três números');
+  assert.match(celular[0].corpo, /min-width:\s*0/, 'o card dos números sem min-width: 0: o texto grande ainda estoura a grade');
+  assert.match(celular[0].corpo, /padding:\s*var\(--espaco-\d\)/, 'o recheio do número no celular foi escrito à mão, sem token');
+});
+
+test('S20b-7 · na série do domínio o círculo fica AO LADO do nome', async () => {
+  const perfil = escanear(await ler('web/telas/perfil.css'));
+  const compacto = perfil.filter((r) => naBase(r) && /(^|,)\.perfil-carimbo-compacto(,|$)/.test(r.seletor));
+  assert.ok(compacto.length, '.perfil-carimbo-compacto sem regra: é a célula dos 43 espaços');
+  // A herança é o defeito: este selo veste as duas classes, e .perfil-carimbo é o
+  // bloco EM PÉ da série do percurso (regra 8 — círculo, nome, critério, frase).
+  // Sem a direction declarada aqui, o compacto recebe `column` do irmão.
+  const r = compacto[0];
+  assert.match(r.corpo, /flex-direction:\s*row/,
+    `.perfil-carimbo-compacto sem flex-direction: row — herda o column de .perfil-carimbo e o círculo cai em cima do nome: "${r.corpo.replace(/\s+/g, ' ')}"`);
+  assert.match(r.corpo, /display:\s*flex/, 'o compacto perdeu o display que faz a direction valer');
+});
+
+test('S20b-7 · em 1024 o Perfil divide a sobra, não a empilha à esquerda', async () => {
+  const perfil = escanear(await ler('web/telas/perfil.css'));
+  const larga = perfil.filter((r) => ehMediaDesktop(r.media) && /(^|[,;\s])\.perfil(?![\w-])/.test(r.seletor));
+  assert.ok(larga.length, 'ninguém limita o Perfil no computador: a trava da S17b-fix perdeu o dono');
+  const dona = larga.find((r) => /max-width:/.test(r.corpo));
+  assert.ok(dona, `o bloco de 1024 do .perfil perdeu o max-width (regras: ${larga.map((x) => x.corpo.replace(/\s+/g, ' ')).join(' | ')})`);
+  assert.match(dona.corpo, /margin-inline:\s*auto/,
+    'o teto de 1024 sem centralizar: a sobra fica toda de um lado e o Perfil encosta na esquerda enquanto o Explorar fica centrado');
+});
+
 test('réguas 6 · trocar de aba leva ao topo de QUEM ESTÁ ROLANDO', async () => {
   const js = await ler('web/casco.js');
   assert.match(js, /win\.scrollTo\?\.\(0, 0\)/, 'o casco perdeu o rolamento ao topo da janela');

@@ -118,10 +118,15 @@
   padding: var(--espaco-4);
 }
 
-/* OS TRÊS NÚMEROS — mono, porque é número de leitura rápida. */
+/* OS TRÊS NÚMEROS — mono, porque é número de leitura rápida.
+ * S20b-7 (item 1): `1fr` NÃO é uma largura, é um piso automático — o mínimo de uma
+ * coluna `1fr` é o maior conteúdo dela (`min-content`), e o número «6 revisões feitas»
+ * com --tipo-titulo em mono passa dos 125 px que sobravam em 375. `minmax(0, 1fr)`
+ * permite 0, e aí quem decide é o `min-width: 0` do card mais abaixo. A mesma perna foi
+ * trocada no bilhete pela S17b-fix; aqui era a última `1fr` crua da página. */
 .perfil-numeros {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--espaco-2);
 }
 
@@ -407,6 +412,14 @@
    separa um do outro. */
 .perfil-carimbo-compacto {
   display: flex;
+  /* S20b-7 item 2 — o círculo AO LADO do nome, e não em cima. A causa é herança:
+     este selo carrega as duas classes, e .perfil-carimbo nasceu como o bloco EM PÉ da
+     série do percurso (círculo, nome, critério e frase em coluna). O compacto herdou a
+     perna vertical do irmão e só tirou o centro. O comentário logo acima dizia «lado a
+     lado»: a intenção estava escrita, a linha que a realizava não. A trava em
+     tests/auditoria-tamanhos.test.js exige a DECLARAÇÃO, porque o computed de um
+     flex-item sem largura é 'auto' — e 'auto' pode ser 300 px estourando a grade. */
+  flex-direction: row;
   align-items: baseline;
   gap: var(--espaco-2);
   border-top: none;
@@ -648,7 +661,17 @@
    largura, e o nome encolhe antes de o selo sumir. */
 @media (max-width: 599px) {
   .perfil-numeros {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  /* S20b-7 (item 1) — os três números cabem em 375. Trocar a coluna por si só não
+     bastava: o --espaco-4 do card come 2×16 px de dentro dos ~104 px que a grade dá a
+     cada um, e sobravam 72 para um número em mono --tipo-titulo. Menos recheio e
+     `min-width: 0` no card (o mesmo par que o bilhete usa desde a S17b-fix) é o que
+     deixa o texto encolher em vez de empurrar a borda da tela. */
+  .perfil-numeros .perfil-card {
+    padding: var(--espaco-2);
+    min-width: 0;
   }
 
   .perfil-nome {
@@ -679,6 +702,13 @@
 @media (min-width: 1024px) {
   .perfil {
     max-width: var(--bp-computador);
+    /* S20b-7 (item 3) — o teto sem o centro era a metade do conserto. A --largura-lateral
+       da S17b-fix escondia o efeito porque 360 px colados à esquerda e 360 centrados
+       parecem a mesma coisa numa captura; com o teto em 1024, a janela de 1280 mostra os
+       256 px sobrando de um lado só. `margin-inline: auto` divide a sobra, do mesmo jeito
+       que .explorar-raiz faz desde a S20b-5. As páginas de aula e a Revisar ficam como
+       estão: a coluna de leitura à esquerda nelas é decisão antiga, não defeito. */
+    margin-inline: auto;
   }
 
   .perfil-series {
