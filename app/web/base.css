@@ -56,3 +56,70 @@ body {
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+/* O BLOCO DA AGENDA (S19b, 06/11/2026) — o convite de marcar a próxima sessão,
+ * que aparece no FIM de duas sessões diferentes: a aula estudada (web/telas/
+ * aula.js) e o fim da revisão (web/telas/revisar-fila.js). Mora na base, e não
+ * numa das duas folhas, pelo mesmo motivo do anel de foco: o desenho é o MESMO
+ * nas duas telas, e escrevê-lo em duas folhas faria a segunda divergir da
+ * primeira na primeira mudança — a doença de que este arquivo trata desde o
+ * defeito 1 da crítica da v2.
+ *
+ * Link discreto, nunca botão: o primário de cada tela é um só, e ele não é um
+ * convite a voltar. O alvo de toque vale para os três controles tocáveis (o
+ * link, o botão e os dois campos — um `input type=date` de 20 px é a coisa mais
+ * difícil de acertar numa tela, e é o que a régua de tamanhos da casa mede). */
+.agenda {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--espaco-2);
+  margin-top: var(--espaco-3);
+  font-size: var(--tipo-corpo);
+}
+
+.agenda-abrir {
+  color: var(--tinta);
+  text-decoration: underline;
+  min-height: var(--alvo-toque);
+  display: inline-flex;
+  align-items: center;
+}
+
+.agenda-aberto {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.agenda-campo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-1);
+}
+
+.agenda-rotulo {
+  font-size: var(--tipo-placa);
+  color: var(--fosca);
+}
+
+.agenda-entrada {
+  min-height: var(--alvo-toque);
+  font-size: var(--tipo-corpo);
+  font-family: var(--fonte-corpo);
+  color: var(--tinta);
+  background: var(--superficie);
+  border: var(--anel-trancada) solid var(--borda);
+  border-radius: var(--raio-placa);
+  padding: var(--espaco-1) var(--espaco-2);
+  box-sizing: border-box;
+}
+
+.agenda-baixar {
+  min-height: var(--alvo-toque);
+}
+
+.agenda-aviso {
+  margin: 0;
+  color: var(--fosca);
+  font-size: var(--tipo-corpo);
+}

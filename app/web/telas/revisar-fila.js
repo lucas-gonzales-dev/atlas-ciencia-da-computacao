@@ -186,13 +186,17 @@ export function desenhaCartao(doc, { cartao, origem, posicao, visto, confianca, 
  * primeira vez» é o núcleo, e decidir isso aqui seria ter duas definições do
  * fato. Aqui só se empilha.
  */
-export function desenhaFim(doc, { revisados, lembrados, prazo, lembradas }) {
+export function desenhaFim(doc, { revisados, lembrados, prazo, lembradas, agenda }) {
   const caixa = el(doc, `${CLASSE}-estado`, undefined, 'section');
   caixa.append(el(doc, `${CLASSE}-titulo`, T.fim(revisados, lembrados), 'h1'));
   if (prazo) caixa.append(el(doc, `${CLASSE}-sub`, T.proximaRevisao(prazo), 'p'));
   for (const rotulo of lembradas) {
     caixa.append(el(doc, `${CLASSE}-lembrada`, T.aulaLembrada(rotulo), 'p'));
   }
+  // S19b (J5, item 3): o convite para a próxima sessão vem ANTES da saída, porque
+  // é parte do fim da sessão; «Voltar à Jornada» continua o último nó e o único
+  // primário da tela (o bloco é um link discreto, não um botão).
+  if (agenda) caixa.append(agenda);
   caixa.append(link(doc, PRIMARIO, T.voltarJornada, hrefDe({ tela: 'jornada' })));
   return caixa;
 }

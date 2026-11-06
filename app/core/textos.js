@@ -686,6 +686,27 @@ export const recomeco = Object.freeze({
 });
 
 /**
+ * S19b (desenho J5, item 3) — a AGENDA. O app não notifica: ele devolve um
+ * arquivo `.ics` para a pessoa pôr na agenda dela. Por isso nenhuma frase daqui
+ * promete um lembrete — o que o Atlas entrega é um arquivo, e quem lembra é o
+ * calendário que a pessoa escolheu.
+ *
+ * `dia` e `hora` são rótulos de campo, não frases: um `<label>` sem nome próprio
+ * é o campo que a auditoria de teclado da casa chama de «órfão». `titulo` é o
+ * `SUMMARY` do evento, e é a única frase daqui que vai dentro do arquivo — ela
+ * aparece no calendário da pessoa, então diz o que fazer, não o que o app fez.
+ */
+export const agenda = Object.freeze({
+  abrir: 'Marcar a próxima sessão no calendário',
+  dia: 'Dia',
+  hora: 'Hora',
+  baixar: 'Baixar o arquivo do calendário',
+  pronto: 'Pronto. Abra o arquivo para colocar na sua agenda.',
+  titulo: 'Estudar no Atlas',
+  semDownload: 'Este navegador não deixou baixar o arquivo.',
+});
+
+/**
  * A EXPLORAR (S7, 01/11/2026): a rede inteira em lista, para quem quer ver o
  * caminho sem embarcar em nada. Nenhuma frase daqui diz "estude", "assista" ou
  * "comece agora": a Explorar mostra a rede, quem decide é a pessoa na estação.
@@ -1486,6 +1507,6 @@ export const caderneta = Object.freeze({
 });
 
 /** Tudo junto, para quem precisa percorrer (o teste percorre). */
-export const TEXTOS = { placa, comValores, folha, estados, legenda, mapa, proibido, ORIGEM, TIPO_DE_ORIGEM, casco, jornada, recomeco, explorar, chegada, revisar, perfil, aulas, aula, modelosDeFrente, fechamento, desafio, caderneta };
+export const TEXTOS = { placa, comValores, folha, estados, legenda, mapa, proibido, ORIGEM, TIPO_DE_ORIGEM, casco, jornada, recomeco, agenda, explorar, chegada, revisar, perfil, aulas, aula, modelosDeFrente, fechamento, desafio, caderneta };
 
 export default TEXTOS;

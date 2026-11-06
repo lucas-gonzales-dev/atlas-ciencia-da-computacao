@@ -36,6 +36,10 @@ import { hrefDe } from '../../core/rotas.js';
 import { fatosDaEstacao } from '../../core/viagem.js';
 import { comValores, aulas as A, aula as U, fechamento as F } from '../../core/textos.js';
 import { carregarAulas } from '../aulas-dados.js';
+// S19b (J5, item 3): o bloco que devolve o .ics da próxima sessão. Um módulo só,
+// usado pela aula e pelo fim da revisão — escrever o outro seria o mesmo botão em
+// dois lugares decidindo sozinho como um arquivo sai do navegador.
+import { blocoDaAgenda } from '../agenda-marcar.js';
 import {
   acaoPularAula,
   agoraLocal,
@@ -285,7 +289,7 @@ function marcarErroEm(doc, pai, campo, texto) {
  * fechada") porque a diferença entre eles é uma frase, não uma tela. Dois blocos
  * parecidos divergiriam em seis meses, e o app teria dois destinos de fim de aula.
  */
-function vistaConcluida(doc, { n, estacao, aulas, total, slug, cartoes, fraseStatus, aviso, escrever }) {
+function vistaConcluida(doc, { n, estacao, aulas, total, slug, cartoes, fraseStatus, aviso, escrever, agenda }) {
   const caixa = no(doc, 'div', 'fechamento-feito');
   const frase = no(doc, 'p', 'fechamento-feito-frase', { text: fraseStatus });
   // S18c-3 (item 1): o destino do foco depois de guardar um cartão novo. É o mesmo
@@ -306,6 +310,11 @@ function vistaConcluida(doc, { n, estacao, aulas, total, slug, cartoes, fraseSta
   const proximo = botaoProxima(doc, { aulas, n, total, slug, estacao });
   if (proximo) caixa.append(proximo);
   if (aviso) caixa.append(no(doc, 'p', 'fechamento-por-hoje apoio', { text: aviso }));
+  // S19b (J5, item 3): o fim da sessão é o único momento em que marcar a próxima
+  // hora faz sentido — a pessoa acabou de fazer. É o ULTIMO nó da conclusão,
+  // depois da conta de amanhã: o bloco não empurra a Próxima nem o aviso, e é um
+  // link discreto, não um botão (a casa tem um primário por tela).
+  if (agenda) caixa.append(agenda);
   return caixa;
 }
 
@@ -1052,6 +1061,12 @@ export async function montar(raiz, ctx) {
       cartoes: cartoesDaAula(lerCartoes(pega(CARTOES_KEY)), aula.id),
       fraseStatus,
       aviso: avisoDeAmanha(pega, hoje()),
+      // S19b: a sessão acabou de acontecer, e é agora que marcar a próxima hora
+      // vale. O `url` é o endereço DAQUI — quem abre o evento no calendário
+      // retoma a aula em que parou. Sem `href` no ambiente (o win do dublê só tem
+      // `hash`), vem '' e a linha URL fica fora do arquivo, pelo contrato de
+      // core/agenda.js: não se afirma uma origem que não existe.
+      agenda: blocoDaAgenda(doc, win, { hoje: hoje(), url: win?.location?.href || '' }),
       // S18c-3 (item 1): a aula estudada ganhou formulário próprio para o cartão
       // extra. Gravar repinta a conclusão, e o cartão novo aparece na lista.
       escrever: {

@@ -46,6 +46,8 @@ import { STORAGE_KEY, migrarRevisoesAntigas, parseRevisoes } from '../../core/re
 import { dataDeCalendario, estados, revisar as T } from '../../core/textos.js';
 import { dataLocal, resumoDaViagem } from '../../core/viagem.js';
 import { carregarViagem } from '../metro.js';
+// S19b (J5, item 3): o mesmo bloco da aula estudada, importado e não copiado.
+import { blocoDaAgenda } from '../agenda-marcar.js';
 import {
   CLASSE,
   el,
@@ -274,7 +276,11 @@ export async function montar(raiz, ctx) {
       revisados: r.revisados,
       lembrados: r.lembrados,
       prazo: prazoLegivel(r.proximaEm),
-      lembradas: sessao.lembradas.map(rotuloDaAula)
+      lembradas: sessao.lembradas.map(rotuloDaAula),
+      // S19b (J5, item 3): o fim da REVISÃO também é uma sessão terminada, e o
+      // desenho diz «no fim de cada sessão». O `url` aponta para a própria Revisar
+      // — quem abre o evento no calendário volta para a fila, não para a Jornada.
+      agenda: blocoDaAgenda(doc, win, { hoje: hoje(), url: win?.location?.href || '' })
     });
   }
 

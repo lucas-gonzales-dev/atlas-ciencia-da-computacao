@@ -160,13 +160,47 @@ export function exportarViagem(estado = {}, opts = {}) {
   });
   const nome = nomeDoArquivo(agora);
 
+  const feito = baixarArquivo({
+    doc,
+    win,
+    nome,
+    texto,
+    tipo: 'application/json'
+  });
+  return {
+    ok: feito,
+    nome,
+    texto,
+    mensagem: feito ? T.dados.exportado(nome) : T.dados.semDownload
+  };
+}
+
+/**
+ * O caminho de DOWNLOAD de um texto gerado aqui (S19b: extraído de
+ * `exportarViagem`, que era o único dono dele).
+ *
+ * POR QUE EXISTE SEPARADO: o `.ics` da próxima sessão é a segunda coisa que o
+ * Atlas baixa, e copiar o Blob/createObjectURL/click/revoke faria dois lugares
+ * decidindo como um arquivo sai do navegador. A primeira cópia divergiria da
+ * segunda no único detalhe que ninguém testa sozinho — o `revokeObjectURL`, que
+ * vaza memória se ficar de fora, ou o `append` no body, sem o qual o Safari não
+ * clicka nada.
+ *
+ * Devolve `true`/`false` e nenhuma mensagem: a frase de "não deu" é do bloco de
+ * textos de quem chama (`perfil.dados.semDownload` aqui, `agenda.semDownload`
+ * lá), porque o que falhou é o mesmo e o que se diz depende da tela.
+ *
+ * @returns {boolean} false quando o ambiente não tem Blob nem URL — a mesma
+ *   recusa silenciosa de antes, nunca um estouro.
+ */
+export function baixarArquivo({ doc, win, nome, texto, tipo = 'application/octet-stream' } = {}) {
   const Blob = win?.Blob;
   const url = win?.URL;
   if (typeof Blob !== 'function' || !doc || typeof url?.createObjectURL !== 'function') {
-    return { ok: false, nome, texto, mensagem: T.dados.semDownload };
+    return false;
   }
 
-  const alvo = url.createObjectURL(new Blob([texto], { type: 'application/json' }));
+  const alvo = url.createObjectURL(new Blob([texto], { type: tipo }));
   const a = doc.createElement('a');
   a.href = alvo;
   a.download = nome;
@@ -174,7 +208,7 @@ export function exportarViagem(estado = {}, opts = {}) {
   a.click?.();
   a.remove?.();
   url.revokeObjectURL(alvo);
-  return { ok: true, nome, texto, mensagem: T.dados.exportado(nome) };
+  return true;
 }
 
 /**

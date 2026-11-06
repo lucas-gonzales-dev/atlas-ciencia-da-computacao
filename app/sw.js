@@ -1037,7 +1037,24 @@
 // chamando fraseDeRecomeco de um viagem.js que não o exporta: TypeError no boot da
 // Jornada e a tela em branco no ônibus.
 
-const VERSAO = 'atlas-v101';
+// atlas-v102: S19b (06/11/2026) — MARCAR A PRÓXIMA SESSÃO NO CALENDÁRIO (desenho v3, J5
+// item 3). No fim de cada sessão a pessoa gera um `.ics` com o dia e a hora que ela
+// escolhe: o Atlas não notifica, não tem conta e não tem servidor, e quem lembra é o
+// calendário dela. O texto do arquivo é de núcleo puro (core/agenda.js), o bloco é um
+// link discreto que vira dois campos (web/agenda-marcar.js) e o download é o caminho
+// que já existia no backup, agora extraído para baixarArquivo em core/dados-pessoa.js
+// e usado nos dois lugares. Entra em web/telas/aula.js (vistaConcluida, depois do
+// aviso) e em web/telas/revisar-fila.js (desenhaFim, antes de Voltar à Jornada) — o
+// primário de cada tela continua um só. Estilos novos em web/base.css com os tokens da
+// casa. O PRECACHE ganhou os dois módulos novos: sem subir a VERSAO, quem tem v101 no
+// cache nunca receberia o convite, e um módulo fora do cache é a aula em branco no
+// ônibus.
+// (core/agenda.js, web/agenda-marcar.js) e quatro arquivos listados mudaram de
+// bytes (core/textos.js, core/dados-pessoa.js, web/telas/aula.js,
+// web/telas/revisar-fila.js, web/telas/revisar.js, web/base.css). Sem versão
+// nova, quem já instalou o app nunca receberia o botão da agenda: o navegador
+// compara o service worker por bytes e igual significa não instala.
+const VERSAO = 'atlas-v102';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
@@ -1115,7 +1132,7 @@ const VERSAO = 'atlas-v101';
 // (fraseDeRecomeco), core/textos.js (o bloco recomeco), web/telas/jornada-topo.js (o
 // <p class="topo-recomeco">) e web/telas/jornada.css (a regra dele). tests/
 // jornada-medida.test.js não está no cache, como todo teste.
-const PRECACHE_HASH = 'sha256-b83cda917f4f3b1e53d1f4adc4974095f225fd49be123fe1bb66b958eb09c489';
+const PRECACHE_HASH = 'sha256-25c753badfa0a194ae1eb601a98fd11e62e0df9fc151653f352be165994f0a5e';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.
@@ -1273,6 +1290,14 @@ const PRECACHE = [
   // Perfil) — mas o bilhete que hoje se lê no Perfil vira esta conta, e um modulo
   // fora do cache é a caderneta em branco no onibus.
   'core/caderneta.js',
+  // S19b (06/11/2026): o texto do .ics da proxima sessao. Modulo puro, sem DOM,
+  // importado por web/agenda-marcar.js. Sem ele no cache, o botao de baixar
+  // morre no import e a aula estudada abre em branco no onibus.
+  'core/agenda.js',
+  // S19b: o bloco que desenha o convite, importado por telas/aula.js e
+  // telas/revisar.js no mesmo commit em que nasceu. Mesma regra acima: modulo
+  // fora do cache e tela em branco, sem erro na rede para avisar.
+  'web/agenda-marcar.js',
   // O DESAFIO da estacao (S18b-1, 05/11/2026): quem pode, o porque que falta e o
   // sorteio dos 10 a 15 cartoes da propria pessoa. Modulo puro, sem tela ainda (a
   // proxima fatia desenha) -- mas o cartao que amanha vira desafio precisa estar
