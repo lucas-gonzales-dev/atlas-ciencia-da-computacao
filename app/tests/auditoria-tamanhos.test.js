@@ -416,12 +416,12 @@ test('S20a-2 · o mapa do topo é faixa, e o único primário cabe acima da dobr
   // coluna de 645). A conta de cima é `coluna × propor` — se a coluna não
   // estica, a conta mente e o mapa encolhe. As duas linhas abaixo são o
   // desfazer da herança; o teto do `.topo-mapa` é o respiro, não o vão.
-  const topo = /\.topo\s*\{([^}]*)\}/.exec(css);
-  assert.ok(topo, 'sumiu a regra que dá forma ao topo da Jornada');
-  assert.ok(/grid-template-columns:\s*minmax\(0,\s*1fr\)/.test(topo[1]),
-    '.topo voltou a não declarar a coluna: o `justify-content` herdado do cabeçalho distribui a largura como vão e o mapa para em 645 px');
-  assert.ok(/justify-content:\s*normal/.test(topo[1]),
-    '.topo herdou o space-between do cabeçalho (web/casco.css:70): é a colisão de classe que segura o mapa à esquerda em 1920');
+  const capa = /\.capa\s*\{([^}]*)\}/.exec(css);
+  assert.ok(capa, 'sumiu a regra que dá forma à abertura da Jornada');
+  assert.ok(/grid-template-columns:\s*minmax\(0,\s*1fr\)/.test(capa[1]),
+    '.capa voltou a não declarar a coluna: sem o `minmax(0, 1fr)` a trilha não estica e o mapa para em 645 px');
+  assert.ok(!/\.topo\s*\{/.test(css),
+    'a volta da COLISÃO DE CLASSE: `.topo` é do cabeçalho do casco (web/casco.css:75), e a Jornada chamar a abertura assim grudava os 575 px da abertura no alto e empilhava o cabeçalho em 124 px (S24a, 06/11/2026). O nome é o conserto: a abertura é `.capa`');
   assert.ok(/max-width:\s*var\(--bp-computador\)/.test(quadro[1]),
     '.topo-mapa sem teto: o mapa engole a tela inteira em monitores largos, em vez de deixar a diferença como respiro');
 });

@@ -1070,7 +1070,22 @@
 // web/telas/aula.js, e o módulo novo web/armazem-seguro.js entra no PRECACHE: importado pelo
 // casco, fora do cache é o branco que ele existe para matar, agora em versão dupla — o import
 // falha e a tela morre.
-const VERSAO = 'atlas-v103';
+// atlas-v104: S24a (06/11/2026) — CONSERTO DE PRODUCAO: o site no ar grudava a
+// ABERTURA DA JORNADA na tela. Medido no Chrome em 1920x945, 1366x657, 820x1180 e
+// 390x844: ao rolar, os 575 px da abertura (mapa + titulo) ficavam sticky no alto e
+// cobriam a lista e a lateral. A causa e COLISAO DE CLASSE nos dois sentidos, porque a
+// abertura era <section class="topo"> e o cabecalho do app e <header class="topo">: o
+// .topo de web/casco.css:75 (sticky, top 0, z-index 2) grudava a abertura, e o .topo de
+// web/telas/jornada.css (grid de uma coluna) empilhava marca e abas no cabecalho, que
+// media 124 px em vez de 48 e jogava a lateral sticky (top: var(--altura-topo)) para
+// baixo dele. O conserto e o NOME, nao mais um remendo de justify-content: a abertura
+// passa a ser .capa em web/telas/jornada-topo.js e nos tres seletores de
+// web/telas/jornada.css. .topo-mapa, .topo-titulo e afins ficam: nao colidem. A trava
+// nova em tests/design-system.test.js impede a volta: nenhuma folha em web/telas/
+// declara o seletor .topo exato e nenhum .js em web/ cria elemento com a classe topo
+// exata. So web/telas/jornada-topo.js e web/telas/jornada.css mudam de bytes no
+// PRECACHE; sem versao nova, quem tem v103 instalado continua com a abertura grudada.
+const VERSAO = 'atlas-v104';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
@@ -1148,7 +1163,12 @@ const VERSAO = 'atlas-v103';
 // (fraseDeRecomeco), core/textos.js (o bloco recomeco), web/telas/jornada-topo.js (o
 // <p class="topo-recomeco">) e web/telas/jornada.css (a regra dele). tests/
 // jornada-medida.test.js não está no cache, como todo teste.
-const PRECACHE_HASH = 'sha256-20065c19ac70a434d2392f164714df544cc2a2e8ed2b4632c9563bb870f4c079';
+// Recalculado ao fechar a S24a (06/11/2026), com a árvore parada e DEPOIS de subir a
+// VERSAO para atlas-v104: dois arquivos do precache mudaram de bytes — web/telas/
+// jornada-topo.js (a section sai de `topo` para `capa`) e web/telas/jornada.css (os três
+// seletores renomeados e o `justify-content: normal` fora, que só existia para desfazer a
+// herança do cabeçalho). Nenhum teste entra no cache, como sempre.
+const PRECACHE_HASH = 'sha256-6697c64b19c5c6c12a518e02e11a85bf1ec464da18096635b5bc66532b963934';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.

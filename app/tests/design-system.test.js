@@ -698,6 +698,69 @@ test('css: nenhuma folha de estilo começa linha com // — comentário em CSS �
   );
 });
 
+test('classes: `.topo` é do cabeçalho do casco, e nenhuma tela toma a classe para si', async () => {
+  // Defeito MEDIDO NO CHROME em 06/11/2026, com a suíte toda verde (S24a): a
+  // Jornada chamava sua abertura de `.topo`, e o cabeçalho fixo do casco
+  // (web/casco.css:75) também é `.topo`. As duas folhas colidiram nos dois
+  // sentidos: o `position: sticky` de lá grudava os 575 px da abertura no alto,
+  // cobrindo a lista em 1920x945, 1366x657, 820x1180 e 390x844; e o `display:
+  // grid` de daqui empilhava marca e abas no cabeçalho, que media 124 px em vez
+  // de 48 e jogava a lateral sticky (`top: var(--altura-topo)`) para baixo dele.
+  // O conserto foi o NOME (`.capa`), não mais um remendo de `justify-content`.
+  // Esta trava é o que impede a colisão de voltar com outra roupa: a classe
+  // exata `topo` pertence ao casco, e tela nenhuma a declara nem cria.
+  // `.topo-mapa`, `.abas-topo` e afins são outras classes e continuam livres.
+
+  // (a) nenhuma folha em web/telas/ declara um seletor com a classe `.topo`.
+  const folhas = (await daApp(join(RAIZ, 'web/telas')))
+    .map(norm)
+    .filter((c) => c.endsWith('.css'));
+  const seletores = [];
+  for (const c of folhas) {
+    let bruto = (await ler(c)).replace(/\/\*[\s\S]*?\*\//g, '');
+    // Tira os blocos de declaração (duas passadas chegam ao mais interno do
+    // @media); o que sobra é seletor e `@`, então uma classe só aparece ali se
+    // for REALLY usada como seletor.
+    for (let i = 0; i < 2; i++) bruto = bruto.replace(/\{[^{}]*\}/g, ' ');
+    for (const m of bruto.matchAll(/\.topo(?![\w-])/g)) {
+      seletores.push(`${c}:${m.index}`);
+    }
+  }
+  assert.deepEqual(seletores, [],
+    'um seletor `.topo` em web/telas/: `.topo` é o cabeçalho do casco (web/casco.css:75). '
+    + 'Dê outro nome à sua classe (a abertura da Jornada é `.capa`) — a colisão é nos dois '
+    + 'sentidos: o sticky do casco gruda a tela, o grid da tela empilha o casco.\n'
+    + seletores.join('\n'));
+
+  // (b) nenhum .js em web/ cria elemento com a classe `topo` exata. Lê-se o
+  // texto, não o AST: o que importa é a string que chega ao `class` do elemento
+  // — entre aspas, crase, ou num par de classes separadas por espaço.
+  const criadores = [];
+  for (const c of (await daApp(join(RAIZ, 'web'))).map(norm).filter((x) => x.endsWith('.js'))) {
+    const texto = await ler(c);
+    const bruto = texto.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+    // Só o que pode virar classe: o CONTEÚDO de um literal de string. O token
+    // tem de ser `topo` EXATO — `fechamento-topo` é outra classe, e um `const
+    // topo` é um identificador, que nunca chega ao DOM.
+    const literais = [...bruto.matchAll(/'([^'\n]*)'|"([^"\n]*)"|`([^`]*)`/g)];
+    texto.split(/\r?\n/).forEach((linha, i) => {
+      const t = linha.trim();
+      if (!t || t.startsWith('//') || t.startsWith('*')) return;
+      const tinha = literais.some((m) => {
+        const corpo = m[1] ?? m[2] ?? m[3];
+        if (!corpo || !corpo.includes('topo')) return false;
+        if (!linha.includes(corpo.slice(0, 24))) return false;
+        return corpo.split(/[$\s,;'"`(){}+]/).some((x) => x === 'topo');
+      });
+      if (tinha) criadores.push(`${c}:${i + 1} → ${t.slice(0, 60)}`);
+    });
+  }
+  assert.deepEqual(criadores, [],
+    'elemento criado com a classe `topo` exata em web/: a classe é do cabeçalho do '
+    + 'casco, e tomar o nome dela para uma peça de tela é a colisão da S24a.\n'
+    + criadores.join('\n'));
+});
+
 // ---------------------------------------------------------------------------
 // 7. HEURÍSTICAS (design/README.md §8)
 // ---------------------------------------------------------------------------
