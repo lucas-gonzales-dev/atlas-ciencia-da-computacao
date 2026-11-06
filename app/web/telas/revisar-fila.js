@@ -119,7 +119,7 @@ export function desenhaAbertura(doc, { total, naSessao, comecar }) {
  * Errei e Lembrei têm o MESMO peso e nenhuma cor de certo: errar aqui não custa
  * nada, só reagenda.
  */
-export function desenhaCartao(doc, { cartao, origem, posicao, visto, confianca, escolher, mostrar, responder }) {
+export function desenhaCartao(doc, { cartao, origem, posicao, visto, confianca, semConfianca, escolher, mostrar, responder }) {
   const caixa = el(doc, `${CLASSE}-estado`, undefined, 'section');
 
   const cabeca = el(doc, `${CLASSE}-cabeca`);
@@ -137,17 +137,28 @@ export function desenhaCartao(doc, { cartao, origem, posicao, visto, confianca, 
     // A confiança é OPCIONAL: três escolhas do mesmo peso, nenhuma obrigatória.
     // Sem escolha, `confianca` chega nula ao núcleo — dado honesto sobre o que a
     // pessoa não quis dizer, e não «chute» chutado no lugar.
-    const grupo = el(doc, `${CLASSE}-confianca`, undefined, 'div');
-    grupo.setAttribute('role', 'group');
-    grupo.setAttribute('aria-label', T.seguro);
-    grupo.append(el(doc, `${CLASSE}-confianca-pergunta`, T.seguro, 'p'));
-    for (const chave of Object.keys(T.confiancas)) {
-      grupo.append(par(doc, `${CLASSE}-confianca-opcao`, T.confiancas[chave], {
-        'data-confianca': chave,
-        'aria-pressed': confianca === chave ? 'true' : 'false'
-      }, () => escolher(chave)));
+    //
+    // S18c-1: no DESAFIO ela não é opcional, é RETIRADA (`semConfianca`). Motivo
+    // de desenho, não de gosto: a confiança serve ao FSRS, que agenda UM cartão
+    // por vez; o desafio sorteia, corrige no fim e não reagenda nada a partir da
+    // certeza declarada. Manter o grupo ali seria pedir um dado que nada lê — e
+    // um grupo de botões que não faz nada na tela é o que a régua de teclado
+    // chama de controle sem função. O convite e o «Mostrar a resposta» ficam: o
+    // método do desafio é o mesmo (lembrar antes de ver), só sem a autodeclaração.
+    // Esconder por CSS está fora de questão pela mesma razão do verso.
+    if (!semConfianca) {
+      const grupo = el(doc, `${CLASSE}-confianca`, undefined, 'div');
+      grupo.setAttribute('role', 'group');
+      grupo.setAttribute('aria-label', T.seguro);
+      grupo.append(el(doc, `${CLASSE}-confianca-pergunta`, T.seguro, 'p'));
+      for (const chave of Object.keys(T.confiancas)) {
+        grupo.append(par(doc, `${CLASSE}-confianca-opcao`, T.confiancas[chave], {
+          'data-confianca': chave,
+          'aria-pressed': confianca === chave ? 'true' : 'false'
+        }, () => escolher(chave)));
+      }
+      caixa.append(grupo);
     }
-    caixa.append(grupo);
     caixa.append(acao(doc, T.mostrarResposta, mostrar));
     return caixa;
   }

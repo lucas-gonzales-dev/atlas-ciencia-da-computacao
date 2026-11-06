@@ -1229,6 +1229,26 @@ export const desafio = Object.freeze({
     const escritos = `${n(cartoes)} ${n(cartoes) === 1 ? 'cartão' : 'cartões'}`;
     return `Percorreu ${percorridas}, escreveu ${escritos} e, dois dias ou mais depois, lembrou ${n(lembrados)} de ${n(total)} deles, pela sua própria conferência. Não mede exercícios novos.`;
   },
+
+  // ── S18c-1: a TELA do desafio (J4) ────────────────────────────────────────
+  // Até aqui o bloco tinha só as frases do «ainda não», porque não existia lugar
+  // para fazê-lo: a caderneta prometia «o desafio da estação aprovado» e quem
+  // procurava não achava. As seis abaixo são o esqueleto da tela — o título, o
+  // convite, o verbo, os dois vereditos e a volta.
+  //
+  // `convite` diz a quantidade e diz a ÚNICA regra que dói: o resultado não vem
+  // cartão a cartão. Anunciar isso antes do primeiro toque é o que impede a
+  // pessoa de achar que o Atlas escondeu a resposta no meio — ela entra sabendo.
+  // O número vem do sorteio do núcleo (`montarDesafio`), nunca de um palpite.
+  titulo: (nome) => `Desafio: ${nome}`,
+  convite: (n) => `${n} cartões dos seus, de uma vez. O resultado só aparece no fim.`,
+  comecar: 'Começar',
+  // Os dois vereditos sem adjetivo de valor: «Aprovado»/«Reprovado» seriam o
+  // julgamento do Atlas sobre a pessoa; aqui o que se declara é o estado da
+  // estação, que é o que o carimbo registra (design/v3 J4, item 3).
+  aprovadoTitulo: 'Estação dominada',
+  reprovadoTitulo: 'Ainda não',
+  voltar: (nome) => `Voltar para ${nome}`,
 });
 
 /**

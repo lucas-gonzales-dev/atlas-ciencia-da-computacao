@@ -363,8 +363,15 @@ test('S18b-1 · sorteio: chamado sem dado nenhum devolve a semente e nada', () =
 
 test('S18b-1 · textos: o desafio tem as quatro frases, todas em TEXTOS (regra 9)', () => {
   assert.equal(TEXTOS.desafio, D, 'TEXTOS não exporta a seção do desafio');
+  // S18c-1: a regra é que a FRASE more em textos.js, não que ela seja função. As
+  // seis da tela (titulo, convite, comecar, os dois vereditos, voltar) são três
+  // strings fixas e três funções; as quatro do «ainda não» abaixo continuam
+  // funções porque montam listas de aulas. O que não pode é a frase existir fora
+  // daqui — e a auditoria de proibidos é quem caça o texto escrito na tela.
   for (const [nome, fn] of Object.entries(D)) {
-    assert.equal(typeof fn, 'function', `desafio.${nome} não é função`);
+    const tipo = typeof fn;
+    assert.ok(tipo === 'function' || (tipo === 'string' && fn.length > 0),
+      `desafio.${nome} não é frase nem função (${tipo})`);
   }
   assert.equal(D.faltamExercicios([12, 40, 77]), 'Faltam 3 aulas de exercício: 12, 40 e 77.');
   assert.equal(D.faltamExercicios([5]), 'Faltam 1 aula de exercício: 5.');

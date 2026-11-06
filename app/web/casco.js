@@ -39,13 +39,22 @@ const TELAS = Object.freeze({
   aulas: () => import('./telas/aulas.js'),
   // S14b1: a casa de uma aula. É a tela que a folha e a lista passaram a
   // apontar, e é o lugar onde a S14b2 vai fechar a aula.
-  aula: () => import('./telas/aula.js')
+  aula: () => import('./telas/aula.js'),
+  // S18c-1: o DESAFIO da estação (J4). A caderneta promete «o desafio da estação
+  // aprovado» desde a S17a, e não havia tela para fazê-lo. Tela, não folha:
+  // ele tem endereço, título e foco próprios, e dura mais que um gesto.
+  desafio: () => import('./telas/desafio.js')
 });
 
 // A classe que a CSS ancora para a tela inteira: metro.css abre com `.metro`,
 // grade.css com `.grade`. Sem ela a tela montada dentro do main chegaria sem
 // layout nenhum — o casco não desenha nada, só escolhe onde desenhar.
-const CLASSE_DA_TELA = Object.freeze({ jornada: 'metro', explorar: '', revisar: '', perfil: 'perfil', aulas: 'aulas', aula: 'aula' });
+// `desafio: ''` por decisão (S18c-1): a raiz da tela É `.revisar` (ela importa o
+// desenho de web/telas/revisar-fila.js e as folhas dele), e o casco pôr `desafio`
+// sobre ela seria uma classe que nenhum CSS conhece — o mesmo defeito que tirou
+// `explorar` e `revisar` da lista na S8. Quem precisa de gancho de cor é o
+// `data-estacao`, que a própria tela escreve.
+const CLASSE_DA_TELA = Object.freeze({ jornada: 'metro', explorar: '', revisar: '', perfil: 'perfil', aulas: 'aulas', aula: 'aula', desafio: '' });
 
 /**
  * Decide a tela para uma rota, e QUAL FOLHA abrir por cima dela (S5).
@@ -69,6 +78,14 @@ export function telaDaRota(rota) {
   // número da aula é decisão de rota (core/rotas.js), não de tela.
   if (rota?.tela === 'estacao' && rota.painel === 'aula') {
     return { tela: 'aula', folha: String(rota.slug || ''), n: Number(rota.n) || 0 };
+  }
+  // S18c-1: o desafio é painel, como `aulas` e `aula` — o endereço continua a
+  // estação no caminho (é ele que diz QUAL estação), e quem se monta é a tela do
+  // desafio com o slug em `folha`. Sem este ramo, `#/estacao/x/desafio` cairia no
+  // ramo de baixo e levantaria a Jornada com a folha aberta: a pessoa veria a
+  // estação, não o desafio que pediu.
+  if (rota?.tela === 'estacao' && rota.painel === 'desafio') {
+    return { tela: 'desafio', folha: String(rota.slug || '') };
   }
   if (rota?.tela === 'estacao') return { tela: 'jornada', folha: String(rota.slug || '') };
   return { tela: TELAS[rota.tela] ? rota.tela : 'jornada', folha: null };

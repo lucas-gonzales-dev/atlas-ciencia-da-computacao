@@ -109,6 +109,17 @@ export function lerRota(hash) {
       if (!slug) return { tela: 'jornada', desconhecida: true };
       return { tela: 'estacao', slug, painel: 'aulas' };
     }
+    // O DESAFIO da estação (S18c-1, 06/11/2026): '#/estacao/<slug>/desafio'.
+    // Mesmo formato do painel 'aulas' — fatia inteira conferida no fim, nunca
+    // "qualquer coisa depois do /" — porque 'calculo-i/foo' tem de continuar
+    // caindo em estação com slug inexistente, não virar painel de ninguém.
+    if (bruto.endsWith('/desafio')) {
+      const slug = bruto.slice(0, -'/desafio'.length);
+      // '#/estacao//desafio' não nomeia estação nenhuma: mesma regra do slug
+      // vazio do painel de aulas, pela mesma razão (o hrefDe não escreve isso).
+      if (!slug) return { tela: 'jornada', desconhecida: true };
+      return { tela: 'estacao', slug, painel: 'desafio' };
+    }
     // A AULA individual (S14a, 04/11/2026): '#/estacao/<slug>/aula/<n>' abre o
     // fechamento daquela aula. O `n` é a POSIÇÃO na playlist, não o id do vídeo,
     // porque o endereço tem de ser legível e compartilhável ("a aula 3 de
@@ -163,6 +174,10 @@ export function hrefDe(rota) {
     // escrevesse esse endereço criaria um link que o próprio app não reconhece.
     const slug = rota.slug ? String(rota.slug) : '';
     if (rota.painel === 'aulas' && slug) return `${PREFIXO_ESTACAO}${slug}/aulas`;
+    // S18c-1: o desafio tem endereço próprio pelo mesmo motivo do painel de
+    // aulas — só existe com slug, e o hrefDe escreve exatamente o que o lerRota
+    // lê. Os dois são conferidos byte a byte em tests/rotas.test.js.
+    if (rota.painel === 'desafio' && slug) return `${PREFIXO_ESTACAO}${slug}/desafio`;
     // O painel 'aula' só existe com número inteiro ≥ 1. Um hrefDe que escrevesse
     // 'aula/NaN' estaria criando um endereço que o próprio lerRota devolve como
     // 'aulas' — e um link que muda de tela ao ser clicado é o pior tipo de link.

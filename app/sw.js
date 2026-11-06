@@ -960,7 +960,21 @@
 // aditivo, um v3 lido por um v3 velho ignora o que não conhece, e subir a versão cortaria quem
 // ainda não atualizou — e nada disto foi publicado. Mudam de bytes core/progress-io.js,
 // core/dados-pessoa.js, web/telas/perfil.js e tests/progress-io.test.js.
-const VERSAO = 'atlas-v96';
+
+// atlas-v97: S18c-1 (06/11/2026) — A TELA DO DESAFIO DA ESTAÇÃO (desenho J4). O motivo de ela
+// estar aqui e não só no casco: desde a S17a a caderneta promete «o desafio da estação
+// aprovado» em 35 carimbos e não havia lugar para fazê-lo — a promessa era texto morto.
+// Nasce web/telas/desafio.js (rota #/estacao/<slug>/desafio), o casco ganha o painel como
+// o de `aulas`, core/textos.js o bloco `desafio`, e desenhaCartao em revisar-fila.js o
+// sinal `semConfianca` — no desafio a confiança não é opcional, é retirada: o sorteio não
+// agenda pelo FSRS e escolher «certeza» depois de ver o verso seria chute sobre o lido.
+// A sessão do sorteio mora em atlas.desafio.v1 para recarregar no meio manter os cartões
+// e a posição, e nenhuma palavra de acerto aparece antes do fim: o resultado é um só, no
+// fim. `desafio: ''` na classe do casco de propósito — a raiz É `.revisar` e veste
+// revisar.css; classe que o CSS não conhece é roupa invisível (o defeito que tirou
+// `explorar` e `revisar` da lista na S8). O arquivo entra no PRECACHE com o import do
+// casco no mesmo commit, senão é branco no ônibus.
+const VERSAO = 'atlas-v97';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
@@ -1033,7 +1047,7 @@ const VERSAO = 'atlas-v96';
 // fora de app/web e app/core vai para o cache de quem usa. O sw.js mediu o mesmo
 // sha256 antes e depois de eu subir a VERSAO, prova de que ele não está na própria
 // lista.
-const PRECACHE_HASH = 'sha256-d46a813f6779313ff5df318f7d90ead36df296b9aa6b792f6de3b81582832512';
+const PRECACHE_HASH = 'sha256-607cc6ba3fffdfdec7195458187898f5366c9e5904d06ac0723699613b7c873b';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.
@@ -1096,6 +1110,13 @@ const PRECACHE = [
   // importa o módulo — os dois no mesmo commit, senão é branco no ônibus.
   'web/telas/aula.js',
   'web/telas/aula.css',
+  // S18c-1 (06/11/2026): a TELA do desafio da estação (J4). O casco ganhou
+  // `desafio` em TELAS no mesmo commit em que este arquivo nasceu — é a mesma
+  // lei da v21, e aqui o branco não seria numa aba: seria na rota que a
+  // caderneta promete («o desafio da estação aprovado») e que ninguém podia
+  // fazer. Sem folha nova: ela veste as classes de web/telas/revisar.css, que
+  // já está no precache e já desenha cada uma delas.
+  'web/telas/desafio.js',
  // A FOLHA da estacao (S5): o index.html liga o CSS, e ela vira modulo quando o
  // metro.js trocar o clique pela rota. Os dois entram juntos pelo mesmo motivo
  // da v22 — HTML novo pedindo arquivo que o cache antigo nao tem.
