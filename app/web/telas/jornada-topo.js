@@ -438,7 +438,7 @@ export function desenharTopo(dados, doc) {
   const aula = aulaDoAlvo(dados.aulas, alvo);
   const feitas = numerico(resumo.concluidas) || 0;
 
-  const caixa = no(doc, 'section', `topo${curso ? ` l${curso.stage}` : ''}`);
+  const caixa = no(doc, 'section', `capa${curso ? ` l${curso.stage}` : ''}`);
   const folhaAberta = Boolean(dados.folhaAberta);
 
   // S16c: os DOIS EIXOS chegam ao desenho. A conta é UMA por pintura, no núcleo

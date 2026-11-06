@@ -459,6 +459,14 @@
 @media (min-width: 1024px) {
   .aulas {
     padding: var(--espaco-6) var(--espaco-6) calc(var(--espaco-8) + var(--margem-segura-baixo));
+    /* S24b item 2 — a página inteira entra na coluna do app. Antes disto o teto
+       era o --largura-leitura da base (a linha de texto), e numa janela de 1920
+       a lista de 93 aulas ficava colada à esquerda com meio metro de nada à
+       direita. A coluna continua UMA (o ACABAMENTO de 04/11 não é revogado: o
+       que se combateu lá foram DUAS colunas de lista, e isto não é isso); o que
+       muda é a largura da página e a sobra, agora dividida pelos dois lados. */
+    max-width: var(--largura-app);
+    margin-inline: auto;
   }
 
   /* ACABAMENTO (04/11/2026, Chrome em 1280 px): as DUAS colunas da lista foram a

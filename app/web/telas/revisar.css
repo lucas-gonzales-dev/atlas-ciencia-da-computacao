@@ -309,7 +309,17 @@ a.revisar-primario {
      de pergunta a uma distância de braço, e o texto corrido até a borda de 1920
      cansa (a mesma razão do --largura-leitura da página da aula). */
   .revisar {
+    /* S24b item 2 — a coluna do app, com o miolo de leitura centrado dentro. A
+       base dá à página --largura-app e --margin-inline: auto; o miolo que se
+       pergunta e se responde continua na linha de leitura, mais estreita, porque
+       a pergunta é texto corrido e não lista. */
+    max-width: var(--largura-app);
+    margin-inline: auto;
+  }
+
+  .revisar-corpo {
     max-width: var(--largura-leitura);
+    margin-inline: auto;
   }
 }
 

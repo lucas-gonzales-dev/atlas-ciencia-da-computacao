@@ -454,5 +454,11 @@
 @media (min-width: 1024px) {
   .aula {
     padding: var(--espaco-6) var(--espaco-6) calc(var(--espaco-8) + var(--margem-segura-baixo));
+    /* S24b item 2 — a coluna de leitura centrada. O teto já era o
+       --largura-leitura da base; o que faltava era a sobra: com o `margin: 0` da
+       base o texto colava à esquerda e o vazio inteiro ficava à direita. O teto
+       é o token, a sobra é dividida pelos dois lados. */
+    max-width: var(--largura-leitura);
+    margin-inline: auto;
   }
 }

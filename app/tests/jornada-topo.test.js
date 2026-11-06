@@ -110,7 +110,7 @@ const primarios = (raiz) => comClasse(raiz, /^botao-primario$/);
 
 test('topo J1: a primeira coisa é o mapa das 35 estações, dito pelo catálogo', async () => {
   const { raiz } = await subir();
-  const topo = comClasse(raiz, /^topo$/)[0];
+  const topo = comClasse(raiz, /^capa$/)[0];
   assert.ok(topo, 'o topo da Jornada não nasceu');
 
   const quadro = comClasse(topo, /^topo-mapa$/)[0];
@@ -139,7 +139,7 @@ test('topo J1: a primeira coisa é o mapa das 35 estações, dito pelo catálogo
 
 test('topo J1: h1, medida e UM primário, com a linha de apoio vinda dos dados', async () => {
   const { raiz } = await subir();
-  const topo = comClasse(raiz, /^topo$/)[0];
+  const topo = comClasse(raiz, /^capa$/)[0];
 
   assert.equal(porTag(topo, 'h1').length, 1, 'o topo tem mais de um h1');
   assert.equal(porTag(topo, 'h1')[0].textContent, J.topo.titulo);
@@ -169,7 +169,7 @@ test('topo J1: h1, medida e UM primário, com a linha de apoio vinda dos dados',
 
 test('topo J1: embaixo, discreto, o convite abre o MESMO fluxo de marcar', async () => {
   const { raiz } = await subir();
-  const topo = comClasse(raiz, /^topo$/)[0];
+  const topo = comClasse(raiz, /^capa$/)[0];
   const marcar = comAttr(topo, 'data-embarque')[0];
   assert.ok(marcar, 'o convite de quem já estudou sumiu');
   assert.equal(marcar.textContent, 'Já estudei algumas disciplinas');
@@ -209,7 +209,7 @@ test('topo J5: o único primário é a aula que a pessoa deixou no aparelho', as
   assert.match(btns[0].getAttribute('href'), new RegExp(`#\\/estacao\\/${PRIMEIRA.slug}\\/aula\\/3$`),
     'o Continuar não leva à aula 3 da estação registrada');
 
-  const topo = comClasse(raiz, /^topo$/)[0];
+  const topo = comClasse(raiz, /^capa$/)[0];
   const apoio = porTag(topo, 'p').find((p) => p.className.includes('topo-apoio'));
   assert.equal(apoio.textContent,
     J.topo.apoioVolta(PRIMEIRA.title, LINHA_1, duracaoLegivel(AULA_3.duracaoS)),
@@ -284,7 +284,7 @@ test('topo J5: nenhuma palavra de ausência na tela', async () => {
 
 test('topo J5: o mapa fica ABAIXO do cartão, com o que já foi estudado aceso', async () => {
   const { raiz } = await subir({ storage: storageComEstudo(3) });
-  const topo = comClasse(raiz, /^topo$/)[0];
+  const topo = comClasse(raiz, /^capa$/)[0];
   const ler = [...topo.children].map((n) => n.className.split(/\s+/)[0]);
   assert.ok(ler.indexOf('topo-acao') < ler.indexOf('topo-mapa'),
     `quem voltou vê o mapa antes de ver onde estava: ${ler.join(' → ')}`);
@@ -295,10 +295,10 @@ test('topo J5: o mapa fica ABAIXO do cartão, com o que já foi estudado aceso',
 
 test('topo: a herança da cor da linha é a classe lN, como a página da aula', async () => {
   const vazioTopo = await subir();
-  assert.ok(comClasse(vazioTopo.raiz, /^topo$/)[0].className.includes(`l${LINHA_1}`),
+  assert.ok(comClasse(vazioTopo.raiz, /^capa$/)[0].className.includes(`l${LINHA_1}`),
     'o topo da primeira visita não herdou a linha da estação para onde ele aponta');
   const outro = await subir({ storage: storageComEstudo(3) });
-  assert.ok(comClasse(outro.raiz, /^topo$/)[0].className.includes(`l${LINHA_1}`),
+  assert.ok(comClasse(outro.raiz, /^capa$/)[0].className.includes(`l${LINHA_1}`),
     'o topo da volta não herdou a cor da linha');
 });
 
@@ -360,7 +360,7 @@ test('jornada-topo: com a folha aberta, o topo não disputa o primário', async 
   const { raiz } = await subir({ completed: [PRIMEIRA.id], folha: PRIMEIRA.slug });
   const btns = primarios(raiz);
   assert.ok(btns.length <= 1, `${btns.length} primários com a folha aberta`);
-  const topo = comClasse(raiz, /^topo$/)[0];
+  const topo = comClasse(raiz, /^capa$/)[0];
   assert.equal(primarios(topo).length, 0, 'o botão do topo seguiu primário com a folha no ar');
 });
 
@@ -472,7 +472,7 @@ test('S20a-3 · O CAMINHO DO ACHADO: embarque → marcar Circuitos → recarrega
 
   // O «Já estudei algumas disciplinas» fica, e o h1/medida ficam (item 1 do pedido).
   assert.ok(comClasse(raiz, /^topo-marcar$/).length === 1, 'a porta do embarque sumiu da volta');
-  assert.match(textoDe(comClasse(raiz, /^topo$/)[0]), /disciplinas da/);
+  assert.match(textoDe(comClasse(raiz, /^capa$/)[0]), /disciplinas da/);
 });
 
 test('S20a-3 · a placa diz «Ver a estação» e continua secundária, com o topo na tela', async () => {

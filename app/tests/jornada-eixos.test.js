@@ -152,7 +152,7 @@ async function subir({ estudo = null, cartoes = null, completed = [], hoje = '20
   return { doc, raiz, storage, inst, win };
 }
 
-const topoDa = (raiz) => comClasse(raiz, /^topo$/)[0];
+const topoDa = (raiz) => comClasse(raiz, /^capa$/)[0];
 const svgDoTopo = (raiz) => porTag(comClasse(topoDa(raiz), /^topo-mapa$/)[0], 'svg')[0];
 const preenchimentos = (raiz) => comClasse(svgDoTopo(raiz), /^mapa-preenchimento$/);
 const primarios = (raiz) => comClasse(raiz, /^botao-primario$/);

@@ -1773,7 +1773,19 @@ test('jornada: duas colunas no computador, e o token novo existe', () => {
     'a coluna lateral não é 1fr var(--largura-lateral)');
   assert.match(css, /grid-template-areas:/, 'as colunas não usam áreas nomeadas');
   assert.match(css, /position:\s*sticky/, 'a lateral não é sticky');
-  assert.match(css, /top:\s*var\(--altura-topo\)/, 'o sticky não respeita a altura do topo');
+  // S24b item 1 — no computador o cabeçalho mede 72 px (as abas sobem para o
+  // topo e entram no fluxo ao lado da marca), não os 48 do celular, e o --bp de
+  // desta regra é o de 1024. Exigir --altura-topo puro aqui era a conta errada
+  // que empurrava a lateral sticky para baixo do cabeçalho.
+  assert.match(css, /top:\s*calc\(var\(--altura-topo-computador\)\s*\+\s*var\(--espaco-4\)\)/,
+    'o sticky não respeita a altura do cabeçalho do computador');
+  // O token novo mora no casco.css, dentro do @media do computador — e é de
+  // propósito: --altura-topo-computador só existe NAQUELA largura, onde as abas
+  // sobem para o topo e entram no fluxo. Pô-lo no tokens.css seria um token que
+  // vale fora de lugar nenhum, e a casa não tem @media de tamanho no tokens.
+  const casco = readFileSync(fileURLToPath(new URL('../web/casco.css', import.meta.url)), 'utf8');
+  assert.match(casco, /--altura-topo-computador:\s*72px/,
+    'falta --altura-topo-computador no @media do computador em web/casco.css: sem ele a lateral cola embaixo de um cabeçalho medido a olho');
   const tokens = readFileSync(fileURLToPath(new URL('../web/tokens.css', import.meta.url)), 'utf8');
   assert.match(tokens, /--largura-lateral:\s*360px/, '--largura-lateral não foi declarado em tokens.css');
   assert.match(tokens, /--altura-topo:\s*calc\(/,

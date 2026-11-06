@@ -46,6 +46,14 @@ body {
   outline-offset: var(--afastamento-foco);
 }
 
+/* Quem não é alcançável pelo Tab não desenha anel. O título "Fechar a aula"
+   recebe foco POR CÓDIGO (tabindex="-1") para o leitor de tela pousar nele, e o
+   navegador desenhava em volta dele um anel enorme em quem só tinha clicado —
+   tinta sobre o texto, medido no Chrome. `:focus` sem `:focus-visible` é o
+   clique e o código, nunca o teclado: o anel do `:focus-visible` acima continua
+   intacto para quem navega sem mouse. */
+[tabindex="-1"]:focus { outline: none; }
+
 /* Fora da tela, dentro do leitor de tela. Um texto que só explica o estado de
  * um controle não precisa ocupar uma linha da placa. */
 .so-leitor {

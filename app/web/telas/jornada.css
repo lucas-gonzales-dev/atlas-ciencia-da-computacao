@@ -28,18 +28,10 @@
    O lugar do quadro "Bem-vindo ao embarque": mapa, título, medida, UM primário e
    o link discreto de marcar. Herda a cor da linha (lN no ancestral, a mesma
    família da página da aula) e não escolhe cor, tempo nem largura: só tokens. */
-/* S20b-4 (item 1) — o COLISÃO DE CLASSE que segurava o mapa em 645 px numa
-   coluna de 1.481. A Jornada chama a peça de `.topo`, e o cabeçalho fixo do
-   casco (web/casco.css:70) chama o seu de `.topo` também: o `display: grid`
-   daqui manda na forma, mas o `justify-content: space-between` de lá sobrevive
-   ao cascade, e num grid de UMA coluna isso distribui a sobra como vão em volta
-   da trilha em vez de esticá-la. As duas linhas abaixo desfazem a herança sem
-   tocar no cabeçalho: a coluna passa a ser declarada (`minmax(0, 1fr)`, o `0`
-   é o mesmo piso do `.topo-mapa`) e o eixo volta ao `normal` do grid. */
-.topo {
+/* A abertura se chama `.capa` porque `.topo` é do cabeçalho do casco (web/casco.css:75). */
+.capa {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  justify-content: normal;
   gap: var(--espaco-2);
   margin: var(--espaco-6) 0 var(--espaco-4);
 }
@@ -174,14 +166,14 @@
    recurso dela é o primário visível, e o botão do topo cede a forma para o
    contorno da mesma família — o MESMO mecanismo do .placa-acao acima, não um
    segundo jeito de esvaziar um botão. */
-.metro.com-folha .topo .botao.botao-primario {
+.metro.com-folha .capa .botao.botao-primario {
   background: none;
   color: var(--cor, var(--tinta));
   border: 1px solid var(--cor, var(--tinta));
 }
 
 @media (min-width: 1024px) {
-  .metro > .topo { grid-area: abertura; }
+  .metro > .capa { grid-area: abertura; }
 }
 
 /* O maior texto da tela. --tipo-estacao é o MAIOR da escala, e é aqui que ele
@@ -329,6 +321,12 @@
 @media (min-width: 1024px) {
   .metro {
     display: grid;
+    /* S24b item 2 — a coluna do app. Antes disto a Jornada atravessava a janela
+       inteira: em 1920 o trilho do mapa e a placa da lateral ficavam a 1.400 px
+       um do outro, e o olho não achava onde a tela terminava. O teto é o mesmo
+       das outras páginas, com a sobra dividida pelos dois lados. */
+    max-width: var(--largura-app);
+    margin-inline: auto;
     grid-template-columns: 1fr var(--largura-lateral);
     grid-template-areas:
       "marca marca"
@@ -344,7 +342,7 @@
   .metro > .lateral {
     grid-area: lateral;
     position: sticky;
-    top: var(--altura-topo);
+    top: calc(var(--altura-topo-computador) + var(--espaco-4));
     display: grid;
     gap: var(--espaco-4);
   }

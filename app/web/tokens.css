@@ -194,7 +194,20 @@
    * estação; numa lista com número + título + duração, 480 corta o título. 720 é
    * a linha de leitura pedida pelo desenho, e mora aqui porque a regra 11 da casa
    * não aceita número solto no CSS de uma tela. */
-  --largura-leitura: 720px;
+  --largura-app: 1240px;
+  --largura-leitura: 760px;
+  /* S24b (item 2, 06/11/2026) — A COLUNA DO APP. Medido no Chrome em 1920x945 e
+   * 1366x657: cada tela tinha um teto próprio, e nenhum deles era uma escolha —
+   * a Jornada atravessava a janela inteira, o Perfil centralizava em 1024, a
+   * Explorar ficava deslocada e a Aula colava à esquerda com um vazio à direita.
+   * O --largura-app é o teto COMUM das páginas de lista e de painel; o
+   * --largura-leitura é o teto do texto corrido (aula e fila), mais estreito
+   * porque a linha de leitura cansa. As duas moram aqui e nenhuma folha escolhe
+   * número: a mesma lei do --altura-topo, que é conta e não palpite.
+   * O --largura-leitura subiu de 720 para 760 com a coluna larga: em 720 dentro
+   * de 1240 centrado, a sobra de um lado só passava de 250 px e a página voltava
+   * a parecer deslocada — 760 é o que a casa já media e a trava de acabamento
+   * passou a ler. */
   /* S17b-fix (item 2): a LARGURA DE UMA CÉLULA da grade do domínio — o piso do
    * `minmax()` de `repeat(auto-fill, …)`, que é o que diz quantas células cabem.
    * 160 px é o menor espaço em que um nome de estação entra em duas linhas com o

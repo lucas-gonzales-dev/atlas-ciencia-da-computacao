@@ -440,6 +440,15 @@ test('teclado 2: nenhum CSS de web/ zera o outline sem pôr outro anel na mesma 
     for (const r of regras(readFileSync(caminho, 'utf8'))) {
       if (!zeraOutline(r.corpo)) continue;
       if (temAnelNaMesmaRegra(r.corpo)) { aneis += 1; continue; }
+      // S24b item 3 — a exceção legítima: tabindex="-1" não é alvo do Tab NUNCA.
+      // O anel existe para quem navega sem mouse ver onde caiu; um elemento que
+      // só recebe foco POR CÓDIGO (o título "Fechar a aula", para o leitor de
+      // tela pousar nele) não tem ninguém teclado esperando anel nenhum, e o
+      // navegador desenhava um enorme em quem só tinha clicado. A exceção é
+      // estreita de propósito: vale para o seletor que contém [tabindex="-1"],
+      // e não para `:focus` a descoberto — zero de outline em alvo alcançável
+      // pelo Tab continua sendo ofensa.
+      if (r.seletor.includes('[tabindex="-1"]')) { aneis += 1; continue; }
       achados.push(`${nome}: ${r.seletor} zera o outline sem anel substituto (box-shadow) na mesma regra`);
     }
   }
