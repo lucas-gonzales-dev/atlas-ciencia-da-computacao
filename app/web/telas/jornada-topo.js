@@ -464,7 +464,7 @@ export function desenharTopo(dados, doc) {
 
   // A LEGENDA do mapa de dois eixos (S16c, item 4). Ela é uma linha discreta
   // DEBAIXO do desenho, e só existe quando há medição: com a rede toda vazia,
-  // «Cheio: estudado» falaria de um desenho que nunca mudou. É a regra da casa
+  // a legenda do preenchimento falaria de um desenho que nunca mudou. É a regra da casa
   // para cor — a forma diz, a palavra decifra (design/README heurística 6).
   const legenda = () => (houveEstudo(eixos)
     ? no(doc, 'p', 'topo-legenda', { text: MAPA_TEXTO.legenda })

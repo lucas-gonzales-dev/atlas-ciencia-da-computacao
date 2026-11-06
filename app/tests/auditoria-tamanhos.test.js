@@ -391,6 +391,22 @@ test('S20a-2 · o mapa do topo é faixa, e o único primário cabe acima da dobr
     assert.ok(topoBotao + alvo / 2 <= dobra,
       `${larguraJanela}px: o único primário da Jornada começa em ${Math.round(topoBotao)} px e não cabe na dobra de ${dobra} (mapa de ${Math.round(mapa)} px)`);
   }
+
+  // S20b-3, item 2 — o vão de 870 px à direita do mapa em 1920. A escolha foi o
+  // mapa CRESCER até a coluna (não virar duas colunas no topo): a faixa 8:3 é a
+  // geometria já assinada por MAPA_TOPO, a conta acima já é `coluna × propor`, e
+  // dobrar o topo em duas colunas mexeria na ordem de leitura da J1, que é o DOM.
+  // O piso automático do item de grid segurava o quadro na largura do desenho.
+  const css = await ler('web/telas/jornada.css');
+  const quadro = /\.topo-mapa\s*\{([^}]*)\}/.exec(css);
+  assert.ok(quadro, 'sumiu a regra que dá forma ao quadro do mapa do topo');
+  assert.ok(/min-width:\s*0/.test(quadro[1]),
+    '.topo-mapa voltou a não ter min-width: 0: o piso do item de grid devolve o vão de 870 px à direita do mapa em telas largas');
+  assert.ok(/width:\s*100%/.test(quadro[1]),
+    '.topo-mapa não declara a largura da coluna: o mapa para de crescer com a janela');
+  const svg = /\.topo-mapa svg\s*\{([^}]*)\}/.exec(css);
+  assert.ok(svg && /height:\s*auto/.test(svg[1]),
+    'o svg do topo perdeu height: auto: a altura deixaria de seguir a faixa 8:3 e o primário voltaria a descer da dobra');
 });
 
 /**

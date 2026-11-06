@@ -4,8 +4,10 @@
 
 O **[atlas-ciencia-da-computacao.pages.dev](https://atlas-ciencia-da-computacao.pages.dev/)**
 é a trilha de Ciência da Computação da **Universidade Brasileira Livre (UBL)** em
-forma de app: mostra as 35 disciplinas, o que o seu progresso já destrancou e o
-que estudar em seguida. Sem conta, sem servidor, sem dependência.
+forma de app: as 35 disciplinas com o que o seu progresso já destrancou, as
+1.375 aulas de cada uma, o fechamento com recordação, os cartões que você escreve
+com revisão espaçada e um mapa da rede inteira. Sem conta, sem servidor, sem
+dependência — nada seu sai do seu aparelho.
 
 <p align="center">
   <!-- O selo de testes volta aqui quando o GitHub Actions do repositorio religar. -->
@@ -42,30 +44,78 @@ fora do seu aparelho.
 **A trilha**
 
 - As 35 disciplinas obrigatórias da fonte, com pré-requisitos, organizadas em
-  estágios — cada uma diz o que precisa estar concluído antes.
+  7 linhas de metrô — cada uma diz o que precisa estar concluído antes.
 - O que está destrancado agora e o que estudar em seguida, calculado a partir do
   que você marcou (as regras ficam em [app/core/progress.js](app/core/progress.js),
   com detecção de ciclo e alcance de pré-requisito).
-- Busca no topo que filtra grade, eletivas e especializações pelo nome, sem
-  acento nem caixa importarem (`calculo` acha *Cálculo*). Sem resultado, a tela
-  diz que não achou, em vez de ficar muda.
+- Busca que filtra grade, eletivas e especializações pelo nome, sem acento nem
+  caixa importarem (`calculo` acha *Cálculo*). Sem resultado, a tela diz que não
+  achou, em vez de ficar muda.
 - Eletivas em seção própria, marcadas como arquivadas na fonte e **fora** do
   progresso: a fonte não as soma na grade, então o Atlas também não soma.
-- As 9 especializações da fonte com os 75 recursos delas; as 3 que a fonte traz
-  "em construção" aparecem como *aguardando conteúdo*, com o motivo escrito.
+- As 9 especializações da fonte com os 75 recursos delas; as 3 que a fonte ainda
+  não publicou ("em construção" ou só anunciadas) aparecem como *aguardando
+  conteúdo*, cada uma com o motivo que a fonte dá.
 
-**O seu progresso**
+**As aulas**
 
-- Concluir disciplina, com o estado salvo no `localStorage` do aparelho.
+- Dentro de cada disciplina, a lista de aulas sai dos dados, não de digitação:
+  são 1.375 aulas com número, título limpo e duração legível, lidas do índice
+  gerado a partir da API do YouTube ([app/core/aulas.js](app/core/aulas.js)). O
+  índice tem data de validade, e aula indisponível diz isso em vez de sumir.
+- Abrir uma aula registra só onde você parou: nada conta como estudo até o
+  fechamento.
+- **"Já sei isso"** para a aula em que você passou por fora do Atlas. Uma pulada
+  fica registrada como *aula por onde você passou sem medir lembrança*: conta como
+  passada com preenchimento zero, não gera cartão e tem desfazer.
+
+**Fechar a aula, com recordação**
+
+- A aula só vira estudo quando você lembra sem olhar. O fechamento tem três
+  passos: lembrar de cabeça, conferir com o vídeo ou as notas, e escrever os
+  cartões. A regra é [app/core/estudo.js](app/core/estudo.js) com
+  [app/core/cartoes.js](app/core/cartoes.js); o desenho está em
+  `design/v3/00-desenho.md`.
+- Assistir não é medir: a régua da estação enche com o que foi fechado, não com o
+  que foi aberto. O que está aberto aparece como *aberta*, palavra separada, e não
+  conta como estudo.
+
+**Os cartões e a revisão espaçada**
+
+- Cada cartão nasce da sua própria pergunta, com frente e verso, e é do aparelho.
+- A fila existe para caber em minutos: um teto por sessão, e o que passa dele
+  espera sem pressa e sem castigo. Atrasar não custa nada; esquecer só reagenda.
+- O agendamento é FSRS-6 ([app/core/fsrs.js](app/core/fsrs.js), fórmulas da wiki
+  oficial, referência em `tests/fsrs.test.js`): cada resposta de *Errei* ou
+  *Lembrei* atualiza estabilidade e dificuldade do cartão, e a próxima data é
+  calculada da curva de esquecimento — não de um "amanhã" fixo. A confiança
+  declarada (*Certeza*, *Acho que sei*, *Chute*) é opcional e não vale resposta.
+
+**O mapa**
+
+- A rede inteira desenhada como metrô, com **dois eixos por estação**: o
+  preenchimento diz o que você estudou, a cor diz o que você lembra depois. Uma
+  estação pode estar cheia e apagada — o mapa separa as duas coisas, e a legenda
+  decifra a cor em palavra.
+- Os estágios têm nome, não placar: *fora da rota*, *embarcada*, *em percurso*,
+  *percorrida*, *concluída antes* — a escada está em
+  [app/core/eixos.js](app/core/eixos.js), e nenhum número é escrito à mão na tela.
+
+**O seu progresso, e o backup**
+
+- Tudo fica no `localStorage` do aparelho: aula aberta, aula estudada, pulada,
+  anotação, cartão, data de revisão. Nenhuma conta, nenhum servidor.
 - Anotação por disciplina, eletiva e especialização: texto curto, editável na
   própria matéria, vazio apaga, longo é cortado no limite que o teste diz, e
   anotação de id que não existe no catálogo é ignorada e contada
   ([app/core/notes.js](app/core/notes.js)).
-- Exportar e importar o progresso em `.json` (formato v2, ainda aceitando v1): o
-  seu estudo não é refém de um navegador, e a validação mora em
+- **Exportar e importar a viagem inteira** em `.json` — o estudo, os cartões, os
+  rascunhos abertos e as anotações, em formato v3 (v1 e v2 continuam entrando sem
+  perder nada). O seu estudo não é refém de um navegador, e a validação mora em
   [app/core/progress-io.js](app/core/progress-io.js).
 - PWA instalável, com a trilha inteira no precache — offline sem dados seria
-  offline inútil.
+  offline inútil. O pedido de armazenamento persistente é feito depois do primeiro
+  cartão, para o aparelho não riscar a fila que você ainda não viu.
 
 **O conteúdo da fonte**
 
@@ -82,22 +132,30 @@ fora do seu aparelho.
 ```mermaid
 flowchart LR
   UBL["fonte da UBL<br/>Universidade-Livre/ciencia-da-computacao<br/>auditada no SHA b995c11"] --> BUILD["tools/build-catalog.mjs"]
+  YT["YouTube Data API v3"] --> AULAS["tools/aulas-do-youtube.mjs"]
   BUILD --> JSON["app/data/catalog.json"]
-  JSON --> CORE["app/core/<br/>regras puras: pré-requisito,<br/>progresso, export/import,<br/>busca, anotações"]
+  AULAS --> INDICE["app/data/aulas/<br/>indice.json + um arquivo por disciplina"]
+  JSON --> CORE["app/core/<br/>regras puras, sem DOM:<br/>pré-requisito, estudo, aulas,<br/>cartões, FSRS, eixos,<br/>export/import, busca, anotações"]
+  INDICE --> CORE
   CORE --> WEB["app/web/<br/>a tela, sem framework"]
   WEB --> SW["app/sw.js<br/>precache, offline"]
   CORE -.-> TEST["app/tests/<br/>node:test"]
   JSON -.-> TEST
+  INDICE -.-> TEST
 ```
 
 O currículo da UBL é lido do clone oficial fixado num SHA e transformado em
 [app/data/catalog.json](app/data/catalog.json) por
-[tools/build-catalog.mjs](tools/build-catalog.mjs) — o conteúdo nunca é digitado
-à mão. Sobre esse JSON, [app/core/](app/core) tem as regras puras, sem DOM: é o
-que o `node:test` cobre. [app/web/](app/web) desenha a tela a partir do que o
-core devolve, sem build e sem framework, e [app/sw.js](app/sw.js) guarda os
-arquivos no cache para o app abrir sem rede. A separação existe por um motivo
-prático: regra de pré-requisito se testa no Node em milissegundos, sem navegador.
+[tools/build-catalog.mjs](tools/build-catalog.mjs); as aulas vêm da YouTube Data
+API por [tools/aulas-do-youtube.mjs](tools/aulas-do-youtube.mjs) e viram
+[app/data/aulas/](app/data/aulas) — um índice com data de validade e um arquivo
+por disciplina. Nenhum dos dois conteúdos é digitado à mão, e o que a fonte não
+tem aparece como faltando. Sobre esses JSONs, [app/core/](app/core) tem as regras
+puras, sem DOM: é o que o `node:test` cobre. [app/web/](app/web) desenha a tela a
+partir do que o core devolve, sem build e sem framework, e [app/sw.js](app/sw.js)
+guarda os arquivos no cache para o app abrir sem rede. A separação existe por um
+motivo prático: regra de pré-requisito e regra de agendamento se testam no Node
+em milissegundos, sem navegador.
 
 ## Rodar e testar
 
@@ -154,12 +212,16 @@ Honesto, sem enfeite:
   28/10/2026, o service worker ativou com 18 entradas no cache, o catálogo
   respondeu 200, o console veio limpo e o progresso sobreviveu ao recarregar — mas
   o *Adicionar à tela inicial* num celular ainda não foi conferido por ninguém.
-- **Rótulo do campo de anotação.** Hoje ele é `Anotação` em todas as matérias,
-  então um leitor de tela anuncia o mesmo nome dezenas de vezes sem dizer de qual
-  disciplina é. Precisa virar um rótulo único por matéria.
+- **Nenhuma régua automatizada mede os 1.920 px.** A trava da faixa do mapa e da
+  dobra roda a conta em Node com os tokens e o `viewBox`; o navegador conferido
+  nesta casa foi o de 1.280×800 e o celular de 375. O que muda é a largura da
+  coluna, e ela só fecha no Chrome em 1.920 — quem escreve isso não viu.
 - **A fonte não é fixada por commit em tudo.** O currículo principal está
   auditado no SHA `b995c11`; as eletivas vêm de material que a fonte ainda move,
-  e as 3 especializações "em construção" esperam conteúdo dela.
+  e as 3 especializações sem página esperam conteúdo dela.
+- **O índice de aulas vence e ninguém o renova sozinho.** Ele traz `geradoEm` e
+  `validoAte` (hoje válido até 04/12/2026), a tela avisa quando vence, e revalidar é
+  rodar `tools/aulas-do-youtube.mjs` à mão — não há automação que o faça.
 - **Sem capturas de tela ainda.** Entram quando o visual estiver pronto — e aí o
   README mostra o app, em vez de só descrevê-lo.
 
@@ -192,7 +254,9 @@ obrigação nova nem conflito de redistribuição.
 Atlas is an unofficial, independent study app built on top of the open Computer
 Science curriculum published by Universidade Brasileira Livre (a Brazilian free
 university project). It lists the 35 core courses with their prerequisites, works
-out what your progress has unlocked and what to study next, and keeps everything
+out what your progress has unlocked and what to study next, walks you through the
+1,375 video lessons of those courses (each one only counts once you recall it
+without looking), schedules the cards you write with FSRS-6, and keeps everything
 on your device — no account, no server, no tracking, and it runs offline as an
 installed PWA. There is no build step and no dependency: plain JavaScript, with
 the test suite on `node:test`. The curriculum data is generated from the source

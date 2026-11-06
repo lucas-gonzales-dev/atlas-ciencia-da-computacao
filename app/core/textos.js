@@ -298,7 +298,7 @@ export const estados = {
     // O esqueleto é um traço cinza e 5 círculos cinza, PARADOS. Sem brilho
     // correndo: shimmer é spinner disfarçado. Só aparece depois de 150 ms
     // (--atraso-esqueleto) — piscar esqueleto em 40 ms é pior que não ter.
-    nota: 'Se demorar mais que um instante, aparece o desenho da linha em cinza.',
+    nota: 'Se demorar, as linhas aparecem em cinza.',
   },
 
 
@@ -359,7 +359,7 @@ export const folha = Object.freeze({
   rotuloBibliografia: 'Bibliografia',
   rotuloConexoes: 'Conexões',
   abreTitulo: 'Ao concluir, você abre',
-  trancadaTitulo: 'A conexão começa antes.',
+  trancadaTitulo: 'Para chegar aqui, faça antes:',
   revisitar: 'Rever o conteúdo',
   abrirCurso: 'Abrir o curso',
   desfazerConclusao: 'Desfazer conclusão',
@@ -514,14 +514,14 @@ export const mapa = Object.freeze({
   /**
    * A LEGENDA do mapa de dois eixos (S16c, item 4 do desenho: J3 e princípio 1).
    *
-   * Ela só existe quando há o que decifrar: com a rede toda vazia, "Cheio:
-   * estudado" é uma frase sobre um desenho que não mudou. Por isso a tela a liga
+   * Ela só existe quando há o que decifrar: com a rede toda vazia, falar do
+   * preenchimento é uma frase sobre um desenho que não mudou. Por isso a tela a liga
    * por `estudadas > 0`, e não por «sempre».
    *
    * Duas cláusulas, dois canais, sem conselho: o desenho diz O QUE a forma
    * significa, nunca o que a pessoa deveria fazer com isso.
    */
-  legenda: 'Cheio: estudado. Cor forte: lembrado depois.',
+  legenda: 'Preenchimento: o que você estudou. Cor forte: o que você lembrou depois.',
 });
 
 /**
@@ -695,7 +695,7 @@ export const explorar = Object.freeze({
     eletivas: 'Eletivas arquivadas na fonte: não somam à grade obrigatória sem decisão editorial.',
   },
   selo: {
-    emObras: 'EM OBRAS',
+    emObras: 'Em obras',
     trancada: 'trancada',
   },
   // O que falta, dito pelo NOME — mesma regra da folha (JORNADA 2.3).
@@ -715,7 +715,7 @@ export const explorar = Object.freeze({
  * se comemora com número.
  */
 export const chegada = Object.freeze({
-  rotulo: 'Conexão criada',
+  rotulo: 'Estação concluída',
   entrouNoBilhete: (nome) => `${nome} entrou no seu bilhete.`,
   carimbo: (data) => `Carimbo de ${data}.`,
   novoCaminho: 'Novo caminho',
@@ -753,7 +753,7 @@ export const chegada = Object.freeze({
  * pesa o atraso — adiar não custa, esquecer só reagenda (JORNADA, "sem punição").
  */
 export const revisar = Object.freeze({
-  rotulo: 'Fortaleça o que você conectou',
+  rotulo: 'Revisão de hoje',
   titulo: 'Revisar é reencontrar uma ideia no momento certo.',
   // ── ESTADO 1: a abertura da fila (S15b, J3.1) ─────────────────────────
   // Os dois números chegam de fora: o total é `cartoesDevidos` sem corte, o
@@ -777,7 +777,7 @@ export const revisar = Object.freeze({
   lembrei: 'Lembrei',
   // A pergunta opcional. "Opcional" é da tela, não do texto: ninguém é obrigado
   // a avaliar a própria certeza, e a resposta sem confiança vale igual.
-  seguro: 'Quão seguro você está?',
+  seguro: 'Quanta certeza você tem?',
   confiancas: Object.freeze({
     certeza: 'Certeza',
     acho: 'Acho que sei',
@@ -809,7 +809,7 @@ export const revisar = Object.freeze({
   // S15b, item 3: os três passos numerados saíram da aba. O método cabe em uma
   // linha discreta, e ela só aparece no estado Em dia — quem está revisando não
   // precisa ler explicação no meio da sessão, e quem terminou tem calma para ler.
-  metodo: 'Lembre antes de ver, responda com sinceridade, e o Atlas escolhe quando voltar.',
+  metodo: 'Tente lembrar antes de ver, diga se lembrou, e o Atlas escolhe quando cada cartão volta.',
   /**
    * S15a — a migração da revisão antiga. Cada estação concluída COM anotação vira
    * um cartão, e a frente é a pergunta que a aba Revisar já fazia, agora escrita
@@ -879,7 +879,7 @@ export const perfil = Object.freeze({
     importar: 'Importar uma viagem',
     importLabel: 'Escolha o arquivo do Atlas',
     semDownload: 'Este navegador não deixou baixar o arquivo. Tente em outra janela.',
-    semStorage: 'O aparelho não guardou: o que você importou vale só nesta tela.',
+    semStorage: 'Importou, mas este aparelho não guardou: vale só até fechar esta tela.',
     // Função, não string: `exportarViagem` devolve o nome do arquivo gerado, e
     // o recado tem de nomear O QUE FOI FEITO. Como string, a tela imprimiria o
     // texto cru dentro do template e a pessoa leria "function" na tela.

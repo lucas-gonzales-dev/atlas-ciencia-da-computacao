@@ -767,7 +767,29 @@
 // tests/metro.test.js confere primeiraVisita nelas — o que ficou órfão na S20a foi o
 // import de `abertura` em metro.js, não o texto, e apagar texto que uma tela ainda
 // desenha não é limpar morto. Muda de bytes e está no precache: core/textos.js.
-const VERSAO = 'atlas-v86';
+// atlas-v87: S20b-3 (05/11/2026) — AS FRASES DECIDIDAS, O VAO DE 1920 E O README. (1) Nove
+// frases de core/textos.js trocadas pela palavra que o Lucas ditou: o teto da confianca
+// («Quanta certeza você tem?»), o metodo da revisao, o rotulo da fila («Revisão de hoje»), o
+// rotulo do momento («Estação concluída», e nao «Conexão criada»: a palavra é da estação), o
+// titulo da lista de pre-requisitos («Para chegar aqui, faça antes:»), a legenda dos dois eixos
+// («Preenchimento: o que você estudou...»), a nota do esqueleto, o selo «Em obras» — que agora
+// é frase, nao caixa alta digitada, porque o .explorar-selo do css ja faz a caixa alta — e o
+// aviso de que o aparelho nao guardou o import. (2) O vao de ~870 px à direita do mapa em 1920:
+// escolhi o mapa CRESCER ate a largura da coluna, e nao dobrar o topo em duas colunas. Por que:
+// a ordem da J1 — mapa, titulo, medida, acao — é a ordem do DOM e a do leitor de tela, e
+// biforca-la so acima de 1440 deixaria o celular com um fluxo que so o desktop inventou; e a
+// geometria que a conta da dobra ja usa é coluna × propor, que continua valendo. O que segurava
+// o quadro na largura do desenho era o piso automatico de um item de grid com filho de tamanho
+// intrinseco: width: 100% e min-width: 0 no quadro, height: auto no svg, e a altura continua
+// presa à faixa 8:3. A trava em tests/auditoria-tamanhos.test.js confere as tres declaracoes, e
+// a conta da dobra continua passando em 1280x800. (3) O README descreve o que o Atlas faz HOJE:
+// as aulas, o «Já sei isso», o fechamento com recordacao, os cartoes, a revisao espacada, o mapa
+// de dois eixos e o backup. A caderneta e o desafio nao entraram: sem tela, nao se anuncia.
+// (4) Caiu o import orfao de `abertura` em web/metro.js — a S20b-2 registrou que o texto ficou,
+// o que nao tinha mais leitor era o import.
+// Muda de bytes e está no precache: core/textos.js, web/metro.js,
+// web/telas/jornada-topo.js, web/telas/jornada.css. README.md e os testes nao estao no cache.
+const VERSAO = 'atlas-v87';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
@@ -825,7 +847,7 @@ const VERSAO = 'atlas-v86';
 // e web/telas/explorar.css (o piso de toque dos alvos nus). Os testes novos não
 // estão no precache: nada de fora de app/web e app/core vai para o cache de quem
 // usa. O sw.js mediu o mesmo sha256 antes e depois.
-const PRECACHE_HASH = 'sha256-7bf0716a41e8d1d4c7161cd159e0513870a5ece3ceaf570ea29d07c0286385e3';
+const PRECACHE_HASH = 'sha256-9c35b5aaeb777d3866f485aadfd0e3a714dae10913420b7e4d94d9a1b5cde029';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.

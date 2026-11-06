@@ -426,7 +426,7 @@ test('folha: depois de concluir, o miolo vira o momento — um primário só', (
   const { root } = abrir('algoritmos-i', { completed: depois.completed, conclusoes: depois.conclusoes }, { momento });
 
   const todo = textoDe(root);
-  assert.match(todo, /Conexão criada/, 'o rótulo do momento');
+  assert.match(todo, /Estação concluída/, 'o rótulo do momento (S20b-3: a palavra é a da estação, não a do sistema)');
   assert.match(todo, /Algoritmos I entrou no seu bilhete\./, 'o h2 do momento');
   assert.match(todo, /Carimbo de 30\/10\/2026\./, 'a data lida como pessoa lê');
   assert.match(todo, /Novo caminho/, 'o bloco do que abriu');

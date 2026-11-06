@@ -16,7 +16,7 @@
 //      resolve com os tokens. JS que escolhe hex é JS que fura o design system.
 
 import { placa, comValores, estados, jornada as J, ORIGEM, TIPO_DE_ORIGEM } from '../core/textos.js';
-import { abertura, tresNumeros, conexao, totalDeLinhas } from './telas/jornada-blocos.js';
+import { tresNumeros, conexao, totalDeLinhas } from './telas/jornada-blocos.js';
 // S5 parte 2: a FOLHA saiu deste arquivo (ela é web/folha.js) e passou a ter
 // rota própria (#/estacao/<slug>). O ciclo de imports é deliberado: o metro.js
 // chama `desenharFolha` ao pintar e o folha.js lê `naFonte`/`origemDoRecurso`

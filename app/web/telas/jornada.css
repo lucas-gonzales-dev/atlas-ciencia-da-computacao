@@ -35,11 +35,35 @@
 }
 
 /* O mapa na largura da coluna. O SVG vem de core/mapa-rede.js com viewBox
-   próprio: aqui ele só é fluido, nunca um tamanho escrito à mão. */
+   próprio: aqui ele só é fluido, nunca um tamanho escrito à mão.
+
+   S20b-3, item 2 — o vão de ~870 px à direita do mapa em 1920. A escolha foi o
+   mapa CRESCER até a coluna, e não o topo virar duas colunas: a ordem da J1
+   (mapa, título, medida, ação) é a ordem do DOM e a do leitor de tela, e dobrar
+   o topo em duas colunas forkaria essa ordem só acima de 1440 — o celular teria
+   de redesenhar um fluxo que o desktop inventou. Crescendo, a geometria é a que
+   MAPA_TOPO já assinou (8:3) e a conta da dobra, que já é `coluna × propor`,
+   continua valendo nas duas larguras.
+
+   O que estas três linhas garantem, dito sem mecanismo: o QUADRO declara a
+   largura da coluna (`width: 100%`), e não a do desenho — `min-width: 0` tira
+   dele o piso automático que um filho de tamanho intrínseco (o svg nasce com
+   `width="640"` no atributo) impõe a um item de grid. A ALTURA nunca é número
+   aqui: `height: auto` sobre o viewBox prende o desenho à faixa. LIMITE
+   HONESTO: node não tem navegador, e `testar_pagina` devolve o texto e o console,
+   não uma régua — os píxeles de 1920 fecham no Chrome. A trava em
+   tests/auditoria-tamanhos.test.js confere as três declarações, e a conta da
+   dobra confere o primário acima de 800 px em 1280 e em 1920. */
+.topo-mapa {
+  width: 100%;
+  min-width: 0;
+}
+
 .topo-mapa svg {
   display: block;
   width: 100%;
   height: auto;
+  min-width: 0;
 }
 
 .topo-titulo {
