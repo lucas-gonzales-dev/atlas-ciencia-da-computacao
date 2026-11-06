@@ -15,7 +15,15 @@
 //   3. NENHUMA COR AQUI. A cor da linha é uma CLASSE (.l1 … .l7) que o CSS
 //      resolve com os tokens. JS que escolhe hex é JS que fura o design system.
 
-import { placa, comValores, estados, jornada as J, ORIGEM, TIPO_DE_ORIGEM } from '../core/textos.js';
+// S20b-4 (item 2): `mapa` entra pela palavra `estagioNaFolha`, a mesma que a
+// folha usa desde a S20b-1a. Nome curta não: ela é lida como MAPA_TEXTO porque
+// `mapa` neste arquivo já é o DIV do diagrama (linha 646), e uma palavra com
+// dois significados na mesma função é o defeito que a regra 9 existe para pegar.
+import { placa, comValores, estados, jornada as J, mapa as MAPA_TEXTO, ORIGEM, TIPO_DE_ORIGEM } from '../core/textos.js';
+// S20b-4: `contarEstagios` é a conta do núcleo para quem ROTULA (core/eixos.js),
+// e é ela que responde o «Em curso» dos três números — a tela não refaz um
+// `filter` sobre estágios, que seria a segunda regra da mesma palavra.
+import { eixosDaRede, contarEstagios } from '../core/eixos.js';
 import { tresNumeros, conexao, totalDeLinhas } from './telas/jornada-blocos.js';
 // S5 parte 2: a FOLHA saiu deste arquivo (ela é web/folha.js) e passou a ter
 // rota própria (#/estacao/<slug>). O ciclo de imports é deliberado: o metro.js
@@ -50,6 +58,7 @@ import {
   ESTADOS,
   numerosDaJornada,
   lerProgresso,
+  dataLocal,
   estadoDaEstacao,
   resumoDaViagem,
   concluirEstacao,
@@ -123,18 +132,57 @@ export const ESTADO_LEGIVEL = Object.freeze({
 });
 
 /**
- * O nome inteiro que o leitor de tela lê: "Matemática Discreta, Linha 2, disponível".
- * Não é enfeite de acessibilidade — é o que conserta o botão que só dizia
- * "abrir" e o campo que só dizia "Anotação".
+ * A palavra da lista, perguntada à MESMA régua da folha (S20b-4, item 2).
+ *
+ * POR QUE EXISTE: com 3 aulas estudadas de 93, a lista dizia «disponível» e a
+ * folha, dois centímetros abaixo, dizia «Em percurso» — duas respostas para a
+ * mesma pergunta na mesma tela, que é o que a regra 9 proíbe. `folha-estado` lê
+ * `mapa.estagioNaFolha` (core/textos.js) desde a S20b-1a; aqui entra a mesma
+ * função, com o estágio que `eixosDaEstacao` mediu, e nenhuma palavra nova.
+ *
+ * QUEM NÃO TEM EIXO NA MÃO CONTINUA COMO ESTÁ: `semEixo` é o Map vazio de quem
+ * não tem índice (a primeira pintura, o cartão do link, o teste da placa), e
+ * também o caso da estação que o índice não cobre. A régua é de DOIS EIXOS — o
+ * que ela mede são aulas abertas e estudadas — e dizer «não medimos» com a
+ * palavra da MALHA (disponível/trancada, que é o pré-requisito) é menos errado
+ * do que inventar um estágio sem total. A forma (`e.estado`) continua do
+ * catálogo em qualquer caso: é a cor do nó e o que a folha decide abrir.
+ *
+ * @param {Map|object|null} eixos o Map de `eixosDaRede` (aceita objeto também,
+ *   pela mesma razão de `contarEstagios`)
+ * @param {{id: string}} e o estado da estação lido da malha
+ * @returns {string} a palavra que vai na etiqueta
  */
-export function rotuloEstacao(estacao, linha) {
+export function estadoDaLista(eixos, e) {
+  // A TRANCADA manda na malha, como já manda na folha (web/folha.js:461): sem
+  // liberação não há estágio a medir, e um estágio medido numa estação fechada
+  // seria a tela oferecendo o que o pré-requisito nega.
+  if (e?.estado === ESTADOS.TRANCADA) return ESTADO_LEGIVEL[ESTADOS.TRANCADA];
+  const medida = typeof eixos?.get === 'function' ? eixos.get(e?.id) : eixos?.[e?.id];
+  if (!medida || !medida.estagio) return ESTADO_LEGIVEL[e?.estado] || ESTADO_LEGIVEL[ESTADOS.TRANCADA];
+  // `e.estado` entra como segundo argumento pela mesma razão que na folha: o
+  // 'fora' sem toque, MAS com a estação marcada como começada na malha, é
+  // «Em curso» (declaração da pessoa), não «disponível».
+  const palavra = MAPA_TEXTO.estagioNaFolha(medida.estagio, e.estado);
+  // O estágio que a folha NÃO traduz (um estágio do núcleo sem par em textos.js é
+  // «nome de estágio inventado», e a trava do mapa já cai lá) devolve a palavra
+  // da malha. É o mesmo «toda estação tem etiqueta» da S20b-1a, visto daqui.
+  return palavra || (ESTADO_LEGIVEL[e.estado] || ESTADO_LEGIVEL[ESTADOS.TRANCADA]);
+}
+
+export function rotuloEstacao(estacao, linha, palavra) {
   const nome = estacao && typeof estacao.titulo === 'string' ? estacao.titulo : '';
   // FATIA 2c-3: sem linha não se INVENTA linha. `Number(null)` é 0 e 0 é finito,
   // então o rótulo saía "X, Linha 0, trancada" — e Linha 0 não existe em lugar
   // nenhum do catálogo. Quando o número não vem, a parte da linha sai da frase.
   const n = Number(linha);
   const l = Number.isFinite(n) && n > 0 ? n : null;
-  const estado = ESTADO_LEGIVEL[estacao?.estado] || ESTADO_LEGIVEL[ESTADOS.TRANCADA];
+  // S20b-4 (item 2): a mesma palavra do cartão também no `aria-label`. O rótulo
+  // falado e a etiqueta vista têm de ser a MESMA resposta — um leitor de tela
+  // ouvindo «disponível» enquanto a folha diz «Em percurso» seria o defeito
+  // escrito duas vezes, uma para cada sentido. Sem `palavra` (os chamados de
+  // teste, o cartão sem medida) vale a palavra da malha, como sempre valeu.
+  const estado = palavra || ESTADO_LEGIVEL[estacao?.estado] || ESTADO_LEGIVEL[ESTADOS.TRANCADA];
   return l === null ? `${nome}, ${estado}` : `${nome}, ${comValores.linha(l)}, ${estado}`;
 }
 
@@ -650,6 +698,20 @@ export function desenharMetro(doc, root, estado) {
   root.append(mapa);
   nos.mapa = mapa;
 
+  // S20b-4 (itens 2 e 4) — A MEDIDA UMA VEZ POR PINTURA. A etiqueta da lista
+  // (item 2) e o «Em curso» dos três números (item 4) passaram a ler o MESMO
+  // Map: `eixosDaRede` (core/eixos.js) devolve um objeto por estação com total
+  // conhecido no índice, e `contarEstagios` é a conta do núcleo para quem
+  // ROTULA — a tela não refaz um `filter` sobre estágios, que seria a segunda
+  // regra da mesma palavra (regra 9). Sem índice não há total, o Map vem VAZIO
+  // e vale a regra do mapa desde a S16c: vazio é «não medimos», não «meio
+  // desenhado» — a lista continua dizendo o que a malha diz, e o «Em curso»
+  // continua o número antigo, em vez de um 0 inventado.
+  const eixos = eixosDaRede(catalogo, {
+    estudo: estudoTela, cartoes: estado.cartoes || null, indice: estado.indice,
+    progresso, hoje: dataLocal(estado.hoje)
+  });
+
   // ── 1b. os TRÊS NÚMEROS e a PRÓXIMA CONEXÃO (S4a) ──────────────────────
   // Depois da placa, na ordem da fatia. No Terminal os dois não aparecem: vale o
   // `terminal` de textos.js, que a placa já desenha, e "35/35" ao lado de "próxima
@@ -657,10 +719,22 @@ export function desenharMetro(doc, root, estado) {
   // nada. Os números vêm do núcleo (numerosDaJornada), nunca contados aqui.
   if (!resumo.terminal) {
     const n = numerosDaJornada(progresso, catalogo);
+    // S20b-4 (item 4) — «Em curso 0, com aula aberta» é falso para quem está
+    // estudando: `n.emCurso` lê `progresso.emCurso`, o campo antigo do progresso
+    // v3, que nada escreve desde que a aula passou a ser o gesto (core/estudo.js
+    // `abrirAula`/`estudarAula` não tocam nele). A régua é a MESMA do mapa:
+    // embarcada (tem aula aberta ou pulada, nada estudado) + em-percurso (tem
+    // aula estudada) contam como «em curso» — não concluída, não fora da rota.
+    // Sem índice o Map vem vazio, `contarEstagios` não tem o que somar, e aí
+    // fica o número antigo: «não sei» mostra a conta velha, não mostra zero.
+    const medido = estado.indice ? contarEstagios(catalogo, eixos).estagios : null;
+    const emCurso = medido
+      ? (medido.embarcada || 0) + (medido['em-percurso'] || 0)
+      : n.emCurso;
     lateral.append(cascata(tresNumeros(doc, {
       carimbos: n.carimbos,
       total: resumo.estacoes,
-      emCurso: n.emCurso,
+      emCurso,
       abertas: n.linhasAbertas,
       linhas: totalDeLinhas(catalogo)
     }), 2));
@@ -736,6 +810,9 @@ export function desenharMetro(doc, root, estado) {
     const e = estadoDaEstacao(c.id, progresso, catalogo) || {
       id: c.id, titulo: c.id, linha, estado: ESTADOS.TRANCADA, faltam: [], ciclo: false
     };
+    // A palavra desta estação, perguntada à medida uma vez (item 2). Cai no
+    // cartão e no `aria-label` — a mesma resposta nos dois sentidos.
+    const palavraDaLista = estadoDaLista(eixos, e);
     const parada = el(doc, 'li', `parada l${linha}`);
 
     const chegouAgora = chegadaId === e.id;
@@ -767,10 +844,10 @@ export function desenharMetro(doc, root, estado) {
     const botao = el(doc, 'a', `estacao ${e.estado}`, {
       href: hrefDe({ tela: 'estacao', slug: c.slug || c.id }),
       'data-id': e.id,
-      'aria-label': rotuloEstacao(e, linha)
+      'aria-label': rotuloEstacao(e, linha, palavraDaLista)
     });
     botao.append(el(doc, 'span', 'estacao-nome', { text: e.titulo }));
-    botao.append(el(doc, 'span', 'estacao-estado', { text: ESTADO_LEGIVEL[e.estado] }));
+    botao.append(el(doc, 'span', 'estacao-estado', { text: palavraDaLista }));
     // S4b: a linha de apoio do cartão. Trancada diz o que falta pelo nome;
     // concluída carimba a data do núcleo. Sem apoio nos outros estados, porque
     // ali a frase não acrescentaria nada que a pessoa ainda não veja.

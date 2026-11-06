@@ -789,7 +789,35 @@
 // o que nao tinha mais leitor era o import.
 // Muda de bytes e está no precache: core/textos.js, web/metro.js,
 // web/telas/jornada-topo.js, web/telas/jornada.css. README.md e os testes nao estao no cache.
-const VERSAO = 'atlas-v87';
+// atlas-v88: S20b-4 (05/11/2026) — O MAPA CRESCE, A LISTA DIZ O ESTAGIO, CONTINUAR E O «EM
+// CURSO» QUE CONTA. Medido no Chrome pelo Lucas em atlas-v87: quatro frases da Jornada
+// contradizendo a mesma medição que a folha já fazia.
+// (1) O mapa não cresceu em 1920: `section.topo` com 1.481 px e a coluna com 645. Colisão de
+// classe — o `.topo` do cabeçalho fixo (web/casco.css:70) tem `justify-content: space-between`
+// e o da Jornada herda: num grid de uma coluna a sobra vira vão em volta da trilha, e a trilha
+// para de esticar. `grid-template-columns: minmax(0, 1fr)` e `justify-content: normal` no
+// `.topo` desfazem a herança sem tocar no cabeçalho; `max-width: var(--bp-computador)` no
+// `.topo-mapa` põe a diferença como respiro, não como o vão. A conta da dobra continua
+// passando em 1280x800, e a trava de auditoria passou a conferir as três declarações.
+// (2) A lista dizia «disponível» para quem estudou 3 de 93: a etiqueta era a palavra da
+// liberação (`ESTADO_LEGIVEL[e.estado]`), lida da malha, enquanto a folha, dois centímetros
+// abaixo, dizia «Em percurso» pelo estágio medido. Passou por `estadoDaLista`, a mesma regra
+// da folha (`estagioNaFolha` sobre o estágio de `eixosDaRede`), com a trancada mandando na
+// malha e sem medida devolvendo a palavra de antes. A prova pelo contrário foi colada:
+// voltando a ler `ESTADO_LEGIVEL`, caem «3 estudadas dizem Em percurso» e «a lista diz a
+// MESMA palavra da folha».
+// (3) O topo dizia «Começar: Circuitos Digitais · Aula 4» a quem já tinha 3 aulas ali. No modo
+// `proxima`, com aula estudada medida por `eixosDaRede`, o verbo passa a `continuarEstacao`,
+// criada em core/textos.js ao lado de `comecarEstacao` e com o mesmo `n` do núcleo. Sem
+// índice, o verbo volta a ser «Começar»: não se afirma o que não se mediu.
+// (4) «Em curso 0, com aula aberta» era falso: `n.emCurso` lê o campo antigo do progresso v3,
+// que ninguém escreve desde que a aula virou o gesto. Passa a somar os estágios `embarcada` +
+// `em-percurso` de `contarEstagios` sobre a medição única da pintura; sem índice, fica o
+// número antigo — «não sei» mostra a conta velha, não mostra zero.
+// Muda de bytes e está no precache: core/textos.js, web/metro.js,
+// web/telas/jornada-topo.js, web/telas/jornada.css. tests/jornada-medida.test.js (novo),
+// tests/auditoria-tamanhos.test.js e package.json nao estao no cache.
+const VERSAO = 'atlas-v88';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
@@ -847,7 +875,14 @@ const VERSAO = 'atlas-v87';
 // e web/telas/explorar.css (o piso de toque dos alvos nus). Os testes novos não
 // estão no precache: nada de fora de app/web e app/core vai para o cache de quem
 // usa. O sw.js mediu o mesmo sha256 antes e depois.
-const PRECACHE_HASH = 'sha256-9c35b5aaeb777d3866f485aadfd0e3a714dae10913420b7e4d94d9a1b5cde029';
+// Recalculado ao fechar a S20b-4 (05/11/2026), com a árvore parada e DEPOIS de
+// subir a VERSAO acima: 107 arquivos, nenhum ENTROU e quatro mudaram de bytes —
+// core/textos.js (`continuarEstacao`), web/metro.js (`estadoDaLista` e a medição
+// única por pintura), web/telas/jornada-topo.js (o verbo do modo `proxima`) e
+// web/telas/jornada.css (o desfazer da colisão de classe no `.topo`). O arquivo
+// novo (tests/jornada-medida.test.js) e as duas travas tocadas não estão no
+// precache: nada de fora de app/web e app/core vai para o cache de quem usa.
+const PRECACHE_HASH = 'sha256-8849bdd8d41cca7467603c8f9c2cec5dffc8a47365e1f19f41f621ab39cd14d0';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.

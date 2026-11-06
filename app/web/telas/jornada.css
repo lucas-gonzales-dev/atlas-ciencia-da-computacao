@@ -28,8 +28,18 @@
    O lugar do quadro "Bem-vindo ao embarque": mapa, título, medida, UM primário e
    o link discreto de marcar. Herda a cor da linha (lN no ancestral, a mesma
    família da página da aula) e não escolhe cor, tempo nem largura: só tokens. */
+/* S20b-4 (item 1) — o COLISÃO DE CLASSE que segurava o mapa em 645 px numa
+   coluna de 1.481. A Jornada chama a peça de `.topo`, e o cabeçalho fixo do
+   casco (web/casco.css:70) chama o seu de `.topo` também: o `display: grid`
+   daqui manda na forma, mas o `justify-content: space-between` de lá sobrevive
+   ao cascade, e num grid de UMA coluna isso distribui a sobra como vão em volta
+   da trilha em vez de esticá-la. As duas linhas abaixo desfazem a herança sem
+   tocar no cabeçalho: a coluna passa a ser declarada (`minmax(0, 1fr)`, o `0`
+   é o mesmo piso do `.topo-mapa`) e o eixo volta ao `normal` do grid. */
 .topo {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  justify-content: normal;
   gap: var(--espaco-2);
   margin: var(--espaco-6) 0 var(--espaco-4);
 }
@@ -54,9 +64,15 @@
    não uma régua — os píxeles de 1920 fecham no Chrome. A trava em
    tests/auditoria-tamanhos.test.js confere as três declarações, e a conta da
    dobra confere o primário acima de 800 px em 1280 e em 1920. */
+/* S20b-4 (item 1) — o teto do desenho, e a coluna é que continua crescendo com
+   a janela. `--bp-computador` (1024 px) é o breakpoint que a casa já declara,
+   então o número não nasce aqui: 1.481 de coluna e 1.024 de mapa deixa a
+   diferença como respiro, e não como o vão de antes. Com `justify-content:
+   normal` acima, o item de largura travada fica alinhado no começo da trilha. */
 .topo-mapa {
   width: 100%;
   min-width: 0;
+  max-width: var(--bp-computador);
 }
 
 .topo-mapa svg {

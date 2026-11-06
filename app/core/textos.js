@@ -615,6 +615,16 @@ export const jornada = {
     // placa prometia a aula errada (S18a-fix, item 4). Agora é o n que o núcleo
     // respondeu; sem ele, continua sendo a 1, que é a primeira visita real.
     comecarEstacao: (estacao, n = 1) => `Começar: ${estacao} · Aula ${Number(n) || 1}`,
+    // S20b-4 (item 3) — o verbo de quem JÁ TOCOU nesta estação. O caso `proxima`
+    // da chave responde «qual é a próxima estação da viagem» e o verbo era sempre
+    // «Começar»: para quem tem 3 de 93 aulas estudadas em Circuitos Digitais, o
+    // topo dizia «Começar: Circuitos Digitais · Aula 4», a frase da estação
+    // inteira, enquanto o mapa ali do lado já estava aceso e a lista dizia «Em
+    // percurso». O endereço continua o mesmo (estação + n pendente); o que muda é
+    // a palavra, e ela passa a concordar com as duas outras telas.
+    // O par de `comecarEstacao` é o MESMO `n` do núcleo (`primeiraPendente`),
+    // nunca a primeira aula por construction — S18a-fix, item 4.
+    continuarEstacao: (estacao, n = 1) => `Continuar: ${estacao} · Aula ${Number(n) || 1}`,
     marcar: 'Já estudei algumas disciplinas',
     apoioComecar: (estacao, n, duracao) =>
       [estacao, `Aula ${n}`, duracao].filter(Boolean).join(' · '),

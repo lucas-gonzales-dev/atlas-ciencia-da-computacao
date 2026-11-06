@@ -407,6 +407,23 @@ test('S20a-2 · o mapa do topo é faixa, e o único primário cabe acima da dobr
   const svg = /\.topo-mapa svg\s*\{([^}]*)\}/.exec(css);
   assert.ok(svg && /height:\s*auto/.test(svg[1]),
     'o svg do topo perdeu height: auto: a altura deixaria de seguir a faixa 8:3 e o primário voltaria a descer da dobra');
+
+  // S20b-4, item 1 — a COLISÃO DE CLASSE que devolveu o vão. A Jornada chama a
+  // peça de `.topo`, o cabeçalho fixo do casco (web/casco.css:70) chama o dele de
+  // `.topo` também, e o `justify-content: space-between` de lá sobrevive ao
+  // cascade: num grid de uma coluna ele distribui a sobra como vão em volta da
+  // trilha, e a trilha para de esticar (medido: `section.topo` com 1.481 px e
+  // coluna de 645). A conta de cima é `coluna × propor` — se a coluna não
+  // estica, a conta mente e o mapa encolhe. As duas linhas abaixo são o
+  // desfazer da herança; o teto do `.topo-mapa` é o respiro, não o vão.
+  const topo = /\.topo\s*\{([^}]*)\}/.exec(css);
+  assert.ok(topo, 'sumiu a regra que dá forma ao topo da Jornada');
+  assert.ok(/grid-template-columns:\s*minmax\(0,\s*1fr\)/.test(topo[1]),
+    '.topo voltou a não declarar a coluna: o `justify-content` herdado do cabeçalho distribui a largura como vão e o mapa para em 645 px');
+  assert.ok(/justify-content:\s*normal/.test(topo[1]),
+    '.topo herdou o space-between do cabeçalho (web/casco.css:70): é a colisão de classe que segura o mapa à esquerda em 1920');
+  assert.ok(/max-width:\s*var\(--bp-computador\)/.test(quadro[1]),
+    '.topo-mapa sem teto: o mapa engole a tela inteira em monitores largos, em vez de deixar a diferença como respiro');
 });
 
 /**

@@ -361,7 +361,7 @@ function estacaoDoResumo(catalogo, resumo) {
  * topo nasce sem a classe — não é um primário esvaziado por CSS, é a tela
  * deixando de ter dois.
  */
-function acaoDoTopo(doc, { alvo, aula, curso, folhaAberta }) {
+function acaoDoTopo(doc, { alvo, aula, curso, folhaAberta, temAulaEstudada }) {
   const caixa = no(doc, 'div', 'topo-acao');
   const href = hrefDe({ tela: 'estacao', slug: curso.slug, painel: 'aula', n: alvo.n });
   // Os três modos têm FRASE PRÓPRIA, e todas saem de core/textos.js (regra 9):
@@ -370,10 +370,20 @@ function acaoDoTopo(doc, { alvo, aula, curso, folhaAberta }) {
   // pela primeira aula» para quem não tem nada. Reaproveitar a frase da
   // primeira visita na volta sem aula é o defeito 4 desenhado de novo: a tela
   // diria «primeira» a quem está na 12ª estação.
+  // S20b-4 (item 3) — «Começar» era falso para quem já estudou aqui. O modo
+  // `proxima` responde «qual é a próxima estação da viagem?», e o verbo era
+  // sempre o da primeira aula: com 3 de 93 estudadas em Circuitos Digitais, o
+  // topo dizia «Começar: Circuitos Digitais · Aula 4» ao lado de um mapa já
+  // aceso e de uma lista que dizia «Em percurso». O endereço é o mesmo (estação
+  // + a primeira pendente do núcleo, `alvo.n`); só a palavra muda, e ela vem de
+  // core/textos.js (regra 9). `temAulaEstudada` é a medida de `eixosDaEstacao`
+  // (estudadas > 0) lida uma vez por pintura: sem índice o Map vem vazio e a
+  // resposta é «não medimos», e aí vale o verbo antigo — «Continuar» sem medida
+  // seria uma frase que esta tela não teria como sustentar.
   const texto = alvo.modo === 'volta'
     ? AU.continuar(alvo.n, aula?.titulo || curso.title)
     : (alvo.modo === 'proxima'
-      ? J.topo.comecarEstacao(curso.title, alvo.n)
+      ? (temAulaEstudada ? J.topo.continuarEstacao : J.topo.comecarEstacao)(curso.title, alvo.n)
       : J.topo.comecar(alvo.n));
   const classe = folhaAberta
     ? 'botao topo-primario'
@@ -429,6 +439,12 @@ export function desenharTopo(dados, doc) {
     progresso: dados.progresso, hoje: dataLocal(dados.hoje)
   });
 
+  // S20b-4 (item 3) — a estação do alvo TEM aula estudada? A pergunta é respondida
+  // pela medida que já foi feita acima, e não por um `every` novo sobre as aulas.
+  // Sem índice, `eixos` é o Map vazio de «não medimos» e o verbo fica o antigo.
+  const medidaDoAlvo = curso ? eixos.get(curso.id) : null;
+  const temAulaEstudada = Boolean(medidaDoAlvo && medidaDoAlvo.estudadas > 0);
+
   const mapa = () => {
     if (!catalogo.length) return null;
     const quadro = no(doc, 'div', 'topo-mapa');
@@ -478,7 +494,7 @@ export function desenharTopo(dados, doc) {
   if (alvo.modo === 'volta' && curso) {
     // J5: o cartão vem primeiro — quem voltou não quer ver o mapa antes de ver
     // onde estava. O mapa fica ABAIXO, com as estações estudadas acesas.
-    caixa.append(acaoDoTopo(doc, { alvo, aula, curso, folhaAberta }));
+    caixa.append(acaoDoTopo(doc, { alvo, aula, curso, folhaAberta, temAulaEstudada }));
     puxa(linhaDeRevisoes(doc, dados));
     caixa.append(titulo);
     caixa.append(medida());
@@ -492,7 +508,7 @@ export function desenharTopo(dados, doc) {
     caixa.append(titulo);
     caixa.append(medida());
     if (curso) {
-      caixa.append(acaoDoTopo(doc, { alvo, aula, curso, folhaAberta }));
+      caixa.append(acaoDoTopo(doc, { alvo, aula, curso, folhaAberta, temAulaEstudada }));
       puxa(linhaDeRevisoes(doc, dados));
     }
   }
