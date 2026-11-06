@@ -22,7 +22,7 @@
 import { duracaoLegivel, playlistDoRecurso } from '../core/aulas.js';
 import { hrefDe } from '../core/rotas.js';
 import { aulas as A } from '../core/textos.js';
-import { ESTUDO_KEY, abrirAula, continuarDe, estadoDaAula, lerEstudo, resumoDaEstacao, serializarEstudo, pularAula, desfazerPulo } from '../core/estudo.js';
+import { ESTUDO_KEY, abrirAula, continuarDe, estacaoPercorrida, estadoDaAula, lerEstudo, resumoDaEstacao, serializarEstudo, pularAula, desfazerPulo } from '../core/estudo.js';
 
 const BASE_VIDEO = 'https://www.youtube.com/watch?v=';
 
@@ -126,13 +126,23 @@ export function linhaProgresso(doc, resumo, lembradas = null) {
  *
  * O verbo segue o motivo do núcleo, como a decisão do Lucas de 04/11/2026 fixou:
  * 'comecar' é convite de quem ainda não entrou, 'ultima-aberta' é ponto de
- * retorno de quem já está dentro. Não existe um terceiro texto porque não existe
- * um terceiro motivo — foi a saída do 'primeira-nao-aberta'.
+ * retorno de quem já está dentro.
+ *
+ * S18c-3 (item 3): o terceiro texto existe, e o motivo dele é o `percorrida` — a
+ * estação em que não sobra nada. A folha de uma estação com as 13 aulas estudadas
+ * dizia «Continuar: Aula 13», oferecendo estudo onde a palavra da pessoa já foi
+ * dada; o verbo honesto ali é rever. `percorrida` vem do `resumo` do painel, pela
+ * mesma régua do eixo (core/estudo.js), e só vale para a aula DA ESTAÇÃO: com
+ * `continuarDe` trazendo a próxima estação (`opcoes.proxima`, S18a/S20a-3), o
+ * motivo 'estacao-percorrida' aponta para aula de outra estação, e quem chama
+ * não passa `percorrida` nesse caso.
  */
-export function primarioAula(doc, { aula, motivo, temAberta, estacao }) {
-  const frase = motivo === 'comecar' || !temAberta
-    ? A.comecar(aula.n, aula.titulo)
-    : A.continuar(aula.n, aula.titulo);
+export function primarioAula(doc, { aula, motivo, temAberta, estacao, percorrida }) {
+  const frase = percorrida
+    ? A.rever(aula.n, aula.titulo)
+    : motivo === 'comecar' || !temAberta
+      ? A.comecar(aula.n, aula.titulo)
+      : A.continuar(aula.n, aula.titulo);
   const link = no(doc, 'a', 'botao botao-primario aulas-primario', {
     href: paginaDaAula(estacao, aula.n),
     rel: 'noopener',
@@ -260,7 +270,11 @@ export function painelDeAulas(estudo, estacaoId, lista) {
   const escolher = continuarDe(estudo, estacaoId, lista.aulas);
   if (!escolher) return null;
   return {
-    resumo: resumoDaEstacao(estudo, estacaoId, lista.aulas),
+    // S18c-3 (item 3): `percorrida` entra no resumo, pela mesma régua do eixo e do
+    // topo (core/estudo.js, `estacaoPercorrida`) — estudada OU pulada conta, e o
+    // pulo é palavra da pessoa. A folha e a lista leem daqui em vez de refazer a
+    // pergunta cada uma do seu jeito (regra 9).
+    resumo: { ...resumoDaEstacao(estudo, estacaoId, lista.aulas), percorrida: estacaoPercorrida(estudo, estacaoId, lista.aulas) },
     continuar: escolher,
     playlist,
   };

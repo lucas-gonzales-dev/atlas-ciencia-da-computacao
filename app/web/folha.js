@@ -120,6 +120,10 @@ function acaoPorEstado(doc, f, curso, dataConclusao, painel = null, lembradas = 
     box.append(primarioAula(doc, {
       aula: painel.continuar.aula,
       motivo: painel.continuar.motivo,
+      // S18c-3 (item 3): o verbo do primário muda com a estação toda feita. Só
+      // quando a aula apontada É desta estação — com `opcoes.proxima`, o núcleo
+      // devolve a primeira aula da estação seguinte, e «Rever» dela seria mentira.
+      percorrida: painel.resumo.percorrida && painel.continuar.estacao == null,
       temAberta: aulasAbertas,
       // S14b1 (item 5): o destino do toque mudou. A folha não abre mais o
       // YouTube — abre a PÁGINA DA AULA dentro do Atlas, e é de lá que se vai

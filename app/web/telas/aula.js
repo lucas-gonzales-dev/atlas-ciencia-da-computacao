@@ -242,6 +242,41 @@ function avisoDeAmanha(pega, hoje) {
 }
 
 /**
+ * Limpa a linha de erro abaixo de qualquer nó. VEIO DO FECHAMENTO (S18c-3): a
+ * mesma varredura, o mesmo par de atributos, sobre o nó que quem chama der.
+ * Morar dentro de `blocoFechamento` obrigaria o bloco de "escrever mais" a ter
+ * uma segunda implementação — e erro desenhado de dois jeitos numa mesma página
+ * é a regra 9 da casa pedindo para ser quebrada.
+ */
+function limparErrosEm(pai) {
+  for (const n of descender(pai, (x) => x.classList.contains('fechamento-erro'))) n.remove();
+  for (const n of descender(pai, (x) => x.tag === 'textarea')) {
+    n.removeAttribute('aria-invalid');
+    n.removeAttribute('aria-describedby');
+  }
+}
+
+/**
+ * A frase de erro vai JUNTO do campo, apontada por `aria-describedby`. Mesma
+ * forma do fechamento: o id é derivado do campo, e o `<p>` cai no `<div>` que o
+ * segura. `pai` é a caixa onde os campos moram.
+ */
+function marcarErroEm(doc, pai, campo, texto) {
+  if (!campo) return null;
+  // NÃO limpa os erros alheios: quem valida vários campos limpa uma vez no
+  // começo e marca cada ofensor depois. Limpar aqui deixaria na tela só o último
+  // erro de três cartões errados — a pessoa corrigiria um e veria aparecer o
+  // próximo, em três voltas.
+  const id = `${campo.getAttribute('id') || 'campo'}-erro`;
+  const p = erroDoCampo(doc, texto, id);
+  const dono = descender(pai, (x) => x.tag === 'div' && x.children.includes(campo))[0];
+  (dono || campo.parentNode)?.append?.(p);
+  campo.setAttribute('aria-invalid', 'true');
+  campo.setAttribute('aria-describedby', id);
+  return p;
+}
+
+/**
  * A VISTA DEPOIS DO ESTUDO (itens 6 e 7): o que aparece no lugar do formulário
  * quando a aula já foi fechada — a frase, os cartões em leitura, a origem, a
  * próxima e a conta de amanhã.
@@ -250,9 +285,14 @@ function avisoDeAmanha(pega, hoje) {
  * fechada") porque a diferença entre eles é uma frase, não uma tela. Dois blocos
  * parecidos divergiriam em seis meses, e o app teria dois destinos de fim de aula.
  */
-function vistaConcluida(doc, { n, estacao, aulas, total, slug, cartoes, fraseStatus, aviso }) {
+function vistaConcluida(doc, { n, estacao, aulas, total, slug, cartoes, fraseStatus, aviso, escrever }) {
   const caixa = no(doc, 'div', 'fechamento-feito');
-  caixa.append(no(doc, 'p', 'fechamento-feito-frase', { text: fraseStatus }));
+  const frase = no(doc, 'p', 'fechamento-feito-frase', { text: fraseStatus });
+  // S18c-3 (item 1): o destino do foco depois de guardar um cartão novo. É o mesmo
+  // truque do `aula-fim-titulo` logo acima — `tabindex="-1"` fora da ordem de tab,
+  // para a frase poder receber o foco sem virar uma parada a mais no teclado.
+  frase.setAttribute('tabindex', '-1');
+  caixa.append(frase);
   for (const c of cartoes) {
     const leitura = no(doc, 'div', 'fechamento-leitura');
     leitura.append(no(doc, 'p', 'fechamento-leitura-frente', { text: c.frente }));
@@ -260,6 +300,9 @@ function vistaConcluida(doc, { n, estacao, aulas, total, slug, cartoes, fraseSta
     caixa.append(leitura);
   }
   if (cartoes.length) caixa.append(linhaOrigem(doc, n, estacao));
+  // O convite para escrever mais um cartão, depois dos cartões em leitura e antes
+  // do primário: a conclusão continua terminando na Próxima.
+  if (escrever) caixa.append(blocoEscreverMais(doc, escrever));
   const proximo = botaoProxima(doc, { aulas, n, total, slug, estacao });
   if (proximo) caixa.append(proximo);
   if (aviso) caixa.append(no(doc, 'p', 'fechamento-por-hoje apoio', { text: aviso }));
@@ -328,6 +371,109 @@ function erroDoCampo(doc, texto, id) {
   const p = no(doc, 'p', 'fechamento-erro', { text: texto });
   p.setAttribute('id', id);
   return p;
+}
+
+/**
+ * ESCREVER MAIS UM CARTÃO numa aula já estudada (S18c-3, item 1).
+ *
+ * POR QUE EXISTE: o desafio exige ao menos dez cartões da estação e a frase do
+ * `podeDesafiar` mandava a pessoa «escrever mais 7 ao fechar as aulas» — mas a
+ * aula fechada não tem formulário nenhum, só «Estudada em 20/10/2026». Quem
+ * terminou a estação com três cartões estava sendo mandado a uma porta que já
+ * passou. Este bloco abre a porta de novo sem tocar no estudo: um cartão a mais,
+ * quando der vontade, em qualquer aula estudada.
+ *
+ * AS TRÊS REGRAS QUE DEFINEM O BLOCO:
+ * 1. **Secundário, sempre.** O primário da conclusão continua sendo a Próxima
+ *    (S14c/item 1): escrever um cartão extra é um convite, não o passo seguinte
+ *    obrigatório da viagem.
+ * 2. **A validação é o núcleo, não uma cópia.** Mesmo `criarCartao` do fechamento
+ *    (linha 501), mesmo `{ok, erro, campo}`, mesma frase de erro colada no campo
+ *    que falta. Uma segunda régua aqui divergiria da primeira em seis meses.
+ * 3. **Grava pelo caminho de sempre.** `serializarCartoes` + `setItem`, a forma
+ *    `{versao, cartoes}` conferida na fonte — pular o serializar deixaria o
+ *    `lerCartoes` de amanhã lendo vazio, e a pessoa perdia o cartão sem ver erro.
+ *
+ * @param {Document} doc
+ * @param {object} dados { win, storage, pega, estacao (id), aula, aoGravar }
+ * @returns {Element} o contêiner, que se troca a si mesmo ao tocar
+ */
+function blocoEscreverMais(doc, { win, storage, pega, estacao, aula, aoGravar }) {
+  const caixa = no(doc, 'div', 'fechamento-mais');
+
+  const abrir = () => {
+    caixa.textContent = '';
+    const ed = editorCartao(doc, { base: 'mais', indice: 0, frente: '', verso: '' });
+    // Os MODELOS do editor (dentro de `editorCartao`, linha 302) precisam de um
+    // ouvinte: no fechamento quem os escuta é o `aoClicar` da `section` do
+    // formulário, e este bloco vive noutra section. Sem esta linha, cinco botões
+    // com cara de botão e nenhum efeito na tela — o defeito que a auditoria de
+    // teclado da casa nomeia. Um toque escreve a frase no campo da pergunta.
+    // `closest` e não `target`: o `dispatch` do mini-DOM da casa (hdom.js:65)
+    // entrega o objeto que o teste passar, e um clique no `<strong>` de dentro do
+    // botão de modelo daria um alvo sem o atributo — a tela deixaria de responder
+    // por causa do formato do botão, não do ouvinte. No navegador `closest` é a
+    // mesma pergunta.
+    // OUVINTE EM CADA BOTÃO, não no contêiner. No fechamento quem escuta os
+    // modelos é o `aoClicar` da section inteira; aqui o bloco vive noutra section
+    // e o evento teria de subir até `caixa`. Delegation exige bubbling, e o
+    // `dispatch` do mini-DOM da casa (hdom.js:65) chama só os ouvintes do próprio
+    // nó — um ouvinte no pai daria verde para quem escreveu o clique no filho, ou
+    // vermelho para a tela certa. Cinco botões, cinco ouvintes: funciona no
+    // navegador e mede a mesma coisa no teste.
+    for (const botao of ed.wrap.querySelectorAll('[data-modelo]')) {
+      botao.addEventListener('click', (evento) => {
+        if (typeof evento?.preventDefault === 'function') evento.preventDefault();
+        ed.frente.value = `${botao.getAttribute('data-modelo')} `;
+        ed.frente.focus?.();
+      });
+    }
+    const guardar = no(doc, 'button', 'botao botao-secundario fechamento-mais-guardar', {
+      type: 'button', 'data-guardar-mais': 'sim', text: F.guardarCartao
+    });
+    caixa.append(ed.wrap, guardar);
+    if (typeof ed.frente?.focus === 'function') ed.frente.focus();
+
+    const salvar = () => {
+      const frente = ed.frente.value || '';
+      const verso = ed.verso.value || '';
+      // O teste antes da gravação, contra um arquivo de mentira: é assim que o
+      // fechamento valida, e é assim que a recusa do core (sem pergunta, sem
+      // resposta, acima do limite) chega na tela com a frase dele.
+      const teste = criarCartao({ cartoes: {} }, {
+        estacao, aula: aula.id, n: aula.n, frente, verso
+      }, agoraLocal(win), 'valida-mais');
+      if (!teste.ok) {
+        marcarErroEm(doc, ed.wrap, teste.campo === 'verso' ? ed.verso : ed.frente, teste.erro);
+        (teste.campo === 'verso' ? ed.verso : ed.frente)?.focus?.();
+        return;
+      }
+      const arquivo = lerCartoes(pega(CARTOES_KEY));
+      const criado = criarCartao(arquivo, {
+        estacao, aula: aula.id, n: aula.n, frente: frente.trim(), verso: verso.trim()
+      }, agoraLocal(win), novoId(win));
+      if (!criado.ok) {
+        marcarErroEm(doc, ed.wrap, ed.frente, criado.erro);
+        return;
+      }
+      try {
+        storage?.setItem?.(CARTOES_KEY, serializarCartoes({ versao: arquivo.versao, cartoes: criado.cartoes }));
+      } catch { /* sem espaço: a pessoa perde a gravação, não o app */ }
+      aoGravar();
+    };
+
+    guardar.addEventListener('click', (evento) => {
+      if (typeof evento?.preventDefault === 'function') evento.preventDefault();
+      salvar();
+    });
+  };
+
+  const botao = no(doc, 'button', 'botao botao-secundario fechamento-mais-abrir', {
+    type: 'button', 'data-escrever-mais': 'sim', text: F.escreverMais
+  });
+  botao.addEventListener('click', abrir);
+  caixa.append(botao);
+  return caixa;
 }
 
 /**
@@ -417,25 +563,12 @@ function blocoFechamento(doc, win, deps) {
     });
   };
 
-  const limparErros = () => {
-    for (const n of descender(section, (x) => x.classList.contains('fechamento-erro'))) n.remove();
-    for (const n of descender(section, (x) => x.tag === 'textarea')) {
-      n.removeAttribute('aria-invalid');
-      n.removeAttribute('aria-describedby');
-    }
-  };
-
-  /** A frase de erro vai JUNTO do campo, apontada por aria-describedby. */
-  const marcarErro = (campo, texto) => {
-    if (!campo) return null;
-    const id = `${campo.getAttribute('id') || 'campo'}-erro`;
-    const p = erroDoCampo(doc, texto, id);
-    const dono = descender(section, (x) => x.tag === 'div' && x.children.includes(campo))[0];
-    (dono || campo.parentNode)?.append?.(p);
-    campo.setAttribute('aria-invalid', 'true');
-    campo.setAttribute('aria-describedby', id);
-    return p;
-  };
+  // S18c-3: as duas formas viraram módulo (`limparErrosEm`/`marcarErroEm`), porque
+  // o bloco de "escrever mais um cartão" precisa exatamente delas. Ter a segunda
+  // cópia dentro desta closure é a lei do erro desenhado de dois jeitos na mesma
+  // página — agora só existe uma, e aqui ela é apontada.
+  const limparErros = () => limparErrosEm(section);
+  const marcarErro = (campo, texto) => marcarErroEm(doc, section, campo, texto);
 
   /** O que falta para enviar, decidido pelo core. Devolve erros e cartões válidos. */
   const validar = () => {
@@ -913,7 +1046,24 @@ export async function montar(raiz, ctx) {
       total,
       cartoes: cartoesDaAula(lerCartoes(pega(CARTOES_KEY)), aula.id),
       fraseStatus,
-      aviso: avisoDeAmanha(pega, hoje())
+      aviso: avisoDeAmanha(pega, hoje()),
+      // S18c-3 (item 1): a aula estudada ganhou formulário próprio para o cartão
+      // extra. Gravar repinta a conclusão, e o cartão novo aparece na lista.
+      escrever: {
+        win,
+        storage,
+        pega,
+        estacao: estacaoId,
+        aula,
+        aoGravar: () => {
+          const novo = pintarConclusao(fraseStatus);
+          const frase = descender(novo.section, (x) => x.classList.contains('fechamento-feito-frase'))[0];
+          // O foco vai para a FRASE de status, não para o h2: o que a pessoa
+          // acabou de fazer está nela («Estudada em …»), e o título «Fechar a
+          // aula» diria que algo mudou quando nada mudou.
+          if (typeof frase?.focus === 'function') frase.focus({ preventScroll: true });
+        }
+      }
     }));
     return { section: feito, h2: titulo, conclusao: true };
   };

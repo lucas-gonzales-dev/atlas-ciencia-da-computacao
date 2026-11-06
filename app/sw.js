@@ -989,8 +989,28 @@
 // auditoria de frases caça. Sem as aulas carregadas o bloco NÃO nasce — a casa não descreve o que
 // não chegou. Mudam de bytes web/folha.js, web/folha.css, core/eixos.js, core/textos.js,
 // web/telas/desafio.js e tests/desafio-tela.test.js; nenhum arquivo novo, o PRECACHE não cresce.
+// atlas-v99: S18c-3 (06/11/2026) — O BECO SEM SAÍDA DO DESAFIO, medido no Chrome numa estação de
+// 13 aulas estudadas com 3 cartões: a régua pede no mínimo 10, a folha dizia «escreva mais 7 ao
+// fechar as aulas», e a aula JÁ fechada não tem formulário nenhum — mostra «Estudada em
+// 20/10/2026» e a Próxima. Quem terminou a estação estava sendo mandado a uma porta que já
+// atravessou, e não havia como voltar. web/telas/aula.js ganha em `vistaConcluida` o botão
+// SECUNDÁRIO «Escrever mais um cartão», que troca a si mesmo pelo MESMO `editorCartao` do
+// fechamento (`base: 'mais'`, `indice: 0`, sem copiar bloco nenhum) e grava pelo MESMO caminho:
+// `criarCartao` valida, `serializarCartoes` escreve, e o foco pousa na frase de status — o fato
+// acabado de escrever, não no título «Fechar a aula», que diria que algo mudou quando nada
+// mudou. O primário continua sendo a Próxima. A validação saiu da closure do fechamento para
+// `limparErrosEm`/`marcarErroEm`: erro desenhado de dois jeitos na mesma página é a regra 9.
+// `desafio.escrevaMais` passa a dizer ONDE escrever, não quando. E o verbo da folha: uma estação
+// com as 13 aulas estudadas oferecia «Continuar: Aula 13» — estudo onde a palavra da pessoa já
+// foi dada; `primarioAula` ganha `percorrida` (a mesma régua do eixo, `estacaoPercorrida`, pelo
+// `resumo` do painel) e diz «Rever: Aula N — …». Só vale para a aula DA ESTAÇÃO: com
+// `opcoes.proxima` o núcleo devolve a primeira aula da estação seguinte, e «Rever» dela seria
+// mentira — por isso `painel.resumo.percorrida && continuar.estacao == null`. O topo da Jornada
+// não muda. `limparErros`/`marcarErro` do fechamento agora apontam para as formas de módulo.
+// Mudam de bytes web/telas/aula.js, web/aulas-pedacos.js, web/folha.js, core/textos.js,
+// tests/desafio-tela.test.js e tests/desafio.test.js; nenhum arquivo novo, o PRECACHE não cresce.
 
-const VERSAO = 'atlas-v98';
+const VERSAO = 'atlas-v99';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
@@ -1063,7 +1083,7 @@ const VERSAO = 'atlas-v98';
 // fora de app/web e app/core vai para o cache de quem usa. O sw.js mediu o mesmo
 // sha256 antes e depois de eu subir a VERSAO, prova de que ele não está na própria
 // lista.
-const PRECACHE_HASH = 'sha256-5a726ae0b9e7e72b634f63382df3630d3806f2b031ce06ed367808b5098090c9';
+const PRECACHE_HASH = 'sha256-884c0d59f667c7170a0db67aa3816738134fd0a7ea7ad611ec5c20bf28b038ac';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.

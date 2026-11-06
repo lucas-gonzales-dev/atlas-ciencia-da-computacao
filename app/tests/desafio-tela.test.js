@@ -40,7 +40,7 @@ import {
   aplicarResultado, corrigirDesafio, podeDesafiar, fraseDaDominada,
 } from '../core/desafio.js';
 import { eixosDaEstacao } from '../core/eixos.js';
-import { desafio as D, folha as F, revisar as R } from '../core/textos.js';
+import { desafio as D, folha as F, revisar as R, aulas as AU, fechamento as FC } from '../core/textos.js';
 // `esperar` é o tique do fio: a folha pinta as aulas por promessa, e sem ele a
 // régua mediria o dublê em vez da folha (mesmo padrão de jornada-eixos.test.js).
 import { esperar } from './hdom.js';
@@ -824,5 +824,253 @@ describe('S18c-2 — a dominada no mapa e a palavra proibida', () => {
     // de acima; aqui fica a régua do texto, que é a que pega quem só escreve.
     assert.ok(!/\bfora\b/.test(F.eixos(3, AULAS.aulas.length, 1)),
       'a linha de medida da folha usou a palavra proibida');
+  });
+});
+
+// ═══════ S18c-3 — escrever cartão em aula já estudada, e o verbo da estação ═══════
+//
+// O BECO SEM SAÍDA, medido no Chrome numa estação de 13 aulas com 3 cartões: a
+// folha dizia «escreva mais 7 ao fechar as aulas» e a aula fechada não tem
+// formulário nenhum — mostra «Estudada em 20/10/2026» e a Próxima. A régua do
+// desafio (piso de 10 cartões) era inatingível para quem já percorreu a estação.
+// O que se prova abaixo é a porta reaberta, pelo caminho do app, e o verbo honesto
+// da folha quando não há mais o que continuar.
+
+/** A viagem de quem estudou UMA aula (a 1) e não tocou nas outras 92. */
+function estudoDeUmaAula() {
+  let e = { versao: 1, ultima: null, aulas: {} };
+  const a = AULAS.aulas[0];
+  e = abrirAula(e, { estacao: ID, aula: a.id, n: a.n }, CRIADO);
+  return estudarAula(e, { estacao: ID, aula: a.id, n: a.n }, CRIADO,
+    { recordacao: 'lembrei a origem', conferencia: 'conferi no vídeo' });
+}
+
+/** A página de uma aula, pelo casco. `n` é o número na playlist. */
+async function abrirPaginaDaAula({ entradas = {}, n = 1 } = {}) {
+  const app = await abrirApp({
+    entradas,
+    hash: `#/estacao/${CIRCUITOS.slug}/aula/${n}`,
+    segurarFio: true,
+  });
+  await esperar(); await esperar(); await esperar();
+  return app;
+}
+
+const botaoPorData = (raiz, attr, valor = null) => {
+  const achei = todos(raiz, (n) => n.tag === 'button'
+    && n.hasAttribute(attr) && (valor === null || n.getAttribute(attr) === valor));
+  assert.equal(achei.length, 1, `esperava exatamente um botão com ${attr}, achei ${achei.length}`);
+  return achei[0];
+};
+
+/** O campo do bloco de "escrever mais", achado pelo `data-campo` do fechamento. */
+const campoEm = (raiz, nome) => {
+  const c = todos(raiz, (n) => n.tag === 'textarea' && n.getAttribute('data-campo') === nome)[0];
+  assert.ok(c, `o campo ${nome} não está na tela`);
+  return c;
+};
+
+const caixaMais = (main) => porClasse(main, 'fechamento-mais')[0];
+
+/** Tocar «Escrever mais um cartão» e devolver a caixa do editor aberto. */
+function abrirEditor(app) {
+  botaoPorData(app.main, 'data-escrever-mais').dispatch('click');
+  const caixa = caixaMais(app.main);
+  assert.ok(caixa, 'tocar «escrever mais» não abriu o editor');
+  return caixa;
+}
+
+/** Escrever nas duas faces e guardar, pelo toque. Devolve o total no disco. */
+function guardar(app, caixa, frente, verso) {
+  campoEm(caixa, 'frente-0').value = frente;
+  campoEm(caixa, 'verso-0').value = verso;
+  botaoPorData(caixa, 'data-guardar-mais').dispatch('click');
+  return Object.keys(lerCartoes(app.storage.getItem(CARTOES_KEY)).cartoes).length;
+}
+
+/** Os dois gestos de uma vez, para quem não abriu o editor ainda. */
+function escreverEGuardar(app, frente, verso) {
+  return guardar(app, abrirEditor(app), frente, verso);
+}
+
+describe('S18c-3 — a aula estudada recebe cartão novo', () => {
+  test('a aula já estudada oferece «Escrever mais um cartão»', async () => {
+    const app = await abrirPaginaDaAula({ entradas: { [ESTUDO_KEY]: serializarEstudo(estudoDeUmaAula()) } });
+    try {
+      assert.ok(app.main, 'a página abriu vazia');
+      const texto = textoDe(app.main);
+      assert.ok(texto.includes(FC.estudadaEm(CRIADO)),
+        `a tela não diz a data do estudo: ${texto.slice(0, 160)}`);
+      const b = botaoPorData(app.main, 'data-escrever-mais');
+      assert.equal(b._texto, FC.escreverMais, 'o botão não diz a frase de textos.js');
+      // SECUNDÁRIO, sempre: o primário da conclusão é a Próxima (S14c/item 1).
+      assert.ok(b.classList.contains('botao-secundario'), 'escrever mais saiu com desenho de primário');
+      assert.ok(!b.classList.contains('botao-primario'), 'escrever mais virou o segundo primário da tela');
+      // Antes do editor, não há campo nenhum na tela.
+      assert.equal(porClasse(app.main, 'fechamento-cartao').length, 0,
+        'a aula estudada já abriu com formulário na tela');
+    } finally { app.soltar(); }
+  });
+
+  test('o toque troca o botão pelo editor, e guardar grava, repinta e leva o foco à frase', async () => {
+    const app = await abrirPaginaDaAula({ entradas: { [ESTUDO_KEY]: serializarEstudo(estudoDeUmaAula()) } });
+    try {
+      const antes = Object.keys(lerCartoes(app.storage.getItem(CARTOES_KEY) || null).cartoes).length;
+      assert.equal(antes, 0, 'fixture: a viagem nasceu com cartão');
+      const caixa = abrirEditor(app);
+      assert.equal(todos(app.main, (n) => n.hasAttribute('data-escrever-mais')).length, 0,
+        'o botão ficou na tela depois de abrir o editor');
+      // Os MODELOS do editor, vivos: cinco botões que escrevem na pergunta. Sem
+      // ouvinte eles teriam cara de botão e nenhum efeito — o que a auditoria de
+      // teclado da casa nomeia.
+      const modelo = todos(caixa, (n) => n.tag === 'button' && n.hasAttribute('data-modelo'))[0];
+      assert.ok(modelo, 'o editor do cartão extra perdeu os modelos de frente');
+      modelo.dispatch('click', { target: modelo });
+      assert.ok(campoEm(caixa, 'frente-0').value.length > 0,
+        'tocar um modelo não escreveu nada na pergunta');
+      guardar(app, caixa, 'O que um capacitor faz?', 'Segura carga por um instante.');
+      const depois = Object.keys(lerCartoes(app.storage.getItem(CARTOES_KEY)).cartoes).length;
+      assert.equal(depois, 1, 'guardar não chegou ao storage');
+      const lido = lerCartoes(app.storage.getItem(CARTOES_KEY)).cartoes;
+      const novo = Object.values(lido)[0];
+      assert.equal(novo.estacao, ID, 'o cartão novo não diz a estação');
+      assert.equal(novo.aula, AULAS.aulas[0].id, 'o cartão novo não diz a aula');
+      assert.equal(novo.n, AULAS.aulas[0].n, 'o cartão novo não diz o número da aula');
+      // Repinta com o cartão na lista, e o convite volta para o próximo.
+      const leituras = porClasse(app.main, 'fechamento-leitura');
+      assert.equal(leituras.length, 1, 'depois de guardar a lista não mostra o cartão novo');
+      assert.ok(textoDe(leituras[0]).includes('O que um capacitor faz?'),
+        'a leitura não mostra a frente escrita');
+      assert.ok(botaoPorData(app.main, 'data-escrever-mais'),
+        'depois de guardar sumiu o convite para o próximo cartão');
+      // O foco: a frase de status, que é o fato acabado de escrever.
+      assert.ok(app.doc.foco?.classList?.contains('fechamento-feito-frase'),
+        `o foco não pousou na frase de status (veio ${(app.doc.foco?.className || '(ninguém)')})`);
+    } finally { app.soltar(); }
+  });
+
+  test('campo vazio mostra a frase do núcleo e não grava nada', async () => {
+    const app = await abrirPaginaDaAula({ entradas: { [ESTUDO_KEY]: serializarEstudo(estudoDeUmaAula()) } });
+    try {
+      const caixa = abrirEditor(app);
+      botaoPorData(caixa, 'data-guardar-mais').dispatch('click');
+      assert.equal(app.storage.getItem(CARTOES_KEY), null,
+        'guardar sem escrever criou o arquivo de cartões no aparelho');
+      const erros = porClasse(app.main, 'fechamento-erro');
+      assert.equal(erros.length, 1, `a recusa deveria escrever uma linha, veio ${erros.length}`);
+      // A frase é a do core/cartoes.js, não uma escrita aqui: uma segunda régua
+      // na tela divergiria da do núcleo em seis meses.
+      const esperado = criarCartao({ cartoes: {} }, { estacao: ID, aula: AULAS.aulas[0].id,
+        n: 1, frente: '', verso: '' }, `${HOJE}T10:00`, 'x').erro;
+      assert.equal(erros[0]._texto, esperado, `a tela recusou com «${erros[0]._texto}»`);
+      const frente = campoEm(caixa, 'frente-0');
+      assert.equal(frente.getAttribute('aria-invalid'), 'true', 'o campo recusado não se diz inválido');
+      assert.equal(frente.getAttribute('aria-describedby'), `${frente.getAttribute('id')}-erro`,
+        'a frase de erro não está apontada pelo aria-describedby');
+      // A recusa não fecha o editor nem joga a pessoa de volta: o campo continua
+      // ali, com o que ela escreveu. Fechar no erro era obrigá-la a reabrir e
+      // redigitar, e é o gesto que o fechamento já evita desde a S14b2.
+      assert.ok(caixaMais(app.main), 'a recusa sumiu com o editor');
+      assert.equal(todos(app.main, (n) => n.hasAttribute('data-escrever-mais')).length, 0,
+        'a recusa trocou o editor pelo botão de abrir');
+      assert.ok(porClasse(app.main, 'fechamento-mais-guardar')[0],
+        'a recusa tirou da tela o botão de guardar');
+    } finally { app.soltar(); }
+  });
+
+  test('o cartão escrito hoje conta para o desafio dois dias depois', async () => {
+    // Nove cartões maduros (um da aula de exercício): a estação está percorrida,
+    // o piso de dez não é atingido, e o que falta é exatamente um cartão.
+    const mapa = {};
+    let i = 0;
+    const escrever = (aula) => {
+      i += 1;
+      const r = criarCartao(mapa, { estacao: ID, aula: aula.id, n: aula.n,
+        frente: `Frente ${i}`, verso: `Verso ${i}` }, CRIADO, `maduro-${i}`);
+      assert.equal(r.ok, true, `fixture: cartão recusado (${r.erro})`);
+      for (const [k, v] of Object.entries(r.cartoes)) mapa[k] = v;
+    };
+    escrever(EXERCICIO);
+    for (const a of AULAS.aulas.slice(1, 9)) escrever(a);
+    assert.equal(Object.keys(mapa).length, 9, 'fixture: não são nove cartões maduros');
+
+    const entradas = {
+      [ESTUDO_KEY]: serializarEstudo(estudoPercorrido()),
+      [CARTOES_KEY]: serializarCartoes({ versao: 1, cartoes: mapa }),
+    };
+    const eixo = { estagio: 'percorrida', id: ID };
+    const estudo = lerEstudo(entradas[ESTUDO_KEY]);
+    const hoje = podeDesafiar(eixo, estudo, { cartoes: mapa }, AULAS.aulas, HOJE);
+    assert.equal(hoje.pode, false, 'fixture: nove cartões deveriam negar o desafio');
+    assert.equal(hoje.porque, D.escrevaMais(1), 'a régua não respondeu com a frase dos dez');
+
+    // A pessoa escreve o décimo NA AULA DE EXERCÍCIO, já estudada.
+    const app = await abrirPaginaDaAula({ entradas, n: EXERCICIO.n });
+    let total = 0;
+    try {
+      total = escreverEGuardar(app, 'Décimo cartão', 'O que a régua cobra.');
+    } finally { app.soltar(); }
+    assert.equal(total, 10, 'o cartão escrito na tela não chegou ao arquivo');
+
+    // Relido do STORAGE, não do `entradas`: `storageCom` copia as entradas para
+    // dentro do dublê, e o cartão escrito no clique vive só na cópia. Ler a
+    // entrada seria conferir o snapshot de antes do toque — régua que passaria
+    // verde com a tela gravando em lugar nenhum.
+    const arquivo = lerCartoes(app.storage.getItem(CARTOES_KEY));
+    // hoje ainda não chega, porque cartão novo é resposta que
+    // ainda está na cabeça (core/desafio.js, IDADE_MINIMA_DIAS).
+    const noHoje = podeDesafiar(eixo, estudo, arquivo, AULAS.aulas, HOJE);
+    assert.equal(noHoje.pode, false, 'o desafio abriu com um cartão escrito hoje');
+    // Dois dias depois, o mesmo arquivo, sem tocar em nada, abre.
+    const d = new Date();
+    d.setDate(d.getDate() + 2);
+    const daquiADois = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const depois = podeDesafiar(eixo, estudo, arquivo, AULAS.aulas, daquiADois);
+    assert.equal(depois.pode, true, `dois dias depois ainda não pode: ${JSON.stringify(depois)}`);
+  });
+});
+
+describe('S18c-3 — o verbo da estação inteira', () => {
+  /** O primário do painel de aulas, lido pelo texto que a folha escreve. */
+  const primarioDaFolha = (folha) => {
+    const p = porClasse(folha, 'aulas-primario')[0];
+    assert.ok(p, 'a folha não desenhou o primário das aulas');
+    return p;
+  };
+
+  test('estação toda estudada: a folha diz «Rever», e o href leva à aula', async () => {
+    let estudo = { versao: 1, ultima: null, aulas: {} };
+    for (const a of AULAS.aulas) {
+      estudo = abrirAula(estudo, { estacao: ID, aula: a.id, n: a.n }, CRIADO);
+      estudo = estudarAula(estudo, { estacao: ID, aula: a.id, n: a.n }, CRIADO,
+        { recordacao: 'r', conferencia: 'c' });
+    }
+    const { folha, soltar } = await abrirFolha({
+      entradas: { ...SEM_CARIMBO, [ESTUDO_KEY]: serializarEstudo(estudo) },
+    });
+    try {
+      const ultima = AULAS.aulas[AULAS.aulas.length - 1];
+      const p = primarioDaFolha(folha);
+      assert.equal(p._texto, AU.rever(ultima.n, ultima.titulo),
+        `a estação inteira estudada disse «${p._texto}»`);
+      assert.ok(/^Rever: Aula /.test(p._texto), 'o verbo da estação percorrida não é Rever');
+      assert.ok(!/^Continuar/.test(p._texto), 'a folha continua oferecendo continuar o que já foi');
+      assert.equal(p.getAttribute('href'),
+        hrefDe({ tela: 'estacao', slug: CIRCUITOS.slug, painel: 'aula', n: ultima.n }),
+        'o Rever não aponta para a aula que ele nomeia');
+    } finally { soltar(); }
+  });
+
+  test('estação pela metade: a folha continua dizendo «Continuar»', async () => {
+    const { folha, soltar } = await abrirFolha({
+      entradas: { ...SEM_CARIMBO, [ESTUDO_KEY]: serializarEstudo(estudoDeUmaAula()) },
+    });
+    try {
+      const p = primarioDaFolha(folha);
+      const segunda = AULAS.aulas[1];
+      assert.equal(p._texto, AU.continuar(segunda.n, segunda.titulo),
+        `com 1 de 93 estudada a folha disse «${p._texto}»`);
+      assert.ok(!/Rever/.test(p._texto), 'a estação pela metade chamou de rever o que falta estudar');
+    } finally { soltar(); }
   });
 });

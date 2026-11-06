@@ -142,13 +142,18 @@ test('S18b-1 · pode: exercício estudado sem cartão → «Escreva um cartão d
   assert.equal(r.porque, 'Escreva um cartão das aulas de exercício 12 e 40.');
 });
 
-test('S18b-1 · pode: cartões de menos, e nenhum a caminho → «escreva mais 4 ao fechar as aulas.»', () => {
+// S18c-3 (item 2): a frase mudou — «ao fechar as aulas» mandava a pessoa a uma
+// porta que ela já atravessou, e a aula estudada ganhou formulário próprio. O
+// TITULO desta trava repete a frase da época, e a regra 9 da casa não deixa um
+// título citar texto que já não existe: é a régua 9 do design/README dizendo que
+// citação morta é a coluna mentindo.
+test('S18b-1 · pode: cartões de menos, e nenhum a caminho → «escreva mais 4»', () => {
   const aulas = aulasDaEstacao(8, [2, 5]);
   // 6 elegíveis (as duas de exercício + 4): 10 - 6 = 4, e nenhum está amadurecendo.
   const cartoes = comCartoes([{ aula: 'a2' }, { aula: 'a5' }, ...espalhados(4, { excluidas: [2, 5] })]);
   const r = podeDesafiar(eixo(), estudoDe(8), cartoes, aulas, HOJE);
   assert.equal(r.pode, false);
-  assert.equal(r.porque, 'O desafio usa os seus cartões: escreva mais 4 ao fechar as aulas.');
+  assert.equal(r.porque, 'O desafio usa os seus cartões: escreva mais 4. Dá para escrever em qualquer aula já estudada.');
 });
 
 test('S18b-1 · pode: os que faltam já foram escritos e só amadurecem → «faltam 3»', () => {
@@ -377,7 +382,7 @@ test('S18b-1 · textos: o desafio tem as quatro frases, todas em TEXTOS (regra 9
   assert.equal(D.faltamExercicios([5]), 'Faltam 1 aula de exercício: 5.');
   assert.equal(D.faltamCartoesDeExercicio([12, 40]), 'Escreva um cartão das aulas de exercício 12 e 40.');
   assert.equal(D.faltamCartoesDeExercicio([9]), 'Escreva um cartão da aula de exercício 9.');
-  assert.equal(D.escrevaMais(4), 'O desafio usa os seus cartões: escreva mais 4 ao fechar as aulas.');
+  assert.equal(D.escrevaMais(4), 'O desafio usa os seus cartões: escreva mais 4. Dá para escrever em qualquer aula já estudada.');
   assert.equal(D.maturando(3), 'Os cartões entram dois dias depois de escritos: faltam 3.');
 });
 

@@ -940,6 +940,11 @@ export const perfil = Object.freeze({
 export const aulas = Object.freeze({
   comecar: (n, titulo) => `Começar: Aula ${n} — ${titulo}`,
   continuar: (n, titulo) => `Continuar: Aula ${n} — ${titulo}`,
+  // S18c-3 (item 3): numa estação percorrida não há o que continuar — a pessoa
+  // já passou por todas as aulas. «Continuar: Aula 13» oferecia estudo onde a
+  // palavra dela já foi dada; o verbo honesto é rever, que é o que a folha
+  // também oferece (`folha.revisitar`, `aulas.reverConteudo`).
+  rever: (n, titulo) => `Rever: Aula ${n} — ${titulo}`,
   verTodas: (total) => `Ver as ${total} aulas`,
   // S16c-fix (04/11/2026), item 3: `lembradas` entrou aqui porque a folha tinha
   // a MESMA contagem em duas linhas, uma sobre a outra. Saiu uma; e a que ficou
@@ -1153,6 +1158,12 @@ export const fechamento = Object.freeze({
   faltaCartao: 'Escreva ao menos um cartão, com pergunta e resposta.',
   pausas: (marcas) => `Pausas sugeridas: ${marcas.join(' · ')}`,
   pausaConvite: 'Pare em cada pausa e tente explicar, sem voltar o vídeo, o que viu até ali.',
+  // S18c-3 (item 1): a aula já estudada não tinha formulário nenhum, e a frase
+  // do desafio mandava «escreva mais 7 ao fechar as aulas» para quem já fechou
+  // todas. É o convite de reabrir a escrita, num dia qualquer, SEM reabrir o
+  // vídeo: por isso diz o gesto e não promete mudar a marca da aula.
+  escreverMais: 'Escrever mais um cartão',
+  guardarCartao: 'Guardar o cartão',
 });
 
 /**
@@ -1203,7 +1214,12 @@ export const desafio = Object.freeze({
   maturando: (faltam) => `Os cartões entram dois dias depois de escritos: faltam ${faltam}.`,
 
   /** Faltam cartões mesmo: escreva ao fechar as aulas. */
-  escrevaMais: (faltam) => `O desafio usa os seus cartões: escreva mais ${faltam} ao fechar as aulas.`,
+  // S18c-3 (item 2): a frase antiga mandava a pessoa escrever «ao fechar as
+  // aulas» — e quem já fechou todas não tem aula para fechar. A aula já
+  // estudada ganhou formulário próprio (web/telas/aula.js, `vistaConcluida`),
+  // então a frase passa a dizer ONDE escrever, não quando. Sem ela, uma estação
+  // concluída com 3 cartões apontava para uma porta que a pessoa já atravessou.
+  escrevaMais: (faltam) => `O desafio usa os seus cartões: escreva mais ${faltam}. Dá para escrever em qualquer aula já estudada.`,
 
   /**
    * O estágio `concluida-antes` (S18c-2, item 1). É a declaração sem medição
