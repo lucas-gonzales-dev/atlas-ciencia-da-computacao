@@ -3,7 +3,18 @@
    escopo, o layout de uma tela vaza para a outra). Valores: so tokens de
    web/tokens.css — nenhum px solto, nenhuma cor de texto fora de --tinta. */
 
-.explorar-raiz { display: grid; gap: var(--espaco-4); padding: var(--espaco-4) 0; }
+/* S20b-5 (atlas-v93) — O TEXTO ENCOSTADO NA BORDA.
+   O `padding: var(--espaco-4) 0` era a origem do 0 px lateral que o Claude mediu
+   em 375 e em 1280: "A rede inteira", o título e a descrição colados na vidro.
+   Quem hospeda a tela é `main` (web/casco.css:84), e a regra dele é
+   `flex: 1 1 0; min-height: 0; overflow-y: auto` — sem recheio lateral nenhum.
+   No celular o recorte parece inofensivo porque a barra de abas é largura total e
+   dá o ritmo; no computador não há nada segurando a linha de leitura, e uma
+   descrição de 62ch vira uma faixa de texto de canto a canto. O recheio passa a
+   ser da própria tela, com o shorthand nos quatro lados: --espaco-4 é o número
+   que a casa usa para o respiro de dentro de um cartão, e o teto dele vem logo
+   abaixo, no @media de 1024. */
+.explorar-raiz { display: grid; gap: var(--espaco-4); padding: var(--espaco-4); }
 
 .explorar-cabeca { display: grid; gap: var(--espaco-2); }
 .explorar-rotulo {
@@ -19,6 +30,10 @@
   min-height: var(--alvo-toque); font: inherit; font-size: var(--tipo-corpo);
   padding: var(--espaco-2); background: var(--superficie); color: var(--tinta);
   border: 1px solid var(--borda); border-radius: var(--raio-placa);
+  /* S20b-5: o `box-sizing` é a mesma lei de aula.css:23 e explorar.css:54 — sem
+     ele, a largura toda do celular (o @media do fim da folha) é 100% DO CONTEÚDO
+     e os dois lados de padding caem fora da tela: rolagem horizontal. */
+  box-sizing: border-box;
 }
 .explorar-controles input:focus-visible, .explorar-controles select:focus-visible,
 .explorar-link:focus-visible, .explorar-limpar:focus-visible { outline: 2px solid var(--anel-foco); outline-offset: var(--afastamento-foco); }
@@ -94,3 +109,44 @@
    telas/jornada.css: "sem animation (pulso em esqueleto é spinner)". */
 .explorar-carregando { display: grid; gap: var(--espaco-3); }
 .explorar-esqueleto { height: var(--espaco-6); background: var(--borda); border-radius: var(--raio-placa); }
+
+/* ── S20b-5 · os dois consertos de margem ────────────────────────────────────
+ *
+ * 1. O TETO DA COLUNA, de 1024 para cima. O recheio da raiz abriu o respiro
+ *    lateral; sem teto, a lista de 35 linhas atravessa a janela inteira e a
+ *    descrição (62ch) fica isolada num mar de branco — é a mesma lei do Perfil
+ *    (perfil.css:537, S17b-fix item 1) e do topo da Jornada (jornada.css:168):
+ *    --bp-computador é o número da casa em que a janela deixa de ser estreita,
+ *    e nenhuma tela do Atlas passa dele. `margin-inline: auto` centraliza a
+ *    coluna em vez de encostá-la à esquerda, que era a outra metade do defeito.
+ */
+@media (min-width: 1024px) {
+  .explorar-raiz {
+    max-width: var(--bp-computador);
+    margin-inline: auto;
+  }
+}
+
+/*
+ * 2. A FILEIRA DE FILTROS NO CELULAR. Em 375 o `display: flex` + `flex-wrap`
+ *    punha "Buscar estação" ao lado do campo (os dois cabiam na linha e o rótulo
+ *    virava legenda lateral) e empurrava "Linha" para o canto oposto do seu
+ *    seletor. O DOM é chato por construção — `controles.append(rotuloBusca,
+ *    input, rotuloLinha, select, status)` em explorar.js:116 —, então o rótulo
+ *    NÃO segura o campo dentro de si; o que os pareia é a ordem. Por isso cada
+ *    rótulo e cada campo pedem a linha inteira: `flex: 1 1 100%` num contêiner
+ *    que já faz `wrap`, sem tocar no HTML e sem esconder nada. A ordem do DOM já
+ *    é rótulo → campo → rótulo → campo, então a leitura cai no lugar certo com o
+ *    `gap` que a base declara. O status (role=status) acompanha por ser filho do
+ *    mesmo contêiner, e não precisa de regra própria.
+ */
+@media (max-width: 599px) {
+  .explorar-rotulo-campo,
+  .explorar-controles input,
+  .explorar-controles select {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+
+  .explorar-rotulo-campo { gap: var(--espaco-1); }
+}

@@ -875,7 +875,24 @@
 // Mudam de bytes web/telas/perfil.css, web/telas/perfil.js, web/tokens.css
 // (--celula-caderneta), core/dados-pessoa.js, core/textos.js (caderneta.tela
 // .semCarimbo) e este sw.js.
-const VERSAO = 'atlas-v92';
+// atlas-v92 -> atlas-v93: S20b-5, a margem do Explorar, medida pelo Lucas no Chrome
+// com a v92 (06/11/2026). (1) Em 375 e em 1280 o texto encostava na borda da tela a
+// 0 px -- "A rede inteira", o titulo, a descricao e as linhas. A causa era a raiz da
+// propria tela: `padding: var(--espaco-4) 0`, o segundo valor do shorthand sendo os
+// lados. Quem hospeda a tela e main (casco.css:84, `flex: 1 1 0; min-height: 0;
+// overflow-y: auto`), e main nao tem recheio lateral nenhum: nao havia nada em pe
+// entre o texto e a janela. O recheio passa a ser da raiz, nos quatro lados, e de
+// 1024 para cima a coluna ganha teto (--bp-computador) e fica centrada, a mesma lei
+// do Perfil (v92) e do topo da Jornada -- sem teto, a lista de 35 linhas atravessa a
+// janela e a descricao de 62ch fica sozinha no branco. (2) Em 375 a fileira de
+// filtros quebrava mal: "Buscar estacao" ao LADO do campo (os dois cabiam na linha)
+// e "Linha" no canto oposto do seletor dela. O DOM e chato por construcao
+// (explorar.js:116), entao o pareamento vem da ordem e da largura toda: cada rotulo
+// e cada campo pedem a linha inteira no @media de 599, sem mover HTML, sem esconder
+// rotulo e sem tocar no piso de toque da S20b-1a. Mudam de bytes
+// web/telas/explorar.css (o recheio, o box-sizing dos campos, o teto e a pilha do
+// celular) e este sw.js.
+const VERSAO = 'atlas-v93';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
@@ -940,7 +957,15 @@ const VERSAO = 'atlas-v92';
 // web/telas/jornada.css (o desfazer da colisão de classe no `.topo`). O arquivo
 // novo (tests/jornada-medida.test.js) e as duas travas tocadas não estão no
 // precache: nada de fora de app/web e app/core vai para o cache de quem usa.
-const PRECACHE_HASH = 'sha256-2dde922f7f2341c10154b22866d6b02ee3280909ca54d0c9dc07a1acebef8ded';
+// Recalculado ao fechar a S20b-5 (06/11/2026), com a árvore parada e DEPOIS de
+// subir a VERSAO acima: 108 arquivos, nenhum ENTROU e um mudou de bytes —
+// web/telas/explorar.css (o recheio nos quatro lados, o box-sizing dos campos de
+// filtro, o teto de 1024 e a pilha do celular). Os testes novos
+// (tests/auditoria-tamanhos.test.js, duas travas) não estão no precache: nada de
+// fora de app/web e app/core vai para o cache de quem usa. O sw.js mediu o mesmo
+// sha256 antes e depois de eu subir a VERSAO, prova de que ele não está na própria
+// lista.
+const PRECACHE_HASH = 'sha256-436deeae07f62e8e9481bb212e30a09ce1b8d8ccce59172fe55e1f351b4ac7ce';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.

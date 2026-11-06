@@ -628,6 +628,90 @@ test('S17b-fix · o link da próxima estação tem o piso de toque declarado', a
   assert.doesNotMatch(link.corpo, /background:/, 'o alvo ganhou fundo: hierarquia trocada por um pedido de caixa');
 });
 
+/**
+ * S20b-5 (atlas-v93) — A MARGEM DO EXPLORAR.
+ *
+ * Escrito ANTES do conserto, porque é a trava da prova: rebotar o `0` de
+ * `padding: var(--espaco-4) 0` tem de derrubar alguma coisa sozinha. O Claude
+ * mediu no Chrome com a atlas-v92: em 375 e em 1280 "A rede inteira", o título,
+ * a descrição e as linhas ficam a 0 px da borda. A raiz da tela não tinha recheio
+ * lateral, e `main` (casco.css:84: `flex: 1 1 0; min-height: 0; overflow-y: auto`)
+ * também não tem — não havia nada em pé entre o texto e a janela.
+ *
+ * Estas duas travas leem as DECLARAÇÕES pela mesma varredura de pilha das outras
+ * da S20b: node não tem navegador, então provam o que a folha manda, e os px
+ * reais fecham no testar_pagina. Sem regex com barra invertida de propósito — a
+ * primeira versão desta trava tinha `\\\\s` escrito e casava barra literal, e o
+ * `find` devolvia undefined: uma trava que não acha o seletor reprova um CSS
+ * correto, que é o pior dos dois erros.
+ */
+const regraDe = (folha, seletor, media) =>
+  folha.find((r) => r.seletor.split(',').includes(seletor) && (media === undefined ? r.media === '' : r.media.includes(media)));
+
+test('S20b-5 · a raiz do Explorar tem margem lateral declarada', async () => {
+  const folha = escanear(await ler('web/telas/explorar.css'));
+
+  const raiz = regraDe(folha, '.explorar-raiz');
+  assert.ok(raiz, '.explorar-raiz sem regra na base (explorar.css:6): é a tela inteira');
+
+  // O recheio nos QUATRO lados. `--espaco-4 0` é um shorthand perfeitamente
+  // válido — e é exatamente o defeito: 0 nos lados é borda.
+  const recheio = raiz.decls.padding;
+  assert.ok(recheio, 'a raiz do Explorar perdeu o padding: sem ele o texto encosta na janela');
+  assert.equal(recheio.includes(' '), false,
+    `padding de dois valores em .explorar-raiz ("${recheio}"): o segundo valor são os lados, e foi assim que a tela nasceu sem margem`);
+  assert.match(recheio, /var\(--espaco-\d\)/,
+    `o recheio da raiz não vem de um token da casa: "${recheio}"`);
+  for (const lad of ['padding-left', 'padding-right', 'padding-inline']) {
+    assert.equal(raiz.decls[lad], undefined, `${lad} declarado na raiz: dois donos para a mesma margem`);
+  }
+
+  // O teto da coluna, de 1024 para cima. Sem ele, a lista de 35 linhas
+  // atravessa a janela e a descrição de 62ch fica sozinha no branco — a mesma
+  // lei do Perfil (perfil.css:537, S17b-fix item 1) e do topo da Jornada.
+  const larga = regraDe(folha, '.explorar-raiz', 'min-width: 1024px');
+  assert.ok(larga, 'nenhuma regra de .explorar-raiz dentro do @media de 1024: a lista voltou a atravessar a tela');
+  assert.equal(larga.decls['max-width'], 'var(--bp-computador)',
+    `o teto do Explorar não é --bp-computador: "${larga.decls['max-width']}"`);
+  assert.ok(larga.decls['margin-inline'], 'coluna de 1024 sem centralizar: o teto encosta a lista na margem esquerda');
+
+  // A LETRA não mudou com um pedido de margem.
+  assert.equal(raiz.decls['font-size'], undefined, 'a raiz ganhou tamanho de letra: hierarquia trocada por um pedido de margem');
+});
+
+/**
+ * S20b-5 (item 2) — A FILEIRA DE FILTROS EM 375.
+ *
+ * Em 375 o `display: flex` + `flex-wrap` da base punha "Buscar estação" AO LADO
+ * do campo (os dois cabiam na linha e o rótulo virava legenda lateral) e jogava
+ * "Linha" no canto oposto do seletor dela. O DOM é chato por construção —
+ * `controles.append(rotuloBusca, input, rotuloLinha, select, status)`
+ * (explorar.js:116) —, então o rótulo não segura o campo dentro de si: o que os
+ * pareia é a ordem e a largura toda. A ordem do DOM já é a certa.
+ */
+test('S20b-5 · no celular cada rótulo de filtro fica em cima do próprio campo', async () => {
+  const folha = escanear(await ler('web/telas/explorar.css'));
+
+  for (const seletor of ['.explorar-rotulo-campo', '.explorar-controles input', '.explorar-controles select']) {
+    const empilhado = regraDe(folha, seletor, 'max-width: 599px');
+    assert.ok(empilhado, `${seletor} sem regra dentro do @media de 599: o filtro do celular não foi consertado`);
+    assert.equal(empilhado.decls.width, '100%', `${seletor} sem largura toda no celular: continua dividindo a linha com o vizinho`);
+    assert.notEqual(empilhado.decls.display, 'none', `${seletor} escondido no celular: em 375 o rótulo é a única pista do que é cada campo`);
+  }
+
+  // box-sizing é o preço de 100% com padding — a lei de aula.css:23, das linhas
+  // da própria explorar.css e de .explorar-link:54. Sem ele, 100% + recheio dos
+  // dois lados passa da tela e o celular ganha rolagem horizontal.
+  const campos = regraDe(folha, '.explorar-controles input');
+  assert.ok(campos, 'sumiu a regra dos campos de filtro da base');
+  assert.equal(campos.decls['box-sizing'], 'border-box',
+    'largura toda no celular com padding e sem box-sizing: rolagem horizontal em 375');
+
+  // O piso de toque dos campos continua de pé — o pedido era empilhar, e o
+  // --alvo-toque da S20b-1a não se negocia por causa de um layout de rótulo.
+  assert.equal(campos.decls['min-height'], 'var(--alvo-toque)', 'o filtro do celular perdeu a caixa de toque da S20b-1a');
+});
+
 test('réguas 6 · trocar de aba leva ao topo de QUEM ESTÁ ROLANDO', async () => {
   const js = await ler('web/casco.js');
   assert.match(js, /win\.scrollTo\?\.\(0, 0\)/, 'o casco perdeu o rolamento ao topo da janela');
