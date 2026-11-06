@@ -368,19 +368,33 @@ function dados(doc) {
   box.append(linha(doc, 'dados-fica', T.dados.ficaAqui));
 
   const acoes = el(doc, `${CLASSE}-dados-acoes`);
-  const saida = el(doc, 'secundario', T.dados.exportar, 'button');
+  // S20b-6 (itens 3 e 4): as duas pontas desta fileira usam o desenho da casa.
+  // `botao botao-secundario` é o contorno de folha.css:293 — o mesmo que a folha dá
+  // a «Ver as 93 aulas» (folha.js:92), e as três travas que CONTAM secundários no
+  // DOM montado (folha.test.js:179, aulas-tela.test.js:180, aulas-fio.test.js:168)
+  // procuram exatamente essa classe: a crua `secundario` não era nada para elas.
+  const saida = el(doc, 'botao botao-secundario', T.dados.exportar, 'button');
   saida.type = 'button';
   acoes.append(saida);
 
   const grupo = el(doc, `${CLASSE}-dados-importar`);
-  const rotulo = el(doc, `${CLASSE}-dados-rotulo`, undefined, 'label');
+  // S20b-6 (item 4): o rótulo É o botão que a pessoa vê. As classes da casa
+  // (`botao botao-secundario`, o contorno de folha.css:293 que a folha dá a «Ver
+  // as 93 aulas») vêm com caixa, min-height, borda e cor — e é o par exato do
+  // «Exportar viagem» ao lado: dois botões iguais, um arquivo que sai e um que
+  // entra. O input por cima (perfil.css, item 4) continua sendo o controle.
+  const rotulo = el(doc, `${CLASSE}-dados-rotulo botao botao-secundario`, undefined, 'label');
   rotulo.htmlFor = 'perfil-arquivo';
   rotulo.append(el(doc, `${CLASSE}-dados-importar-texto`, T.dados.importar, 'span'));
   const entrada = el(doc, `${CLASSE}-dados-input`, undefined, 'input');
   entrada.id = 'perfil-arquivo';
   entrada.setAttribute('type', 'file');
   entrada.setAttribute('accept', '.json,application/json');
-  entrada.setAttribute('aria-label', T.dados.importar);
+  // O input some da pintura (perfil.css, S20b-6 item 4) e quem aperta passa a ser o
+  // rótulo com o desenho de botão. O `aria-label` é o que mantém o controle nomeado
+  // para quem não vê a tela: sem ele, o Tab cai num controle invisível sem nome e a
+  // régua 1 chama isso de ausência. O nome por extenso vem de T.dados (textos.js).
+  entrada.setAttribute('aria-label', T.dados.importLabel);
   grupo.append(rotulo, entrada);
   acoes.append(grupo);
   box.append(acoes);
@@ -567,7 +581,12 @@ export async function montar(raiz, ctx) {
       // lugar do bilhete recebe a frase e a saída. Marcos e dados continuam.
       const vazio = el(doc, `${CLASSE}-card ${CLASSE}-em-branco`);
       vazio.append(linha(doc, 'em-branco-texto', T.emBranco));
-      const ir = el(doc, 'primario', T.irParaProxima, 'a');
+      // S20b-6 (item 3): `botao botao-primario` é a classe que a FOLHA usa
+      // (folha.js:354,359; aulas-pedacos.js:136; revisar-fila.js:61) e que a régua
+      // de hierarquia da casa conta no DOM montado. A crua `primario` não era nada
+      // para nenhuma dessas travas — o botão saía cinza do sistema, com o
+      // sublinhado e o fundo do navegador. Um primário por tela continua um.
+      const ir = el(doc, 'botao botao-primario', T.irParaProxima, 'a');
       ir.setAttribute('href', hrefDe({ tela: 'jornada' }));
       vazio.append(ir);
       raizEl.append(vazio);
@@ -752,7 +771,9 @@ export async function montar(raiz, ctx) {
         // S10a (regua 1): as tres partes e uma saida, como no metrô. Sem isto o
         // Perfil sem rede era um beco: uma frase e nenhum caminho de volta.
         raizEl.append(linha(doc, 'falha', T.erro), linha(doc, 'falha', T.erroOQueFazer));
-        const irFalha = el(doc, 'primario', T.irParaProxima, 'a');
+        // S20b-6 (item 3): idem ao `ir` do bilhete em branco — a mesma classe da
+        // folha, no mesmo lugar de hierarquia (a única saída do beco).
+        const irFalha = el(doc, 'botao botao-primario', T.irParaProxima, 'a');
         irFalha.setAttribute('href', hrefDe({ tela: 'jornada' }));
         raizEl.append(irFalha);
         return null;

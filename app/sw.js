@@ -892,7 +892,34 @@
 // rotulo e sem tocar no piso de toque da S20b-1a. Mudam de bytes
 // web/telas/explorar.css (o recheio, o box-sizing dos campos, o teto e a pilha do
 // celular) e este sw.js.
-const VERSAO = 'atlas-v93';
+// atlas-v94: S20b-6 (06/11/2026) — O ACABAMENTO do Perfil, medido no Chrome sobre
+// a v91. Quatro elementos saíam com o estilo do NAVEGADOR porque nenhuma folha dava
+// regra a eles, e as travas antigas não viram nada: elas contam DOM e declarações de
+// alvo, e quem não tem regra nenhuma não tem o que contar. (1) Os cartões encostavam
+// na borda em 375 e em 1280: main (casco.css:84) não tem recheio lateral e esta era a
+// única tela da casa sem o seu — a raiz ganha `padding: var(--espaco-4)` com
+// box-sizing, e o teto da S17b-fix continua (margem e linha de leitura são folhas
+// diferentes do mesmo problema, uma não compra a outra). (2) Dois links azuis:
+// `.perfil-proxima-link` não tinha cor nenhuma e `.perfil-sobre-codigo` tinha
+// `--linha-6`, o azul que a pessoa lia era a cor da LINHA 6 e não o padrão do
+// navegador — os dois ficam em `--tinta`, com sublinhado (a única marca de link quando
+// a cor não ajuda) e o anel da casa em `:focus-visible`, no token. (3) «Exportar
+// viagem» e os dois «Ir para a próxima estação» vestiam as classes cruas `secundario`
+// e `primario`, palavras que folha nenhuma da casa usa: agora vestem
+// `botao botao-secundario` / `botao botao-primario`, o contorno que a folha dá a «Ver
+// as 93 aulas», e o `--cor: var(--tinta)` entra na raiz porque `--cor` é a LINHA e sem
+// linha declarada o botão da casa sai com contorno invisível. (4) O seletor de arquivo
+// do sistema no meio da fileira: o input some da pintura com clip-path (a casa esconde
+// assim, base.css:51) e NÃO com display:none, que o tiraria da árvore de foco e faria o
+// Tab passar por cima do importar — o rótulo veste o secundário da casa e vira o botão
+// que se vê, o input cobre o grupo e guarda o piso de toque, e `:focus-within` põe o
+// anel no rótulo. Um primário por tela continua um. Mudam de bytes web/telas/perfil.css,
+// web/telas/perfil.js, core/textos.js (o nome acessível do input, que a tela passa a
+// ler de T.dados em vez de escrever ao lado) e este sw.js.
+// Sem subir a VERSAO, quem tem v93 no cache recebe um perfil.js pedindo as classes da
+// casa a um perfil.css velho que não as tem: os botões voltam cinza do sistema, e o
+// input volta a desenhar «Escolher arquivo» na fileira.
+const VERSAO = 'atlas-v94';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
@@ -965,7 +992,7 @@ const VERSAO = 'atlas-v93';
 // fora de app/web e app/core vai para o cache de quem usa. O sw.js mediu o mesmo
 // sha256 antes e depois de eu subir a VERSAO, prova de que ele não está na própria
 // lista.
-const PRECACHE_HASH = 'sha256-436deeae07f62e8e9481bb212e30a09ce1b8d8ccce59172fe55e1f351b4ac7ce';
+const PRECACHE_HASH = 'sha256-d9e821f4db615bef66c84678cd443d01b0aacbea8183ffe3dfb8f327f06f16fc';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.

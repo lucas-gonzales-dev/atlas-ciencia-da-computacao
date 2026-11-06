@@ -309,7 +309,12 @@ test('perfil: o bilhete em branco mostra o texto e um primário só', async () =
 
   // A classe e a do design system, um token de primario. O regex e de palavra
   // inteira porque "primario-secundario" nao e um segundo primario.
-  const primarios = comClasse(ctx._raiz, /^primario$/);
+  //
+  // S20b-6 (item 3): a classe crua `primario` nao existia em folha.css nem em
+  // metro.css — era uma palavra desta tela, e o elemento chegava nu, com o fundo
+  // padrao do sistema. O nome real da casa e `botao botao-primario` (folha.js:354,
+  // revisar-fila.js:61), e e ele que a folha pinta. A régua continua a mesma: UM.
+  const primarios = comClasse(ctx._raiz, /^botao-primario$/);
   assert.equal(primarios.length, 1, `${primarios.length} primários na tela em branco; um gesto por tela`);
   assert.match(textoDe(primarios[0]), /Ir para a próxima estação/, `o primário não é a próxima estação: "${textoDe(primarios[0])}"`);
   assert.match(String(primarios[0].attrs.href || ''), /^#\/$/, 'o primário não leva à Jornada');

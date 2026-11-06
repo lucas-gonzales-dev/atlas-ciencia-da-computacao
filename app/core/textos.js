@@ -889,6 +889,12 @@ export const perfil = Object.freeze({
     ficaAqui: 'Sua viagem fica só neste aparelho.',
     exportar: 'Exportar viagem',
     importar: 'Importar uma viagem',
+    // S20b-6 (item 4): o `<input type=file>` some da pintura (clip-path) e o que a
+    // pessoa vê passa a ser o rótulo com o desenho do botão. `aria-label` é o que
+    // continua dizendo ao leitor de tela qual controle é aquele — sem ele o Tab cai
+    // num controle invisível sem nome, que a régua 1 chama de ausência. Esta é a
+    // frase desse nome, e ela já existia aqui: a tela a lê, em vez de escrever
+    // um literal ao lado (regra 7 — nenhuma frase de tela mora na tela).
     importLabel: 'Escolha o arquivo do Atlas',
     semDownload: 'Este navegador não deixou baixar o arquivo. Tente em outra janela.',
     semStorage: 'Importou, mas este aparelho não guardou: vale só até fechar esta tela.',

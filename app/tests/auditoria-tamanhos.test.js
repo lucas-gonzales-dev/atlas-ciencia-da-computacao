@@ -446,9 +446,21 @@ test('S20a-2 · o mapa do topo é faixa, e o único primário cabe acima da dobr
  * DECLARADA com o token; os 44 px reais fecham no testar_pagina.
  */
 const CLASSES_TOCAVEIS = {
-  // arquivo que EMITE a classe  →  folha que precisa dar a caixa a ela
-  'web/telas/perfil.js': 'web/telas/perfil.css',
-  'web/telas/explorar.js': 'web/telas/explorar.css',
+  // arquivo que EMITE a classe  →  folhas que podem dar a caixa a ela.
+  //
+  // S20b-6 (item 3) mudou o lado direito deste mapa de propósito. Até aqui a
+  // tela era a ÚNICA dona da caixa, porque as classes que ela emitia
+  // (`primario`, `secundario`) não existiam em folha nenhuma da casa: o
+  // elemento chegava nu e o navegador pintava o botão cinza do sistema. Agora
+  // a tela emite as classes REAIS (`botao botao-primario`, `botao
+  // botao-secundario`), e o piso delas mora em metro.css, junto com o desenho.
+  // Exigir o `--alvo-toque` dentro de perfil.css seria obrigar a tela a
+  // redeclarar a mesma medida que ela acabou de herdar — dois donos para um
+  // número, que é exatamente o que a S20b-1a combateu. A régua continua a
+  // mesma, e agora mais forte: o alvo tem piso, venha de quem vier das folhas
+  // que a tela carrega.
+  'web/telas/perfil.js': ['web/telas/perfil.css', 'web/metro.css', 'web/folha.css'],
+  'web/telas/explorar.js': ['web/telas/explorar.css', 'web/metro.css', 'web/folha.css'],
 };
 
 test('S20b-1a · toda classe de alvo emitida por uma tela tem caixa na folha dela', async () => {
@@ -457,9 +469,11 @@ test('S20b-1a · toda classe de alvo emitida por uma tela tem caixa na folha del
   assert.ok(piso >= 44, `--alvo-toque sumiu do tokens.css ou encolheu abaixo de 44 px: ${piso}`);
 
   const acusados = [];
-  for (const [emissor, css] of Object.entries(CLASSES_TOCAVEIS)) {
+  for (const [emissor, folhas] of Object.entries(CLASSES_TOCAVEIS)) {
     const fonte = await ler(emissor);
-    const regrasCss = escanear(await ler(css));
+    // S20b-6: uma lista de folhas, não uma. O piso pode vir da folha da tela ou
+    // da folha da casa — o que não pode é não vir de nenhuma.
+    const regrasCss = (await Promise.all(folhas.map(async (f) => escanear(await ler(f))))).flat();
     // `<a>` e `<button>` são o que se toca. `el(doc, classe, texto, 'a')`,
     // `el(doc, classe, ..., 'button')` e o `className = `...-link`` do explorar.
     const tocaveis = new Set();
@@ -477,7 +491,7 @@ test('S20b-1a · toda classe de alvo emitida por uma tela tem caixa na folha del
       const comCaixa = regrasCss.some((r) =>
         new RegExp(`(^|[,.\\s>])${classe}(?![\\w-])`).test(r.seletor) &&
         /min-height:\s*var\(--alvo-toque\)/.test(r.corpo));
-      if (!comCaixa) acusados.push(`${emissor} emite .${classe} (a|button) e ${css} não dá o --alvo-toque a ela`);
+      if (!comCaixa) acusados.push(`${emissor} emite .${classe} (a|button) e nenhuma de ${folhas.join(', ')} dá o --alvo-toque a ela`);
     }
   }
   assert.deepEqual(acusados, [], 'um alvo tocável nasceu nu: a altura dele é a linha de letra, e o piso de 44 px da casa é opcional no toque');
@@ -487,9 +501,6 @@ test('S20b-1a · os três alvos medidos em 375 px têm o piso declarado', async 
   const perfil = escanear(await ler('web/telas/perfil.css'));
   const explorar = escanear(await ler('web/telas/explorar.css'));
 
-  // Perfil: os dois nus (:237 e :329 criam o link com `primario`, :118 o botão
-  // com `secundario`). Escopados em `.perfil` — são classes sem prefixo e uma
-  // regra solta vazaria para as outras três telas.
   // `tem`: uma classe pode ter MAIS DE UMA regra na folha (a de sempre, de letra
   // e cor, e a do alvo). Cobrar a primeira que o escanear achar seria travar a
   // ordem do arquivo, e a ordem não é o defeito — o que importa é que ALGUMA
@@ -498,14 +509,31 @@ test('S20b-1a · os três alvos medidos em 375 px têm o piso declarado', async 
     regras.some((r) => new RegExp(`(^|[,.\\s>])${classe}(?![\\w-])`).test(r.seletor) &&
       /min-height:\s*var\(--alvo-toque\)/.test(r.corpo));
 
-  for (const classe of ['primario', 'secundario']) {
-    assert.ok(perfil.some((r) => r.seletor.includes(`.${classe}`)),
-      `.perfil .${classe} não tem regra nenhuma: o elemento chega nu (perfil.js:118/237/329)`);
-    assert.ok(comPiso(perfil, classe), `.perfil .${classe} existe mas nenhuma regra dele lê o piso da casa`);
+  // S20b-6 (item 3) — O DONO DA CAIXA MUDOU, E A RÉGUA VEM ATRÁS.
+  // Os dois nus desta folha (`primario`, `secundario`) eram classes que não
+  // existiam em folha nenhuma da casa: o navegador desenhava o botão cinza do
+  // sistema e a tela tinha de fabricar a caixa sozinha. Agora perfil.js emite
+  // `botao botao-primario` / `botao botao-secundario`, e o piso vem do `.botao`
+  // de metro.css, junto com o desenho. Cobrar o piso dentro de perfil.css seria
+  // obrigar a tela a redeclarar a medida que ela acabou de herdar. O que a régua
+  // cobra, então, é as DUAS pontas: a folha da casa tem o piso do `.botao`, e o
+  // js do Perfil não emite mais a classe crua que motivou esta trava.
+  const metro = escanear(await ler('web/metro.css'));
+  assert.ok(comPiso(metro, 'botao'),
+    'o .botao de metro.css perdeu o --alvo-toque: é o piso dos botões do Perfil, da folha e das aulas');
+  const fontePerfil = await ler('web/telas/perfil.js');
+  for (const crua of ['primario', 'secundario']) {
+    assert.equal(
+      new RegExp(`el\\(doc,\\s*[\`']${crua}[\`'\\s],`).test(fontePerfil), false,
+      `perfil.js voltou a emitir a classe crua \`${crua}\`: ela não existe nas folhas da casa e o elemento nasce nu (perfil.js:371/588/777)`
+    );
   }
 
   // O rótulo do importar é o par do botão de exportar na mesma fileira: se um
   // tem 44 px e o outro tem a linha de letra, a fileira fica com dois andares.
+  // Ele continua sendo filho DESTA folha (é um <label>, não um .botao), então o
+  // piso dele se prova aqui — mesmo depois de a S20b-6 ter dado a ele o desenho
+  // do secundário da casa.
   assert.ok(comPiso(perfil, 'perfil-dados-rotulo'),
     'o rótulo de importar ficou sem alvo de toque');
 
@@ -518,9 +546,9 @@ test('S20b-1a · os três alvos medidos em 375 px têm o piso declarado', async 
   // letra continua a da folha. `font-size` com número à mão aqui seria o caminho
   // de volta para a hierarquia de cartaz que a S11-0 matou, e um `background`
   // cheio na regra do alvo é a hierarquia da tela trocada por um pedido de caixa.
-  const nus = [['perfil .primario', perfil.find((r) => r.seletor.includes('.primario'))],
-               ['perfil .secundario', perfil.find((r) => r.seletor.includes('.secundario'))],
+  const nus = [['perfil-dados-rotulo', perfil.find((r) => /(^|[,.\s>])\.perfil-dados-rotulo(?![\w-])/.test(r.seletor) && /min-height/.test(r.corpo))],
                ['explorar-link', link]];
+  assert.ok(nus[0][1], 'nenhuma regra do .perfil-dados-rotulo declara min-height: o par do botão de exportar ficou sem caixa');
   for (const [nome, r] of nus) {
     assert.doesNotMatch(r.corpo, /font-size:\s*\d/, `${nome}: tamanho de letra à mão na regra do alvo`);
     assert.equal(/background:/.test(r.corpo), false,
@@ -619,13 +647,23 @@ test('S17b-fix · o Perfil usa a tela, e não a coluna da Jornada', async () => 
  */
 test('S17b-fix · o link da próxima estação tem o piso de toque declarado', async () => {
   const perfil = escanear(await ler('web/telas/perfil.css'));
-  const link = perfil.find((r) => /(^|[,.\s>])\.perfil-proxima-link(?![\w-])/.test(r.seletor));
-  assert.ok(link, '.perfil-proxima-link não tem regra na folha: é o <a> criado em perfil.js:285, e sem caixa a altura dele é a linha de letra');
-  assert.match(link.corpo, /min-height:\s*var\(--alvo-toque\)/,
-    'o link da próxima voltou a medir a própria letra — menos dos 44 px da casa');
-  assert.match(link.corpo, /display:\s*inline-flex/, 'min-height não existe num <a> em linha: sem inline-flex o piso é decorativo');
-  assert.doesNotMatch(link.corpo, /font-size:\s*\d/, 'tamanho de letra à mão na regra do alvo');
-  assert.doesNotMatch(link.corpo, /background:/, 'o alvo ganhou fundo: hierarquia trocada por um pedido de caixa');
+  // S20b-6 (item 2) ensinou um truque a esta trava: o `find` lia a PRIMEIRA regra
+  // do seletor, e a folha agora tem duas para o mesmo link — a de cor, no topo da
+  // folha, e a de caixa, embaixo. Cobrar a primeira era travar a ORDEM do
+  // arquivo, e a ordem não é o defeito (a S20b-1a, linha 505, já sabia disso:
+  // «cobrar a primeira que o escanear achar seria travar a ordem do arquivo»).
+  // Varre todas: piso e display têm de estar em ALGUMA, e nenhum número à mão em
+  // NENHUMA.
+  const link = perfil.filter((r) => /(^|[,.\s>])\.perfil-proxima-link(?![\w-])/.test(r.seletor));
+  assert.ok(link.length, '.perfil-proxima-link não tem regra na folha: é o <a> criado em perfil.js:285, e sem caixa a altura dele é a linha de letra');
+  const caixa = link.find((r) => /min-height:\s*var\(--alvo-toque\)/.test(r.corpo));
+  assert.ok(caixa,
+    `o link da próxima voltou a medir a própria letra — menos dos 44 px da casa (${link.map((r) => r.seletor).join(' | ')})`);
+  assert.match(caixa.corpo, /display:\s*inline-flex/, 'min-height não existe num <a> em linha: sem inline-flex o piso é decorativo');
+  for (const r of link) {
+    assert.doesNotMatch(r.corpo, /font-size:\s*\d/, 'tamanho de letra à mão na regra do alvo');
+    assert.doesNotMatch(r.corpo, /background:/, 'o alvo ganhou fundo: hierarquia trocada por um pedido de caixa');
+  }
 });
 
 /**
@@ -710,6 +748,95 @@ test('S20b-5 · no celular cada rótulo de filtro fica em cima do próprio campo
   // O piso de toque dos campos continua de pé — o pedido era empilhar, e o
   // --alvo-toque da S20b-1a não se negocia por causa de um layout de rótulo.
   assert.equal(campos.decls['min-height'], 'var(--alvo-toque)', 'o filtro do celular perdeu a caixa de toque da S20b-1a');
+});
+
+/**
+ * S20b-6 (atlas-v94) — O ACABAMENTO DO PERFIL.
+ *
+ * O Lucas capturou a atlas-v91 inteira e me mandou a captura. Havia quatro
+ * elementos saindo com o estilo do NAVEGADOR porque nenhuma folha dava regra a
+ * eles: os cartões encostando na borda, dois links azuis, um botão cinza e o
+ * seletor de arquivo do sistema no meio da fileira. As travas antigas não viram
+ * nada disso porque contam DOM e declaracoes de alvo — e um elemento sem regra
+ * nenhuma nao tem o que contar.
+ *
+ * Esta trava fecha a lacuna do MODELO, nao a lista: ela pergunta se o que
+ * aparece na tela tem `color`/`padding` DECLARADOS em lugar proprio, e nao se a
+ * classe certa existe. LIMITE HONESTO como em toda a S20b: node nao tem
+ * navegador, entao aqui se prova a declaracao; o azul que sobrou, o cinza e os
+ * px fecham no testar_pagina, nos dois temas.
+ */
+test('S20b-6 · o Perfil nao tem mais elemento sem declaracao propria', async () => {
+  const perfil = escanear(await ler('web/telas/perfil.css'));
+
+  // ITEM 1 — a margem da tela. `.perfil` e o cartao inteiro (perfil.css:3), e a
+  // base nao tinha recheio nenhum: em 375 e em 1280 o conteudo encostava na
+  // janela. Mesmo formato da S20b-5: shorthand de UM valor, token, e
+  // box-sizing porque recheio sem ele estoura a largura.
+  const raiz = regraDe(perfil, '.perfil');
+  assert.ok(raiz, '.perfil sem regra na base: e a ancora do casco e a moldura da tela');
+  assert.ok(raiz.decls.padding, '.perfil perdeu o padding: os cartoes voltam a encostar na borda da tela');
+  assert.equal(raiz.decls.padding.includes(' '), false,
+    `padding de dois valores em .perfil ("${raiz.decls.padding}"): o segundo valor sao os lados, e foi assim que o Explorar nasceu sem margem`);
+  assert.match(raiz.decls.padding, /var\(--espaco-\d\)/,
+    `a margem do Perfil nao vem de um token da casa: "${raiz.decls.padding}"`);
+  assert.equal(raiz.decls['box-sizing'], 'border-box',
+    '.perfil com padding e sem box-sizing: a largura do cartao passa da janela e o celular ganha rolagem lateral');
+  // O teto da coluna (S17b-fix item 1, dentro do @media de 1024) nao pode ter
+  // sido trocado por recheio: sao duas regras de folhas diferentes do mesmo
+  // problema, e uma nao compra a outra.
+  const larga = perfil.filter((r) => ehMediaDesktop(r.media) && /(^|[,\s>])\.perfil(?![\w-])/.test(r.seletor));
+  assert.ok(larga.some((r) => /max-width:/.test(r.corpo)),
+    'o Perfil largo perdeu o max-width: a margem nova nao segura linha de leitura nenhuma sozinha');
+
+  // ITEM 2 — os dois links azuis. `color` nao e vaidade aqui: na casa, cor e
+  // LINHA, e as sete cores de linha moram em --linha-N. Um <a> sem `color` cai
+  // na cor de hipertexto do navegador, que nao e linha nenhuma dos sete.
+  for (const alvo of ['.perfil-proxima-link', '.perfil-sobre-codigo']) {
+    const regras = perfil.filter((r) => r.seletor.split(',').map((s) => s.trim()).includes(alvo));
+    assert.ok(regras.length, `${alvo} nao tem regra na folha: e ele que pinta a cor do link`);
+    // A ULTIMA cor declarada, nao alguma. Escrito assim porque a primeira versao
+    // desta trava passou com o link AZUL na tela: `.perfil-sobre-codigo` tinha
+    // `color: var(--linha-6)` mais abaixo na folha, a regra do topo tambem tinha
+    // tinta, e `some()` achou as duas. No navegador vence a ultima, e o que a
+    // pessoa lia era o azul da linha 6. `some` era a trava fraca; o que importa e
+    // qual cor chega viva na tela.
+    // A regra que VENCE é a última, e é isso que a prova abaixo mutar.
+  const comCor = regras.filter((r) => r.decls.color);
+    assert.ok(comCor.length,
+      `${alvo} sem color declarada em nenhuma regra: sai azul-padrao do navegador (perfil.js:330 e :412)`);
+    const ultima = comCor[comCor.length - 1];
+    assert.match(ultima.decls.color, /var\(--tinta\)/,
+      `${alvo}: a cor que vence a cascade nao e a tinta da casa — "${ultima.decls.color}" (linha ${ultima.linha ?? '?'} da folha; uma regra mais abaixo com outra cor anula o topo)`);
+  }
+  // O anel de foco dos dois links, no token, nao em numero a mao.
+  const anel = perfil.filter((r) => /:focus-visible/.test(r.seletor) &&
+    /perfil-proxima-link|perfil-sobre-codigo/.test(r.seletor));
+  assert.ok(anel.length >= 1, 'os dois links do Perfil perderam a regra de :focus-visible');
+  for (const r of anel) {
+    assert.match(r.corpo, /outline:\s*var\(--anel-foco\)/, `anel fora do token: "${r.corpo.trim()}"`);
+    assert.match(r.corpo, /outline-offset:\s*var\(--afastamento-foco\)/, 'afastamento do anel escrito a mao');
+  }
+
+  // ITEM 4 — o input escondido SEM sair da tecla. `display: none` e
+  // `visibility: hidden` tiram o elemento da arvore de foco: o Tab passaria por
+  // cima do importar, que e exatamente o que a S20b-1b veio garantir. A casa
+  // esconde com clip-path (base.css:51 .so-leitor), e e isso que a folha faz.
+  const input = perfil.find((r) => /(^|[,\s>])\.perfil-dados-input(?![\w-])/.test(r.seletor));
+  assert.ok(input, '.perfil-dados-input sem regra: e o input type=file do Perfil');
+  for (const proibida of ['display: none', 'display:none', 'visibility: hidden', 'visibility:hidden']) {
+    assert.equal(input.corpo.replace(/\s+/g, ' ').includes(proibida.replace(/\s+/g, ' ')), false,
+      `.perfil-dados-input com "${proibida}": o Tab passa por cima do importar (a S20b-1b perdeu o alvo)`);
+  }
+  assert.match(input.corpo, /clip-path:/, 'o input nao se esconde com clip-path: sobrou a pincelada do sistema na tela');
+  // O piso dele continua, e o ROTULO passa a ter o desenho de botao (item 4).
+  assert.match(input.corpo, /min-height:\s*var\(--alvo-toque\)/, 'o input de importar perdeu o piso de toque');
+  const fontePerfil = await ler('web/telas/perfil.js');
+  // O template e \\`\\${CLASSE}-dados-rotulo botao botao-secundario\\` — nao procure
+  // "perfil" escrito: \\${} so existe no DOM montado, e o modelo desta casa ja
+  // perdeu dois alvos por causa disso (a S20b-1b e a nota do S17b-fix acima).
+  assert.match(fontePerfil, /dados-rotulo[^`]*botao-secundario/,
+    'o rotulo de importar nao veste o secundario da casa: continua texto nu ao lado do botao de exportar');
 });
 
 test('réguas 6 · trocar de aba leva ao topo de QUEM ESTÁ ROLANDO', async () => {
