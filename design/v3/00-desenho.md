@@ -13,7 +13,7 @@ Hoje o Atlas é um índice bonito: 35 disciplinas da UBL, cada uma um link para 
 1. **Progresso é verificado, não declarado.** Nada medido só por assistir se chama "aprendido". O mapa tem dois eixos: o **preenchimento** mostra o que foi estudado; a **cor** mostra o que foi lembrado depois (recuperação com feedback, um dia ou mais depois: g ≈ 0,69).
 2. **Cada aula fecha com recordação, não com resumo.** Dois minutos sem olhar, conferir, e de 1 a 3 cartões escritos pela própria pessoa (cartão do aluno vence baralho pronto, d ≈ 0,45, se ele parafrasear). Resumir tem baixa utilidade; recordar, alta.
 3. **A revisão é espaçada e honesta.** FSRS-6 no aparelho, retenção desejada de 0,90, primeira volta no dia seguinte, feedback sempre visível, dois botões ("Errei" e "Lembrei").
-4. **Gamificação que informa competência.** Caderneta de carimbos com os espaços vazios à vista, cada carimbo com a frase do que se passou a saber fazer (feedback informativo: d = +0,33). Nada de XP, pontos, sequência de dias, ranking, caixa de recompensa ou carimbo por presença.
+4. **Gamificação que informa competência.** Caderneta de carimbos com os espaços vazios à vista, cada carimbo com a frase do que foi medido (feedback informativo: d = +0,33). Nada de XP, pontos, sequência de dias, ranking, caixa de recompensa ou carimbo por presença.
 5. **Abandono e volta são o caso normal.** 3% de conclusão é a linha de base dos MOOCs. Nada conta dias de ausência, nada zera, nada culpa. A volta retoma no segundo exato.
 6. **Minijogo é exercício com regra de jogo, dentro da aula.** Nunca um fliperama à parte.
 7. **O conteúdo é da UBL e da pessoa.** Nenhum cartão, pergunta ou desafio é inventado por IA. As aulas vêm das playlists; os cartões, da pessoa; a prática, das aulas de exercício da própria UBL e da bibliografia.
@@ -107,9 +107,11 @@ A caderneta (Perfil) e o bilhete (imagem compartilhável com o mapa da rede e o 
 - **Série do percurso** (premia o comportamento que leva a aprender, nunca minutos ou cliques):
   Embarque · Primeira aula estudada · Primeira revisão no dia seguinte · Primeiro cartão consolidado · Primeira estação percorrida · Primeira baldeação · De volta à linha (retomou depois de uma pausa; nunca diz quantos dias) · Calibrado (confiança bate com acerto em 20 revisões).
 - **Série do domínio:**
-  Uma por estação (35), com a frase de competência daquela disciplina · Fim de linha dominado (7) · Terminal.
+  Uma por estação (35), com a frase do que foi medido · Fim de linha dominado (7) · Terminal.
 
-Cada carimbo: o círculo da linha, a data e **a frase do que você passou a saber fazer**. Logo depois de cada carimbo, a próxima coisa ("Próxima estação: Estruturas de Dados. Ela pede Matemática Discreta, que você já dominou.").
+`data/competencias.json` fica fora do carimbo: ele descreve a ementa da disciplina, não o que esta pessoa fez nela.
+
+Cada carimbo: o círculo da linha, a data e **a frase do que foi medido**. Logo depois de cada carimbo, a próxima coisa ("Próxima estação: Estruturas de Dados. Ela pede Matemática Discreta, que você já dominou.").
 
 **Recordes pessoais sem sequência:** "Mais cartões lembrados numa semana", "Maior estabilidade de um cartão". Nunca "dias seguidos".
 

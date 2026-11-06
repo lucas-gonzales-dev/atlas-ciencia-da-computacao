@@ -1289,6 +1289,77 @@ export const caderneta = Object.freeze({
     criterio: 'Nas últimas 20 revisões com confiança, certeza acerta mais que acho, e acho mais que chute.',
     frase: 'Dizer que sabe bate com lembrar.',
   },
+
+  /**
+   * A SÉRIE DO DOMÍNIO (S17a-2) — 43 carimbos: um por estação, um por fim de linha,
+   * um terminal. O número NÃO é uma constante escrita aqui: a estação vem do
+   * catálogo, e um `43` fixo no texto mentiria no dia em que a grade mudasse. A frase
+   * de cada estação dominada é `fraseDaDominada` (core/desafio.js), que repete os
+   * números medidos no desafio.
+   *
+   * A ESTAÇÃO «CONCLUÍDA ANTES» NÃO GANHA FRASE. Ela chegou pelo carimbo da
+   * declaração — «Já sei isso», ou a migração do Atlas antigo — e não há medição
+   * nenhuma atrás dela. Escrever uma frase ali seria o app afirmando um saber-fazer
+   * que ninguém conferiu: exatamente o bilhete que o princípio 4 manda aposentar. Ela
+   * leva a MARCA (`concluidaAntes`) e a data antiga, e o círculo fica vazio de frase.
+   *
+   * `data/competencias.json` fica FORA do carimbo: «Você converte entre bases...»
+   * descreve a ementa da disciplina, não o que esta pessoa fez nela.
+   */
+  dominio: {
+    vazio: 'Ainda não dominada.',
+    concluidaAntes: 'Concluída antes',
+    criterioEstacao: 'O desafio da estação aprovado: oito em cada dez cartões sorteados lembrados, dois dias ou mais depois.',
+    fraseLinha: 'Você dominou todas as estações desta linha.',
+    fraseTerminal: 'Você dominou todas as estações da rede.',
+    nomeLinha: (numero) => `Fim de linha ${numero}`,
+    criterioLinha: 'Todas as estações desta linha dominadas.',
+    vazioLinha: 'Ainda faltam estações dominadas nesta linha.',
+    terminal: {
+      nome: 'Terminal',
+      criterio: 'Todas as estações da rede dominadas.',
+      vazio: 'Ainda não chegou ao terminal.',
+    },
+  },
+
+  /**
+   * RECORDES PESSOAIS, SEM SEQUÊNCIA (S17a-2). O desenho proíbe «dias seguidos»: um
+   * recorde de sequência é aversão à perda com outra roupa, e quem some uma semana
+   * veria o número zerar — o oposto do princípio 5. Os dois recordes abaixo medem
+   * feito, não presença, e não caem a nada: o maior é «melhor até hoje» para sempre.
+   */
+  recordes: [
+    {
+      id: 'semana',
+      nome: 'Mais cartões lembrados numa semana',
+      criterio: 'A semana de calendário com mais cartões lembrados na primeira tentativa do dia.',
+      frase: 'Você lembrou {valor} cartões numa semana.',
+    },
+    {
+      id: 'estabilidade',
+      nome: 'Maior estabilidade de um cartão',
+      criterio: 'O cartão seu que aguenta o intervalo mais longo.',
+      frase: 'Um cartão seu aguenta {valor} dias.',
+    },
+  ],
+
+  /**
+   * A PRÓXIMA COISA, no formato do desenho: «Próxima estação: Estruturas de Dados.
+   * Ela pede Matemática Discreta, que você já dominou.» A estação vem de
+   * `resumoDaViagem().proximaEstacao` (core/viagem.js) — a segunda definição de
+   * «próxima» divergiría da tela na primeira mudança. A cláusula do pré-requisito só
+   * sai quando é VERDADE (o pré-requisito está em `progresso.dominadas`): dizer «que
+   * você já dominou» de quem não dominou seria o carimbo inventando um fato.
+   */
+  proxima: (p) => {
+    const nomes = Array.isArray(p?.pede) ? p.pede.filter(Boolean) : [];
+    const base = `Próxima estação: ${p?.nome ?? ''}.`;
+    if (!nomes.length) return base;
+    const pedindo = nomes.length === 1
+      ? `${nomes[0]}, que você já dominou`
+      : `${nomes.slice(0, -1).join(', ')} e ${nomes.at(-1)}, que você já dominou`;
+    return `${base} Ela pede ${pedindo}.`;
+  },
 });
 
 /** Tudo junto, para quem precisa percorrer (o teste percorre). */

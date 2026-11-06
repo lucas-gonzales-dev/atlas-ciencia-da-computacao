@@ -17,10 +17,26 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { seriePercurso, CORTE_CONSOLIDADO, JANELA_CALIBRACAO, DIAS_SEM_NADA, diasDeAtividade } from '../core/caderneta.js';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
+import {
+  seriePercurso, serieDominio, recordes, proximaCoisa, caderneta,
+  CORTE_CONSOLIDADO, JANELA_CALIBRACAO, DIAS_SEM_NADA, diasDeAtividade,
+} from '../core/caderneta.js';
 import { abrirAula, estudarAula, pularAula } from '../core/estudo.js';
 import { criarCartao, revisarCartao } from '../core/cartoes.js';
 import { proibido } from '../core/textos.js';
+// S17a-2: o carimbo de domínio nasce do DESAFIO, e a data de «concluída antes» nasce
+// da CONCLUSÃO. Montar `progresso.dominadas` ou `conclusoes` à mão aqui provaria o
+// formato que o núcleo aceita em vez do fato que a caderneta vê — a mesma proibição do
+// cabeçalho deste arquivo, agora para as duas séries novas.
+import { aplicarResultado, fraseDaDominada } from '../core/desafio.js';
+import { concluirEstacao, progressoVazio, resumoDaViagem } from '../core/viagem.js';
+
+const LER = (rel) => readFileSync(fileURLToPath(new URL(`../${rel}`, import.meta.url)), 'utf8');
+/** A grade REAL da UBL: o total de carimbos do domínio é contado dela, nunca escrito. */
+const GRADE = JSON.parse(LER('data/catalog.json')).courses;
 
 const L1 = 'ubl-core-circuitos-digitais';        // linha 1
 const L2 = 'ubl-core-arquitetura-de-computadores'; // linha 2, pré-requisito: L1
@@ -483,4 +499,329 @@ test('PROVA S17a-1 · a régua do dia seguinte é de calendário, e não de inst
   assert.equal(carimbo(seriePercurso({ cartoes: mapa }), 'primeiraRevisao').data, null, 'mesmo dia, horário diferente, contou como volta');
   mapa = responder(mapa, 'c1', 'lembrei', '2026-11-02T00:01'); // dois minutos depois da meia-noite
   assert.equal(carimbo(seriePercurso({ cartoes: mapa }), 'primeiraRevisao').data, '2026-11-02', 'virou o dia e a caderneta não viu');
+});
+
+// ══════════════════════════ S17a-2: domínio, recordes, próxima ══════════════════════════
+//
+// As mesmas fábricas de cima, e as MESMAS proibições: o carimbo de domínio sai de
+// `aplicarResultado` (core/desafio.js) — o desafio aprovado que a tela chama — e a
+// «concluída antes» sai de `concluirEstacao` (core/viagem.js), o gesto de marcar. Um
+// `{dominadas: {x: {em: ...}}}` digitado aqui não provaria que a caderneta lê o que o
+// desafio grava, que é exatamente a conta que pode quebrar quando o formato do carimbo
+// mudar.
+
+const carimboDe = (lista, id) => lista.find((c) => c.id === id);
+
+/** O desafio aprovado, pelo caminho da tela: `aplicarResultado` escreve o carimbo. */
+function dominar(progresso, mapa, estacao, { quando = '2026-11-10T10:00', aulas = 93, cartoes = 23, acertos = 12, total = 14 } = {}) {
+  const r = aplicarResultado(
+    progresso,
+    mapa,
+    estacao,
+    { aprovado: true, acertos, total, lembrados: idsLembrados(acertos), errados: [] },
+    { aulas, cartoes },
+    quando,
+  );
+  assert.ok(r.progresso.dominadas[estacao], `aplicarResultado não carimbou ${estacao}: ${JSON.stringify(r)}`);
+  return r.progresso;
+}
+
+/** O carimbo do desafio guarda `lembrados` como LISTA de ids; a frase lê o tamanho dela. */
+const idsLembrados = (n) => Array.from({ length: n }, (_, i) => `c${i + 1}`);
+
+/** A declaração pelo gesto da tela, com o dia em que a pessoa marcou. */
+const marcar = (progresso, estacao, quando) => {
+  const p = concluirEstacao(progresso, estacao, quando, GRADE);
+  assert.equal(p.conclusoes[estacao], quando, `concluirEstacao não gravou ${estacao} em ${quando}`);
+  return p;
+};
+
+const V = () => progressoVazio();
+const NOMES = Object.fromEntries(GRADE.map((c) => [c.id, c.title]));
+
+// ─────────────── 13. os 43 sempre presentes ───────────────
+
+test('S17a-2 · a série do domínio tem uma estação por disciplina da grade, mais 7 linhas e o terminal', () => {
+  const estacoes = GRADE.length;
+  const linhas = new Set(GRADE.map((c) => c.stage)).size;
+  assert.equal(estacoes, 35, 'a grade não tem mais 35 disciplinas: o total do pedido precisa ser refeito');
+  assert.equal(linhas, 7, 'a grade não tem mais 7 linhas: idem');
+
+  const s = serieDominio({ catalogo: GRADE, progresso: V() });
+  assert.equal(s.length, estacoes + linhas + 1, 'o domínio deixou de ser 43 com a grade atual');
+  assert.equal(s.filter((c) => c.serie !== 'dominio').length, 0, 'carimbo de domínio com outra série');
+
+  // Os 35 primeiros são as estações, na ordem do catálogo; depois as linhas, na ordem do
+  // número; e o terminal fecha. Uma lista montada por filtro perderia o espaço vazio.
+  assert.deepEqual(s.slice(0, estacoes).map((c) => c.id), GRADE.map((c) => `dominio:${c.id}`));
+  assert.equal(s.at(-1).id, 'dominio:terminal');
+  assert.ok(s.every((c) => c.nome && c.nome.trim().length > 1), 'carimbo sem nome: o espaço vazio não diz o que é');
+  assert.ok(s.every((c) => c.criterio && c.criterio.length > 12), 'carimbo sem critério visível');
+});
+
+test('S17a-2 · com nada feito, os 43 estão lá e todos vazios, cada um com a frase do próprio vazio', () => {
+  const s = serieDominio({ catalogo: GRADE, progresso: V() });
+  const ESPERADO = { estacao: 'Ainda não dominada.', linha: 'Ainda faltam estações dominadas nesta linha.', terminal: 'Ainda não chegou ao terminal.' };
+  for (const c of s) {
+    assert.equal(c.data, null, `${c.id}: carimbo de domínio com data sem desafio nenhum`);
+    const kind = c.id === 'dominio:terminal' ? 'terminal' : (c.id.startsWith('dominio:linha-') ? 'linha' : 'estacao');
+    assert.equal(c.frase, ESPERADO[kind], `${c.id}: o vazio não mostra o espaço em branco`);
+  }
+});
+
+// ──────── 14. a dominada com os números da frase; a concluída antes sem frase ────────
+
+test('S17a-2 · a estação dominada traz a frase do que foi MEDIDO, com os números do carimbo', () => {
+  const p = dominar(V(), MAPA(), L1, { aulas: 93, cartoes: 23, acertos: 12, total: 14, quando: '2026-11-10T10:00' });
+  const c = carimboDe(serieDominio({ catalogo: CATALOGO, progresso: p }), `dominio:${L1}`);
+  assert.equal(c.data, '2026-11-10');
+  assert.equal(c.nome, 'Circuitos Digitais');
+  assert.equal(c.frase, fraseDaDominada(p.dominadas[L1]));
+  for (const n of ['93', '23', '12', '14']) {
+    assert.ok(c.frase.includes(n), `a frase não repete o número medido ${n}: "${c.frase}"`);
+  }
+  assert.ok(!/compet|ement|converte/i.test(c.frase), `a frase voltou a descrever a ementa: "${c.frase}"`);
+});
+
+test('S17a-2 · a frase da dominada não é tirada de data/competencias.json', () => {
+  const competencias = JSON.parse(LER('data/competencias.json'));
+  const p = dominar(V(), MAPA(), L1, { aulas: 3, cartoes: 4, acertos: 4, total: 4 });
+  const frase = carimboDe(serieDominio({ catalogo: CATALOGO, progresso: p }), `dominio:${L1}`).frase;
+  const textos = JSON.stringify(competencias);
+  for (const trecho of frase.split(/,| e /).map((t) => t.trim()).filter((t) => t.length > 20)) {
+    assert.equal(textos.includes(trecho), false, `a frase copiou a competência declarada: "${trecho}"`);
+  }
+});
+
+test('S17a-2 · concluída antes fica VAZIA no domínio, com a marca e a data antiga separadas', () => {
+  const p = marcar(V(), L1, '2026-10-05');
+  const c = carimboDe(serieDominio({ catalogo: CATALOGO, progresso: p }), `dominio:${L1}`);
+  assert.equal(c.marca, 'Concluída antes');
+  assert.equal(c.marcaEm, '2026-10-05', 'a data antiga da declaração não viajou com a marca');
+  assert.equal(c.data, null, 'a declaração ganhou carimbo de domínio — é o bilhete velho reentrando');
+  assert.equal(c.frase, null, 'a conclusão declarada ganhou frase, e nada foi medido');
+});
+
+test('S17a-2 · concluída antes COM aula estudada não é «antes»: vira dominada ou medida', () => {
+  // A régua de core/eixos.js: o estágio 'concluida-antes' só existe sem estudo atrás.
+  let estudo = fechar(ESTUDO(), A1, '2026-11-01T10:00');
+  const p = marcar(V(), L1, '2026-10-05');
+  const c = carimboDe(serieDominio({ estudo, catalogo: CATALOGO, progresso: p, indice: TRES() }), `dominio:${L1}`);
+  assert.equal(c.marca, undefined, 'com aula estudada atrás a caderneta ainda chama de «concluída antes»');
+  assert.equal(c.data, null, 'medida sem desafio ainda não é domínio');
+});
+
+test('S17a-2 · o re-aprovado move o carimbo para a última vez, e a frase com ele', () => {
+  let p = dominar(V(), MAPA(), L1, { aulas: 93, cartoes: 23, acertos: 12, total: 14, quando: '2026-11-10T10:00' });
+  p = dominar(p, MAPA(), L1, { aulas: 93, cartoes: 30, acertos: 14, total: 14, quando: '2026-12-01T10:00' });
+  const c = carimboDe(serieDominio({ catalogo: CATALOGO, progresso: p }), `dominio:${L1}`);
+  assert.equal(c.data, '2026-12-01');
+  assert.ok(c.frase.includes('30'), `a frase ficou no carimbo velho: "${c.frase}"`);
+});
+
+// ─────────────── 15. fim de linha e terminal ───────────────
+
+test('S17a-2 · o fim de linha enche quando TODAS as estações daquela linha são dominadas', () => {
+  const daLinha1 = GRADE.filter((c) => c.stage === 1).map((c) => c.id);
+  assert.ok(daLinha1.length > 1, 'a linha 1 tem uma estação só: o caso não prova «todas»');
+  let p = V();
+  for (const id of daLinha1.slice(0, -1)) p = dominar(p, MAPA(), id, { quando: '2026-11-10T10:00' });
+  let s = serieDominio({ catalogo: GRADE, progresso: p });
+  assert.equal(carimboDe(s, 'dominio:linha-1').data, null, 'a linha fechou sem a última estação');
+
+  p = dominar(p, MAPA(), daLinha1.at(-1), { quando: '2026-11-20T10:00' });
+  s = serieDominio({ catalogo: GRADE, progresso: p });
+  const fim = carimboDe(s, 'dominio:linha-1');
+  assert.equal(fim.data, '2026-11-20', 'o dia do fim de linha não é o da última dominada');
+  assert.equal(fim.frase, 'Você dominou todas as estações desta linha.');
+});
+
+test('S17a-2 · declaradas antes NÃO fecham a linha: só dominada conta', () => {
+  const daLinha1 = GRADE.filter((c) => c.stage === 1).map((c) => c.id);
+  let p = V();
+  for (const id of daLinha1) p = marcar(p, id, '2026-10-05');
+  const s = serieDominio({ catalogo: GRADE, progresso: p });
+  assert.equal(carimboDe(s, 'dominio:linha-1').data, null, 'a linha fechou por declaração, sem medida');
+  assert.equal(carimboDe(s, 'dominio:terminal').data, null, 'o terminal chegou por declaração');
+});
+
+test('S17a-2 · o terminal enche com a rede toda dominada, e só então', () => {
+  let p = V();
+  for (const c of GRADE) p = dominar(p, MAPA(), c.id, { quando: '2026-11-10T10:00' });
+  let s = serieDominio({ catalogo: GRADE, progresso: p });
+  assert.equal(carimboDe(s, 'dominio:terminal').data, '2026-11-10');
+  assert.equal(carimboDe(s, 'dominio:terminal').frase, 'Você dominou todas as estações da rede.');
+  for (const c of s.filter((x) => x.id.startsWith('dominio:linha-'))) {
+    assert.ok(c.data, `${c.id}: a linha não fechou com a rede toda dominada`);
+  }
+  assert.equal(s.filter((c) => c.frase === null).length, 0);
+
+  const antes = dominar(V(), MAPA(), L1, { quando: '2026-11-10T10:00' });
+  const soUma = serieDominio({ catalogo: GRADE, progresso: antes });
+  assert.equal(carimboDe(soUma, 'dominio:terminal').data, null, 'o terminal com uma estação só');
+});
+
+// ─────────────── 16. recordes: sem sequência, e null sem dado ───────────────
+
+test('S17a-2 · sem cartão no mundo, os dois recordes vêm null e sem frase', () => {
+  const r = recordes({});
+  assert.deepEqual(r.map((x) => x.id), ['semana', 'estabilidade']);
+  for (const recorde of r) {
+    assert.equal(recorde.valor, null, `${recorde.id}: recorde com número onde nada aconteceu`);
+    assert.equal(recorde.frase, null, `${recorde.id}: a frase de um recorde inexistente`);
+    assert.ok(recorde.nome && recorde.criterio, `${recorde.id}: o espaço vazio do recorde não se anuncia`);
+  }
+  assert.equal(recordes({ cartoes: MAPA() })[0].valor, null, 'cartões escritos sem revisão viraram recorde');
+});
+
+test('S17a-2 · o recorde da semana conta a PRIMEIRA tentativa do dia, e não as três', () => {
+  let mapa = escreverCartao(MAPA(), 'c1', { quando: '2026-11-02T09:00' });
+  mapa = escreverCartao(mapa, 'c2', { quando: '2026-11-02T09:00' });
+  // 02/11/2026 é segunda: a semana de calendário é 02–08.
+  mapa = responder(mapa, 'c1', 'lembrei', '2026-11-03T09:00');
+  mapa = responder(mapa, 'c1', 'lembrei', '2026-11-03T18:00'); // a segunda tentativa do mesmo dia
+  mapa = responder(mapa, 'c2', 'lembrei', '2026-11-04T09:00');
+  const r = recordes({ cartoes: mapa })[0];
+  assert.equal(r.valor, 2, `repetir o cartão no mesmo dia inflou o recorde (${r.valor})`);
+  assert.equal(r.frase, 'Você lembrou 2 cartões numa semana.');
+  assert.equal(r.data, '2026-11-02', 'a semana do recorde não começa na segunda');
+});
+
+test('S17a-2 · quem errou na primeira tentativa e acertou na segunda do dia não conta', () => {
+  let mapa = escreverCartao(MAPA(), 'c1', { quando: '2026-11-02T09:00' });
+  mapa = responder(mapa, 'c1', 'errei', '2026-11-03T09:00');
+  mapa = responder(mapa, 'c1', 'lembrei', '2026-11-03T18:00');
+  assert.equal(recordes({ cartoes: mapa })[0].valor, null, 'o recorde premiou reler até acertar');
+});
+
+test('S17a-2 · a estabilidade do recorde é arredondada, e sem dado é null', () => {
+  assert.equal(recordes({})[1].valor, null);
+  let mapa = escreverCartao(MAPA(), 'c1', { quando: '2026-11-01T09:00' });
+  mapa = responder(mapa, 'c1', 'lembrei', '2026-11-02T09:00');
+  const antes = recordes({ cartoes: mapa })[1];
+  assert.ok(Number.isInteger(antes.valor), `estabilidade não arredondada: ${antes.valor}`);
+  mapa.c1.fsrs.estabilidade = 37.4;
+  const r = recordes({ cartoes: mapa })[1];
+  assert.equal(r.valor, 37);
+  assert.equal(r.frase, 'Um cartão seu aguenta 37 dias.');
+});
+
+test('S17a-2 · as três séries não têm uma palavra de sequência, nem número de dias fora do recorde', () => {
+  const reSequencia = /\b(dias seguidos|sequência|streak|melhor sequência|Primeira|Primeiro|Depois de)\b/i;
+  let estudo = abrir(ESTUDO(), A1, '2026-11-02T09:00');
+  estudo = fechar(estudo, A1, '2026-11-02T10:00');
+  let mapa = escreverCartao(MAPA(), 'c1', { quando: '2026-11-02T10:30' });
+  mapa = responder(mapa, 'c1', 'lembrei', '2026-11-03T09:00');
+  const p = dominar(V(), mapa, L1, { aulas: 93, cartoes: 23, acertos: 12, total: 14, quando: '2026-11-10T10:00' });
+  const c = caderneta({ estudo, cartoes: mapa, progresso: p, catalogo: GRADE, indice: TRES() });
+
+  const frases = [
+    ...c.percurso.filter((x) => x.data).map((x) => x.frase),
+    ...c.dominio.filter((x) => x.frase).map((x) => x.frase),
+    ...c.recordes.filter((x) => x.frase).map((x) => x.frase),
+    c.proxima.texto,
+  ].filter(Boolean);
+  assert.ok(frases.length > 3, 'o caso não produziu frase nenhuma: não prova nada');
+  for (const frase of frases) {
+    assert.equal(reSequencia.test(frase), false, `palavra de sequência na frase: "${frase}"`);
+  }
+  // O número de dias mora no RECORDE («aguenta 37 dias») e nunca na série de carimbos:
+  // as duas séries do percurso e do domínio continuam sob a régua 9.
+  for (const x of [...c.percurso.filter((y) => y.data), ...c.dominio.filter((y) => y.data)]) {
+    if (x.serie === 'percurso') assert.equal(/\d/.test(x.frase), false, `número na frase do percurso: "${x.frase}"`);
+  }
+  assert.equal(proibido.includes('número de dias ou de tempo na frase de um carimbo'), true);
+  assert.equal(proibido.includes('palavra de sequência na frase de um carimbo'), true);
+});
+
+// ─────────────── 17. a próxima, com e sem «que você já dominou» ───────────────
+
+test('S17a-2 · a próxima com o pré-requisito dominado diz que ele foi dominado', () => {
+  // A grade REAL. `aplicarResultado` escreve só `dominadas`; quem avança a próxima é a
+  // conclusão (o desenho J4: dominar «e a próxima estação que ela abre» é a tela). Então o
+  // caminho de verdade é dominar E concluir — e a trava lê a próxima de um progresso inteiro.
+  const p = marcar(dominar(V(), MAPA(), L1, { quando: '2026-11-10T10:00' }), L1, '2026-11-10');
+  const c = proximaCoisa({ progresso: p, catalogo: CATALOGO });
+  // A «próxima» não é chutada aqui: é a MESMA conta de resumoDaViagem, e a trava abaixo é
+  // de concordância, não de qual estação a grade resolveu abrir primeiro.
+  assert.equal(c.estacao, resumoDaViagem(p, CATALOGO).proximaEstacao.id, 'a próxima divergiu da placa');
+  assert.equal(c.estacao, L2, 'dominar e concluir a primeira não abriu a segunda');
+  assert.deepEqual(c.pede, ['Circuitos Digitais'], `a cláusula do pré-requisito sumiu: "${c.texto}"`);
+  assert.equal(c.texto, 'Próxima estação: Arquitetura de Computadores. Ela pede Circuitos Digitais, que você já dominou.');
+  // Na grade REAL também: o nome vem do resumo, nunca de um título escrito aqui.
+  const r = resumoDaViagem(p, GRADE).proximaEstacao;
+  const real = proximaCoisa({ progresso: p, catalogo: GRADE });
+  assert.equal(real.estacao, r.id, 'na grade real a próxima divergiu da placa');
+  assert.ok(real.texto.startsWith(`Próxima estação: ${r.titulo}.`), real.texto);
+
+  // Toda estação nomeada como dominada É dominada no arquivo — a cláusula não inventa.
+  const dominadasDeVerdade = GRADE.filter((x) => p.dominadas[x.id]).map((x) => x.title);
+  for (const nome of real.pede) {
+    assert.ok(dominadasDeVerdade.includes(nome), `a frase chamou de dominada «${nome}», que não tem carimbo`);
+  }
+});
+
+test('S17a-2 · sem pré-requisito dominado, a cláusula não aparece — nem de mentira', () => {
+  const semNada = proximaCoisa({ progresso: V(), catalogo: CATALOGO });
+  assert.equal(semNada.pede.length, 0);
+  assert.equal(semNada.texto, 'Próxima estação: Circuitos Digitais.');
+
+  // Declarada antes NÃO é dominada: a cláusula «que você já dominou» não pode sair dela.
+  const p = marcar(V(), L1, '2026-10-05');
+  const c = proximaCoisa({ progresso: p, catalogo: CATALOGO });
+  assert.deepEqual(c.pede, [], 'a próxima chamou de dominada uma conclusão declarada');
+});
+
+test('S17a-2 · a próxima vem da MESMA conta da placa e do perfil', () => {
+  const p = marcar(V(), L1, '2026-11-01');
+  const c = proximaCoisa({ progresso: p, catalogo: GRADE });
+  assert.ok(c.estacao, 'a rede com uma estação concluída não tem próxima');
+  assert.equal(NOMES[c.estacao], GRADE.find((x) => x.id === c.estacao).title);
+  const vazia = proximaCoisa({ progresso: V(), catalogo: [] });
+  assert.equal(vazia.estacao, null, 'sem catálogo a próxima inventou estação');
+  assert.equal(vazia.texto, null);
+});
+
+// ─────────────── 18. a caderneta inteira, e a pureza das séries novas ───────────────
+
+test('S17a-2 · caderneta devolve as duas séries, os recordes e a próxima', () => {
+  const c = caderneta({ catalogo: GRADE, progresso: V() });
+  assert.deepEqual(Object.keys(c), ['percurso', 'dominio', 'recordes', 'proxima']);
+  assert.equal(c.percurso.length, 8);
+  assert.equal(c.dominio.length, 43);
+  assert.equal(c.recordes.length, 2);
+  assert.equal(c.proxima.serie, 'proxima');
+});
+
+test('S17a-2 · as séries novas não mutam nada e não dependem de `hoje`', () => {
+  let estudo = fechar(ESTUDO(), A1, '2026-11-01T10:00');
+  let mapa = escreverCartao(MAPA(), 'c1', { quando: '2026-11-01T10:30' });
+  mapa = responder(mapa, 'c1', 'lembrei', '2026-11-02T09:00');
+  const p = dominar(V(), mapa, L1, { quando: '2026-11-10T10:00' });
+  const dados = { estudo, cartoes: mapa, progresso: p, catalogo: GRADE, indice: TRES() };
+  const antes = JSON.stringify({ estudo, mapa, p });
+  const uma = caderneta(dados);
+  assert.equal(JSON.stringify({ estudo, mapa, p }), antes, 'a caderneta escreveu nos baldes de outra função');
+  assert.deepEqual(caderneta({ ...dados, hoje: '2027-06-01' }), uma, 'o tempo rebaixa ou muda um carimbo');
+});
+
+// ─────────────── 19. A PROVA — o carimbo de domínio na concluída antes ───────────────
+// Em core/caderneta.js, faça o ramo `else if (estagio === 'concluida-antes')` entregar
+// `data: marcaEm` e `frase: C.dominio.fraseEstacao` (ou caia no ramo das vazias com
+// `frase: 'Ainda não dominada.'` trocado por uma frase de mérito) → a trava de cima cai,
+// na asserção `data === null` / `frase === null`. É o defeito exato: a conclusão
+// declarada voltar a ganhar carimbo medido pela porta da série nova, e o bilhete que o
+// princípio 4 aposentou reentrar no Perfil.
+
+test('PROVA S17a-2 · a concluída antes não recebe carimbo de domínio', () => {
+  const p = marcar(V(), L1, '2026-10-05');
+  const s = serieDominio({ catalogo: CATALOGO, progresso: p });
+  const c = carimboDe(s, `dominio:${L1}`);
+  const estagio = p.completed.includes(L1) && !p.dominadas[L1];
+  assert.ok(estagio, 'o caso não montou uma declaração sem medida');
+  assert.equal(c.data, null, 'a declaração virou domínio na série nova');
+  assert.equal(c.frase, null, 'a declaração ganhou frase de mérito');
+  assert.equal(c.marca, 'Concluída antes');
+  assert.equal(c.marcaEm, '2026-10-05', 'a data antiga se perdeu junto com a marca');
+  assert.notEqual(c.marcaEm, c.data, 'marcaEm e data no mesmo campo é a declaração medida');
 });

@@ -827,7 +827,22 @@
 // A frase da baldeação perdeu a palavra «primeira»: a trava 10 da série a pegou.
 // Sem subir a VERSAO, quem tem v88 no cache recebe um core/textos.js novo sem a
 // caderneta ao lado: a tela que amanhã importar o módulo abre em branco no onibus.
-const VERSAO = 'atlas-v89';
+// atlas-v90: S17a-2 (06/11/2026) — O RESTO DO NÚCLEO da caderneta, ainda sem tela.
+// Ao lado da série do percurso entram as outras três peças do desenho (§A gamificação):
+// `caderneta()` devolve {percurso, dominio, recordes, proxima}. O domínio tem uma
+// carimbo por estação da grade — o total é CONTADO dela, não escrito à mão — mais um fim
+// de linha por linha e o terminal, 43 com a grade atual. A frase da estação dominada é
+// `fraseDaDominada` (core/desafio.js), a que repete os números medidos no desafio;
+// `data/competencias.json` fica FORA do carimbo, porque descreve a ementa e não o que a
+// pessoa fez nela. A «concluída antes» fica VAZIA no domínio, com a marca e a data antiga
+// em campo separado: dar-lhe o carimbo de domínio é o bilhete declarado reentrando pela
+// porta da série nova. Os recordes são dois e nenhum de sequência (princípios 4 e 5):
+// mais cartões lembrados numa semana de calendário, contando só a primeira tentativa do
+// dia, e a maior estabilidade de um cartão. A próxima vem de `resumoDaViagem` — a MESMA
+// conta da placa — e «que você já dominou» só sai de pré-requisito com carimbo em
+// `dominadas`, nunca de declaração. Mudam de bytes core/caderneta.js (já no precache
+// desde v89), core/textos.js (as frases das três séries) e este sw.js.
+const VERSAO = 'atlas-v90';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
@@ -892,7 +907,7 @@ const VERSAO = 'atlas-v89';
 // web/telas/jornada.css (o desfazer da colisão de classe no `.topo`). O arquivo
 // novo (tests/jornada-medida.test.js) e as duas travas tocadas não estão no
 // precache: nada de fora de app/web e app/core vai para o cache de quem usa.
-const PRECACHE_HASH = 'sha256-a66a933202ce0cca8c21bc4f19a47bf54200822c72b54d25f56bf28158e680e8';
+const PRECACHE_HASH = 'sha256-908a6e25166030e154dc7ba428b6a3abcacb97e63f5863532841f88514c3d4fb';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.

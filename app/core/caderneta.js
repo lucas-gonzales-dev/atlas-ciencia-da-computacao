@@ -42,8 +42,9 @@
 // muta a entrada: quem recebe o carimbo recebe texto, e a tela pinta sem gravar.
 
 import { diasEntre } from './cartoes.js';
-import { baldeacoes } from './viagem.js';
+import { baldeacoes, resumoDaViagem } from './viagem.js';
 import { eixosDaEstacao } from './eixos.js';
+import { fraseDaDominada } from './desafio.js';
 import { caderneta as C } from './textos.js';
 
 /** O dia do carimbo é `aaaa-mm-dd`; um instante vira o dia dele, e o resto não é dia. */
@@ -391,4 +392,286 @@ export function seriePercurso(dados) {
     data: datas[id],
     frase: datas[id] ? C[id].frase : C.vazio,
   }));
+}
+
+// ───────────────────────────── S17a-2: domínio, recordes, próxima ─────────────────────────────
+
+/** O título de uma estação do catálogo; sem catálogo, o id. */
+const tituloDe = (curso) => texto(curso?.title) || texto(curso?.id);
+
+/** O número da linha no catálogo (`stage`); linha sem número é `null`, não zero. */
+const linhaDe = (curso) => (Number.isFinite(Number(curso?.stage)) ? Number(curso.stage) : null);
+
+/** O registro de dominada de uma estação, ou `null`. `eixos.js` usa a mesma existência como estágio. */
+const dominadaDe = (progresso, id) => {
+  const d = progresso?.dominadas?.[id];
+  return d && typeof d === 'object' ? d : null;
+};
+
+/**
+ * A SERIE DO DOMÍNIO: uma por estação do catálogo, um fim de linha por linha, um terminal.
+ *
+ * O TOTAL NÃO É UM NÚMERO ESCRITO AQUI. Com o catálogo da UBL são 35 + 7 + 1 = 43, e a
+ * trava confere 43 lendo o catálogo REAL (`data/catalog.json`) — um `43` fixo no código
+ * mentiria no dia em que a grade ganhasse uma disciplina, e é exatamente o que a casa
+ * proíbe (`número de largura à mão`, `duração escrita à mão`: a régua vive nos dados).
+ *
+ * A FRASE DE CADA ESTAÇÃO É `fraseDaDominada` (core/desafio.js), a que repete os números
+ * medidos no desafio — «Percorreu as 93 aulas, escreveu 23 cartões e, dois dias ou mais
+ * depois, lembrou 12 de 14 deles». Ela é a substituta da «frase de competência» do
+ * desenho: `data/competencias.json` descreve a ementa da disciplina («Você converte entre
+ * bases...»), um saber-fazer que NINGUÉM mediu nesta pessoa. O carimbo não pode afirmar o
+ * que só o catálogo afirma.
+ *
+ * A «CONCLUÍDA ANTES» FICA VAZIA, COM A MARCA E A DATA ANTIGA. Ela chegou pelo selo da
+ * declaração («Já sei isso», ou a migração do Atlas antigo) sem aula estudada atrás —
+ * `eixosDaEstacao` a põe nesse estágio antes de qualquer medida. Dar-lhe o carimbo de
+ * domínio seria o bilhete velho reentrando pela porta dos fundos: a frase diria «lembrou
+ * X de Y» de um sorteio que nunca aconteceu. Então: `data: null`, `frase: null`, e
+ * `marca: 'Concluída antes'` com `marcaEm` = o dia antigo de `conclusoes`. A data antiga
+ * viaja num campo SEPARADO porque `data` tem um sentido nesta série — o dia em que o
+ * critério foi cumprido — e uma declaração não cumpre critério nenhum. Misturar as duas
+ * no mesmo campo faria a tela tratar como medido o que é declarado.
+ */
+export function serieDominio({ estudo, cartoes, progresso, catalogo, indice } = {}) {
+  const lista = Array.isArray(catalogo) ? catalogo : [];
+  const carimbos = [];
+
+  for (const curso of lista) {
+    const id = texto(curso?.id);
+    if (!id) continue;
+    const dominada = dominadaDe(progresso, id);
+    const estagio = eixosDaEstacao(id, { estudo, cartoes, indice, progresso }).estagio;
+    const linha = linhaDe(curso);
+
+    if (dominada) {
+      carimbos.push({
+        id: `dominio:${id}`,
+        serie: 'dominio',
+        nome: tituloDe(curso),
+        criterio: C.dominio.criterioEstacao,
+        data: diaDe(dominada.em) || null,
+        frase: fraseDaDominada(dominada),
+        linha,
+      });
+    } else if (estagio === 'concluida-antes') {
+      carimbos.push({
+        id: `dominio:${id}`,
+        serie: 'dominio',
+        nome: tituloDe(curso),
+        criterio: C.dominio.criterioEstacao,
+        data: null,
+        frase: null,
+        linha,
+        marca: C.dominio.concluidaAntes,
+        marcaEm: diaDe(progresso?.conclusoes?.[id]) || null,
+      });
+    } else {
+      carimbos.push({
+        id: `dominio:${id}`,
+        serie: 'dominio',
+        nome: tituloDe(curso),
+        criterio: C.dominio.criterioEstacao,
+        data: null,
+        frase: C.dominio.vazio,
+        linha,
+      });
+    }
+  }
+
+  // As linhas, na ordem do número. Uma linha sem estação não vira carimbo: não há o que
+  // dominar, e um «Fim de linha 9» vazio sobre uma linha inexistente é ruído.
+  const porLinha = new Map();
+  for (const curso of lista) {
+    const id = texto(curso?.id);
+    const n = linhaDe(curso);
+    if (!id || n === null) continue;
+    if (!porLinha.has(n)) porLinha.set(n, []);
+    porLinha.get(n).push(id);
+  }
+
+  for (const n of [...porLinha.keys()].sort((a, b) => a - b)) {
+    const estacoes = porLinha.get(n);
+    const dias = estacoes.map((id) => diaDe(dominadaDe(progresso, id)?.em)).filter(Boolean);
+    const fechada = dias.length === estacoes.length;
+    // O dia do carimbo é o do ÚLTIMO dominated da linha: a linha se fecha nesse dia, e é
+    // o primeiro fato que cumpre o critério «todas dominadas».
+    carimbos.push({
+      id: `dominio:linha-${n}`,
+      serie: 'dominio',
+      nome: C.dominio.nomeLinha(n),
+      criterio: C.dominio.criterioLinha,
+      data: fechada ? maisRecente(dias) : null,
+      frase: fechada ? C.dominio.fraseLinha : C.dominio.vazioLinha,
+      linha: n,
+    });
+  }
+
+  const dominadasTudo = lista
+    .map((c) => diaDe(dominadaDe(progresso, texto(c?.id))?.em))
+    .filter(Boolean);
+  const terminal = lista.length > 0 && dominadasTudo.length === lista.length;
+  carimbos.push({
+    id: 'dominio:terminal',
+    serie: 'dominio',
+    nome: C.dominio.terminal.nome,
+    criterio: C.dominio.terminal.criterio,
+    data: terminal ? maisRecente(dominadasTudo) : null,
+    frase: terminal ? C.dominio.fraseTerminal : C.dominio.terminal.vazio,
+    linha: null,
+  });
+
+  return carimbos;
+}
+
+/**
+ * `aaaa-mm-dd` → a SEGUNDA-FEIRA da semana de calendário daquela data.
+ *
+ * A semana é de calendário (segunda a domingo), não «os últimos 7 dias»: «mais cartões
+ * lembrados numa semana» precisa de uma borda que a pessoa reconheça na parede, e uma
+ * janela móvel muda de resposta cada vez que ela abre o app. O cálculo é o truque da casa
+ * (regra 13): `Date.UTC` sobre as PARTES da data e `getUTCDay`, sem fuso no meio e sem
+ * `Date.parse`. O precedente é core/revisao.js, `somarDias`.
+ */
+function segundaDaSemana(dia) {
+  const [ano, mes, diaMes] = dia.split('-').map(Number);
+  const dow = new Date(Date.UTC(ano, mes - 1, diaMes)).getUTCDay(); // 0 = domingo
+  const deslocamento = (dow + 6) % 7; // segunda = 0, domingo = 6
+  const [a, m, d] = [ano, mes - 1, diaMes - deslocamento];
+  const dt = new Date(Date.UTC(a, m, d));
+  return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}-${String(dt.getUTCDate()).padStart(2, '0')}`;
+}
+
+/**
+ * RECORDES PESSOAIS, SEM SEQUÊNCIA.
+ *
+ * Dois recordes, e nenhum deles conta dias seguidos: o desenho (princípio 4 e 5) não quer
+ * aversão à perda, e um recorde de sequência zera para quem fica doente uma semana — o
+ * oposto de «nada zera, nada culpa». Os dois abaixo medem feito e não caem a nada: são
+ * «melhor até hoje» para sempre.
+ *
+ * · `semana` — a semana de calendário com mais cartões lembrados na PRIMEIRA tentativa do
+ *   dia. Só a primeira: responder o mesmo cartão três vezes num dia não são três
+ *   lembranças, e contar as três premiaría reler em vez de lembrar (é a mesma régua de
+ *   `aulasLembradas` em core/eixos.js — o eixo da cor).
+ * · `estabilidade` — o maior intervalo que um cartão seu aguenta, em dias, arredondado.
+ *
+ * ARBITRADO, e dito sem rodeio: `estabilidade` lê o ESTADO GRAVADO (`fsrs.estabilidade`),
+ * como o carimbo «consolidado» — não um máximo histórico. Um cartão que consolidou e caiu
+ * baixa o recorde, porque não há no arquivo um rastro da estabilidade de cada dia e
+ * inventar um seria criar uma segunda verdade sobre o mesmo cartão.
+ *
+ * Sem dado, o recorde vem `valor: null` e `frase: null`: não há frase sobre um feito que
+ * não aconteceu, e um «0» no lugar do vazio seria o número de um recorde que ninguém bateu.
+ */
+export function recordes({ cartoes } = {}) {
+  const porSemana = new Map();
+  let maiorEstabilidade = null;
+
+  for (const c of cartoesDe(cartoes)) {
+    const S = Number(c.fsrs?.estabilidade);
+    if (Number.isFinite(S) && S > 0) {
+      const arred = Math.round(S);
+      if (maiorEstabilidade === null || arred > maiorEstabilidade) maiorEstabilidade = arred;
+    }
+    const doDia = new Map(); // dia → a primeira tentativa daquele dia
+    for (const h of historicoDe(c)) {
+      const dia = diaDe(h?.em);
+      if (!dia || doDia.has(dia)) continue;
+      doDia.set(dia, h?.nota);
+    }
+    for (const [dia, nota] of doDia) {
+      if (nota !== 'lembrei') continue;
+      const semana = segundaDaSemana(dia);
+      porSemana.set(semana, (porSemana.get(semana) || 0) + 1);
+    }
+  }
+
+  const melhorSemana = [...porSemana.entries()].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))[0] || null;
+
+  const monta = (recorde, valor, data) => ({
+    id: recorde.id,
+    serie: 'recorde',
+    nome: recorde.nome,
+    criterio: recorde.criterio,
+    valor: valor === null || valor === undefined ? null : valor,
+    data,
+    frase: valor === null || valor === undefined ? null : recorde.frase.replace('{valor}', String(valor)),
+  });
+
+  return [
+    monta(C.recordes[0], melhorSemana ? melhorSemana[1] : null, melhorSemana ? melhorSemana[0] : null),
+    monta(C.recordes[1], maiorEstabilidade, null),
+  ];
+}
+
+/**
+ * A PRÓXIMA COISA, logo depois dos carimbos (desenho, seção «A gamificação»).
+ *
+ * A estação vem de `resumoDaViagem().proximaEstacao` (core/viagem.js) — a MESMA conta da
+ * placa e do Perfil. Uma segunda definição de «próxima» divergiría da primeira na cara da
+ * pessoa, e o carimbo mandando para um lugar diferente do botão da tela é o tipo de
+ * contradição que o desenho lista como defeito, não como detalhe.
+ *
+ * A CLÁUSULA DO PRÉ-REQUISITO SÓ SAI QUANDO É VERDADE: «que você já dominou» aparece por
+ * pré-requisito que existe no catálogo E tem registro em `progresso.dominadas`. Um
+ * pré-requisito que a pessoa declarou concluído («concluída antes») não é dominado — não
+ * houve medida — e dizê-lo seria o carimbo fabricando a medição. Sem pré-requisito
+ * dominado, a frase fica só «Próxima estação: X.», que é o formato do desenho sem a
+ * segunda cláusula.
+ */
+export function proximaCoisa({ progresso, catalogo } = {}) {
+  const lista = Array.isArray(catalogo) ? catalogo : [];
+  const resumo = resumoDaViagem(progresso, lista);
+  const proxima = resumo?.proximaEstacao;
+  if (!proxima?.id) {
+    return {
+      id: 'proxima',
+      serie: 'proxima',
+      nome: 'Próxima estação',
+      estacao: null,
+      linha: null,
+      pede: [],
+      texto: null,
+    };
+  }
+  const curso = lista.find((c) => texto(c?.id) === proxima.id) || {};
+  const byId = new Map(lista.filter((c) => texto(c?.id)).map((c) => [texto(c.id), c]));
+  const bruto = Array.isArray(curso.prerequisites) ? curso.prerequisites : [];
+  const pede = [...new Set(bruto.map(texto).filter(Boolean))]
+    .filter((p) => byId.has(p))
+    .filter((p) => !!dominadaDe(progresso, p))
+    .map((p) => tituloDe(byId.get(p)));
+
+  return {
+    id: 'proxima',
+    serie: 'proxima',
+    nome: 'Próxima estação',
+    estacao: proxima.id,
+    linha: Number.isFinite(Number(proxima.linha)) ? Number(proxima.linha) : null,
+    pede,
+    texto: C.proxima({ nome: proxima.titulo || tituloDe(curso), pede }),
+  };
+}
+
+/**
+ * A CADERNETA INTEIRA — as duas séries, os recordes e a próxima (S17a-2).
+ *
+ * Um ponto de entrada só para a tela do Perfil: `percurso` (8), `dominio` (uma por
+ * estação + uma por linha + terminal), `recordes` (2) e `proxima` (1). Nada aqui conhece
+ * DOM: a série devolve texto e dia, e quem pinta decide como mostrar o vazio.
+ *
+ * `hoje` continua sem uso, pelo mesmo motivo da série do percurso: cada carimbo é um fato
+ * que aconteceu, e o tempo não rebaixa (princípio 5).
+ *
+ * @returns {{percurso: object[], dominio: object[], recordes: object[], proxima: object}}
+ */
+export function caderneta({ estudo, cartoes, progresso, catalogo, indice, hoje } = {}) {
+  const dados = { estudo, cartoes, progresso, catalogo, indice, hoje };
+  return {
+    percurso: seriePercurso(dados),
+    dominio: serieDominio(dados),
+    recordes: recordes(dados),
+    proxima: proximaCoisa(dados),
+  };
 }
