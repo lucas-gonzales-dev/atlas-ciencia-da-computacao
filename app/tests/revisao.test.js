@@ -211,10 +211,12 @@ test('progress-io: revisoes ilegiveis descartam as revisoes e mantem o progresso
 });
 
 test('progress-io: o envelope que traz revisoes declara a versao que o le', () => {
-  // Nada de versão nova: `revisoes` é campo OPCIONAL, e o Atlas de ontem lê o
-  // arquivo de hoje sem ele. Subir a versão diria que v2 é ilegível, e é o
-  // contrário — v2 importa limpo (caso acima).
-  assert.equal(VERSAO_FORMATO, 2);
+  // As revisões em si NÃO subiram a versão: são campo OPCIONAL, e o Atlas de
+  // ontem lê o arquivo de hoje sem elas (v2 importa limpo — caso acima).
+  // S20b-1b é que subiu para 3, e por um motivo diferente: o backup passou a
+  // levar estudo, cartões, rascunhos e dominadas. `VERSAO_MINIMA` continua 1 —
+  // recusar o arquivo de quem exportou em 2025 seria punir o aluno pelo app dele.
+  assert.equal(VERSAO_FORMATO, 3);
   assert.equal(VERSAO_MINIMA, 1);
 });
 

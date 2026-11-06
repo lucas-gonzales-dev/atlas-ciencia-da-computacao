@@ -232,10 +232,15 @@
   padding: var(--espaco-2) var(--espaco-3);
 }
 
+/* S20b-1b: o que a régua mede embaixo de "Importar uma viagem" é o INPUT, não o
+   label — a linha acima (perfil.css:231) já dá alvo ao `.perfil-dados-rotulo`, e
+   o `<input type=file>` nativo mede ~21 px. O alvo entra aqui, e a letra continua
+   a mesma: quem aperta é o input, e é ele que tem de ter 24 px. */
 .perfil-dados-input {
   font-size: var(--tipo-nota);
   color: var(--tinta);
   max-width: 100%;
+  min-height: var(--alvo-toque);
 }
 
 .perfil-dados-recado {

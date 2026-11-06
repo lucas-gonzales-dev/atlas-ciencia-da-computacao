@@ -495,6 +495,31 @@ test('S20b-1a · os três alvos medidos em 375 px têm o piso declarado', async 
   }
 });
 
+/**
+ * S20b-1b (item 1) — o que a régua mediu embaixo de "Importar uma viagem".
+ *
+ * O Claude mediu no Chrome em 375 e 768 px: menos de 24 px. A primeira leitura
+ * da casa apontava o label, e a folha já dava o piso a ele (perfil.css:231, na
+ * lista com `.primario`/`.secundario`): o que mede a linha de letra é o
+ * `<input type=file>` — o widget nativo, que não é `<a>` nem `<button>` e por
+ * isso NÃO passou pela varredura de cima, que só enxerga o que `el(doc, ..., 'a'
+ * |'button')` emite. Alvo que nasce de createElement direto é o buraco do modelo.
+ *
+ * Cobro o input por nome de classe, e a letra dele intacta: o pedido foi caixa,
+ * não tipografia. LIMITE HONESTO: node não tem navegador — aqui se prova a
+ * declaração; os 24 px reais fecham no testar_pagina.
+ */
+test('S20b-1b · o input de importar tem o piso de toque declarado', async () => {
+  const perfil = escanear(await ler('web/telas/perfil.css'));
+  const input = perfil.find((r) => /(^|[,\s>])\.perfil-dados-input(?![\w-])/.test(r.seletor));
+  assert.ok(input, '.perfil-dados-input não tem regra na folha: é o input type=file do Perfil (perfil.css:235)');
+  assert.match(input.corpo, /min-height:\s*var\(--alvo-toque\)/,
+    'o input de importar voltou a ter a altura da própria letra — é ele que se aperta, não o rótulo da linha 231');
+  assert.doesNotMatch(input.corpo, /font-size:\s*\d/, 'tamanho de letra à mão na regra do alvo');
+  assert.match(input.corpo, /font-size:\s*var\(--tipo-nota\)/, 'a letra do input mudou com um pedido de caixa');
+  assert.equal(/background:/.test(input.corpo), false, 'o input ganhou fundo: hierarquia trocada por um pedido de alvo');
+});
+
 test('réguas 6 · trocar de aba leva ao topo de QUEM ESTÁ ROLANDO', async () => {
   const js = await ler('web/casco.js');
   assert.match(js, /win\.scrollTo\?\.\(0, 0\)/, 'o casco perdeu o rolamento ao topo da janela');

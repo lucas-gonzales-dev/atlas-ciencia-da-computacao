@@ -105,7 +105,14 @@ export function exportarViagem(estado = {}, opts = {}) {
   const texto = serializeExport(courses, completed, agora, anotacoes, {
     electives: estado.electives,
     specializations: estado.specializations,
-    revisoes
+    revisoes,
+    // S20b-1b: o centro do produto no arquivo. Quem lê o storage é a tela — o
+    // núcleo continua sem tocar em `window` — e ela coloca os textos crus em
+    // `estado`. `progress-io` decide a forma canônica e se o campo entra.
+    estudo: estado.estudo,
+    cartoes: estado.cartoes,
+    rascunhos: estado.rascunhos,
+    dominadas: estado.dominadas
   });
   const nome = nomeDoArquivo(agora);
 
@@ -160,6 +167,18 @@ export function importarViagem(texto, estado = {}) {
     trazAnotacoes: Boolean(r.trazAnotacoes),
     revisoes: r.revisoes !== null && r.revisoes !== undefined ? { ...r.revisoes } : { ...revisoesAnteriores },
     trazRevisoes: Boolean(r.trazRevisoes),
+    // S20b-1b: os baldes passam atravessados, com o MESMO contrato das revisões —
+    // `null` e `traz… false` significam «o arquivo não falou», e é a tela quem
+    // decide não gravar nada em cima. Copiar o texto já canonicizado é o que faz
+    // o round-trip ser byte a byte: este módulo não remixata study nem cartões.
+    estudo: typeof r.estudo === 'string' ? r.estudo : null,
+    trazEstudo: Boolean(r.trazEstudo),
+    cartoes: typeof r.cartoes === 'string' ? r.cartoes : null,
+    trazCartoes: Boolean(r.trazCartoes),
+    rascunhos: r.rascunhos && typeof r.rascunhos === 'object' ? { ...r.rascunhos } : null,
+    trazRascunhos: Boolean(r.trazRascunhos),
+    dominadas: r.dominadas && typeof r.dominadas === 'object' ? { ...r.dominadas } : null,
+    trazDominadas: Boolean(r.trazDominadas),
     versao: r.versao,
     mensagem: `${r.mensagem} ${T.dados.importadoGuarda}`
   };

@@ -25,7 +25,11 @@ import { dataDeCalendario, perfil as T } from '../../core/textos.js';
 import { hrefDe } from '../../core/rotas.js';
 import { dataLocal, resumoDaViagem } from '../../core/viagem.js';
 import { STORAGE_KEY, parseRevisoes, serializeRevisoes } from '../../core/revisao.js';
-import { carregarViagem } from '../metro.js';
+import { carregarViagem, salvarViagem } from '../metro.js';
+// S20b-1b: as chaves dos baldes que o arquivo da versão 3 leva. A tela é quem
+// conhece o storage (o núcleo continua puro); ela só precisa saber ONDE mora.
+import { ESTUDO_KEY, RASCUNHO_PREFIXO } from '../../core/estudo.js';
+import { CARTOES_KEY } from '../../core/cartoes.js';
 
 const CLASSE = 'perfil';
 
@@ -147,6 +151,48 @@ function sobre(doc) {
 }
 
 /**
+ * Os baldes que a versão 3 do arquivo leva: estudo, cartões, rascunhos e o
+ * carimbo das dominadas.
+ *
+ * POR QUE A TELA LÊ O STORAGE E O NÚCLEO NÃO: o núcleo é puro e nunca toca em
+ * `window` (regra da casa, e é o que o deixa testar em node sem navegador). Quem
+ * sabe onde mora cada chave é esta folha. Ela entrega o texto CRU por `extras` e
+ * é `core/progress-io.js` quem canoniciza e decide se o campo entra no arquivo.
+ *
+ * A enumeração dos rascunhos usa `key(i)`, o método do `Storage` de verdade: os
+ * storage falsos dos testes ganham `key`/`length` junto (tests/hdom.js), e o
+ * `try/catch` é para o aparelho que não deixa nem enumerar — modo privado. Nesse
+ * caso o arquivo sai sem rascunho nenhum e a pessoa perde só o que não digitou.
+ *
+ * `dominadas` não passa por aqui: já vem de `carregarViagem` dentro de
+ * `lerEstado`, e é o mesmo objeto que a caderneta pinta.
+ */
+function baldesDaPessoa(storage) {
+  const pega = (chave) => {
+    try { return storage ? storage.getItem(chave) : null; } catch { return null; }
+  };
+  const rascunhos = {};
+  try {
+    const total = typeof storage?.length === 'number' ? storage.length : 0;
+    for (let i = 0; i < total; i += 1) {
+      const chave = typeof storage?.key === 'function' ? storage.key(i) : null;
+      // A chave do storage vai INTEIRA no arquivo, não o id do vídeo: é o que faz
+      // a tela importar ser um `setItem(chave, texto)` sem remontar nada, e é o
+      // que mantém «exportar → importar → exportar» byte a byte. O prefixo é lido
+      // do núcleo (core/estudo.js:779), não copiado aqui.
+      if (typeof chave !== 'string' || !chave.startsWith(RASCUNHO_PREFIXO)) continue;
+      const texto = pega(chave);
+      if (texto) rascunhos[chave] = texto;
+    }
+  } catch { /* sem enumeração possível: o arquivo sai sem rascunho */ }
+  return {
+    estudo: pega(ESTUDO_KEY),
+    cartoes: pega(CARTOES_KEY),
+    rascunhos
+  };
+}
+
+/**
  * Monta o Perfil na raiz que o casco escolheu.
  *
  * @param {Element} raiz contêiner da tela
@@ -193,6 +239,12 @@ export async function montar(raiz, ctx) {
       dominadas: detalhe.dominadas,
       anotacoes: notas || {},
       revisoes,
+      // S20b-1b: os baldes entram no estado exatamente para serem exportados —
+      // `exportarViagem` (core/dados-pessoa.js) lê `estado.estudo`,
+      // `estado.cartoes`, `estado.rascunhos` e `estado.dominadas` e os entrega a
+      // `core/progress-io.js`, que é quem decide a forma. Ler aqui e não passar
+      // adiante seria o mesmo buraco do v2 com uma folha nova por cima.
+      ...baldesDaPessoa(storage),
     };
   }
 
@@ -299,7 +351,51 @@ export async function montar(raiz, ctx) {
             guardouFila = false;
           }
         }
-        avisar(alvo, `${deVolta.mensagem}${gravou && guardouFila ? '' : ` ${T.dados.semStorage}`}`);
+        // S20b-1b: os baldes voltam ao storage. A regra é uma só e é a da viagem:
+        // o arquivo que NÃO FALOU de um balde não apaga o balde do aparelho —
+        // `traz*` é o sinal, e um `setItem` unconditional com o `null` do v2
+        // apagaria os cartões de quem importa um backup de ontem.
+        // `setItem` com texto vazio não existe: o núcleo devolve `null`, não `{}`,
+        // justamente para este `if` ser possível.
+        const devolveBalde = (chave, texto, falou) => {
+          if (!storage || !falou || typeof texto !== 'string') return true;
+          try {
+            storage.setItem(chave, texto);
+            return true;
+          } catch {
+            return false;
+          }
+        };
+        let guardouBaldes = true;
+        guardouBaldes = devolveBalde(ESTUDO_KEY, deVolta.estudo, deVolta.trazEstudo) && guardouBaldes;
+        guardouBaldes = devolveBalde(CARTOES_KEY, deVolta.cartoes, deVolta.trazCartoes) && guardouBaldes;
+        if (storage && deVolta.trazRascunhos && deVolta.rascunhos) {
+          for (const [chave, texto] of Object.entries(deVolta.rascunhos)) {
+            if (!devolveBalde(chave, texto, true)) { guardouBaldes = false; break; }
+          }
+        }
+        // As dominadas voltam pela chave da viagem, que é onde moram
+        // (web/metro.js: `atlas.viagem.detalhe.v1`). O arquivo que não falou delas
+        // deixa `salvarViagem` com as do aparelho: importar backup velho não
+        // rebaixa ninguém, que é a regra do desenho J4.
+        if (storage && deVolta.trazDominadas) {
+          try {
+            salvarViagem(storage, {
+              completed: deVolta.completed,
+              emCurso: estado.emCurso,
+              conclusoes: estado.conclusoes,
+              dominadas: deVolta.dominadas
+            });
+          } catch { /* sem storage: o estado da tela ainda pinta o arquivo */ }
+        }
+        estado = {
+          ...estado,
+          estudo: deVolta.trazEstudo ? deVolta.estudo : estado.estudo,
+          cartoes: deVolta.trazCartoes ? deVolta.cartoes : estado.cartoes,
+          rascunhos: deVolta.trazRascunhos ? deVolta.rascunhos : estado.rascunhos,
+          dominadas: deVolta.trazDominadas ? deVolta.dominadas : estado.dominadas
+        };
+        avisar(alvo, `${deVolta.mensagem}${gravou && guardouFila && guardouBaldes ? '' : ` ${T.dados.semStorage}`}`);
         if (catalogo && montado) desenhar(catalogo);
       })();
     });

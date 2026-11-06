@@ -22,12 +22,25 @@
 // e adivinhar formato de arquivo de usuario e como se perde progresso. Esse dia
 // chegou: a versao 2 acrescenta `notas` (anotacoes por disciplina).
 //
+// Versao 3 (05/11/2026, S20b-1b): o ARQUIVO DEIXOU DE SER SÓ A VIAGEM. O Atlas
+// mudou de unidade — a aula e o cartão, não a estação — e o backup não tinha
+// mudado junto: quem trocasse de aparelho levava os 35 carimbos e PERDIA cada
+// aula aberta, cada aula estudada, cada cartão escrito e cada rascunho pela
+// metade. Um backup que não leva o centro do produto não é backup do produto.
+// Entram `estudo` (atlas.estudo.v1), `cartoes` (atlas.cartoes.v1), `rascunhos`
+// (as chaves atlas.rascunho.*) e `dominadas` (o carimbo do desafio, que a
+// versao 2 tambem nao levava).
+//
 // A REGRA DA VERSAO, e por que ela e a parte mais importante deste arquivo:
 // subir a versao e facil; o que nao pode acontecer e o aluno que ainda esta no
 // Atlas de ontem abrir o arquivo de hoje e perder tudo. Por isso:
-//   - quem EXPORTA escreve a versao atual (2), sempre;
-//   - quem IMPORTA aceita 1 E 2, e um arquivo sem `notas` (versao 1) importa
-//     limpo, com recado de que as anotacoes daquele aparelho ficam intactas;
+//   - quem EXPORTA escreve a versao atual (3), sempre;
+//   - quem IMPORTA aceita 1, 2 E 3, e um arquivo sem `notas` (versao 1) ou sem
+//     `estudo`/`cartoes`/`rascunhos` (versoes 1 e 2) importa limpo, com recado de
+//     que aquilo que o aparelho tem e o arquivo nao menciona fica INTACTO;
+//   - "o arquivo nao falou" e sempre `null` na saida, nunca `{}` vazio: `{}` leria
+//     como "nao ha nenhum" e apagaria a fila de quem reimporta um backup velho
+//     (o bug que a S8 deixou no caminho, com as revisoes);
 //   - versao ACIMA da que este Atlas entende e recusada dizendo ate onde ele
 //     vai — nunca lida como se fosse igual, porque "igual" ali e chute.
 
@@ -35,7 +48,7 @@
 export const FORMATO = 'atlas.progresso';
 
 /** Versao do formato. Bump obrigatoria se o envelope mudar de forma. */
-export const VERSAO_FORMATO = 2;
+export const VERSAO_FORMATO = 3;
 
 /** Versao mais antiga que este Atlas ainda sabe ler. Abaixo disso, recusa. */
 export const VERSAO_MINIMA = 1;
@@ -49,6 +62,20 @@ export const VERSAO_MINIMA = 1;
 // filtra o que chegou do arquivo.
 import { parseNotas, filtrarNotas } from './notes.js';
 import { sanitizar } from './revisao.js';
+// Os três baldes novos da versão 3 têm DONO no próprio módulo, e este arquivo não
+// reimplementa a malha deles: `lerEstudo`/`lerCartoes`/`lerRascunho` são o mesmo
+// leitor que a tela usa para abrir o storage, então um arquivo que eles aceitam é
+// exatamente um arquivo que o app sabe ler de volta. É também o que faz a trava de
+// "byte a byte" significar alguma coisa: serializar pelo módulo dono, não por um
+// JSON.stringify local que um dia diverge do formato real.
+import {
+  ESTUDO_KEY, RASCUNHO_PREFIXO, chaveRascunho,
+  lerEstudo, serializarEstudo, lerRascunho, serializarRascunho
+} from './estudo.js';
+import { CARTOES_KEY, lerCartoes, serializarCartoes } from './cartoes.js';
+// `dominadas` é remontado por viagem.js (mesma malha do storage); reimplementá-la
+// aqui seria a segunda regra do carimbo do desafio.
+import { lerProgresso } from './viagem.js';
 
 /**
  * Ids validos do catalogo, na ORDEM do catalogo.
@@ -126,12 +153,137 @@ function revisoesDoArquivo(brutas, catalogo) {
 }
 
 /**
+ * O texto CANONICO de um balde do storage para dentro do arquivo.
+ *
+ * POR QUE LER E RESERIALIZAR AQUI, E NAO COPIAR O TEXTO CRU: o arquivo passa a
+ * ser a fonte de verdade de quem troca de aparelho, e um arquivo com o bytes do
+ * storage de um Atlas antigo seria lido AMANHÃ por um núcleo que mudou. Lendo
+ * pelo módulo DONO (`lerEstudo`, `lerCartoes`, `lerRascunho`) e escrevendo pelo
+ * módulo DONO (`serializarEstudo`, `serializarCartoes`, `serializarRascunho`), o
+ * arquivo carrega sempre o formato que este app sabe produzir — e é isso que faz
+ * "exportar e importar de volta devolve os mesmos bytes" ser uma prova e não uma
+ * sorte. Nada aqui reimplementa malha de campo: um registro ruim cai na mesma
+ * peneira que cairia se a pessoa abrisse a tela.
+ *
+ * Ausência e vazio: `null`/`undefined`/texto em branco significam "este aparelho
+ * não falou desse balde", e o campo NÃO ENTRA no arquivo. Entrar com `{}` seria
+ * dizer "não há nenhum", e importar apagaria o que o outro aparelho tem — o bug
+ * que a S8 deixou no caminho com as revisões, agora com os cartões no lugar.
+ *
+ * @param {unknown} bruto o texto cru do storage (ou o objeto já lido)
+ * @param {(bruto: unknown) => object} ler o leitor dono
+ * @param {(dado: object) => string} serializar o serializador dono
+ * @returns {string|null} o texto canônico, ou null quando o balde não falou
+ */
+function baldeCanonico(bruto, ler, serializar) {
+  if (bruto === undefined || bruto === null) return null;
+  if (typeof bruto === 'string' && !bruto.trim()) return null;
+  const texto = typeof bruto === 'string' ? bruto : JSON.stringify(bruto);
+  return serializar(ler(texto));
+}
+
+/**
+ * Os rascunhos para dentro do arquivo: um mapa `atlas.rascunho.<aula>` → texto
+ * canônico. Só entra chave com o prefixo do formato (a tela varre o storage e
+ * pode trazer qualquer coisa do lado), e só entra rascunho que tem texto — um
+ * rascunho vazio é a pessoa que abriu o formulário e não escreveu nada, e levar
+ * isso seria o arquivo crescer com casca vazia por aula aberta.
+ * @returns {Record<string,string>|null}
+ */
+function rascunhosParaArquivo(brutos) {
+  if (!brutos || typeof brutos !== 'object' || Array.isArray(brutos)) return null;
+  const saida = {};
+  for (const [chave, bruto] of Object.entries(brutos)) {
+    if (typeof chave !== 'string' || !chave.startsWith(RASCUNHO_PREFIXO)) continue;
+    const texto = baldeCanonico(bruto, lerRascunho, serializarRascunho);
+    if (!texto) continue;
+    const dado = lerRascunho(texto);
+    if (!dado.lembrar && !dado.conferir && dado.cartoes.length === 0) continue;
+    saida[chave] = texto;
+  }
+  return Object.keys(saida).length ? saida : null;
+}
+
+/**
+ * O balde que VEIO DO ARQUIVO: mesmo dono, mesmo leitor, outra direção.
+ *
+ * OS TRÊS CASOS, e a diferença entre eles é o que protege o aparelho de destino:
+ *   · `falou: false`  — o campo não existe (arquivo v1/v2) ou é texto em branco.
+ *     A tela mantém o que tem e o recado diz isso em voz alta;
+ *   · `falou: true, ilegivel: true` — existe mas este Atlas não o entende: JSON
+ *     quebrado, forma que não é objeto, ou um `versao` que o módulo dono não lê.
+ *     Aqui a tela também mantém o que tem — apagar o estudo ou os cartões de um
+ *     aparelho por causa de um campo que ele não sabe ler é a perda de dados com
+ *     passos a mais;
+ *   · `falou: true, ilegivel: false` — o arquivo falou, e a palavra dele vale
+ *     (mesma regra da viagem: importar é TROCAR, não somar). O `texto` sai pelo
+ *     serializador dono, então a tela pode gravá-lo no storage sem remixar nada e
+ *     «exportar → importar → exportar» dá os mesmos bytes.
+ *
+ * @returns {{falou: boolean, ilegivel?: boolean, texto?: string, quantidade?: number}}
+ */
+function baldeDoArquivo(bruto, ler, serializar) {
+  if (bruto === undefined) return { falou: false };
+  if (typeof bruto === 'string' && !bruto.trim()) return { falou: false };
+
+  let dado = bruto;
+  if (typeof bruto === 'string') {
+    try {
+      dado = JSON.parse(bruto);
+    } catch {
+      return { falou: true, ilegivel: true };
+    }
+  }
+  if (!dado || typeof dado !== 'object' || Array.isArray(dado)) {
+    return { falou: true, ilegivel: true };
+  }
+
+  const lido = ler(typeof bruto === 'string' ? bruto : JSON.stringify(dado));
+  // O leitor dono devolve SEMPRE a versão que ele sabe ler. Se o arquivo dizia
+  // outra, o que ele descreve é um dado que este Atlas não conhece — e conhecê-lo
+  // como «vazio» apagaria o aparelho. Não é versão antiga: é versão desconhecida,
+  // e o caso existe de propósito (atlas.estudo.v2 no arquivo de amanhã).
+  if (dado.versao !== undefined && dado.versao !== lido.versao) {
+    return { falou: true, ilegivel: true };
+  }
+  const texto = serializar(lido);
+  return { falou: true, ilegivel: false, texto, quantidade: Object.keys(lido.aulas || lido.cartoes || {}).length };
+}
+
+/** Os rascunhos que vieram do arquivo: um por um, mesmo triage. */
+function rascunhosDoArquivo(brutos) {
+  if (brutos === undefined) return { falou: false };
+  if (!brutos || typeof brutos !== 'object' || Array.isArray(brutos)) {
+    return { falou: true, ilegivel: true };
+  }
+  const saida = {};
+  let ilegivel = false;
+  for (const [chave, bruto] of Object.entries(brutos)) {
+    // Chave que não é do formato não entra: o arquivo não é um despejo de
+    // storage, e gravar uma chave estranha no aparelho seria inventar formato.
+    if (typeof chave !== 'string' || !chave.startsWith(RASCUNHO_PREFIXO)) {
+      ilegivel = true;
+      continue;
+    }
+    const b = baldeDoArquivo(bruto, lerRascunho, serializarRascunho);
+    if (b.ilegivel) {
+      ilegivel = true;
+      continue;
+    }
+    if (b.texto) saida[chave] = b.texto;
+  }
+  return { falou: true, ilegivel: Object.keys(saida).length === 0 && ilegivel, rascunhos: saida };
+}
+
+/**
  * Monta o pacote a exportar. Puro: devolve objeto, nao texto nem arquivo.
  * @param {Array<{id: string}>} courses catalogo atual (fonte dos ids validos)
  * @param {string[]} completed progresso do aluno
  * @param {Date} [agora] injetavel para o nome do arquivo ser testavel
  * @param {Record<string,string>} [notas] anotacoes por id (core/notes.js)
- * @param {{electives?: Array, specializations?: Array}} [extras] resto do catalogo
+ * @param {{electives?: Array, specializations?: Array, revisoes?: object,
+ *          estudo?: string, cartoes?: string, rascunhos?: Record<string,string>,
+ *          dominadas?: object}} [extras] o resto do estado da pessoa
  */
 export function buildExport(courses, completed = [], agora = new Date(), notas = {}, extras = {}) {
   // As revisões vêm DENTRO de `extras` ("o resto do estado"), não como 6º
@@ -156,7 +308,20 @@ export function buildExport(courses, completed = [], agora = new Date(), notas =
   // export levaria id de catálogo morto sem contar nenhum.
   const revisaoLimpa = revisoesDoArquivo(revisoes, idsDoCatalogo(catalogoCompleto));
 
-  return {
+  // S20b-1b: os três baldes que a viagem não era. Vêm como TEXTO CRU do storage,
+  // por `extras`, porque o lado da tela é quem conhece o localStorage — o núcleo
+  // continua puro e não toca em `window`.
+  const estudoTexto = baldeCanonico(extras?.estudo, lerEstudo, serializarEstudo);
+  const cartoesTexto = baldeCanonico(extras?.cartoes, lerCartoes, serializarCartoes);
+  const rascunhosArquivo = rascunhosParaArquivo(extras?.rascunhos);
+  // O carimbo do desafio: a malha é `lerProgresso`, e ele só sai daqui quando há
+  // dominada de verdade — um `{}` no arquivo significaria «apaga o carimbo do
+  // outro aparelho», que é justamente o que a versão 2 fazia ao não levá-lo.
+  const dominadasArquivo = Object.keys(lerProgresso({ dominadas: extras?.dominadas }).dominadas).length
+    ? lerProgresso({ dominadas: extras?.dominadas }).dominadas
+    : null;
+
+  const pacote = {
     formato: FORMATO,
     versao: VERSAO_FORMATO,
     exportadoEm: agora instanceof Date ? agora.toISOString() : new Date().toISOString(),
@@ -175,8 +340,21 @@ export function buildExport(courses, completed = [], agora = new Date(), notas =
     // fora do catálogo — mesmo critério da anotação, pelo catálogo COMPLETO.
     revisoes: revisaoLimpa.revisoes,
     revisoesIgnoradas: revisaoLimpa.ignorados,
-    revisoesDescartadas: revisaoLimpa.descartados
+    revisoesDescartadas: revisaoLimpa.descartados,
+    // S20b-1b: o centro do produto. A versão 2 parava na viagem, e quem trocasse
+    // de aparelho levava os 35 carimbos perdendo cada aula aberta, cada aula
+    // estudada, cada cartão escrito e cada rascunho pela metade. Os campos abaixo
+    // só ENTRAM no arquivo quando o balde falou (ver `baldeCanonico`): um `{}`
+    // lido como «não há nenhum» apagaria o que o aparelho de destino tem, que é
+    // o bug que a S8 deixou no caminho com as revisões.
+    // `dominadas` é o carimbo do desafio (S18b-2), e a versão 2 também não o
+    // levava: a viagem voltava e a caderneta ficava muda.
+    ...(estudoTexto !== null ? { estudo: estudoTexto } : {}),
+    ...(cartoesTexto !== null ? { cartoes: cartoesTexto } : {}),
+    ...(rascunhosArquivo !== null ? { rascunhos: rascunhosArquivo } : {}),
+    ...(dominadasArquivo !== null ? { dominadas: dominadasArquivo } : {})
   };
+  return pacote;
 }
 
 /** Texto do arquivo de exportacao (JSON indentado, com quebra final). */
@@ -243,6 +421,17 @@ export function parseImport(texto, courses = [], extras = {}) {
   let revisoesBrutas;
   let trouxeRevisoes = false;
   let revisoesIlegiveis = false;
+  // S20b-1b: os baldes da versão 3. `falou: false` é o estado inicial de todos —
+  // um arquivo de array cru ou de versão 2 não fala deles, e a tela mantém o que
+  // o aparelho tem. Nunca `{}` como sinal de «não sei».
+  let baldeEstudo = { falou: false };
+  let baldeCartoes = { falou: false };
+  let baldeRascunhos = { falou: false };
+  // As dominadas do arquivo, já pela malha de `lerProgresso`, ou `null` quando o
+  // arquivo não falou delas / falou ilegível. `trouxeDominadas` separa «o arquivo
+  // diz que não há dominada nenhuma» (objeto vazio legível) de «não falou».
+  let dominadasDoArquivo = null;
+  let trouxeDominadas = false;
   if (Array.isArray(dados)) {
     idsCandidatos = dados;
   } else if (dados && typeof dados === 'object') {
@@ -306,6 +495,23 @@ export function parseImport(texto, courses = [], extras = {}) {
           revisoesBrutas = undefined;
         }
       }
+    }
+    // S20b-1b: os três baldes. A triage é a das revisões, com uma diferença
+    // deliberada: aqui a ilegibilidade NÃO vira `{}` — vira `falou: false` com
+    // aviso, porque um `{}` de cartões gravado no storage apaga a fila inteira da
+    // pessoa por causa de um campo que ele não sabe ler.
+    baldeEstudo = baldeDoArquivo(dados.estudo, lerEstudo, serializarEstudo);
+    baldeCartoes = baldeDoArquivo(dados.cartoes, lerCartoes, serializarCartoes);
+    baldeRascunhos = rascunhosDoArquivo(dados.rascunhos);
+    // `dominadas` não é texto de storage, é objeto do progresso, e a malha dele é
+    // a de `lerProgresso` — a mesma que o storage usa. Um objeto ilegível (lista,
+    // texto) mantém as dominadas do aparelho, como os baldes acima.
+    if (dados.dominadas !== undefined) {
+      const d = dados.dominadas;
+      dominadasDoArquivo = d && typeof d === 'object' && !Array.isArray(d)
+        ? lerProgresso({ dominadas: d }).dominadas
+        : null;
+      trouxeDominadas = d && typeof d === 'object' && !Array.isArray(d);
     }
   } else {
     return { ok: false, erro: 'O arquivo não contém nem o envelope do Atlas nem uma lista de ids.' };
@@ -373,6 +579,49 @@ export function parseImport(texto, courses = [], extras = {}) {
     const nomes = revisaoArquivo.descartados.slice(0, 5).join(', ');
     mensagem += ` ${revisaoArquivo.ignorados} ${revisaoArquivo.ignorados === 1 ? 'revisão ignorada' : 'revisões ignoradas'} por id que não está neste catálogo${nomes ? `: ${nomes}` : ''}.`;
   }
+  // S20b-1b: os baldes falam na mesma voz das revisões, porque a situação é a
+  // mesma e a pessoa não tem como saber qual campo obedece a qual regra. As
+  // frases que importam são as de «o arquivo não falou»: quem importa um backup
+  // de ontem no aparelho de hoje precisa LER que os cartões daqui continuam aqui,
+  // e não descobrir isso pela ausência deles amanhã. Escrever cada balde em vez
+  // de uma função genérica é deliberado — «3 estudos» não existe, e o plural
+  // automático produziria frase errada na tela da pessoa.
+  if (baldeEstudo.ilegivel) {
+    mensagem += ' O estudo do arquivo estava ilegível: o estudo deste aparelho continua como estava.';
+  } else if (!baldeEstudo.falou) {
+    mensagem += ' O arquivo não traz estudo: o estudo deste aparelho continua como estava.';
+  } else {
+    const n = baldeEstudo.quantidade || 0;
+    mensagem += n === 0
+      ? ' O arquivo traz o estudo, mas vazio.'
+      : ` O arquivo traz o estudo de ${n} ${n === 1 ? 'aula' : 'aulas'}.`;
+  }
+  if (baldeCartoes.ilegivel) {
+    mensagem += ' Os cartões do arquivo estavam ilegíveis: os cartões deste aparelho continuam como estavam.';
+  } else if (!baldeCartoes.falou) {
+    mensagem += ' O arquivo não traz cartões: os cartões deste aparelho continuam como estavam.';
+  } else {
+    const n = baldeCartoes.quantidade || 0;
+    mensagem += n === 0
+      ? ' O arquivo traz os cartões, mas nenhum.'
+      : ` ${n} ${n === 1 ? 'cartão veio' : 'cartões vieram'} junto.`;
+  }
+  if (baldeRascunhos.ilegivel) {
+    mensagem += ' Os rascunhos do arquivo estavam ilegíveis: os rascunhos deste aparelho continuam como estavam.';
+  } else if (!baldeRascunhos.falou) {
+    mensagem += ' O arquivo não traz rascunhos: os rascunhos deste aparelho continuam como estavam.';
+  } else {
+    const n = baldeRascunhos.rascunhos ? Object.keys(baldeRascunhos.rascunhos).length : 0;
+    mensagem += n === 0
+      ? ' O arquivo traz os rascunhos, mas nenhum.'
+      : ` ${n} ${n === 1 ? 'rascunho veio' : 'rascunhos vieram'} junto.`;
+  }
+  if (trouxeDominadas && dominadasDoArquivo) {
+    const n = Object.keys(dominadasDoArquivo).length;
+    if (n > 0) mensagem += ` ${n} ${n === 1 ? 'estação dominada veio' : 'estações dominadas vieram'} junto.`;
+  } else {
+    mensagem += ' O arquivo não traz estações dominadas: as deste aparelho continuam como estavam.';
+  }
 
   return {
     ok: true,
@@ -388,6 +637,22 @@ export function parseImport(texto, courses = [], extras = {}) {
     revisoes: revisaoArquivo ? revisaoArquivo.revisoes : null,
     revisoesIgnoradas: revisaoArquivo ? revisaoArquivo.ignorados : 0,
     trazRevisoes: trouxeRevisoes && !revisoesIlegiveis,
+    // S20b-1b. Cada balde devolve TEXTO PRONTO PARA O STORAGE, já pelo
+    // serializador dono, ou `null` quando o arquivo não falou dele (ou falou sem
+    // que este Atlas entendesse). `null` é o sinal de «mantém o que o aparelho
+    // tem»: é a única razão pela qual importar um backup de ontem não apaga os
+    // cartões de hoje. Quem quiser saber se foi regra ou sorte lê `traz*`.
+    estudo: baldeEstudo.falou && !baldeEstudo.ilegivel ? baldeEstudo.texto : null,
+    trazEstudo: baldeEstudo.falou && !baldeEstudo.ilegivel,
+    estudoIlegivel: baldeEstudo.ilegivel === true,
+    cartoes: baldeCartoes.falou && !baldeCartoes.ilegivel ? baldeCartoes.texto : null,
+    trazCartoes: baldeCartoes.falou && !baldeCartoes.ilegivel,
+    cartoesIlegiveis: baldeCartoes.ilegivel === true,
+    rascunhos: baldeRascunhos.falou && !baldeRascunhos.ilegivel ? baldeRascunhos.rascunhos : null,
+    trazRascunhos: baldeRascunhos.falou && !baldeRascunhos.ilegivel,
+    rascunhosIlegiveis: baldeRascunhos.ilegivel === true,
+    dominadas: dominadasDoArquivo,
+    trazDominadas: trouxeDominadas,
     versao: versaoDoArquivo,
     mensagem
   };

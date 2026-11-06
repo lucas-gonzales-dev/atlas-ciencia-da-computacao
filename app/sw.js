@@ -727,7 +727,28 @@
 // Ganham `min-height: var(--alvo-toque)` + o padding que faltava, escopados, sem
 // mudar a letra e sem virar botão. Mudam de bytes e estão no precache:
 // core/textos.js, web/folha.js, web/telas/perfil.css, web/telas/explorar.css.
-const VERSAO = 'atlas-v84';
+// atlas-v85: S20b-1b (05/11/2026) — o BACKUP leva a viagem inteira, e o alvo de
+// importar. (1) O FORMATO 3: a versão 2 parava na viagem. Quem exportava no
+// celular e importava no PC levava os 35 carimbos e PERDIA cada aula aberta, cada
+// aula estudada, cada cartão escrito e cada rascunho pela metade — o mapa, sem o
+// percurso. `buildExport` passa a levar quatro baldes (estudo, cartões, rascunhos,
+// dominadas) e `parseImport` devolve cada um como TEXTO CANONICO do módulo dono,
+// lido por `lerEstudo`/`lerCartoes`/`lerRascunho` e resserializado na volta, o que
+// faz «exportar → importar → exportar» dar os mesmos bytes (a trava do round-trip
+// byte a byte é esta). (2) O QUE O ARQUIVO NÃO DIZ NÃO APAGA: ausência é `null`, e
+// `null` é «mantém o que este aparelho tem». Um arquivo de ontem, que não conhece
+// cartões, importava apagando a fila de hoje — o bug que a S8 deixou com as
+// anotações, agora com os cartões no lugar; a malha é por campo (um registro ruim
+// derruba o registro, nunca o balde) e a frase diz em voz alta o que ficou. (3) O
+// ALVO: o que media menos de 24 px em 375 e 768 px, abaixo de «Importar uma
+// viagem», era o `<input type=file>` — o widget nativo, que não é `<a>` nem
+// `<button>` e por isso não passou pela varredura da v84. `.perfil-dados-input`
+// ganha `min-height: var(--alvo-toque)`; a letra é a mesma (--tipo-nota) e o input
+// continua sem fundo: caixa, não hierarquia. O persist de `web/telas/aula.js:523`
+// não foi tocado — o que entra é a trava que prova que ele é chamado uma vez só e
+// nunca antes do primeiro cartão. Mudam de bytes e estão no precache:
+// core/progress-io.js, core/dados-pessoa.js, web/telas/perfil.js, web/telas/perfil.css.
+const VERSAO = 'atlas-v85';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
@@ -785,7 +806,7 @@ const VERSAO = 'atlas-v84';
 // e web/telas/explorar.css (o piso de toque dos alvos nus). Os testes novos não
 // estão no precache: nada de fora de app/web e app/core vai para o cache de quem
 // usa. O sw.js mediu o mesmo sha256 antes e depois.
-const PRECACHE_HASH = 'sha256-ae45a4db2b5c6da41ef5060a744a777f82bc871ebf8301f0350b65a590146df9';
+const PRECACHE_HASH = 'sha256-9a375c75acece12f3176a65770457ee6d695cf4fd347ae8989dffa3ede63bdc1';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.

@@ -22,6 +22,27 @@ import {
 } from '../core/progress-io.js';
 import { aplicarImportacao } from '../web/main.js';
 
+// ─── S20b-1b: os baldes que a viagem não era ───
+// Os dados abaixo não são JSON escrito à mão: `lerCartoes`/`lerEstudo` exigem
+// `versao` e conferem campo a campo, e um literal chutado aqui faria a trava
+// morrer na forma em vez de no comportamento. Tudo nasce dos criadores do core.
+import { criarCartao, lerCartoes, serializarCartoes, CARTOES_KEY } from '../core/cartoes.js';
+import {
+  ESTUDO_KEY,
+  abrirAula,
+  chaveRascunho,
+  estudarAula,
+  lerEstudo,
+  lerRascunho,
+  rascunhoVazio,
+  serializarEstudo,
+  serializarRascunho
+} from '../core/estudo.js';
+import { criarDoc, storageCom, todos } from './hdom.js';
+import { montar } from '../web/telas/aula.js';
+import { readFileSync } from 'node:fs';
+import { agendarConclusao } from '../core/revisao.js';
+
 const CURSOS = [
   { id: 'logica', title: 'Logica de Programacao' },
   { id: 'python-1', title: 'Python I' },
@@ -164,3 +185,243 @@ test('aplicarImportacao nao muta o array de progresso que recebeu', () => {
 test('sanidade da fixture: os ids usados existem mesmo no catalogo de teste', () => {
   for (const id of ['logica', 'python-1', 'eda']) assert.ok(IDS.has(id));
 });
+
+// ═════════════════════════ S20b-1b · o backup leva a viagem inteira ═════════════════════════
+//
+// POR QUE EXISTE: a versão 2 parava na viagem. Quem exportava no celular e
+// importava no PC levava os 35 carimbos e perdia cada aula aberta, cada aula
+// estudada, cada cartão escrito e cada rascunho pela metade — ou seja, levava o
+// mapa e deixava o percurso. Pior: importar um arquivo de ontem APAGARIA os
+// cartões de hoje se o importador lesse «ausente» como «vazio». As travas abaixo
+// cobram as duas coisas: o que o arquivo diz, e o que ele NÃO diz.
+//
+// DADOS QUE NASCEM DO CORE, não JSON escrito à mão: `lerEstudo`/`lerCartoes`
+// exigem `versao` e conferem campo a campo, e um literal chutado aqui provaria a
+// forma em vez do comportamento. Estudo vem de `abrirAula` + `estudarAula`,
+// cartão vem de `criarCartao`, rascunho vem de `rascunhoVazio`.
+//
+// O "byte a byte" é a frase whole: comparo o TEXTO DO STORAGE que saiu com o que
+// volta, sem remixar nada no meio. É a única comparação que pega o campo que
+// alguém esqueceu de serializar — um deepEqual de objetos ignoraria chave
+// desaparecida nos dois lados.
+
+const QUANDO = '2026-10-27T03:15';
+
+/** Uma vida pequena e real: duas aulas abertas, uma estudada, um cartão, um rascunho. */
+function vida() {
+  let estudo = abrirAula(lerEstudo(null), { estacao: 'logica', aula: 'vid-1', n: 1 }, QUANDO);
+  estudo = abrirAula(estudo, { estacao: 'eda', aula: 'vid-2', n: 2 }, QUANDO);
+  estudo = estudarAula(estudo, { estacao: 'logica', aula: 'vid-1', n: 1 }, QUANDO, {
+    recordacao: 'XOR é soma binária sem vai-um.',
+    conferencia: 'Faltou o caso do carry.'
+  });
+
+  let arquivo = lerCartoes(null);
+  const criado = criarCartao(arquivo, {
+    estacao: 'logica', aula: 'vid-1', n: 1,
+    frente: 'O que é XOR?', verso: 'Soma binária sem vai-um.'
+  }, QUANDO, 'cartao-1');
+  assert.equal(criado.ok, true, `o núcleo recusou o cartão de cena: ${criado.erro}`);
+  arquivo = { versao: arquivo.versao, cartoes: criado.cartoes };
+
+  const rascunho = { ...rascunhoVazio(), lembrar: 'Ainda não fechei a aula 2.' };
+
+  return {
+    estudo: serializarEstudo(estudo),
+    cartoes: serializarCartoes(arquivo),
+    rascunhos: { [chaveRascunho('vid-2')]: serializarRascunho(rascunho) }
+  };
+}
+
+const EXTRAS = (v) => ({ estudo: v.estudo, cartoes: v.cartoes, rascunhos: v.rascunhos });
+
+test('S20b-1b · exportar e importar devolve o mesmo estudo, os mesmos cartões e os mesmos rascunhos, byte a byte', () => {
+  const v = vida();
+  const texto = serializeExport(CURSOS, ['logica'], AGORA, { logica: 'travei em indução' }, EXTRAS(v));
+  const r = parseImport(texto, CURSOS);
+
+  assert.equal(r.ok, true, r.erro);
+  assert.equal(r.estudo, v.estudo, 'o estudo voltou remixado: o export não está gravando o texto do serializador dono');
+  assert.equal(r.cartoes, v.cartoes, 'os cartões voltaram remixado: id, devidoEm ou fsrs se perderam na volta');
+  assert.deepEqual(r.rascunhos, v.rascunhos, 'o rascunho ficou de fora — quem exporta no celular reabre a aula do PC com o campo vazio');
+
+  // Os três baldes têm de dizer que FALARAM: `null` é «o arquivo não falou», e um
+  // v3 que leva estudo mudo cairia aqui antes de apagar seja o que for.
+  assert.equal(r.trazEstudo, true);
+  assert.equal(r.trazCartoes, true);
+  assert.equal(r.trazRascunhos, true);
+
+  // Byte a byte de verdade: exportar de novo o que acabou de voltar dá o mesmo texto.
+  const v2 = { estudo: r.estudo, cartoes: r.cartoes, rascunhos: r.rascunhos };
+  const segundaVolta = serializeExport(CURSOS, r.completed, AGORA, r.anotacoes, EXTRAS(v2));
+  assert.equal(segundaVolta, texto, 'ida e volta não é idempotente: um campo está entrando por uma porta e saindo por outra');
+
+  // A mensagem diz o que entrou, na voz da casa (licão de 28/10: plural escolhido,
+  // nunca «(s)» na tela do aluno).
+  assert.match(r.mensagem, /estudo de 2 aulas/);
+  assert.match(r.mensagem, /1 cartão veio junto/);
+  assert.match(r.mensagem, /1 rascunho veio junto/);
+});
+
+test('S20b-1b · um arquivo da versão 2 importa sem perder a viagem e sem apagar os cartões do aparelho', () => {
+  // O arquivo de OUTUBRO: envelope v2, revisões e anotações, e nenhuma palavra
+  // sobre estudo, cartões, rascunhos ou dominadas. É o backup real de quem
+  // exportou antes desta fatia.
+  // O calendário de revisão na FORMA DO CORE (agendarConclusao), não um literal
+  // chutado: `degrau`/`proxima`/`historico` são o que sanitizar devolve adiante.
+  const revisoesV2 = agendarConclusao(agendarConclusao({}, 'logica', '2026-10-20'), 'eda', '2026-10-20');
+  const v2 = JSON.stringify({
+    formato: FORMATO,
+    versao: 2,
+    exportadoEm: '2026-10-20T10:00:00.000Z',
+    completed: ['logica', 'eda'],
+    ignorados: 0,
+    anotacoes: { logica: 'nota de outubro' },
+    revisoes: revisoesV2
+  }, null, 2) + '\n';
+
+  const r = parseImport(v2, CURSOS);
+  assert.equal(r.ok, true, `recusar o arquivo de ontem é punir o aluno pelo app que ele tinha: ${r.erro}`);
+
+  // A viagem voltou.
+  assert.deepEqual(r.completed.sort(), ['eda', 'logica']);
+  assert.deepEqual(r.anotacoes, { logica: 'nota de outubro' });
+  assert.equal(r.trazAnotacoes, true);
+  assert.equal(r.revisoes.logica.proxima, '2026-10-23', 'o calendário de revisão não pode se perder na migração (concluída em 20/10, degrau 0 = 3 dias)');
+  assert.equal(Object.keys(r.revisoes).length, 2, 'as duas estações revisáveis do arquivo têm de voltar');
+
+  // E os baldes que o arquivo não conhece ficam CALADOS: `null` é o sinal de
+  // «mantém o que este aparelho tem». Um `{}` aqui apagaria a fila da pessoa por
+  // causa de um formato que ela não escolheu.
+  assert.equal(r.estudo, null, 'o v2 não fala de estudo: devolver vazio seria gravar vazio no destino');
+  assert.equal(r.cartoes, null, 'o v2 não fala de cartões: devolver vazio seria apagar a fila do aparelho');
+  assert.equal(r.rascunhos, null);
+  assert.equal(r.dominadas, null);
+  assert.equal(r.trazEstudo, false);
+  assert.equal(r.trazCartoes, false);
+  assert.equal(r.trazRascunhos, false);
+  assert.equal(r.trazDominadas, false);
+
+  // Dito em voz alta: a pessoa lê por que seus cartões continuaram aqui.
+  assert.match(r.mensagem, /O arquivo não traz cartões: os cartões deste aparelho continuam como estavam\./);
+  assert.match(r.mensagem, /não traz estudo/);
+  assert.match(r.mensagem, /não traz rascunhos/);
+  assert.match(r.mensagem, /não traz estações dominadas/);
+
+  // O outro lado do mesmo contrato: quem aplica mantém. `aplicarImportacao` é a
+  // porta da tela, e ela continua devolvendo a viagem lida do arquivo.
+  const aplicado = aplicarImportacao({ completed: ['python-1'], courses: CURSOS }, v2);
+  assert.equal(aplicado.ok, true);
+  assert.deepEqual(aplicado.completed.sort(), ['eda', 'logica']);
+});
+
+test('S20b-1b · uma dominada com os números volta inteira', () => {
+  // O carimbo do desafio (S18b-2, desenho J4): a estação dominada é a única coisa
+  // que prova que o desafio aconteceu, e a frase da tela sai destes números. Perder
+  // `acertos` é ganhar um carimbo escrito com número inventado.
+  const dominadas = {
+    logica: { em: '2026-10-25', acertos: 7, total: 9, lembrados: ['vid-1', 'vid-2'], aulas: 12, cartoes: 30 }
+  };
+  const texto = serializeExport(CURSOS, ['logica'], AGORA, {}, { dominadas });
+  const pacote = JSON.parse(texto);
+  assert.deepEqual(pacote.dominadas, dominadas, 'o export remixou o carimbo (ou esqueceu de levá-lo)');
+
+  const r = parseImport(texto, CURSOS);
+  assert.equal(r.ok, true, r.erro);
+  assert.deepEqual(r.dominadas, dominadas);
+  assert.equal(r.trazDominadas, true);
+  assert.match(r.mensagem, /1 estação dominada veio junto/);
+
+  // E o contrário exato: sem dominada de verdade, o campo NÃO ENTRA no arquivo.
+  // Um `{}` dentro do v3 significaria «apaga o carimbo do outro aparelho».
+  const sem = JSON.parse(serializeExport(CURSOS, ['logica'], AGORA, {}, EXTRAS(vida())));
+  assert.equal('dominadas' in sem, false, 'um `{}` no arquivo é uma ordem de apagar, não um vazio decorativo');
+  const rSem = parseImport(JSON.stringify(sem), CURSOS);
+  assert.equal(rSem.dominadas, null);
+  assert.equal(rSem.trazDominadas, false);
+  assert.match(rSem.mensagem, /não traz estações dominadas/);
+});
+
+// ─────────────── S20b-1b item 2: o persist, uma vez só, depois do primeiro cartão ───────────────
+//
+// web/telas/aula.js:523 já chama navigator.storage.persist() na primeira vez que
+// a pessoa cria um cartão. Não se escreve um segundo: o que falta é uma trava que
+// prove (a) que ele não é chamado antes de existir o primeiro cartão, e (b) que
+// ele não vira um toque por cartão. O rastro abaixo anota, em cada chamada,
+// QUANTOS cartões havia no storage naquele instante — é a única forma de provar a
+// ordem sem fingir um navegador.
+const AULAS = JSON.parse(readFileSync(new URL('../data/aulas/circuitos-digitais.json', import.meta.url), 'utf8'));
+const CATALOGO = { courses: [{ id: 'circuitos-digitais', slug: 'circuitos-digitais', title: 'Circuitos Digitais' }] };
+
+async function paginaDeAula({ storage = storageCom(), n = 3 }, rastro) {
+  const doc = criarDoc();
+  doc._registrar('anuncio', doc.createElement('p'));
+  const win = {
+    localStorage: storage,
+    document: { visibilityState: 'visible' },
+    matchMedia: () => ({ matches: false }),
+    scrollTo: () => {},
+    setInterval: () => 1,
+    clearInterval: () => {},
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    navigator: {
+      storage: {
+        persist: () => {
+          rastro.chamadas.push(Object.keys(lerCartoes(storage.getItem(CARTOES_KEY)).cartoes).length);
+          return Promise.resolve(true);
+        }
+      }
+    }
+  };
+  const raiz = doc.createElement('div');
+  await montar(raiz, {
+    document: doc,
+    window: win,
+    catalogo: Promise.resolve(CATALOGO),
+    folha: 'circuitos-digitais',
+    n,
+    buscarAulas: async () => ({ ok: true, status: 200, json: async () => AULAS })
+  });
+  const comClasse = (c) => todos(raiz, (x) => (x.className || '').split(/\s+/).includes(c));
+  const porData = (chave, valor) => todos(raiz, (x) => x.getAttribute?.(chave) === valor)[0] || null;
+  const section = () => comClasse('aula-fim-form')[0];
+  const escrever = (nome, valor) => {
+    const alvo = porData('data-campo', nome);
+    alvo.value = valor;
+    section().dispatch('input', { target: alvo });
+  };
+  return {
+    escrever,
+    enviar: () => comClasse('fechamento-form')[0].dispatch('submit', { preventDefault() {} }),
+    temFormulario: () => comClasse('fechamento-form').length
+  };
+}
+
+test('S20b-1b · o persist é chamado uma vez só, e nunca antes do primeiro cartão', async () => {
+  const rastro = { chamadas: [] };
+  const storage = storageCom();
+
+  const aula = await paginaDeAula({ storage }, rastro);
+  assert.deepEqual(rastro.chamadas, [], 'a tela pediu persistência ao abrir a aula: antes de existir cartão não há o que proteger, e o pedido em silêncio aparece como pergunta');
+
+  aula.escrever('lembrar', 'XOR é soma binária sem vai-um.');
+  aula.escrever('conferir', 'Faltou o caso do carry.');
+  aula.escrever('frente-0', 'O que é XOR?');
+  aula.enviar();
+  assert.deepEqual(rastro.chamadas, [], 'um cartão incompleto pedido persistência: o persist só pode vir depois de haver o primeiro cartão GRAVADO');
+
+  aula.escrever('verso-0', 'Soma binária sem vai-um.');
+  aula.enviar();
+  assert.equal(rastro.chamadas.length, 1, 'o primeiro cartão da vida não chamou navigator.storage.persist()');
+  assert.ok(rastro.chamadas.every((n) => n >= 1), `o persist foi chamado com o storage ainda sem cartão (rastro: ${rastro.chamadas})`);
+
+  // Segunda aula, MESMO aparelho, cartões já existindo: nada de novo pedido.
+  const outra = await paginaDeAula({ storage, n: 4 }, rastro);
+  outra.escrever('lembrar', 'Portas NAND são funcionais completas.');
+  outra.escrever('frente-0', 'O que uma NAND faz?');
+  outra.escrever('verso-0', 'Inverte o AND; com várias dela, qualquer circuito.');
+  outra.enviar();
+  assert.equal(rastro.chamadas.length, 1, 'o persist virou um toque por cartão: quem fecha dez aulas recebe dez pedidos silenciosos');
+});
+
