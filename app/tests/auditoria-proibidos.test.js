@@ -192,12 +192,39 @@ test('proibidos: linha se chama Linha e o número', async () => {
   }
 });
 
+// A ÚNICA EXCEÇÃO DA CASA, decidida pelo Lucas em 06/11/2026 (S25). A proibição é
+// do degradê DECORATIVO — aquele que pinta uma superfície com transição de cor. A
+// faixa do vão tem paradas DURAS, sem transição nenhuma entre as duas cores, e não
+// pinta uma superfície: ela SINALIZA a borda da plataforma, que é a marca de erro do
+// Atlas (design/v4/S25-portao.md). Por isso o degradê permitido é só
+// `repeating-linear-gradient`, e só dentro da regra `.vao-faixa` desta folha:
+// qualquer outro degradê, inclusive neste mesmo arquivo, cai na trava abaixo.
+const FAIXA_DO_VAO = { arquivo: 'web/telas/portao.css', regra: 'vao-faixa' };
+
+function regrasDeCss(texto) {
+  // Regras planas: `seletor { corpo }`. Não atravessa `@media`, e é de propósito —
+  // dentro de um bloco desses o trecho antes da chave traz o seletor junto, então a
+  // regra de baixo ainda é achada pelo nome.
+  const out = [];
+  for (const m of texto.matchAll(/([^{}]*)\{([^{}]*)\}/g)) out.push([m[1], m[2]]);
+  return out;
+}
+
 test('proibidos: vidro fosco e degradê não entram no CSS', async () => {
   const ruins = [];
   for (const rel of cssDoApp()) {
     const t = ler(rel).replace(/\/\*[\s\S]*?\*\//g, ' ');
     if (/backdrop-filter/.test(t)) ruins.push(`${rel}: backdrop-filter`);
-    if (/linear-gradient|radial-gradient/.test(t)) ruins.push(`${rel}: degradê`);
+    // O nome da função inteira, e não `linear-gradient` solto: `linear-gradient` é
+    // substring de `repeating-linear-gradient`, e contar por substring daria dois
+    // degraus para a mesma faixa.
+    for (const [seletor, corpo] of regrasDeCss(t)) {
+      const eAFaixa = rel === FAIXA_DO_VAO.arquivo && new RegExp(`(^|[\\s,>+~])\\.${FAIXA_DO_VAO.regra}\\b`).test(seletor.trim());
+      for (const g of corpo.matchAll(/\b(?:repeating-)?(?:linear|radial|conic)-gradient\b/g)) {
+        if (eAFaixa && g[0] === 'repeating-linear-gradient') continue;
+        ruins.push(`${rel}: degradê (${g[0]}) em ${seletor.trim().split('\n').pop().trim() || '(raiz)'} — fora da faixa do vão`);
+      }
+    }
   }
   assert.deepEqual(ruins, [], `proibido no CSS:\n${ruins.join('\n')}`);
 });

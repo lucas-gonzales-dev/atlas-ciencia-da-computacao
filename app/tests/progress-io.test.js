@@ -517,7 +517,12 @@ async function paginaDeAula({ storage = storageCom(), n = 3 }, rastro) {
     catalogo: Promise.resolve(CATALOGO),
     folha: 'circuitos-digitais',
     n,
-    buscarAulas: async () => ({ ok: true, status: 200, json: async () => AULAS })
+    buscarAulas: async () => ({ ok: true, status: 200, json: async () => AULAS }),
+    // S25: esta régua mede QUANDO o persist é chamado, e o único caminho que
+    // chama persist é o do formulário, que grava cartões. O portão não grava
+    // cartão nenhum — fechar por toque não é criar o primeiro cartão da vida.
+    // A chave põe a página no formulário, que é de onde a pergunta foi feita.
+    comecarEscrevendo: true
   });
   const comClasse = (c) => todos(raiz, (x) => (x.className || '').split(/\s+/).includes(c));
   const porData = (chave, valor) => todos(raiz, (x) => x.getAttribute?.(chave) === valor)[0] || null;

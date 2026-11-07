@@ -1,0 +1,219 @@
+{
+  "versao": 1,
+  "estacao": "circuitos-digitais",
+  "paradas": [
+    {
+      "id": "numeros",
+      "titulo": "Sistemas de numeração",
+      "aulas": [2, 3, 4],
+      "perguntas": [
+        {
+          "id": "numeros-1",
+          "pergunta": "Quanto vale 1011 em binário?",
+          "certa": "11",
+          "explica": "8 + 0 + 2 + 1. Você somou só as casas acesas.",
+          "erradas": [
+            { "texto": "13", "vao": "Você leu os pesos de trás para frente. 13 é 1101. O bit da direita pesa 1: 8 + 0 + 2 + 1 = 11." },
+            { "texto": "1011", "vao": "Isso é ler binário como decimal. Cada casa pesa o dobro da anterior: 8, 4, 2, 1." },
+            { "texto": "7", "vao": "7 é 0111. O 1 da esquerda pesa 8, e ele conta: 8 + 0 + 2 + 1 = 11." }
+          ]
+        },
+        {
+          "id": "numeros-2",
+          "pergunta": "Quantos valores diferentes cabem em 6 bits?",
+          "certa": "64",
+          "explica": "2⁶ = 64, do 0 ao 63.",
+          "erradas": [
+            { "texto": "63", "vao": "63 é o maior valor, e o zero também ocupa um lugar: de 0 a 63 são 64 valores." },
+            { "texto": "12", "vao": "Cada bit dobra as possibilidades, em vez de somar 2: são 2⁶." },
+            { "texto": "36", "vao": "6 × 6 multiplica o tamanho por ele mesmo. O certo é 2 × 2 × 2 × 2 × 2 × 2." }
+          ]
+        },
+        {
+          "id": "numeros-3",
+          "pergunta": "Por que um dígito hexadecimal corresponde a exatamente 4 bits?",
+          "certa": "Porque 16 = 2⁴",
+          "explica": "É por isso que se converte de cabeça, de 4 em 4 bits.",
+          "erradas": [
+            { "texto": "Porque os primeiros computadores tinham 4 bits", "vao": "A história não entra na conta. O que importa é aritmética: 16 valores cabem exatamente em 4 bits." },
+            { "texto": "Porque 4 é metade de um byte", "vao": "Metade de um byte é consequência. A causa é que 16 é potência de 2, e 2⁴ = 16." }
+          ]
+        },
+        {
+          "id": "numeros-4",
+          "pergunta": "FF em hexadecimal vale quanto em decimal?",
+          "certa": "255",
+          "explica": "15 × 16 + 15 = 255: oito bits ligados.",
+          "erradas": [
+            { "texto": "256", "vao": "256 é 100 em hexadecimal. FF é o último valor antes dele." },
+            { "texto": "30", "vao": "F + F soma os dígitos como se tivessem o mesmo peso. O primeiro F pesa 16: 15 × 16 + 15." },
+            { "texto": "1515", "vao": "Isso cola os dois 15 lado a lado. Hexadecimal tem peso 16 por casa: 15 × 16 + 15." }
+          ]
+        },
+        {
+          "id": "numeros-5",
+          "pergunta": "Como se escreve 52 em binário?",
+          "certa": "110100",
+          "explica": "32 + 16 + 4 = 52. Comece sempre pelo maior peso que cabe.",
+          "erradas": [
+            { "texto": "101100", "vao": "101100 é 32 + 8 + 4 = 44. Depois do 32, ainda cabe o 16: sobram 20." },
+            { "texto": "100110", "vao": "100110 é 32 + 4 + 2 = 38. Depois do 32, ainda cabe o 16: sobram 20." }
+          ]
+        },
+        {
+          "id": "numeros-6",
+          "pergunta": "Quanto vale 10 em octal, escrito em decimal?",
+          "certa": "8",
+          "explica": "Em octal, a segunda casa pesa 8: 1 × 8 + 0.",
+          "erradas": [
+            { "texto": "10", "vao": "Isso é ler octal como decimal. Em base 8, a segunda casa pesa 8, e não 10." },
+            { "texto": "2", "vao": "2 seria 10 em binário. Em octal, a segunda casa pesa 8." }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "codigos",
+      "titulo": "Códigos e aritmética binária",
+      "aulas": [5, 6, 7, 8],
+      "perguntas": [
+        {
+          "id": "codigos-1",
+          "pergunta": "Em BCD 8421, como se escreve 59?",
+          "certa": "0101 1001",
+          "explica": "Cada dígito decimal vira 4 bits, separado: 5 = 0101 e 9 = 1001.",
+          "erradas": [
+            { "texto": "0011 1011", "vao": "Isso é 59 em binário puro. BCD codifica cada dígito decimal separado: 5 = 0101 e 9 = 1001." },
+            { "texto": "0101 1010", "vao": "1010 vale 10, que não é um dígito decimal. O 9 é 1001." }
+          ]
+        },
+        {
+          "id": "codigos-2",
+          "pergunta": "O que define o código Gray?",
+          "certa": "De um número para o seguinte, muda só 1 bit",
+          "explica": "Assim, um sensor que está no meio da transição nunca lê um valor muito distante.",
+          "erradas": [
+            { "texto": "Cada dígito decimal vira 4 bits", "vao": "Isso é o BCD. O Gray trata da passagem de um valor para o seguinte: muda só 1 bit." },
+            { "texto": "O bit da esquerda indica o sinal", "vao": "Isso é sinal e magnitude. O Gray trata da passagem de um valor para o seguinte: muda só 1 bit." }
+          ]
+        },
+        {
+          "id": "codigos-3",
+          "pergunta": "Quanto dá 1011 + 0110 em binário?",
+          "certa": "10001",
+          "explica": "11 + 6 = 17. Em binário, 1 + 1 dá 0 e vai 1.",
+          "erradas": [
+            { "texto": "1101", "vao": "Isso é somar sem o vai-um. 1 + 1 dá 0 e vai 1, e o vai-um entra na casa seguinte." },
+            { "texto": "10011", "vao": "10011 é 19. A conta é 11 + 6 = 17, que é 10001." }
+          ]
+        },
+        {
+          "id": "codigos-4",
+          "pergunta": "Em 8 bits, com complemento de dois, como fica −1?",
+          "certa": "11111111",
+          "explica": "A primeira casa pesa −128, e as outras somam 127: −128 + 127 = −1.",
+          "erradas": [
+            { "texto": "10000001", "vao": "Isso é −1 em sinal e magnitude. Em complemento de dois, 10000001 vale −127." },
+            { "texto": "11111110", "vao": "Isso é complemento de um. Falta somar 1 depois de inverter os bits." }
+          ]
+        },
+        {
+          "id": "codigos-5",
+          "pergunta": "Qual é a faixa de inteiros em 8 bits, com complemento de dois?",
+          "certa": "De −128 a 127",
+          "explica": "São 256 valores, e o zero fica do lado dos positivos: por isso sobra um negativo.",
+          "erradas": [
+            { "texto": "De −127 a 127", "vao": "Essa é a faixa de sinal e magnitude, que gasta dois códigos com o zero. O complemento de dois tem um zero só, e ganha o −128." },
+            { "texto": "De 0 a 255", "vao": "Essa é a faixa sem sinal. Com complemento de dois, os mesmos 256 códigos vão de −128 a 127." }
+          ]
+        },
+        {
+          "id": "codigos-6",
+          "pergunta": "Como se acha −x em complemento de dois?",
+          "certa": "Inverte todos os bits e soma 1",
+          "explica": "Com isso, x + (−x) dá zero no mesmo somador, sem circuito novo.",
+          "erradas": [
+            { "texto": "Inverte só o bit da esquerda", "vao": "Isso é sinal e magnitude. Em complemento de dois, invertem-se todos os bits e soma-se 1." },
+            { "texto": "Inverte todos os bits", "vao": "Isso é complemento de um. Falta somar 1." }
+          ]
+        },
+        {
+          "id": "codigos-7",
+          "pergunta": "Somando em BCD, um dígito passou de 9. O que se faz?",
+          "certa": "Soma 6 (0110) àquele dígito",
+          "explica": "Quatro bits têm 16 códigos, e o BCD usa 10. Somar 6 pula os 6 códigos que não valem.",
+          "erradas": [
+            { "texto": "Soma 10 àquele dígito", "vao": "Os códigos que sobram são 6: de 1010 a 1111. É por isso que a correção é somar 6." },
+            { "texto": "Nada: o resultado já está certo", "vao": "O resultado sai em binário puro, e pode cair num código que não existe em BCD. A correção é somar 6." }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "portas",
+      "titulo": "Portas lógicas e álgebra booleana",
+      "aulas": [10, 11, 12],
+      "perguntas": [
+        {
+          "id": "portas-1",
+          "pergunta": "Uma porta E (AND) recebe 1 e 0. O que sai?",
+          "certa": "0",
+          "explica": "A porta E só dá 1 quando as duas entradas valem 1.",
+          "erradas": [
+            { "texto": "1", "vao": "Esse é o comportamento da porta OU. A porta E só dá 1 quando as duas entradas valem 1." }
+          ]
+        },
+        {
+          "id": "portas-2",
+          "pergunta": "Qual porta dá 1 só quando as entradas são diferentes?",
+          "certa": "OU-exclusivo (XOR)",
+          "explica": "É o detector de diferença da eletrônica.",
+          "erradas": [
+            { "texto": "OU (OR)", "vao": "A porta OU também dá 1 com as duas entradas em 1, e aí elas são iguais." },
+            { "texto": "NÃO-E (NAND)", "vao": "A NÃO-E também dá 1 com as duas entradas em 0, e aí elas são iguais." }
+          ]
+        },
+        {
+          "id": "portas-3",
+          "pergunta": "Pelo teorema de De Morgan, NÃO(A E B) é igual a:",
+          "certa": "(NÃO A) OU (NÃO B)",
+          "explica": "O NÃO entra nos dois termos, e o E vira OU.",
+          "erradas": [
+            { "texto": "(NÃO A) E (NÃO B)", "vao": "Essa é a expansão de NÃO(A OU B). Quando o NÃO entra, o E vira OU." },
+            { "texto": "A OU B", "vao": "Falta o NÃO em cada termo. Quando o NÃO entra, ele nega A e nega B." }
+          ]
+        },
+        {
+          "id": "portas-4",
+          "pergunta": "A + A·B simplifica para:",
+          "certa": "A",
+          "explica": "É a absorção: se A vale 1, a soma já é 1; se vale 0, A·B também é 0.",
+          "erradas": [
+            { "texto": "A + B", "vao": "A + B é a simplificação de A + (NÃO A)·B. Aqui o segundo termo já depende de A." },
+            { "texto": "A·B", "vao": "Teste com A = 1 e B = 0: a expressão dá 1, e A·B dá 0." }
+          ]
+        },
+        {
+          "id": "portas-5",
+          "pergunta": "Quanto valem A · 1 e A + 1?",
+          "certa": "A e 1",
+          "explica": "Em E, o 1 não muda nada. Em OU, o 1 já decide.",
+          "erradas": [
+            { "texto": "1 e A", "vao": "Está trocado. Em E, o 1 não muda nada: A · 1 = A. Em OU, o 1 já decide: A + 1 = 1." },
+            { "texto": "A e A", "vao": "A + 1 não depende de A: com um 1 na entrada, a porta OU já dá 1." }
+          ]
+        },
+        {
+          "id": "portas-6",
+          "pergunta": "Quantas linhas tem a tabela-verdade de 3 entradas?",
+          "certa": "8",
+          "explica": "Cada entrada dobra as combinações: 2³ = 8.",
+          "erradas": [
+            { "texto": "6", "vao": "6 é 3 × 2. Cada entrada dobra as combinações: 2 × 2 × 2." },
+            { "texto": "9", "vao": "9 é 3². São duas opções por entrada: 2³ = 8." }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -137,7 +137,11 @@ async function pagina(n = 3, { estudo = null, cartoes = null, rascunho = null } 
     catalogo: Promise.resolve(CATALOGO),
     folha: CIRCUITOS.slug,
     n,
-    buscarAulas: async () => ({ ok: true, status: 200, json: async () => AULAS })
+    buscarAulas: async () => ({ ok: true, status: 200, json: async () => AULAS }),
+    // S25: esta régua é DO FORMULÁRIO, que continua valendo inteiro. Em produção
+    // ninguém passa esta chave — ela existe para os testes de antes do portão
+    // chegarem às caixas de texto sem atravessar três toques.
+    comecarEscrevendo: true
   });
   // Os tics ANTES do clique do Assistir: o relógio do passo 1 anda, e o
   // visibilitychange da volta precisa dos ouvintes já amarrados pelo gravador.

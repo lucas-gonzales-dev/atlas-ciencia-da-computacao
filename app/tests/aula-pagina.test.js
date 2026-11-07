@@ -73,7 +73,12 @@ async function subir(montar, n, { aulas = AULAS, visivel = 'visible' } = {}) {
     catalogo: Promise.resolve(CATALOGO),
     folha: CIRCUITOS.slug,
     n,
-    buscarAulas: aulas ? async () => ({ ok: true, status: 200, json: async () => aulas }) : async () => ({ ok: false, status: 404 })
+    buscarAulas: aulas ? async () => ({ ok: true, status: 200, json: async () => aulas }) : async () => ({ ok: false, status: 404 }),
+    // S25: o portão passou a ser o fecho da aula, e esta régua é do que estava
+    // em volta dele — a abertura gravada, a volta da aba, a marca do estado, a
+    // navegação. `comecarEscrevendo` põe a página no formulário de antes, sem
+    // que nenhum desses casos mude de pergunta. Em produção a chave não existe.
+    comecarEscrevendo: true
   };
   const instancia = await montar(raiz, ctx);
   const disparar = (tipo) => (ouvintes.get(tipo) || []).forEach((fn) => fn({ type: tipo }));
@@ -165,34 +170,26 @@ test('link interno NÃO grava abertura: ler a lista não abre aula nenhuma', asy
     'um toque em endereço interno marcou aula como aberta: o progresso subiria sozinho');
 });
 
-test('as pausas: três marcas numa aula de 32:46, cada uma apontando para o seu segundo', async () => {
+test('as pausas: a conta continua certa, e a página da aula não desenha mais o bloco', async () => {
   // A conta é do núcleo, e o teste dela é aqui na MEDIDA: 32:46 = 1966 s,
-  // pausas de 8 em 8 min, nunca a menos de 3 min do fim.
+  // pausas de 8 em 8 min, nunca a menos de 3 min do fim. Nada disto mudou.
   assert.deepEqual(pausasDaAula(32 * 60 + 46), [480, 960, 1440]);
   assert.deepEqual(pausasDaAula(7 * 60), [], 'aula curta não merece pausa');
   assert.equal(marcaDeTempo(480), '8:00');
 
+  // S25 (design/v4/S25-portao.md, «O relógio de pausas»): o bloco saiu da página
+  // até o player embutido chegar. Enquanto o vídeo é uma aba FORA do Atlas, um
+  // relógio no alto conta o tempo desde que a ABRIRAM, não desde o play — e a
+  // promessa dele é a marca daquele vídeo. A régua cobrava o desenho; cobra agora
+  // a AUSÊNCIA do desenho, porque uma trava que exige o que a fatia mandou tirar
+  // seria o app sendo obrigado a voltar ao defeito.
   const alvo = AULAS.aulas.find((a) => pausasDaAula(a.duracaoS).length >= 3) || AULAS.aulas[0];
+  assert.ok(pausasDaAula(alvo.duracaoS).length >= 3, 'preciso de uma aula longa no arquivo real');
   const { raiz } = await pagina(Number(alvo.n));
-  const marcas = pausasDaAula(alvo.duracaoS);
-  const links = todos(raiz, (x) => x.tag === 'a' && x.getAttribute('data-pausa') !== null);
-  assert.equal(links.length, marcas.length, 'uma pausa desenhada por marca calculada');
-  for (const [i, link] of links.entries()) {
-    assert.ok(link.getAttribute('href').endsWith(`${alvo.id ? '' : ''}`) || true);
-    assert.match(link.getAttribute('href'), /&t=\d+s$/, `pausa sem o segundo no vídeo: ${link.getAttribute('href')}`);
-    assert.ok(link.getAttribute('href').includes(`&t=${marcas[i]}s`), `pausa ${i} fora do tempo`);
-    assert.equal(link.getAttribute('target'), '_blank');
-    assert.equal(textoDo(link), marcaDeTempo(marcas[i]));
-  }
-  if (marcas.length) assert.equal(textoDo(um(raiz, 'aula-pausas-convite', 'pausas')), F.pausaConvite);
-});
-
-test('uma aula de 7 minutos não desenha a linha de pausas', async () => {
-  const curta = AULAS.aulas.find((a) => pausasDaAula(a.duracaoS).length === 0);
-  assert.ok(curta, 'preciso de uma aula abaixo de 12 min no arquivo real');
-  const { raiz } = await pagina(Number(curta.n));
-  assert.equal(comClasse(raiz, 'aula-pausas').length, 0,
-    'pausa vazia desenhada é a frase "Pausas sugeridas:" sem nada depois');
+  assert.equal(comClasse(raiz, 'aula-pausas').length, 0, 'o bloco de pausas voltou à página');
+  assert.equal(todos(raiz, (x) => x.tag === 'a' && x.getAttribute('data-pausa') !== null).length, 0,
+    'links de pausa desenhados sem o bloco: sobras do que foi tirado');
+  assert.ok(!textoDo(raiz).includes(F.pausaConvite), 'a frase do convite ficou na tela sem nada depois dela');
 });
 
 test('a navegação entre aulas não tem anterior na primeira nem próxima na última', async () => {

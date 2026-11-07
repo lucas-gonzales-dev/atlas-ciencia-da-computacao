@@ -1,0 +1,78 @@
+/* Projeto Atlas — O PORTÃO (S25, 06/11/2026).
+
+   POR QUE EXISTE: o formulário de três caixas é onde a pessoa para fechar uma
+   aula. Esta folha desenha o caminho de um toque: uma pergunta na tela, as
+   alternativas em pilha, e a faixa do vão no momento em que o erro acontece.
+
+   NENHUM VALOR À MÃO: cor, tempo, espaçamento, peso e raio vêm dos tokens. A
+   folha é toda ela `var(...)`, e é assim porque a suíte lê este arquivo
+   procurando número solto (design/README §5).
+
+   A COR DA LINHA CHEGA POR HERANÇA, COMO NA AULA: `--cor` e `--cor-fraca` são
+   declarados por linha em `.l1 … .l7` (web/metro.css:17) e o JS põe a classe da
+   linha na raiz da página. Sem ela, o trilho e o botão certo saem vazios — o
+   mesmo 1,1:1 que a S13e mediu no Chrome.
+
+   O FAKE-BLACK (design/README §4): em tema escuro `--superficie` é quase preto,
+   então o que precisa ser lido como caixa usa `--tinta`, e não uma cor própria.
+   É por isso que a alternativa e a moldura do vão têm borda de 2px em `--tinta`:
+   são as duas coisas na tela que têm de existir sem depender de fundo. */
+
+/* O bloco ocupa o lugar do formulário na página, dentro de `.aula-fim`
+   (aula.css:162) — a moldura, a borda esquerda na cor da linha e o
+   `scroll-margin-top` da volta já são de lá, e reescrevê-los aqui daria dois
+   desenhos para o mesmo lugar. Grid de uma coluna: uma coisa por linha, na
+   ordem em que se lê. */
+.aula-fim-leve { display: grid; gap: var(--espaco-4); }
+
+/* A contagem é a única linha de monoespaçada do bloco: ela não muda de largura
+   entre «Pergunta 1 de 3» e «Pergunta 3 de 3», e o trilho abaixo não dá um
+   solavanco a cada toque. */
+.portao-contagem { font-family: var(--fonte-mono); font-size: var(--tipo-nota); color: var(--fosca); margin: 0; }
+
+/* O trilho é quanto do portão já foi atravessado. Decoração: o número dito em
+   voz alta está na contagem, e um `aria-live` aqui competiria com o `#anuncio`. */
+.portao-via { height: var(--trilho); background: var(--cor-fraca); border-radius: var(--raio-selo); overflow: hidden; }
+.portao-via i { display: block; height: 100%; background: var(--cor); transition: width var(--movimento-abrir) var(--curva-atlas); }
+
+/* A pergunta é o título desta tela enquanto ela dura, e por isso tem o tamanho
+   de título da casa, não o de corpo: é a única frase que a pessoa lê inteira. */
+.portao-pergunta { font-size: var(--tipo-titulo); font-weight: var(--peso-placa); line-height: var(--entrelinha-titulo); margin: 0; }
+
+/* Empilhadas, e não lado a lado: lado a lado cada alternativa teria a largura da
+   própria frase e a linha do vão deixaria de apontar para uma coisa só. */
+.portao-opcoes { display: grid; gap: var(--espaco-2); }
+
+/* O piso de 44 px é `min-height` — um `<p>` de 50 px continua um `<p>`, e o
+   --alvo-toque é um piso, não uma camisa (réguas 6). `font: inherit` para o peso
+   vir do lugar certo em vez de 400 do sistema; o peso forte é o que faz a
+   alternativa parecer alvo e não parágrafo. */
+.portao-opcao { min-height: var(--alvo-toque); padding: var(--espaco-3) var(--espaco-4); text-align: left; font: inherit; font-weight: var(--peso-forte); color: var(--tinta); background: var(--fundo); border: 2px solid var(--tinta); border-radius: var(--raio-placa); cursor: pointer; }
+.portao-opcao:hover:not([disabled]) { background: var(--superficie); }
+
+/* Certa: a cor da linha pinta o fundo e o contorno, e o texto sai na cor do
+   fundo da página — o mesmo par que o `.botao-primario` da casa usa, e por isso
+   o contraste já foi medido lá. */
+.portao-opcao-certa { background: var(--cor); border-color: var(--cor); color: var(--fundo); }
+
+/* Errada: riscada e sumida, mas AINDA NA TELA. Apagá-la esconderia o que a
+   pessoa acabou de escolher, e é exatamente isso que a faixa do vão abaixo vem
+   explicar. A listra é o texto que 1.4.1 exige junto da cor. */
+.portao-opcao-errada { opacity: .55; text-decoration: line-through; }
+
+/* O que ficou depois do toque: a explicação do acerto, ou o botão de seguir.
+   Não tem moldura própria para não competir com o vão, que é a única coisa da
+   tela que precisa gritar. */
+.portao-retorno { display: grid; gap: var(--espaco-3); }
+
+/* A moldura do vão: 2px de tinta, com a faixa da plataforma por dentro. A faixa
+   é amarelo-preto e é a marca do erro, não uma decoracao — `--vao` e
+   `--vao-escuro` existem só para ela (tokens.css:42). */
+.vao { border: 2px solid var(--tinta); border-radius: var(--raio-placa); overflow: hidden; }
+.vao-faixa { height: var(--espaco-3); background: repeating-linear-gradient(135deg, var(--vao) 0 var(--espaco-4), var(--vao-escuro) var(--espaco-4) var(--espaco-8)); }
+.vao-corpo { display: grid; gap: var(--espaco-1); padding: var(--espaco-3) var(--espaco-4); }
+
+/* O link que abre o formulário velho é uma escolha, não uma segunda porta: por
+   isso é link, e por isso começa na própria largura do texto em vez de esticado
+   pela coluna. */
+.portao-escrever { justify-self: start; }
