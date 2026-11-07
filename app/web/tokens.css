@@ -33,6 +33,15 @@
   --alerta: #8a5a00;           /* obras e aviso — 5,55:1 AA */
   --alerta-fundo: #f6ecd9;     /* fundo do selo de aviso */
 
+  /* O PORTÃO (S25, 06/11/2026): a faixa da plataforma. É a MARCA DO ERRO na
+   * casa, e a ÚNICA coisa que usa estes dois tokens — o amarelo-preto do vão
+   * entre o trem e a plataforma, que é o nome que a frase dá à resposta errada.
+   * Não é cor de linha (as 7 marcam linha e nada mais) e não é --alerta (esse é
+   * o selo de obra). Fica abaixo de 3:1 de propósito: a faixa é decorativa, e o
+   * que informa é o texto `Cuidado com o vão`, nunca a listra. */
+  --vao: #f2c200;
+  --vao-escuro: #16130f;
+
   /* ── COR · as 7 linhas ─────────────────────────────────────────────────
    * Cor de linha SÓ marca linha: nunca significa sucesso, erro ou atenção.
    * As 7 são distintas em matiz, e todas passam AA como TEXTO sobre o fundo
@@ -257,6 +266,15 @@
     --trancada: #7c7d81;       /* 4,32:1 (1.4.11) */
     --alerta: #e0a94a;         /* 8,41:1 AA */
     --alerta-fundo: #2a2313;
+
+    /* O vão é o MESMO nos dois temas, e isto é escolha, não esquecimento: a
+     * listra amarelo-preto é a marca física de uma borda de plataforma, que não
+     * muda porque a pessoa inverteu o tema. #f2c200 sobre o carvão dá 10,6:1,
+     * então o amarelo não precisa de versão clara; o preto do vão sobre a
+     * superfície escura some, e a faixa continua lida como o que ela é —
+     * decoração, porque o texto «Cuidado com o vão» é quem informa (1.4.1). */
+    --vao: #f2c200;
+    --vao-escuro: #16130f;
 
     --marca-simbolo-fundo: var(--marca-fundo);
 

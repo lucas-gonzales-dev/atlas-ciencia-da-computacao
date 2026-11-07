@@ -36,8 +36,12 @@ import { hrefDe } from '../../core/rotas.js';
 import { fatosDaEstacao } from '../../core/viagem.js';
 // S19c-2: `folha as FOLHA` entra pelo nome inteiro porque `F` já é o fechamento
 // desta tela, e duas letras trocadas de dono seria esconder a origem da frase.
-import { comValores, aulas as A, aula as U, fechamento as F, folha as FOLHA } from '../../core/textos.js';
-import { carregarAulas } from '../aulas-dados.js';
+import { comValores, aulas as A, aula as U, fechamento as F, folha as FOLHA, portao as Q } from '../../core/textos.js';
+import { carregarAulas, carregarPratica } from '../aulas-dados.js';
+// S25 (06/11/2026): o PORTÃO. As contas do que perguntar moram no core; daqui
+// entra a leitura do arquivo e a tela que desenha a pergunta.
+import { lerPratica, perguntasDaAula } from '../../core/pratica.js';
+import { blocoFechoLeve } from './portao.js';
 // S19b (J5, item 3): o bloco que devolve o .ics da próxima sessão. Um módulo só,
 // usado pela aula e pelo fim da revisão — escrever o outro seria o mesmo botão em
 // dois lugares decidindo sozinho como um arquivo sai do navegador.
@@ -1058,8 +1062,12 @@ export async function montar(raiz, ctx) {
     pintarMarca(estado);
   };
 
-  const marcas = pausasDaAula(aula.duracaoS);
-  if (marcas.length) raiz.append(blocoDePausas(doc, { marcas, aula, playlist }));
+  // S25 (item «O relógio de pausas», design/v4/S25-portao.md): o bloco do «8:00»
+  // sai desta página até o player embutido chegar. Enquanto o vídeo é uma aba
+  // fora do Atlas, um relógio parado no alto da página conta o tempo desde que a
+  // ABRIRAM, não desde que a pessoa apertou o play — e a promessa dele é a marca
+  // da pausa daquele vídeo. `blocoDePausas` e os textos ficam no arquivo: a
+  // próxima fatia os religa onde houver player.
 
   /** Pinta a marca, o nome do estado no alto e a hierarquia do Assistir. */
   const pintarMarca = (estado) => {
@@ -1126,20 +1134,56 @@ export async function montar(raiz, ctx) {
    * tirada do lugar e recolocada DEPOIS, porque o section novo cai no fim da
    * raiz e a ordem lida é "fechamento, depois anterior/próxima".
    */
-  const pintarConclusao = (fraseStatus) => {
+  /**
+   * PÕE um bloco de fecho em tela no lugar do que estava. A navegação vizinha é
+   * tirada do lugar e recolocada DEPOIS, porque o section novo cai no fim da raiz
+   * e a ordem lida é "fechamento, depois anterior/próxima". É uma função e não
+   * três linhas repetidas porque S25 deu ao fecho três donos possíveis — o
+   * portão, o formulário e a conclusão — e os três têm de sair do antigo do
+   * mesmo jeito, inclusive do relógio dele.
+   */
+  const trocarFecho = (novo) => {
     bloco?.pararRelogio?.();
     bloco?.section?.remove();
-    const novo = blocoDeConclusao(fraseStatus);
     if (nav.parentNode === raiz) nav.remove();
     raiz.append(novo.section, nav);
     bloco = novo;
     return novo;
   };
 
+  const pintarConclusao = (fraseStatus) => trocarFecho(blocoDeConclusao(fraseStatus));
+
   // A navegação vizinha nasce ANTES do fechamento: a ordem de apêndice é
   // "fechamento, depois nav", e pintarConclusao move os dois — declarar depois
   // deixaria a conclusão chamar uma variável que ainda não existe (TDZ).
   const nav = navegacaoVizinha(doc, { slug, n: aula.n, total });
+
+  /** O que qualquer fecho faz depois de gravar: a página INTEIRA se refaz no
+   *  sentido de que marca, nome, section e anúncio dizem a mesma coisa a partir
+   *  daqui — nada de repintar só o formulário e deixar o alto dizendo "Não
+   *  iniciada". É uma função porque S25 deu duas portas para o mesmo fecho. */
+  const repintarDepoisDeFechar = (fraseStatus) => {
+    pintarMarca('estudada');
+    // S18a: o fecho apaga o "Já sei isso". A aula agora tem medida atrás, e um
+    // botão oferecendo declará-la como sabida seria a tela pedindo que a pessoa
+    // desmentisse o que ela acabou de fazer.
+    pintarPulo('estudada');
+    pintarConclusao(fraseStatus);
+  };
+
+  /** O formulário de sempre, montado do zero. S25 não mudou nada dentro dele. */
+  const formulario = () => blocoFechamento(doc, win, {
+    storage,
+    estacao,
+    slug,
+    aula,
+    total,
+    playlist,
+    pega,
+    aoFechar: (quantos) => repintarDepoisDeFechar(
+      quantos > 0 ? F.feito(quantos) : F.estudadaEm(hoje())
+    )
+  });
 
   const concluida = estadoDaAula(estudoLido(), aula.id) === 'estudada';
   if (concluida) {
@@ -1149,27 +1193,50 @@ export async function montar(raiz, ctx) {
     pintarConclusao(F.estudadaEm(estudoLido().aulas[aula.id]?.estudadaEm));
   } else {
     pintarMarca(estadoDaAula(estudoLido(), aula.id));
-    bloco = blocoFechamento(doc, win, {
-      storage,
-      estacao,
-      slug,
-      aula,
-      total,
-      playlist,
-      pega,
-      aoFechar: (quantos) => {
-        // A página INTEIRA se refaz no sentido de que marca, nome, section e
-        // anúncio dizem a mesma coisa a partir daqui — nada de repintar só o
-        // formulário e deixar o alto dizendo "Não iniciada".
-        pintarMarca('estudada');
-        // S18a: o fecho apaga o "Já sei isso". A aula agora tem medida atrás, e
-        // um botão oferecendo declará-la como sabida seria a tela pedindo que a
-        // pessoa desmentisse o que ela acabou de preencher.
-        pintarPulo('estudada');
-        pintarConclusao(quantos > 0 ? F.feito(quantos) : F.estudadaEm(hoje()));
-      }
-    });
-    raiz.append(bloco.section, nav);
+    if (ctx.comecarEscrevendo === true) {
+      // A porta dos testes que já existiam do formulário, e de mais ninguém: em
+      // produção o contexto não traz esta chave, e quem prefere escrever chega
+      // pelo link de baixo do portão. Sem ela, cada teste do fechamento teria de
+      // atravessar três toques para chegar nas caixas de texto.
+      trocarFecho(formulario());
+    } else {
+      // S25 — O PORTÃO. A prática é opcional: só uma estação tem arquivo, e as
+      // outras 34 respondem `null` em qualquer falha ou 404. `?? {}` transforma
+      // isso em "nenhuma pergunta", e `blocoFechoLeve` desenha o fecho simples
+      // — um toque, sem erro de console e sem frase de falta.
+      const perguntas = perguntasDaAula(lerPratica((await carregarPratica(slug)) ?? {}), aula.n);
+      bloco = blocoFechoLeve(doc, {
+        perguntas,
+        // Item 4: o portão sai da tela e entra o formulário de hoje, sem que
+        // nada dentro dele mude. É a mesma troca — inclusive desligar o relógio
+        // que só existia dentro dele, se um dia ele voltar por cima do portão.
+        aoEscrever: () => { trocarFecho(formulario()); },
+        aoFechar: (vaos) => {
+          // O mesmo registro do formulário, sem os textos: `estudarAula` recebe o
+          // quarto argumento como objeto vazio e não escreve `recordacao` nem
+          // `conferencia`. A aula fica `estudada` e o mapa ganha a cor dela — o
+          // que o portão tira é a digitação, não a medida.
+          const estudo = estudarAula(
+            estudoDoStorage(storage),
+            { estacao, aula: aula.id, n: aula.n },
+            agoraLocal(win)
+          );
+          try {
+            storage?.setItem?.(ESTUDO_KEY, serializarEstudo(estudo));
+          } catch { /* sem espaço: a pessoa perde a gravação, não o app */ }
+          // A frase dos vãos é a única que existe depois de um portão, e ela é
+          // sobre o conteúdo («você caiu em 2 vãos»), não um placar sobre a
+          // pessoa. Sem vão e sem pergunta, volta o `Estudada em` de sempre: não
+          // se afirma que alguém passou por um portão que a estação não tinha.
+          repintarDepoisDeFechar(
+            vaos > 0 ? Q.passouComVao(vaos)
+              : perguntas.length ? Q.passou
+                : F.estudadaEm(hoje())
+          );
+        }
+      });
+      raiz.append(bloco.section, nav);
+    }
   }
 
   const aoRetornar = (link) => {

@@ -1112,7 +1112,24 @@
 // aula.css); nenhum módulo novo entra — é CSS puro. Sem subir a VERSAO, quem tem
 // v104 no cache recebe o mesmo layout quebrado de sempre, com o HTML novo por
 // cima.
-const VERSAO = 'atlas-v105';
+// atlas-v106: S25 (06/11/2026) — FECHAR A AULA SEM ESCREVER, E O PORTÃO. O
+// formulário de três caixas pede que a pessoa escreva para fechar uma aula, e no
+// ônibus ninguém digita: a aula ficava aberta. Entra o portão — uma pergunta na
+// tela, as alternativas em pilha, e a faixa do vão amarelo-preto no momento em que
+// a pessoa cai: um toque por pergunta, e o portão fecha com o número de vãos e a
+// explicação de cada um. Núcleo novo core/pratica.js (a parada, o rodízio de três
+// perguntas — a repetição na terceira aula da parada é DELIBERADA, rever a mesma
+// pergunta aulas depois é prática de recuperação), conteúdo novo em
+// data/pratica/circuitos-digitais.json, tela nova web/telas/portao.js + portao.css.
+// web/telas/aula.js troca o formulário pelo portão na aula estudada que tem
+// parada, com ctx.comecarEscrevendo deixando o caminho velho a um link. Seis
+// arquivos do precache mudam de bytes e quatro entram. Sem subir a VERSAO, quem tem v105
+// no cache recebe o aula.js novo importando portao.js de um módulo que não está no
+// cache dele: TypeError no boot e a página da aula em branco no ônibus. A exceção
+// da faixa do vão na trava de degradê (tests/auditoria-proibidos.test.js) foi
+// decidida pelo Lucas: a proibição é do degradê decorativo, e a faixa tem paradas
+// duras — é sinalização de borda de plataforma, não pintura de superfície.
+const VERSAO = 'atlas-v106';
 
 // sha256 do CONTEUDO de cada arquivo do PRECACHE, na ordem do array abaixo. O
 // caminho entra no hash antes de cada arquivo: renomear sem mudar conteudo tambem
@@ -1205,7 +1222,17 @@ const VERSAO = 'atlas-v105';
 // novo. Os três testes tocados (auditoria-tamanhos, metro, auditoria-teclado-leitor) não
 // estão no cache, como todo teste. O sw.js mediu o mesmo sha256 antes e depois de eu subir
 // a VERSAO — prova de que ele não está na própria lista.
-const PRECACHE_HASH = 'sha256-2460bb26581afcbd25637b81f4b68d0b8a1df1bea94d69b63e5edc7d848148a4';
+// Recalculado ao fechar a S25 (06/11/2026), com a árvore parada e DEPOIS de subir a
+// VERSAO para atlas-v106: 116 arquivos, QUATRO ENTRARAM — core/pratica.js,
+// web/telas/portao.js, web/telas/portao.css e data/pratica/circuitos-digitais.json —
+// e seis mudaram de bytes: core/textos.js (a voz do portão e o link de escrever),
+// index.html (a folha portao.css linkada), web/aulas-dados.js (carregarPratica),
+// web/telas/aula.js (o portão no lugar do formulário), web/tokens.css (--trilho,
+// --vao, --vao-escuro) e package.json (os dois testes novos na lista). Os três
+// arquivos tocados de tests/ (portao, pratica, auditoria-proibidos) não estão no
+// cache, como todo teste. O sw.js mediu o mesmo sha256 antes e depois de eu subir a
+// VERSAO — prova de que ele não está na própria lista.
+const PRECACHE_HASH = 'sha256-130ce017eaad53d52ddbfd320ca661dfe8cc6c3dca7290181ec793a83dc7c736';
 
 // Diretorio onde ESTE sw.js mora. Na raiz local da em .../; publicado da em
 // .../subcaminho/. Todo caminho do precache sai daqui.
@@ -1273,6 +1300,14 @@ const PRECACHE = [
   // importa o módulo — os dois no mesmo commit, senão é branco no ônibus.
   'web/telas/aula.js',
   'web/telas/aula.css',
+  // S25 (06/11/2026): o PORTÃO, o fecho da aula por toque. Os quatro juntos,
+  // pela mesma regra da v22 — módulo novo que a tela importa e folha que o
+  // index liga no mesmo commit. Sem eles no cache, quem fecha uma aula no
+  // ônibus recebe branco no lugar do fecho, e o branco não dá erro na rede.
+  'core/pratica.js',
+  'web/telas/portao.js',
+  'web/telas/portao.css',
+  'data/pratica/circuitos-digitais.json',
   // S18c-1 (06/11/2026): a TELA do desafio da estação (J4). O casco ganhou
   // `desafio` em TELAS no mesmo commit em que este arquivo nasceu — é a mesma
   // lei da v21, e aqui o branco não seria numa aba: seria na rota que a

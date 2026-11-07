@@ -65,3 +65,35 @@ export async function carregarAulas(slug, buscar = (url) => fetch(url)) {
     return { ok: false, erro: 'formato' };
   }
 }
+
+/**
+ * Lê `data/pratica/<slug>.json` (S25) e devolve o objeto cru, ou `null`.
+ *
+ * O contrato é DIFERENTE de `carregarAulas` de propósito, e é isso que importa
+ * aqui: a prática é OPCIONAL. Só `circuitos-digitais` tem arquivo, então 404 é
+ * o caso normal de quase todas as estações do app — não um erro a mostrar. Um
+ * `{ ok: false }` obrigaria toda chamada a distinguir "a rede falhou" de "esta
+ * estação não tem portão", e a segunda resposta não tem frase: a aula fecha com
+ * o fecho simples e nada mais. O `null` cobre as duas, e o descarte fino do
+ * que não dá para desenhar já mora em `core/pratica.js`.
+ *
+ * Daí a regra do pedido: NADA daqui vai ao console. Um `console.error` em cada
+ * aula de uma estação sem arquivo seria o app reclamando de si mesmo 93 vezes.
+ *
+ * @param {string} slug
+ * @param {(url: string) => Promise<Response>} [buscar] a rede; um dublê nos testes
+ * @returns {Promise<object|null>}
+ */
+export async function carregarPratica(slug, buscar = (url) => fetch(url)) {
+  if (!HE_SLUG.test(String(slug ?? ''))) return null;
+  try {
+    const resposta = await buscar(`data/pratica/${slug}.json`);
+    if (!resposta || resposta.ok === false) return null;
+    const dados = await resposta.json();
+    return dados && typeof dados === 'object' ? dados : null;
+  } catch {
+    // Rede caída, JSON podre ou 200 com HTML: a mesma resposta do 404, e pelo
+    // mesmo motivo — sem portão, a aula se fecha do jeito antigo.
+    return null;
+  }
+}

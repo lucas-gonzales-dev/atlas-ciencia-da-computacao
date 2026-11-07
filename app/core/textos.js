@@ -717,6 +717,37 @@ export const agenda = Object.freeze({
 });
 
 /**
+ * O PORTÃO (S25, 06/11/2026) — fechar a aula sem escrever.
+ *
+ * `fechoSimples` e `fecharAgora` existem separadas porque são coisas
+ * diferentes: a primeira é o título da região, a segunda é o verbo no botão.
+ * Uma frase só faria o h2 dizer «Fechar a aula» e o botão repetir a ordem
+ * debaixo dela.
+ *
+ * `passouComVao` flexiona o plural por NÚMERO e não por artigo avulso, como
+ * `revisar.hoje`: «caiu em 2 vão» é a frase lida em voz alta e ninguém a diria.
+ * Zero vãos usa `passou`, outra frase — com zero, a frase do vão afirmaria um
+ * erro que não aconteceu.
+ *
+ * Nenhuma frase daqui conta acertos, sequência ou nota. O número que a pessoa
+ * ouve é o de VÃOS em que ela caiu, que é uma informação sobre o conteúdo, não
+ * um placar sobre ela.
+ */
+export const portao = Object.freeze({
+  titulo: 'O portão',
+  contagem: (i, total) => `Pergunta ${i} de ${total}`,
+  vaoTitulo: 'Cuidado com o vão',
+  seguir: 'Próxima',
+  passar: 'Passar pelo portão',
+  passou: 'Portão aberto. Aula fechada.',
+  passouComVao: (n) => `Portão aberto. Você caiu em ${n} ${n === 1 ? 'vão' : 'vãos'} e saiu sabendo por quê.`,
+  fechoSimples: 'Fechar a aula',
+  fechoSimplesTexto: 'Assistiu? Feche com um toque. Lembrar depois é o que dá cor à estação.',
+  fecharAgora: 'Fechar a aula',
+  escrever: 'Prefiro escrever o que lembrei',
+});
+
+/**
  * A EXPLORAR (S7, 01/11/2026): a rede inteira em lista, para quem quer ver o
  * caminho sem embarcar em nada. Nenhuma frase daqui diz "estude", "assista" ou
  * "comece agora": a Explorar mostra a rede, quem decide é a pessoa na estação.
@@ -1517,6 +1548,6 @@ export const caderneta = Object.freeze({
 });
 
 /** Tudo junto, para quem precisa percorrer (o teste percorre). */
-export const TEXTOS = { placa, comValores, folha, estados, legenda, mapa, proibido, ORIGEM, TIPO_DE_ORIGEM, casco, jornada, recomeco, agenda, explorar, chegada, revisar, perfil, aulas, aula, modelosDeFrente, fechamento, desafio, caderneta };
+export const TEXTOS = { placa, comValores, folha, estados, legenda, mapa, proibido, ORIGEM, TIPO_DE_ORIGEM, casco, jornada, recomeco, agenda, portao, explorar, chegada, revisar, perfil, aulas, aula, modelosDeFrente, fechamento, desafio, caderneta };
 
 export default TEXTOS;
